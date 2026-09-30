@@ -35,6 +35,13 @@ const NODE = process.execPath; // 用当前运行时，保证与跑脚本的是�
 const ORDER = [
   "run-node-check",
   "image-host-allowlist-check",
+  // 2026-09-30：把 `V11维护文档/02-重复功能同步登记表.md` 里可机器判定的两条搬进门禁。
+  // 两个都是纯源码/纯逻辑检查，跑得很快，所以排在起进程的那批脚本之前。
+  // shared-ui-duplication：跨文件同名组件的棘轮（存量记账、新增即失败；
+  //   另外额外报告同名两份实现是否已经分叉）。
+  "shared-ui-duplication-check",
+  // auth-key-parity：前后端 KEY 清洗规则逐用例一致（登记表第 13 行"后续可抽共享测试用例"）。
+  "auth-key-parity-check",
   "canvas-asset-check",
   "history-repair-check",
   "history-integrity-check",

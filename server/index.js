@@ -7,7 +7,6 @@ import { appendFile, copyFile, mkdir, readFile, readdir, rename, stat, statfs, u
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { fileURLToPath } from "node:url";
 import { brotliCompressSync, gzipSync } from "node:zlib";
 // 图片地址判定与前端共用同一份（发布时 esbuild 会把 src/shared 内联进 server bundle）。
 // 注意：这只管"图片回传"；生图 API 仍然只允许官方中转，见 PRIMARY_CHANNEL_API_BASE_URL。
@@ -65,37 +64,19 @@ import { createReferencePromptRewrite, localReferencePrompt } from "./reference-
 import { normalizeApiKeyInput } from "./features/auth/api-key.js";
 import { EMBEDDED_STATIC_ASSETS } from "./static-assets.generated.js";
 
-const runtimeFile = typeof require !== "undefined" && typeof __filename !== "undefined"
-  ? __filename
-  : fileURLToPath(import.meta.url);
-const runtimeDir = path.dirname(runtimeFile);
-const sourceRootDir = path.resolve(runtimeDir, "..");
-const executableRootDir = process.execPath ? path.dirname(process.execPath) : "";
-const executableName = path.basename(process.execPath || "").toLowerCase();
-const isMacAppBundleExecutable = process.platform === "darwin"
-  && executableRootDir.replace(/\\/g, "/").endsWith(".app/Contents/MacOS");
-const macAppDir = isMacAppBundleExecutable ? path.resolve(executableRootDir, "../..") : "";
-const macAppDataRoot = macAppDir ? path.join(path.dirname(macAppDir), "静音AI绘画数据") : "";
-const looksLikePackagedExecutable = Boolean(executableRootDir)
-  && !["node", "node.exe"].includes(executableName);
-const windowsPackagedDataRoot = process.platform === "win32" && looksLikePackagedExecutable
-  ? path.join(process.env.LOCALAPPDATA || process.env.APPDATA || executableRootDir, "静音AI绘画数据")
-  : "";
-const packagedRootDir = executableRootDir && (
-  existsSync(path.join(executableRootDir, "dist", "index.html")) || looksLikePackagedExecutable
-)
-  ? executableRootDir
-  : "";
-const rootDir = path.resolve(process.env.JINGYIN_RELEASE_ROOT || macAppDataRoot || windowsPackagedDataRoot || packagedRootDir || sourceRootDir);
-const dataDir = path.join(rootDir, "data");
-const historyFile = path.join(dataDir, "history.json");
-const historyBackupFile = path.join(dataDir, "history.backup.json");
-const historyImageDir = path.join(dataDir, "history-images");
-const referenceAssetDir = path.join(dataDir, "reference-assets");
-const canvasAssetDir = path.join(dataDir, "canvas-assets");
-const resultDir = path.join(dataDir, "results");
-const uploadTempDir = path.join(rootDir, "tmp", "uploads");
-const appSettingsFile = path.join(dataDir, "app-settings.json");
+import {
+  appSettingsFile,
+  canvasAssetDir,
+  dataDir,
+  historyBackupFile,
+  historyFile,
+  historyImageDir,
+  packagedRootDir,
+  referenceAssetDir,
+  resultDir,
+  rootDir,
+  uploadTempDir
+} from "./core/app-paths.js";
 const app = express();
 const OUTFIT_UPLOAD_FILE_LIMIT_BYTES = 25 * 1024 * 1024;
 const OUTFIT_UPLOAD_FILE_LIMIT_MB = Math.round(OUTFIT_UPLOAD_FILE_LIMIT_BYTES / 1024 / 1024);
