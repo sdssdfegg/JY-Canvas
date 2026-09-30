@@ -4,11 +4,9 @@ import { spawn } from "node:child_process";
 import { createReadStream, existsSync } from "node:fs";
 import { copyFile, mkdir, readFile, readdir, stat, statfs, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 // 图片地址判定与前端共用同一份（发布时 esbuild 会把 src/shared 内联进 server bundle）。
 // 注意：这只管"图片回传"；生图 API 仍然只允许官方中转，见 PRIMARY_CHANNEL_API_BASE_URL。
-import { isSafeRemoteImageUrl } from "../src/shared/image-hosts.js";
 import {
   CHANNEL_MODELS,
   buildImageRequestVariants,
@@ -85,6 +83,14 @@ import {
   mimeTypeFromFile,
   uniqueFilePath
 } from "./core/file-naming.js";
+import {
+  downloadExternalImageWithFallback,
+  imageProxyUrl,
+  parseProxyTarget,
+  remoteUrlFromImageProxyPath,
+  streamExternalImageProxy
+} from "./core/image-proxy.js";
+import { createAbortSignal, readTextSafely } from "./core/http-client.js";
 const app = express();
 
 import {
@@ -104,8 +110,6 @@ import {
   RESULT_CACHE_TTL_MS,
   RESULT_DISPLAY_CACHE_BLOCKING_TIMEOUT_MS,
   RESULT_DISPLAY_CACHE_TIMEOUT_MS,
-  RESULT_URL_DOWNLOAD_CHUNK_BYTES,
-  RESULT_URL_DOWNLOAD_RETRIES,
   VIDEO_BILLING_GATEWAY_REQUIRED,
   VIDEO_ROUTE_SESSION_TTL_MS
 } from "./core/runtime-config.js";
@@ -1172,23 +1176,6 @@ function resolveApiKey(requestKey) {
   return normalizeApiKeyInput(requestKey);
 }
 
-function createAbortSignal(timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return {
-    signal: controller.signal,
-    dispose: () => clearTimeout(timer)
-  };
-}
-
-async function readTextSafely(response) {
-  const text = await response.text();
-  try {
-    return { text, json: JSON.parse(text) };
-  } catch {
-    return { text, json: null };
-  }
-}
 
 function upstreamErrorMessage(parsed, status) {
   const json = parsed?.json;
@@ -1468,32 +1455,6 @@ function isSmartOutfitInterventionEnabled(value) {
  * 现在这里只挡两件事：非 https、以及本地/内网主机（SSRF）。
  * 判定与前端共用同一份实现（src/shared/image-hosts.js），发布时由 esbuild 内联进 bundle。
  */
-function parseProxyTarget(rawUrl) {
-  const target = new URL(String(rawUrl || ""));
-  if (!["http:", "https:"].includes(target.protocol)) {
-    throw new Error("unsupported_protocol");
-  }
-  if (!isSafeRemoteImageUrl(target.toString())) {
-    throw new Error("blocked_image_host");
-  }
-  return target;
-}
-
-function imageProxyUrl(rawUrl) {
-  const value = String(rawUrl || "").trim();
-  return value ? `/api/image-proxy?url=${encodeURIComponent(value)}` : "";
-}
-
-function remoteUrlFromImageProxyPath(value) {
-  const text = String(value || "").trim();
-  if (!text.startsWith("/api/image-proxy")) return "";
-  try {
-    const parsed = new URL(text, "http://127.0.0.1");
-    return parsed.pathname === "/api/image-proxy" ? String(parsed.searchParams.get("url") || "") : "";
-  } catch {
-    return "";
-  }
-}
 
 function imageForImmediateDisplay(image) {
   if (!image || typeof image !== "object") return image;
@@ -1561,184 +1522,6 @@ async function historyItemForImmediateDisplay(item, requestId = "", timeoutMs = 
   };
 }
 
-function parseContentRange(value) {
-  const match = /^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i.exec(String(value || "").trim());
-  if (!match) return null;
-  const start = Number.parseInt(match[1], 10);
-  const end = Number.parseInt(match[2], 10);
-  const total = match[3] === "*" ? NaN : Number.parseInt(match[3], 10);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
-  return { start, end, total };
-}
-
-async function fetchImageRangeChunk(target, start, end, timeoutMs) {
-  let lastError = null;
-  for (let attempt = 1; attempt <= RESULT_URL_DOWNLOAD_RETRIES; attempt += 1) {
-    const abort = createAbortSignal(timeoutMs);
-    try {
-      const response = await fetch(target, {
-        method: "GET",
-        headers: {
-          Range: `bytes=${start}-${end}`,
-          "Accept-Encoding": "identity",
-          "User-Agent": "JingyinAI/0.1"
-        },
-        signal: abort.signal
-      });
-      if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        throw new Error(`HTTP ${response.status} ${compactLogMessage(text, 200)}`);
-      }
-      return {
-        status: response.status,
-        buffer: Buffer.from(await response.arrayBuffer()),
-        mimeType: response.headers.get("content-type") || "",
-        contentRange: response.headers.get("content-range") || "",
-        contentLength: Number.parseInt(response.headers.get("content-length") || "", 10)
-      };
-    } catch (error) {
-      lastError = error;
-      if (attempt >= RESULT_URL_DOWNLOAD_RETRIES) break;
-      await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
-    } finally {
-      abort.dispose();
-    }
-  }
-  throw lastError || new Error("range_download_failed");
-}
-
-async function downloadExternalImageWithRanges(rawUrl, timeoutMs = IMAGE_PROXY_TIMEOUT_MS) {
-  const target = parseProxyTarget(rawUrl);
-  const sourceUrl = String(rawUrl || "");
-  const firstEnd = RESULT_URL_DOWNLOAD_CHUNK_BYTES - 1;
-  const first = await fetchImageRangeChunk(target, 0, firstEnd, timeoutMs);
-  const mimeType = first.mimeType || mimeTypeFromFile(target.pathname);
-
-  if (first.status === 200) {
-    return {
-      buffer: first.buffer,
-      mimeType,
-      sourceUrl,
-      rangeMode: "ignored"
-    };
-  }
-
-  if (first.status !== 206) {
-    throw new Error(`range_download_unexpected_status_${first.status}`);
-  }
-
-  const firstRange = parseContentRange(first.contentRange);
-  if (!firstRange || !Number.isFinite(firstRange.total) || firstRange.total <= 0) {
-    throw new Error("range_download_missing_total");
-  }
-
-  const chunks = [first.buffer];
-  let nextStart = firstRange.end + 1;
-  while (nextStart < firstRange.total) {
-    const nextEnd = Math.min(firstRange.total - 1, nextStart + RESULT_URL_DOWNLOAD_CHUNK_BYTES - 1);
-    const next = await fetchImageRangeChunk(target, nextStart, nextEnd, timeoutMs);
-    if (next.status !== 206) {
-      throw new Error(`range_download_unexpected_status_${next.status}`);
-    }
-    const nextRange = parseContentRange(next.contentRange);
-    if (!nextRange || nextRange.start !== nextStart || nextRange.end < nextRange.start) {
-      throw new Error("range_download_mismatched_chunk");
-    }
-    chunks.push(next.buffer);
-    nextStart = nextRange.end + 1;
-  }
-
-  return {
-    buffer: Buffer.concat(chunks, firstRange.total),
-    mimeType,
-    sourceUrl,
-    rangeMode: "range"
-  };
-}
-
-async function downloadExternalImageDirect(rawUrl, timeoutMs = IMAGE_PROXY_TIMEOUT_MS) {
-  const target = parseProxyTarget(rawUrl);
-  const abort = createAbortSignal(timeoutMs);
-  try {
-    const response = await fetch(target, {
-      headers: {
-        "User-Agent": "JingyinAI/0.1"
-      },
-      signal: abort.signal
-    });
-    if (!response.ok) throw new Error(`图片下载失败 HTTP ${response.status}`);
-    return {
-      buffer: Buffer.from(await response.arrayBuffer()),
-      mimeType: response.headers.get("content-type") || mimeTypeFromFile(target.pathname),
-      sourceUrl: String(rawUrl || ""),
-      rangeMode: "direct"
-    };
-  } finally {
-    abort.dispose();
-  }
-}
-
-function forwardHeader(response, res, name) {
-  const value = response.headers.get(name);
-  if (value) res.setHeader(name, value);
-}
-
-async function streamExternalImageProxy(req, res, rawUrl, timeoutMs = IMAGE_PROXY_TIMEOUT_MS) {
-  const target = parseProxyTarget(rawUrl);
-  const abort = createAbortSignal(timeoutMs);
-  try {
-    const headers = {
-      "Accept-Encoding": "identity",
-      "User-Agent": "JingyinAI/0.1"
-    };
-    if (req.headers.range) headers.Range = String(req.headers.range);
-    const response = await fetch(target, {
-      headers,
-      signal: abort.signal
-    });
-    if (!response.ok) {
-      const text = await response.text().catch(() => "");
-      const error = new Error(`HTTP ${response.status} ${compactLogMessage(text, 200)}`);
-      error.status = response.status;
-      throw error;
-    }
-
-    res.status(response.status);
-    res.setHeader("Content-Type", response.headers.get("content-type") || mimeTypeFromFile(target.pathname));
-    res.setHeader("Cache-Control", "private, max-age=300");
-    forwardHeader(response, res, "content-length");
-    forwardHeader(response, res, "content-range");
-    forwardHeader(response, res, "accept-ranges");
-
-    if (response.body) {
-      await pipeline(Readable.fromWeb(response.body), res);
-      return;
-    }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
-    res.setHeader("Content-Length", String(buffer.length));
-    res.end(buffer);
-  } finally {
-    abort.dispose();
-  }
-}
-
-async function downloadExternalImageWithFallback(rawUrl, timeoutMs = IMAGE_PROXY_TIMEOUT_MS) {
-  try {
-    return await downloadExternalImageWithRanges(rawUrl, timeoutMs);
-  } catch (rangeError) {
-    try {
-      const direct = await downloadExternalImageDirect(rawUrl, timeoutMs);
-      return {
-        ...direct,
-        rangeFallbackError: rangeError instanceof Error ? rangeError.message : String(rangeError || "")
-      };
-    } catch (directError) {
-      directError.rangeError = rangeError;
-      throw directError;
-    }
-  }
-}
 
 function channelBaseCandidates() {
   // 中文注释：每次请求都从主渠道开始；备用渠道只做当次故障兜底，不把上次成功备用缓存成下一次默认。
