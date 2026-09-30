@@ -33,7 +33,7 @@ import os
 import re
 import sys
 
-DEF_RE = re.compile(r"^(async function|function|const|class)\s+([A-Za-z_$][\w$]*)")
+DEF_RE = re.compile(r"^(async function|function|const|let|var|class)\s+([A-Za-z_$][\w$]*)")
 
 
 def main() -> int:

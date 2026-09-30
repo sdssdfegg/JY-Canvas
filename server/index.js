@@ -2,13 +2,12 @@ import "dotenv/config";
 import express from "express";
 import { spawn } from "node:child_process";
 import { createReadStream, existsSync } from "node:fs";
-import { copyFile, mkdir, readFile, readdir, stat, statfs, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, statfs, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 // 图片地址判定与前端共用同一份（发布时 esbuild 会把 src/shared 内联进 server bundle）。
 // 注意：这只管"图片回传"；生图 API 仍然只允许官方中转，见 PRIMARY_CHANNEL_API_BASE_URL。
 import {
-  CHANNEL_MODELS,
   buildImageRequestVariants,
   extractImagesFromResponse,
   normalizeBaseUrl,
@@ -78,8 +77,7 @@ import {
 import { gatewayCompressionMiddleware } from "./core/http-compression.js";
 import {
   imageExtensionFromType,
-  mimeTypeFromFile,
-  uniqueFilePath
+  mimeTypeFromFile
 } from "./core/file-naming.js";
 import {
   downloadExternalImageWithFallback,
@@ -88,16 +86,22 @@ import {
   streamExternalImageProxy
 } from "./core/image-proxy.js";
 import { createAbortSignal, readTextSafely } from "./core/http-client.js";
-import { canvasAssetPath, historyImagePath, referenceAssetPath, referenceAssetUrl } from "./core/asset-urls.js";
+import {
+  archiveReferenceAssets,
+  buildHistoryItems,
+  persistGeneratedItemsInBackground,
+  sanitizeSubfolderName,
+  writeJingyinNumberedImage,
+  writeProcessedImage
+} from "./core/asset-persist.js";
+import { canvasAssetPath, historyImagePath, referenceAssetPath } from "./core/asset-urls.js";
 import {
   annotateHistoryIntegrity,
   appendHistoryResults,
-  archiveHistoryItemImageFromBuffer,
   archiveIncomingHistoryItem,
   ensureHistoryRepairBackup,
   itemWithArchivedImage,
   normalizeHistoryItem,
-  normalizeReferenceAsset,
   readHistoryResults,
   writeHistoryResults
 } from "./core/history-store.js";
@@ -139,7 +143,6 @@ let activeImageRequestCount = 0;
 const imageRequestQueue = [];
 const videoRouteSessions = new Map();
 const localGenerationRequestStartedAt = new Map();
-let saveFilenameLock = Promise.resolve();
 let resultCacheCleanupRunning = false;
 let resultCacheCleanupTimer = null;
 let resultCacheCleanupStarted = false;
@@ -424,243 +427,6 @@ process.on("uncaughtException", (error) => {
 
 
 
-function parseReferenceMeta(rawValue) {
-  try {
-    const parsed = JSON.parse(String(rawValue || "[]"));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-async function archiveReferenceAssets(files, rawMeta, requestId) {
-  const incoming = Array.isArray(files) ? files.filter((file) => file?.buffer?.length || file?.path) : [];
-  if (incoming.length === 0) return [];
-  const metadata = parseReferenceMeta(rawMeta);
-  const createdAt = Date.now();
-
-  await mkdir(referenceAssetDir, { recursive: true });
-  return Promise.all(incoming.map(async (file, index) => {
-    const meta = metadata[index] && typeof metadata[index] === "object" ? metadata[index] : {};
-    const ext = imageExtensionFromType(file.mimetype, file.originalname);
-    const baseName = sanitizeFilePart(`${requestId}_ref_${index + 1}_${meta.name || file.originalname || "reference"}`);
-    const target = await uniqueFilePath(referenceAssetDir, `${baseName}.${ext}`);
-    if (file.path) {
-      await copyFile(file.path, target);
-    } else {
-      await writeFile(target, file.buffer);
-    }
-    const archiveFile = path.basename(target);
-    return {
-      id: `${requestId}_ref_${index + 1}`,
-      name: String(meta.name || file.originalname || `reference-${index + 1}.${ext}`),
-      role: String(meta.role || "reference"),
-      index: Number.isFinite(Number(meta.index)) ? Number(meta.index) : index,
-      size: Number(meta.size || file.size || 0),
-      mimeType: String(meta.type || file.mimetype || mimeTypeFromFile(`reference.${ext}`)),
-      archiveFile,
-      localUrl: referenceAssetUrl(archiveFile),
-      ...(meta.localEdit ? { localEdit: true } : {}),
-      createdAt: createdAt + index
-    };
-  }));
-}
-
-function modelLabel(model) {
-  return CHANNEL_MODELS.find((item) => item.value === model)?.label || model || "图片";
-}
-
-function buildHistoryItems(images, params, files, requestId, timing, createdAt, references = []) {
-  const normalizedReferences = Array.isArray(references)
-    ? references.map(normalizeReferenceAsset).filter(Boolean)
-    : [];
-  return images.map((image, index) => ({
-    id: `${requestId}_${index + 1}`,
-    requestId,
-    image,
-    prompt: params.prompt,
-    modelLabel: modelLabel(params.model),
-    imageSize: params.imageSize,
-    aspectRatio: params.aspectRatio,
-    referenceCount: normalizedReferences.length || files.length,
-    ...(normalizedReferences.length > 0 ? { references: normalizedReferences } : {}),
-    generationMs: timing.totalMs,
-    source: params.source,
-    createdAt: createdAt + index
-  }));
-}
-
-
-
-function autoSaveModuleFolder(source) {
-  if (source === "detail-main") return "一键详情主图";
-  if (source === "reference-remix") return "参考生图";
-  if (source === "infinite-canvas") return "无限画布";
-  return "";
-}
-
-async function withSaveFilenameLock(task) {
-  const previous = saveFilenameLock;
-  let releaseLock = () => {};
-  saveFilenameLock = new Promise((resolve) => {
-    releaseLock = resolve;
-  });
-  await previous;
-  try {
-    return await task();
-  } finally {
-    releaseLock();
-  }
-}
-
-function currentDailyImagePrefix() {
-  return String(new Date().getDate());
-}
-
-async function highestDailyImageIndex(directory, prefix) {
-  const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
-  let highest = 0;
-  const pattern = new RegExp(`^${prefix}-(\\d+)\\.[^.]+$`, "i");
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    const match = pattern.exec(entry.name);
-    if (!match) continue;
-    const value = Number.parseInt(match[1], 10);
-    if (Number.isFinite(value) && value > highest) highest = value;
-  }
-  return highest;
-}
-
-async function writeJingyinNumberedImage(directory, buffer, extension) {
-  const ext = sanitizeFilePart(extension || "png").replace(/^_+/, "").toLowerCase() || "png";
-  await mkdir(directory, { recursive: true });
-  return withSaveFilenameLock(async () => {
-    const prefix = currentDailyImagePrefix();
-    const start = await highestDailyImageIndex(directory, prefix) + 1;
-    for (let index = start; index < start + 100000; index += 1) {
-      const filename = `${prefix}-${index}.${ext}`;
-      const target = path.join(directory, filename);
-      try {
-        await writeFile(target, buffer, { flag: "wx" });
-        return { filename, target };
-      } catch (error) {
-        if (error?.code === "EEXIST") continue;
-        throw error;
-      }
-    }
-    throw new Error("当天图片文件序号已超过可用范围");
-  });
-}
-
-function sanitizeSubfolderName(value) {
-  const cleaned = String(value || "").trim().replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_");
-  return cleaned || "裁剪";
-}
-
-async function writeProcessedImage(directory, buffer, extension, subfolder = "裁剪") {
-  const outputFolder = String(subfolder ?? "").trim()
-    ? path.join(directory, sanitizeSubfolderName(subfolder))
-    : directory;
-  await mkdir(outputFolder, { recursive: true });
-  return writeJingyinNumberedImage(outputFolder, buffer, extension);
-}
-
-async function persistGeneratedItems(items) {
-  const incoming = Array.isArray(items) ? items.filter((item) => item?.id) : [];
-  if (incoming.length === 0) return { items: [], autoSavedCount: 0 };
-
-  const saveRoot = await getSaveDirectory();
-  const persistedItems = [];
-  let autoSavedCount = 0;
-
-  for (const item of incoming) {
-    let nextItem = item;
-    let buffer = null;
-    let mimeType = "";
-    let sourceUrl = "";
-
-    try {
-      const payload = await imageBufferFromPayload(item.image);
-      buffer = payload.buffer;
-      mimeType = payload.mimeType;
-      sourceUrl = payload.sourceUrl;
-    } catch (error) {
-      await writeGenerationLog({
-        time: new Date().toISOString(),
-        requestId: item.id,
-        ok: false,
-        stage: "prepare-generated-image",
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-
-    if (buffer) {
-      try {
-        const moduleFolder = autoSaveModuleFolder(item.source);
-        const targetDirectory = moduleFolder ? path.join(saveRoot, moduleFolder) : saveRoot;
-        await mkdir(targetDirectory, { recursive: true });
-        await writeJingyinNumberedImage(
-          targetDirectory,
-          buffer,
-          imageExtensionFromType(mimeType, sourceUrl)
-        );
-        autoSavedCount += 1;
-      } catch (error) {
-        await writeGenerationLog({
-          time: new Date().toISOString(),
-          requestId: item.id,
-          ok: false,
-          stage: "auto-save-generated-image",
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
-
-      try {
-        nextItem = item.image?.archiveFile || String(item.image?.localUrl || "").startsWith("/api/history-image/")
-          ? item
-          : await archiveHistoryItemImageFromBuffer(item, buffer, mimeType, sourceUrl);
-      } catch (error) {
-        await writeGenerationLog({
-          time: new Date().toISOString(),
-          requestId: item.id,
-          ok: false,
-          stage: "cache-generated-image",
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
-    }
-
-    persistedItems.push(nextItem);
-  }
-
-  await appendHistoryResults(persistedItems);
-  return { items: persistedItems, autoSavedCount };
-}
-
-function persistGeneratedItemsInBackground(items, requestId, stage = "background-persist-generated-items") {
-  const incoming = Array.isArray(items) ? items.filter((item) => item?.id) : [];
-  if (incoming.length === 0) return;
-
-  setTimeout(() => {
-    persistGeneratedItems(incoming)
-      .then((result) => writeGenerationLog({
-        time: new Date().toISOString(),
-        requestId,
-        ok: true,
-        stage,
-        itemCount: incoming.length,
-        autoSavedCount: result.autoSavedCount
-      }))
-      .catch((error) => writeGenerationLog({
-        time: new Date().toISOString(),
-        requestId,
-        ok: false,
-        stage,
-        itemCount: incoming.length,
-        error: error instanceof Error ? error.message : String(error)
-      }));
-  }, 0);
-}
 
 async function openDirectory(directory) {
   const resolved = await setSaveDirectory(directory || await getSaveDirectory());
