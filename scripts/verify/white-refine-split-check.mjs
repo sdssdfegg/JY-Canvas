@@ -145,12 +145,15 @@ try {
   installExitCleanup({ getChild: () => child, sandboxDir: SANDBOX_ROOT });
   if (!(await waitForHealth(APP_PORT))) throw new Error("V11 测试实例未起来");
 
+  // 序号前缀是「当月第几日」，所以必须按跑的当天算：
+  // 原来写死 26-16.png / ^\d{2}-，每月 1~9 号会白红一次。
+  const dayPrefix = String(new Date().getDate());
   const saved = [];
   for (const label of ["左", "右"]) {
     const form = new FormData();
     form.append("directory", saveDir);
     form.append("subfolder", "");
-    form.append("image", new File([tinyPng()], splitHalvesFileName(label, "26-16.png"), { type: "image/png" }));
+    form.append("image", new File([tinyPng()], splitHalvesFileName(label, `${dayPrefix}-16.png`), { type: "image/png" }));
     const res = await fetch(`http://127.0.0.1:${APP_PORT}/api/save-processed-image`, { method: "POST", body: form });
     const payload = await res.json().catch(() => null);
     saved.push({ status: res.status, payload });
@@ -163,8 +166,9 @@ try {
   check("两张半图直接落在保存目录根目录（服务端返回同一 directory）",
     saved.every((item) => item.payload?.directory === saveDir),
     JSON.stringify(saved.map((item) => item.payload?.directory)));
-  check("按 V11 的日期序号命名（26-N.png），互不覆盖",
-    files.length === 2 && new Set(files).size === 2 && files.every((name) => /^\d{2}-\d+\.png$/.test(name)),
+  check(`按 V11 的日期序号命名（${dayPrefix}-N.png），互不覆盖`,
+    files.length === 2 && new Set(files).size === 2
+      && files.every((name) => new RegExp(`^${dayPrefix}-\\d+\\.png$`).test(name)),
     files.join(","));
 } catch (error) {
   results.push({ name: "fatal", pass: false, detail: error instanceof Error ? error.message : String(error) });

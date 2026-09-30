@@ -363,10 +363,24 @@ for (let attempt = 0; attempt < 6 && !sandboxRemoved; attempt += 1) {
 // ---------- D. 前后端一致性（同一条规则，不允许各写一套）----------
 {
   const fs = await import("node:fs");
-  const serverSource = fs.readFileSync(path.join(ROOT, "server", "index.js"), "utf8");
+  // 真相源不再只有 index.js：Phase 1 把服务端拆成了 server/core/*.js，
+  // 图片代理那段已经搬进 server/core/image-proxy.js，这条 import 也跟着走了。
+  // 所以这里扫「index.js + core 下所有模块」，否则拆一次就误报一次。
+  const coreDir = path.join(ROOT, "server", "core");
+  const serverFiles = [
+    path.join(ROOT, "server", "index.js"),
+    ...(existsSync(coreDir) ? fs.readdirSync(coreDir) : [])
+      .filter((name) => name.endsWith(".js"))
+      .map((name) => path.join(coreDir, name))
+  ].filter((file) => existsSync(file));
+  const serverSource = serverFiles.map((file) => fs.readFileSync(file, "utf8")).join("\n");
+  const singleSourceFile = serverFiles.find((file) =>
+    /from "(\.\.\/)+src\/shared\/image-hosts\.js"/.test(fs.readFileSync(file, "utf8")));
   check("服务端 import 了前端的同一份图片规则（单一来源，不会漂移）",
-    /from "\.\.\/src\/shared\/image-hosts\.js"/.test(serverSource) && /isSafeRemoteImageUrl\(/.test(serverSource),
-    "server/index.js → src/shared/image-hosts.js");
+    Boolean(singleSourceFile) && /isSafeRemoteImageUrl\(/.test(serverSource),
+    singleSourceFile
+      ? `${path.relative(ROOT, singleSourceFile).replace(/\\/g, "/")} → src/shared/image-hosts.js`
+      : "server 下没有找到对 src/shared/image-hosts.js 的 import");
   check("服务端不再把渠道 API 主机当图片白名单（图片回传不限域名）",
     !/ALLOWED_IMAGE_PROXY_HOSTS|isAllowedImageProxyHost/.test(serverSource),
     "旧白名单符号已移除");
