@@ -148,6 +148,14 @@ import {
   VIDEO_BILLING_GATEWAY_REQUIRED,
   VIDEO_ROUTE_SESSION_TTL_MS
 } from "./core/runtime-config.js";
+import {
+  compactLogMessage,
+  localDateFolder,
+  localDateTime,
+  readableBytes,
+  readableMs,
+  sanitizeFilePart
+} from "./core/format-utils.js";
 let activeImageRequestCount = 0;
 const imageRequestQueue = [];
 const videoRouteSessions = new Map();
@@ -329,38 +337,6 @@ async function rotateLogFileIfNeeded(file, maxBytes) {
   await rename(file, rotated).catch(async () => {
     await writeFile(file, "", "utf8").catch(() => {});
   });
-}
-
-function localDateFolder(value = Date.now()) {
-  const timestamp = Number(value);
-  const date = new Date(Number.isFinite(timestamp) ? timestamp : Date.now());
-  const pad = (number) => String(number).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-function localDateTime(value = Date.now()) {
-  const timestamp = Number(value);
-  const date = new Date(Number.isFinite(timestamp) ? timestamp : Date.now());
-  const pad = (number, size = 2) => String(number).padStart(size, "0");
-  return [
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`
-  ].join(" ");
-}
-
-function readableBytes(value) {
-  const bytes = Number(value || 0);
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${Math.round(bytes)} B`;
-}
-
-function readableMs(value) {
-  const ms = Number(value);
-  if (!Number.isFinite(ms)) return "";
-  if (ms >= 1000) return `${(ms / 1000).toFixed(3)} 秒`;
-  return `${Math.max(0, Math.round(ms))} 毫秒`;
 }
 
 function safeTaskLogId(value) {
@@ -1249,14 +1225,6 @@ async function setSaveDirectory(directory) {
   return resolved;
 }
 
-function sanitizeFilePart(value) {
-  const cleaned = String(value || "")
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
-    .replace(/\s+/g, "_")
-    .slice(0, 80);
-  return cleaned || "jingyin";
-}
-
 function imageExtensionFromType(mimeType, fallbackUrl = "") {
   const lower = String(mimeType || "").toLowerCase();
   if (lower.includes("jpeg")) return "jpg";
@@ -1730,13 +1698,6 @@ function upstreamErrorMessage(parsed, status) {
     parsed?.text
   ].map((value) => String(value || "").trim()).filter(Boolean);
   return candidates[0] || `HTTP ${status}`;
-}
-
-function compactLogMessage(value, limit = 700) {
-  return String(value || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, limit);
 }
 
 function sanitizeClientDiagnosticValue(key, value, depth = 0) {
