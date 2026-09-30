@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { spawn } from "node:child_process";
 import { createReadStream, existsSync } from "node:fs";
-import { mkdir, readFile, readdir, stat, statfs, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 // 图片地址判定与前端共用同一份（发布时 esbuild 会把 src/shared 内联进 server bundle）。
@@ -111,6 +111,12 @@ import {
   shouldTryNextImageVariant,
   upstreamErrorMessage
 } from "./core/image-error-policy.js";
+import {
+  outfitResultPath,
+  outfitResultUrl,
+  scheduleResultCacheCleanup,
+  startResultCacheCleanup
+} from "./core/result-cache.js";
 import { canvasAssetPath, historyImagePath, referenceAssetPath } from "./core/asset-urls.js";
 import {
   annotateHistoryIntegrity,
@@ -133,13 +139,8 @@ import {
   LOCAL_HTTP_TIMEOUT_MS,
   PORT,
   PORT_FALLBACK_LIMIT,
-  RESULT_CACHE_CLEANUP_INTERVAL_MS,
   RESULT_CACHE_CONTROL,
-  RESULT_CACHE_DISK_PRESSURE_MIN_FILE_AGE_MS,
-  RESULT_CACHE_MAX_DISK_USAGE_RATIO,
   RESULT_CACHE_POST_WRITE_CLEANUP_DELAY_MS,
-  RESULT_CACHE_TTL_DAYS,
-  RESULT_CACHE_TTL_MS,
   RESULT_DISPLAY_CACHE_BLOCKING_TIMEOUT_MS,
   RESULT_DISPLAY_CACHE_TIMEOUT_MS,
   VIDEO_BILLING_GATEWAY_REQUIRED,
@@ -160,8 +161,6 @@ let activeImageRequestCount = 0;
 const imageRequestQueue = [];
 const videoRouteSessions = new Map();
 const localGenerationRequestStartedAt = new Map();
-let resultCacheCleanupRunning = false;
-let resultCacheCleanupTimer = null;
 let resultCacheCleanupStarted = false;
 
 app.use(express.json({ limit: "100mb" }));
@@ -777,18 +776,6 @@ function outfitUploadFileGroups(req) {
   };
 }
 
-function outfitResultUrl(filename) {
-  return `/api/result/${encodeURIComponent(filename)}`;
-}
-
-function outfitResultPath(filename) {
-  const safeName = path.basename(String(filename || ""));
-  const resolved = path.resolve(resultDir, safeName);
-  if (!resolved.startsWith(path.resolve(resultDir) + path.sep)) {
-    throw new Error("本地换装结果路径无效");
-  }
-  return resolved;
-}
 
 function imageFromOutfitArchive(archived) {
   if (!archived?.localUrl) return null;
@@ -869,172 +856,6 @@ async function streamLocalImageFile(req, res, file, options = {}) {
   await pipeline(createReadStream(file, { start, end, highWaterMark: DOWNLOAD_CHUNK_BYTES }), res);
 }
 
-function isResultCacheImageFile(name) {
-  return /\.(png|jpe?g|webp|gif)$/i.test(String(name || ""));
-}
-
-function roundCacheRatio(value) {
-  return Number.isFinite(value) ? Number(value.toFixed(4)) : null;
-}
-
-async function getResultCacheDiskUsage() {
-  await mkdir(resultDir, { recursive: true });
-  const info = await statfs(resultDir);
-  const blockSize = Number(info.bsize || info.frsize || 0);
-  const totalBlocks = Number(info.blocks || 0);
-  const availableBlocks = Number(info.bavail ?? info.bfree ?? 0);
-  const totalBytes = blockSize * totalBlocks;
-  const availableBytes = Math.max(0, blockSize * availableBlocks);
-  if (!Number.isFinite(totalBytes) || totalBytes <= 0) return null;
-  const usedBytes = Math.max(0, totalBytes - availableBytes);
-  return {
-    totalBytes,
-    availableBytes,
-    usedBytes,
-    usedRatio: usedBytes / totalBytes
-  };
-}
-
-async function deleteResultCacheFile(file) {
-  try {
-    await unlink(file);
-    return true;
-  } catch (error) {
-    if (error?.code === "ENOENT") return false;
-    throw error;
-  }
-}
-
-async function cleanupResultCache(reason = "scheduled") {
-  if (resultCacheCleanupRunning) return;
-  resultCacheCleanupRunning = true;
-  const startedAt = Date.now();
-  let scannedCount = 0;
-  let deletedCount = 0;
-  let deletedBytes = 0;
-  let expiredDeletedCount = 0;
-  let expiredDeletedBytes = 0;
-  let pressureDeletedCount = 0;
-  let pressureDeletedBytes = 0;
-  let diskPressureTriggered = false;
-  let diskUsageBeforePressure = null;
-  let diskUsageAfterCleanup = null;
-
-  try {
-    await mkdir(resultDir, { recursive: true });
-    const cutoff = Date.now() - RESULT_CACHE_TTL_MS;
-    const entries = await readdir(resultDir, { withFileTypes: true });
-    const remainingItems = [];
-
-    for (const entry of entries) {
-      if (!entry.isFile() || !isResultCacheImageFile(entry.name)) continue;
-      scannedCount += 1;
-      const file = outfitResultPath(entry.name);
-      const info = await stat(file).catch(() => null);
-      if (!info?.isFile()) continue;
-      const touchedAt = Math.max(info.mtimeMs || 0, info.birthtimeMs || 0);
-      const size = info.size || 0;
-      if (touchedAt >= cutoff) {
-        remainingItems.push({ file, size, touchedAt });
-        continue;
-      }
-      if (!await deleteResultCacheFile(file)) continue;
-      deletedCount += 1;
-      deletedBytes += size;
-      expiredDeletedCount += 1;
-      expiredDeletedBytes += size;
-    }
-
-    diskUsageBeforePressure = await getResultCacheDiskUsage().catch(() => null);
-    if (diskUsageBeforePressure?.usedRatio > RESULT_CACHE_MAX_DISK_USAGE_RATIO) {
-      diskPressureTriggered = true;
-      remainingItems.sort((left, right) => left.touchedAt - right.touchedAt);
-      let projectedAvailableBytes = diskUsageBeforePressure.availableBytes;
-      const totalBytes = diskUsageBeforePressure.totalBytes;
-      const minimumTouchedAt = Date.now() - RESULT_CACHE_DISK_PRESSURE_MIN_FILE_AGE_MS;
-
-      for (const item of remainingItems) {
-        const projectedUsedRatio = (totalBytes - projectedAvailableBytes) / totalBytes;
-        if (projectedUsedRatio <= RESULT_CACHE_MAX_DISK_USAGE_RATIO) break;
-        if (item.touchedAt > minimumTouchedAt) continue;
-        if (!await deleteResultCacheFile(item.file)) continue;
-        projectedAvailableBytes += item.size;
-        deletedCount += 1;
-        deletedBytes += item.size;
-        pressureDeletedCount += 1;
-        pressureDeletedBytes += item.size;
-      }
-    }
-
-    diskUsageAfterCleanup = await getResultCacheDiskUsage().catch(() => null);
-
-    if (deletedCount > 0 || diskPressureTriggered) {
-      await writeGenerationLog({
-        time: new Date().toISOString(),
-        ok: true,
-        stage: "result-cache-cleanup",
-        reason,
-        ttlDays: RESULT_CACHE_TTL_DAYS,
-        maxDiskUsageRatio: RESULT_CACHE_MAX_DISK_USAGE_RATIO,
-        diskUsageRatioBeforePressure: roundCacheRatio(diskUsageBeforePressure?.usedRatio),
-        diskUsageRatioAfterCleanup: roundCacheRatio(diskUsageAfterCleanup?.usedRatio),
-        diskPressureTriggered,
-        scannedCount,
-        deletedCount,
-        deletedBytes,
-        expiredDeletedCount,
-        expiredDeletedBytes,
-        pressureDeletedCount,
-        pressureDeletedBytes,
-        timingMs: Date.now() - startedAt
-      });
-    }
-  } catch (error) {
-    await writeGenerationLog({
-      time: new Date().toISOString(),
-      ok: false,
-      stage: "result-cache-cleanup",
-      reason,
-      ttlDays: RESULT_CACHE_TTL_DAYS,
-      maxDiskUsageRatio: RESULT_CACHE_MAX_DISK_USAGE_RATIO,
-      diskUsageRatioBeforePressure: roundCacheRatio(diskUsageBeforePressure?.usedRatio),
-      diskUsageRatioAfterCleanup: roundCacheRatio(diskUsageAfterCleanup?.usedRatio),
-      diskPressureTriggered,
-      scannedCount,
-      deletedCount,
-      deletedBytes,
-      expiredDeletedCount,
-      expiredDeletedBytes,
-      pressureDeletedCount,
-      pressureDeletedBytes,
-      timingMs: Date.now() - startedAt,
-      error: error instanceof Error ? error.message : String(error || "")
-    });
-  } finally {
-    resultCacheCleanupRunning = false;
-  }
-}
-
-function scheduleResultCacheCleanup(reason = "scheduled", delayMs = 0) {
-  if (delayMs <= 0) {
-    void cleanupResultCache(reason);
-    return;
-  }
-  if (resultCacheCleanupTimer) return;
-  resultCacheCleanupTimer = setTimeout(() => {
-    resultCacheCleanupTimer = null;
-    void cleanupResultCache(reason);
-  }, delayMs);
-  resultCacheCleanupTimer.unref?.();
-}
-
-function startResultCacheCleanup() {
-  scheduleResultCacheCleanup("startup");
-  const timer = setInterval(() => {
-    scheduleResultCacheCleanup("scheduled");
-  }, RESULT_CACHE_CLEANUP_INTERVAL_MS);
-  timer.unref?.();
-}
 
 async function archiveOutfitGeneratedImage(image, taskId, timeoutMs = IMAGE_PROXY_TIMEOUT_MS) {
   const payload = await imageBufferFromPayload(image, timeoutMs);
