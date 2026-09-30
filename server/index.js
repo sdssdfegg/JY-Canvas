@@ -6,7 +6,6 @@ import { copyFile, mkdir, readFile, readdir, stat, statfs, unlink, writeFile } f
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { brotliCompressSync, gzipSync } from "node:zlib";
 // 图片地址判定与前端共用同一份（发布时 esbuild 会把 src/shared 内联进 server bundle）。
 // 注意：这只管"图片回传"；生图 API 仍然只允许官方中转，见 PRIMARY_CHANNEL_API_BASE_URL。
 import { isSafeRemoteImageUrl } from "../src/shared/image-hosts.js";
@@ -80,11 +79,11 @@ import {
   normalizeUsableSaveDirectory,
   setSaveDirectory
 } from "./core/app-settings.js";
+import { gatewayCompressionMiddleware } from "./core/http-compression.js";
 const app = express();
 
 import {
   DOWNLOAD_CHUNK_BYTES,
-  GATEWAY_COMPRESSION_MIN_BYTES,
   IMAGE_CHANNEL_ATTEMPT_TIMEOUT_MS,
   IMAGE_CONCURRENCY_LIMIT,
   IMAGE_PROXY_TIMEOUT_MS,
@@ -129,65 +128,6 @@ app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
 app.use(generationRequestTraceMiddleware);
 
-function appendVaryHeader(current, value) {
-  const parts = String(current || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-  if (!parts.some((item) => item.toLowerCase() === value.toLowerCase())) parts.push(value);
-  return parts.join(", ");
-}
-
-function acceptedGatewayEncoding(req) {
-  const acceptEncoding = String(req.headers["accept-encoding"] || "").toLowerCase();
-  if (/\bbr\b/.test(acceptEncoding) && !/\bbr\s*;\s*q=0(?:\.0+)?\b/.test(acceptEncoding)) return "br";
-  if (/\bgzip\b/.test(acceptEncoding) && !/\bgzip\s*;\s*q=0(?:\.0+)?\b/.test(acceptEncoding)) return "gzip";
-  return "";
-}
-
-function isCompressibleResponseType(contentType) {
-  return /\b(json|text|javascript|css|html|xml|svg)\b/i.test(String(contentType || ""));
-}
-
-function gatewayCompressionMiddleware(req, res, next) {
-  const originalSend = res.send.bind(res);
-
-  res.send = function sendWithGatewayCompression(body) {
-    const encoding = acceptedGatewayEncoding(req);
-    const statusCode = res.statusCode || 200;
-    const contentType = String(res.getHeader("Content-Type") || "");
-    const shouldSkip = !encoding
-      || req.method === "HEAD"
-      || req.headers.range
-      || statusCode === 204
-      || statusCode === 304
-      || res.getHeader("Content-Encoding")
-      || !isCompressibleResponseType(contentType);
-
-    if (shouldSkip || body == null || (!Buffer.isBuffer(body) && typeof body !== "string")) {
-      return originalSend(body);
-    }
-
-    const source = Buffer.isBuffer(body) ? body : Buffer.from(body);
-    if (source.length < GATEWAY_COMPRESSION_MIN_BYTES) return originalSend(body);
-
-    try {
-      const compressed = encoding === "br"
-        ? brotliCompressSync(source)
-        : gzipSync(source);
-      if (compressed.length >= source.length) return originalSend(body);
-
-      res.setHeader("Content-Encoding", encoding);
-      res.setHeader("Vary", appendVaryHeader(res.getHeader("Vary"), "Accept-Encoding"));
-      res.setHeader("Content-Length", String(compressed.length));
-      return originalSend(compressed);
-    } catch {
-      return originalSend(body);
-    }
-  };
-
-  next();
-}
 
 function shouldAutoOpenBrowser() {
   return process.env.JINGYIN_NO_BROWSER !== "1" && (
