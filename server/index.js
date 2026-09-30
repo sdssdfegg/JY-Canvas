@@ -64,7 +64,6 @@ import { normalizeApiKeyInput } from "./features/auth/api-key.js";
 import { EMBEDDED_STATIC_ASSETS } from "./static-assets.generated.js";
 
 import {
-  appSettingsFile,
   canvasAssetDir,
   dataDir,
   historyBackupFile,
@@ -76,6 +75,11 @@ import {
   rootDir,
   uploadTempDir
 } from "./core/app-paths.js";
+import {
+  getSaveDirectory,
+  normalizeUsableSaveDirectory,
+  setSaveDirectory
+} from "./core/app-settings.js";
 const app = express();
 
 import {
@@ -822,65 +826,6 @@ async function appendHistoryResults(items) {
   return results;
 }
 
-function defaultSaveDirectory() {
-  return process.env.SAVE_DIRECTORY || path.join(rootDir, "data", "asset-library");
-}
-
-function hasDamagedPathText(value) {
-  return /[\uFFFD]|闈欓煶|缁樼敾|����|\?\?\?/.test(String(value || ""));
-}
-
-async function isExistingDirectory(directory) {
-  try {
-    return (await stat(directory)).isDirectory();
-  } catch {
-    return false;
-  }
-}
-
-async function normalizeUsableSaveDirectory(directory) {
-  const fallback = path.resolve(defaultSaveDirectory());
-  const raw = String(directory || "").trim();
-  if (!raw || hasDamagedPathText(raw)) return fallback;
-
-  const resolved = path.resolve(raw);
-  if (await isExistingDirectory(resolved)) return resolved;
-
-  return fallback;
-}
-
-async function readAppSettings() {
-  try {
-    const text = await readFile(appSettingsFile, "utf8");
-    const parsed = JSON.parse(text);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-async function writeAppSettings(nextSettings) {
-  await mkdir(dataDir, { recursive: true });
-  await writeFile(appSettingsFile, JSON.stringify(nextSettings, null, 2), "utf8");
-}
-
-async function getSaveDirectory() {
-  const settings = await readAppSettings();
-  const directory = await normalizeUsableSaveDirectory(settings.saveDirectory);
-  await mkdir(directory, { recursive: true });
-  if (settings.saveDirectory !== directory) {
-    await writeAppSettings({ ...settings, saveDirectory: directory });
-  }
-  return directory;
-}
-
-async function setSaveDirectory(directory) {
-  const resolved = await normalizeUsableSaveDirectory(directory);
-  await mkdir(resolved, { recursive: true });
-  const current = await readAppSettings();
-  await writeAppSettings({ ...current, saveDirectory: resolved });
-  return resolved;
-}
 
 function imageExtensionFromType(mimeType, fallbackUrl = "") {
   const lower = String(mimeType || "").toLowerCase();
