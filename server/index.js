@@ -80,6 +80,11 @@ import {
   setSaveDirectory
 } from "./core/app-settings.js";
 import { gatewayCompressionMiddleware } from "./core/http-compression.js";
+import {
+  imageExtensionFromType,
+  mimeTypeFromFile,
+  uniqueFilePath
+} from "./core/file-naming.js";
 const app = express();
 
 import {
@@ -767,30 +772,6 @@ async function appendHistoryResults(items) {
 }
 
 
-function imageExtensionFromType(mimeType, fallbackUrl = "") {
-  const lower = String(mimeType || "").toLowerCase();
-  if (lower.includes("jpeg")) return "jpg";
-  if (lower.includes("png")) return "png";
-  if (lower.includes("webp")) return "webp";
-  if (lower.includes("gif")) return "gif";
-  let pathname = String(fallbackUrl || "image.png");
-  try {
-    pathname = new URL(fallbackUrl || "https://local/image.png", "https://local").pathname;
-  } catch {
-    pathname = String(fallbackUrl || "image.png");
-  }
-  const ext = path.extname(pathname).replace(".", "").toLowerCase();
-  return ["jpg", "jpeg", "png", "webp", "gif"].includes(ext) ? (ext === "jpeg" ? "jpg" : ext) : "png";
-}
-
-function mimeTypeFromFile(filename) {
-  const ext = path.extname(String(filename || "")).toLowerCase();
-  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
-  if (ext === ".webp") return "image/webp";
-  if (ext === ".gif") return "image/gif";
-  return "image/png";
-}
-
 function parseReferenceMeta(rawValue) {
   try {
     const parsed = JSON.parse(String(rawValue || "[]"));
@@ -949,27 +930,6 @@ function autoSaveModuleFolder(source) {
   if (source === "reference-remix") return "参考生图";
   if (source === "infinite-canvas") return "无限画布";
   return "";
-}
-
-async function pathExists(file) {
-  try {
-    await stat(file);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function uniqueFilePath(directory, filename) {
-  const ext = path.extname(filename);
-  const base = path.basename(filename, ext);
-  let candidate = path.join(directory, filename);
-  let index = 2;
-  while (await pathExists(candidate)) {
-    candidate = path.join(directory, `${base}_${index}${ext}`);
-    index += 1;
-  }
-  return candidate;
 }
 
 async function withSaveFilenameLock(task) {
