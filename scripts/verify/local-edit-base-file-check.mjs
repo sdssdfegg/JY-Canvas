@@ -22,7 +22,7 @@
 // 用法：node scripts/verify/local-edit-base-file-check.mjs
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, unlinkSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { installExitCleanup, stopChild } from "./lib/sandbox.mjs";
@@ -38,7 +38,26 @@ const APP_PORT = 8812;
 const GEOMETRY_FILE = path.join(ROOT, "src", "shared", "local-edit-geometry.js");
 const OUTFIT_FILE = path.join(ROOT, "src", "outfit-workflow.jsx");
 const MAIN_FILE = path.join(ROOT, "src", "main.jsx");
-const SERVER_FILE = path.join(ROOT, "server", "index.js");
+/** 收集 server/core 下所有 .js 模块的路径（不存在则返回空数组）。 */
+function collectServerCoreSources() {
+  const coreDir = path.join(ROOT, "server", "core");
+  try {
+    return readdirSync(coreDir)
+      .filter((name) => name.endsWith(".js"))
+      .map((name) => path.join(coreDir, name));
+  } catch {
+    return [];
+  }
+}
+
+// 后端源码不止 server/index.js 一个文件：
+// Phase 1 拆分后，诊断日志那段搬到了 server/core/generation-logger.js。
+// 如果这里还只盯着 index.js，代码其实没坏、检查却会误报。
+// 所以把 server/core 下的模块一起算进来 —— 后端再拆分也不用回来改脚本。
+const SERVER_SOURCES = [
+  path.join(ROOT, "server", "index.js"),
+  ...collectServerCoreSources()
+];
 const STYLES_FILE = path.join(ROOT, "src", "styles.css");
 const EMBEDDED_STYLES_FILE = path.join(ROOT, "src", "outfit-workflow.css");
 const HISTORY_FILE = path.join(ROOT, "data", "history.json");
@@ -144,7 +163,9 @@ check("上传副本长边上限仍是 3072（探针反例尺寸与线上压缩�
 
 // 尺寸可见性接线：用户口径是"我给的图多少尺寸，返回的就是多少尺寸"，
 // 所以"底图尺寸 / 输出尺寸"必须在界面上和任务日志里都能看到，不用靠肉眼猜。
-const serverSrc = readFileSync(SERVER_FILE, "utf8");
+const serverSrc = SERVER_SOURCES.map((file) => {
+  try { return readFileSync(file, "utf8"); } catch { return ""; }
+}).join("\n");
 const stylesSrc = readFileSync(STYLES_FILE, "utf8");
 const embeddedStylesSrc = readFileSync(EMBEDDED_STYLES_FILE, "utf8");
 
