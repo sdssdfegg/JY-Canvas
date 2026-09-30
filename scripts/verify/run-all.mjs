@@ -41,6 +41,10 @@ const ORDER = [
   //   另外额外报告同名两份实现是否已经分叉）。
   "shared-ui-duplication-check",
   // auth-key-parity：前后端 KEY 清洗规则逐用例一致（登记表第 13 行"后续可抽共享测试用例"）。
+  // runtime-config-baseline：守住 server/core/runtime-config.js 的默认值
+  // （超时 / 并发 / 缓存策略都是历史实测调校出来的，改了不报错、只改出图行为，
+  //   所以必须能被自动发现）。跑得很快，排在起进程的那批之前。
+  "runtime-config-baseline-check",
   "auth-key-parity-check",
   "canvas-asset-check",
   "history-repair-check",

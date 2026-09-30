@@ -1,40 +1,26 @@
-// `npm run check` 的语法检查执行器。
+// `npm run check` 的语法检查环节（被 scripts/verify/run-all.mjs 调度）。
 //
-// 背景：本机没有 npm（也无 D:\RJ\node），沙箱内 node 的 child_process 默认 pipe
-// stdio 会 EPERM，所以这里直接读 package.json 的 scripts.check，
-// 拆出所有 `node --check <file>` 目标，用 stdio:'inherit' 逐个执行。
+// 历史包袱：这里原来用正则从 package.json 的 scripts.check 里抠出
+// `node --check <file>` 目标列表。那套做法有两个问题：
+//   1. 每加一个后端模块都要手动往 package.json 里添一行，忘了添就等于永远不检查；
+//   2. 依赖 spawnSync 子进程，在受限环境里会 EBUSY，把环境问题误报成代码问题。
 //
-// 说明：scripts.check 现在还串了 `node scripts/verify/run-all.mjs`（把验证脚本接入 check）。
-// 这里只保留**业务源码**目标，跳过 scripts/ 下的验证脚本本身：
-// 验证脚本由 run-all 真正执行（比只做语法检查更强），没必要再被 --check 一遍。
+// 现在改成直接复用 scripts/check-syntax.mjs 的扫描逻辑（唯一的真相源）：
+//   自动遍历 server / src / scripts / prompts，进程内解析，顺带覆盖 .jsx。
 //
 // 用法：node scripts/verify/run-node-check.mjs
-import { readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import path from "node:path";
+
 import process from "node:process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { runSyntaxCheck } from "../check-syntax.mjs";
 
-const root = process.cwd();
-const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
-const script = String(pkg.scripts?.check || "");
-const targets = [...script.matchAll(/node\s+--check\s+(\S+)/g)]
-  .map((match) => match[1])
-  .filter((target) => !target.replace(/\\/g, "/").startsWith("scripts/"));
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+const report = runSyntaxCheck(projectRoot);
 
-if (targets.length === 0) {
-  console.error("[run-node-check] package.json 里没有找到 node --check 目标");
-  process.exit(1);
+for (const item of report.failures) {
+  console.log(`[run-node-check] FAIL ${item.file}`);
+  console.log(`      ${item.message}`);
 }
-
-let failed = 0;
-for (const target of targets) {
-  const result = spawnSync(process.execPath, ["--check", target], { cwd: root, stdio: "inherit" });
-  if (result.status !== 0) {
-    console.error(`[run-node-check] FAIL ${target}`);
-    failed += 1;
-  } else {
-    console.log(`[run-node-check] OK   ${target}`);
-  }
-}
-console.log(`[run-node-check] 目标 ${targets.length} 个，失败 ${failed} 个`);
-process.exit(failed === 0 ? 0 : 1);
+console.log(`[run-node-check] 扫描 ${report.total} 个文件，通过 ${report.passed} 个，失败 ${report.failed} 个`);
+process.exit(report.ok ? 0 : 1);

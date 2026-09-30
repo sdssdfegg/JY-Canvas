@@ -1,0 +1,105 @@
+{
+  "_说明": "server/core/runtime-config.js 的默认值基线。改动请用 node scripts/verify/runtime-config-baseline-check.mjs --update 更新，并在提交信息里说明理由。",
+  "常量": {
+    "ASSET_LOG_MAX_BYTES": {
+      "值": 4194304,
+      "含义": "资源日志单文件上限"
+    },
+    "DOWNLOAD_CHUNK_BYTES": {
+      "值": 262144,
+      "含义": "下载分块大小"
+    },
+    "GATEWAY_COMPRESSION_MIN_BYTES": {
+      "值": 1024,
+      "含义": "网关响应启用压缩的最小体积"
+    },
+    "GENERATION_LOG_MAX_BYTES": {
+      "值": 8388608,
+      "含义": "生成日志单文件上限"
+    },
+    "IMAGE_CHANNEL_ATTEMPT_TIMEOUT_MS": {
+      "值": 360000,
+      "含义": "单个渠道重试的超时"
+    },
+    "IMAGE_CONCURRENCY_LIMIT": {
+      "值": 5,
+      "含义": "单机图片请求并发上限（直接影响卡顿体感）"
+    },
+    "IMAGE_PROXY_TIMEOUT_MS": {
+      "值": 180000,
+      "含义": "图片代理下载超时"
+    },
+    "IMAGE_REQUEST_TIMEOUT_MS": {
+      "值": 900000,
+      "含义": "单次图片请求总超时"
+    },
+    "LOCAL_HTTP_TIMEOUT_MS": {
+      "值": 960000,
+      "含义": "本地 HTTP 请求超时"
+    },
+    "PORT": {
+      "值": 8787,
+      "含义": "本地服务监听端口"
+    },
+    "PORT_FALLBACK_LIMIT": {
+      "值": 10,
+      "含义": "端口被占用时的重试上限"
+    },
+    "RESULT_CACHE_CLEANUP_INTERVAL_MS": {
+      "值": 21600000,
+      "含义": "缓存定期清理间隔"
+    },
+    "RESULT_CACHE_CONTROL": {
+      "值": "public, max-age=604800, immutable",
+      "含义": "结果图的 Cache-Control 响应头"
+    },
+    "RESULT_CACHE_DISK_PRESSURE_MIN_FILE_AGE_MS": {
+      "值": 1800000,
+      "含义": "磁盘压力下可被清理的最小文件年龄"
+    },
+    "RESULT_CACHE_MAX_DISK_USAGE_RATIO": {
+      "值": 0.8,
+      "含义": "结果缓存可占用的磁盘比例上限"
+    },
+    "RESULT_CACHE_POST_WRITE_CLEANUP_DELAY_MS": {
+      "值": 30000,
+      "含义": "写缓存后延迟触发清理的时间"
+    },
+    "RESULT_CACHE_TTL_DAYS": {
+      "值": 7,
+      "含义": "结果缓存保留天数"
+    },
+    "RESULT_CACHE_TTL_MS": {
+      "值": 604800000,
+      "含义": "结果缓存保留毫秒数"
+    },
+    "RESULT_DISPLAY_CACHE_BLOCKING_TIMEOUT_MS": {
+      "值": 8000,
+      "含义": "展示缓存的最长阻塞等待"
+    },
+    "RESULT_DISPLAY_CACHE_TIMEOUT_MS": {
+      "值": 45000,
+      "含义": "结果图展示缓存有效期"
+    },
+    "RESULT_URL_DOWNLOAD_CHUNK_BYTES": {
+      "值": 1048576,
+      "含义": "结果 URL 下载分块大小"
+    },
+    "RESULT_URL_DOWNLOAD_RETRIES": {
+      "值": 3,
+      "含义": "结果 URL 下载重试次数"
+    },
+    "RUNTIME_LOG_MAX_BYTES": {
+      "值": 4194304,
+      "含义": "运行时日志单文件上限"
+    },
+    "VIDEO_BILLING_GATEWAY_REQUIRED": {
+      "值": false,
+      "含义": "视频是否强制走计费网关"
+    },
+    "VIDEO_ROUTE_SESSION_TTL_MS": {
+      "值": 14400000,
+      "含义": "视频路由会话有效期"
+    }
+  }
+}

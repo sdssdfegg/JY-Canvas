@@ -40,22 +40,22 @@ const EXCLUDED_DIRS = new Set(["server/skill-baselines"]);
 /** 只有这三类扩展名参与；其他（md/png/ttf 等）跳过。 */
 const SOURCE_PATTERN = /\.(js|jsx|mjs|cjs)$/i;
 
-function collectFiles() {
+function collectFiles(root) {
   const found = [];
   for (const relRoot of SCAN_ROOTS) {
-    const absRoot = path.join(projectRoot, relRoot);
+    const absRoot = path.join(root, relRoot);
     let entries;
     try {
       entries = readdirSync(absRoot);
     } catch {
       continue; // 目录不存在就算了
     }
-    walk(absRoot, entries, found);
+    walk(root, absRoot, entries, found);
   }
-  return found.sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+  return found;
 }
 
-function walk(absDir, entries, out) {
+function walk(root, absDir, entries, out) {
   for (const entry of entries) {
     const abs = path.join(absDir, entry);
     let st;
@@ -64,7 +64,7 @@ function walk(absDir, entries, out) {
     } catch {
       continue;
     }
-    const rel = path.relative(projectRoot, abs).replace(/\\/g, "/");
+    const rel = path.relative(root, abs).replace(/\\/g, "/");
     if (st.isDirectory()) {
       if (EXCLUDED_DIRS.has(rel) || EXCLUDED_DIRS.has(path.dirname(rel))) continue;
       let children;
@@ -73,7 +73,7 @@ function walk(absDir, entries, out) {
       } catch {
         continue;
       }
-      walk(abs, children, out);
+      walk(root, abs, children, out);
       continue;
     }
     if (!st.isFile() || !SOURCE_PATTERN.test(entry)) continue;
@@ -83,8 +83,8 @@ function walk(absDir, entries, out) {
 }
 
 /** 解析单个文件；返回 { file, ok, message }。 */
-function checkFile(relFile) {
-  const absFile = path.join(projectRoot, relFile);
+export function checkFile(relFile, root) {
+  const absFile = path.join(root, relFile);
   let code;
   try {
     code = readFileSync(absFile, "utf8");
@@ -105,21 +105,34 @@ function checkFile(relFile) {
   }
 }
 
-const files = collectFiles();
-const results = files.map(checkFile);
-const failures = results.filter((item) => !item.ok);
-
-if (wantJson) {
-  console.log(JSON.stringify({
+/**
+ * 跑一遍全量语法检查，返回结果对象（不打印、不改退出码）。
+ * 给 scripts/verify/run-node-check.mjs 复用，避免同一份扫描逻辑写两遍。
+ */
+export function runSyntaxCheck(root) {
+  const files = collectFiles(root).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+  const results = files.map((file) => checkFile(file, root));
+  const failures = results.filter((item) => !item.ok);
+  return {
     ok: failures.length === 0,
     total: files.length,
     passed: files.length - failures.length,
     failed: failures.length,
     failures
-  }, null, 2));
-} else {
-  console.log(`语法检查：共 ${files.length} 个文件，通过 ${files.length - failures.length} 个，失败 ${failures.length} 个`);
-  for (const item of failures) console.log(`  ✗ ${item.file}\n      ${item.message}`);
+  };
 }
 
-process.exit(failures.length === 0 ? 0 : 1);
+/** 命令行入口：只有被直接执行时才跑，被 import 时安静。 */
+const isCliEntry = process.argv[1]
+  && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+
+if (isCliEntry) {
+  const report = runSyntaxCheck(projectRoot);
+  if (wantJson) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    console.log(`语法检查：共 ${report.total} 个文件，通过 ${report.passed} 个，失败 ${report.failed} 个`);
+    for (const item of report.failures) console.log(`  ✗ ${item.file}\n      ${item.message}`);
+  }
+  process.exit(report.failed === 0 ? 0 : 1);
+}
