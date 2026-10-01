@@ -233,4 +233,4 @@ if (asJson) {
   }
 }
 
-process.exit(failed.length === 0 ? 0 : 1);
+process.exitCode = failed.length === 0 ? 0 : 1;
