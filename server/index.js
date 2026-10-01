@@ -147,6 +147,7 @@ import {
   VIDEO_ROUTE_SESSION_TTL_MS
 } from "./core/runtime-config.js";
 import { acquireImageSlot, imageSlotWeight, imageQueueSnapshot } from "./core/image-concurrency.js";
+import { generationRequestTraceMiddleware, localUploadParseMs } from "./core/generation-trace.js";
 import { compactLogMessage, sanitizeFilePart } from "./core/format-utils.js";
 import { logProcessFault, writeAssetLog, writeGenerationLog } from "./core/generation-logger.js";
 import {
@@ -159,7 +160,6 @@ import {
   wrapOutfitUpload
 } from "./core/uploads.js";
 const videoRouteSessions = new Map();
-const localGenerationRequestStartedAt = new Map();
 let resultCacheCleanupStarted = false;
 
 app.use(express.json({ limit: "100mb" }));
@@ -219,81 +219,6 @@ function sendEmbeddedStaticAsset(req, res) {
     })
     .end(body);
   return true;
-}
-
-function isGenerationTraceEndpoint(pathname = "") {
-  return [
-    "/api/images",
-    "/api/generate-outfit",
-    "/api/videos/generations"
-  ].includes(pathname);
-}
-
-function generationRequestTraceMiddleware(req, res, next) {
-  let pathname = "";
-  try {
-    pathname = new URL(req.originalUrl || req.url || "/", "http://127.0.0.1").pathname;
-  } catch {
-    pathname = String(req.path || req.url || "").split("?")[0];
-  }
-  if (req.method !== "POST" || !isGenerationTraceEndpoint(pathname)) {
-    next();
-    return;
-  }
-
-  const startedAt = Date.now();
-  const requestId = String(req.headers["x-jingyin-client-request-id"] || `local_${startedAt}_${Math.random().toString(36).slice(2, 8)}`);
-  localGenerationRequestStartedAt.set(requestId, startedAt);
-  const contentLength = Number.parseInt(String(req.headers["content-length"] || "0"), 10) || 0;
-  const baseLog = {
-    requestId,
-    endpoint: pathname,
-    method: req.method,
-    contentLength,
-    contentType: compactLogMessage(req.headers["content-type"] || "", 180),
-    userAgent: compactLogMessage(req.headers["user-agent"] || "", 180)
-  };
-
-  writeGenerationLog({
-    time: new Date().toISOString(),
-    ok: true,
-    stage: "local-request-received",
-    ...baseLog,
-    imageConcurrency: {
-      limit: IMAGE_CONCURRENCY_LIMIT,
-      ...imageQueueSnapshot()
-    }
-  }).catch(() => {});
-
-  let abortedLogged = false;
-  req.on("aborted", () => {
-    abortedLogged = true;
-    writeGenerationLog({
-      time: new Date().toISOString(),
-      ok: false,
-      stage: "local-request-aborted",
-      ...baseLog,
-      timingMs: Date.now() - startedAt
-    }).catch(() => {});
-  });
-
-  res.on("finish", () => {
-    writeGenerationLog({
-      time: new Date().toISOString(),
-      ok: res.statusCode < 400 && !abortedLogged,
-      stage: "local-response-finished",
-      ...baseLog,
-      status: res.statusCode,
-      timingMs: Date.now() - startedAt,
-      imageConcurrency: {
-        limit: IMAGE_CONCURRENCY_LIMIT,
-        ...imageQueueSnapshot()
-      }
-    }).catch(() => {});
-    localGenerationRequestStartedAt.delete(requestId);
-  });
-
-  next();
 }
 
 function billingChannelCandidates(baseUrls = [], params = {}) {
@@ -2748,7 +2673,7 @@ app.post("/api/generate-outfit", wrapOutfitUpload(imageForwardUpload.fields([
     fileCount: files.length,
     hasMask: Boolean(maskFile),
     uploadBytes,
-    localUploadParseMs: Math.max(0, receivedAt - (localGenerationRequestStartedAt.get(requestId) || receivedAt)),
+    localUploadParseMs: localUploadParseMs(requestId, receivedAt),
     hasApiKey: Boolean(apiKey),
     smartIntervention: smartInterventionEnabled,
     masterFitLock: Boolean(promptPayload.masterFitLock),
@@ -3380,7 +3305,7 @@ app.post("/api/images", wrapOutfitUpload(imageForwardUpload.array("image", IMAGE
     n: params.n,
     fileCount: files.length,
     uploadBytes,
-    localUploadParseMs: Math.max(0, receivedAt - (localGenerationRequestStartedAt.get(requestId) || receivedAt)),
+    localUploadParseMs: localUploadParseMs(requestId, receivedAt),
     hasApiKey: Boolean(apiKey),
     deferAutoSave,
     imageConcurrency: {
