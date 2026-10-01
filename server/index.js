@@ -48,14 +48,10 @@ import { createReferencePromptRewrite, localReferencePrompt } from "./reference-
 import { EMBEDDED_STATIC_ASSETS } from "./static-assets.generated.js";
 
 import {
-  canvasAssetDir,
   dataDir,
-  historyImageDir,
   packagedRootDir,
-  referenceAssetDir,
   resultDir,
-  rootDir,
-  uploadTempDir
+  rootDir
 } from "./core/app-paths.js";
 import {
   getSaveDirectory,
@@ -118,6 +114,7 @@ import {
   writeHistoryResults
 } from "./core/history-store.js";
 import { imageBufferFromPayload } from "./core/image-payload.js";
+import { STORAGE_TARGETS, STORAGE_IMAGE_PATTERN, storageUsageSnapshot } from "./core/storage-usage.js";
 const app = express();
 
 import {
@@ -1044,63 +1041,6 @@ app.delete("/api/history", async (req, res) => {
   await writeHistoryResults(results, { replaceBackup: results.length === 0 });
   res.json({ ok: true, total: results.length });
 });
-
-// ---------------------------------------------------------------------------
-// 2026-09-29（v3.7）：数据与存储自助接口。
-// 背景：历史图/参考图/结果缓存都写在数据目录（封装版为 %LOCALAPPDATA%\静音AI绘画数据），
-// 用户既看不到路径，也没有能真正清掉文件的手段（只清 history.json 会被图片扫描复活）。
-// 这里提供：用量查询 / 打开数据目录 / 安全清理（只删固定目录下的普通文件，
-// 图片类目录只删图片扩展名；清历史图片时同时把历史清单置空并覆盖备份）。
-const STORAGE_TARGETS = [
-  { key: "historyImages", label: "历史图片", resolve: () => historyImageDir, imagesOnly: true, resetsHistory: true },
-  { key: "references", label: "参考图缓存", resolve: () => referenceAssetDir, imagesOnly: true },
-  { key: "results", label: "结果图缓存", resolve: () => resultDir, imagesOnly: true },
-  { key: "canvasAssets", label: "画布资源", resolve: () => canvasAssetDir, imagesOnly: true },
-  { key: "logs", label: "运行日志", resolve: () => path.join(rootDir, "logs"), imagesOnly: false },
-  { key: "tmpUploads", label: "上传临时文件", resolve: () => uploadTempDir, imagesOnly: false }
-];
-const STORAGE_IMAGE_PATTERN = /\.(png|jpe?g|webp|gif|bmp)$/i;
-
-async function storageDirUsage(dir) {
-  let files = 0;
-  let bytes = 0;
-  try {
-    const entries = await readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isFile()) continue;
-      try {
-        const info = await stat(path.join(dir, entry.name));
-        files += 1;
-        bytes += info.size;
-      } catch {
-        // 单个文件读不到就跳过，不影响整体统计
-      }
-    }
-  } catch {
-    // 目录不存在视为 0
-  }
-  return { files, bytes };
-}
-
-async function storageUsageSnapshot() {
-  const items = [];
-  let totalBytes = 0;
-  for (const target of STORAGE_TARGETS) {
-    const dir = target.resolve();
-    const usage = await storageDirUsage(dir);
-    totalBytes += usage.bytes;
-    items.push({ key: target.key, label: target.label, path: dir, files: usage.files, bytes: usage.bytes });
-  }
-  const history = await readHistoryResults();
-  return {
-    rootDir,
-    dataDir,
-    logsDir: path.join(rootDir, "logs"),
-    items,
-    totalBytes,
-    historyCount: history.length
-  };
-}
 
 app.get("/api/storage/usage", async (_req, res) => {
   try {
