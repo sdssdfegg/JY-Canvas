@@ -10,10 +10,29 @@
 //   - server/core/**/*.js
 //   - server/routes/**/*.js   （当前还不存在，见下方存在性过滤）
 //   - server/shared/**/*.js   （当前还不存在，见下方存在性过滤）
-// 排除范围（刻意不纳入，避免稀释逐文件语义或引入历史快照/生成物）：
-//   - server/features/**        —— KEY 清洗有自己的 parity 脚本
-//   - server/skill-baselines/** —— V3 历史对照副本，禁止修改
-//   - server/static-assets.generated.js —— 生成物
+// 排除范围（刻意不纳入 —— **排除必须有理由，理由必须来自实测**，见 §0.9 第 11 条）：
+//
+//   - server/features/**  —— V11-RF-023 实测核实（2026-10-02）：该目录下 **3 个 .js 全部是活副本**，
+//       被运行时真实引用，**一个都不是死代码**：
+//         · auth/api-key.js
+//             ← server/core/image-error-policy.js:25 import（运行时真实依赖）
+//             ← scripts/verify/auth-key-parity-check.mjs:36 动态 import（前后端 parity 门禁）
+//         · api-gateway/gateway-registry.js
+//             ← server/channel-config.js:5 import（运行时真实依赖）
+//         · api-gateway/gateways/jingyin-online.js
+//             ← 被 gateway-registry.js:1 import（运行时，经 registry 间接依赖）
+//             ← scripts/verify/routing-check.mjs:735 动态 import（路由契约门禁）
+//       为什么不纳入：这些文件**各自有专属门禁守护**（KEY 清洗靠 auth-key-parity 做前后端比对、
+//       网关靠 routing-check 钉契约）。若纳入 server-duplication-check，同一函数在前后端各有一份
+//       （这是**设计如此**，不是复制粘贴）会被误报成"跨文件同名"，稀释逐文件语义。
+//       ⚠️ 代价（必须知道）：本收集器的消费者（server-duplication-check、state-singleton-check）
+//       **看不到 features/ 内部的改动**。改这些文件要靠上面两个专属脚本兜住，别以为"门禁全绿"就没事。
+//
+//   - server/skill-baselines/** —— **冻结的历史快照**（V3 时代的 main.jsx / server-index.js 整份副本）。
+//       用途仅为取证对照（看"当时是什么样"），**禁止修改**；纳入扫描会让几乎每个函数都报重复，故排除。
+//
+//   - server/static-assets.generated.js —— **生成物**，由 scripts/generate-static-assets.mjs 产出，非手写源码。
+//
 // 实现上只遍历上面点名的三个子目录 + index.js，因此上述排除项天然不会被纳入。
 //
 // 关键契约：任何目录不存在都安全跳过（返回空数组 / 跳过该文件），绝不抛异常。
@@ -28,6 +47,7 @@ const SERVER_DIR = path.join(ROOT, "server");
 
 // 只在这三个子目录里递归收集 .js；features / skill-baselines / 顶层生成物
 // 不在这三个目录内，因此天然被排除（不会被纳入）。
+// 排除理由与实测证据见文件头「排除范围」注释块（V11-RF-023）——改这里前先看那段。
 const INCLUDE_DIRS = ["core", "routes", "shared"];
 
 function collectJsIn(dir, out) {
