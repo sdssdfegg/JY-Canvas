@@ -146,6 +146,7 @@ import {
   VIDEO_BILLING_GATEWAY_REQUIRED,
   VIDEO_ROUTE_SESSION_TTL_MS
 } from "./core/runtime-config.js";
+import { acquireImageSlot, imageSlotWeight, imageQueueSnapshot } from "./core/image-concurrency.js";
 import { compactLogMessage, sanitizeFilePart } from "./core/format-utils.js";
 import { logProcessFault, writeAssetLog, writeGenerationLog } from "./core/generation-logger.js";
 import {
@@ -157,8 +158,6 @@ import {
   upload,
   wrapOutfitUpload
 } from "./core/uploads.js";
-let activeImageRequestCount = 0;
-const imageRequestQueue = [];
 const videoRouteSessions = new Map();
 const localGenerationRequestStartedAt = new Map();
 let resultCacheCleanupStarted = false;
@@ -222,42 +221,6 @@ function sendEmbeddedStaticAsset(req, res) {
   return true;
 }
 
-function imageSlotWeight(value) {
-  return Math.max(1, Math.min(IMAGE_CONCURRENCY_LIMIT, Number.parseInt(value, 10) || 1));
-}
-
-function drainImageQueue() {
-  while (
-    imageRequestQueue.length > 0
-    && activeImageRequestCount + imageRequestQueue[0].weight <= IMAGE_CONCURRENCY_LIMIT
-  ) {
-    const next = imageRequestQueue.shift();
-    next.grant();
-  }
-}
-
-function acquireImageSlot(weight = 1) {
-  const slotWeight = imageSlotWeight(weight);
-  return new Promise((resolve) => {
-    const grant = () => {
-      activeImageRequestCount += slotWeight;
-      let released = false;
-      resolve(() => {
-        if (released) return;
-        released = true;
-        activeImageRequestCount = Math.max(0, activeImageRequestCount - slotWeight);
-        queueMicrotask(drainImageQueue);
-      });
-    };
-
-    if (activeImageRequestCount + slotWeight <= IMAGE_CONCURRENCY_LIMIT) {
-      grant();
-    } else {
-      imageRequestQueue.push({ weight: slotWeight, grant });
-    }
-  });
-}
-
 function isGenerationTraceEndpoint(pathname = "") {
   return [
     "/api/images",
@@ -298,8 +261,7 @@ function generationRequestTraceMiddleware(req, res, next) {
     ...baseLog,
     imageConcurrency: {
       limit: IMAGE_CONCURRENCY_LIMIT,
-      active: activeImageRequestCount,
-      queued: imageRequestQueue.length
+      ...imageQueueSnapshot()
     }
   }).catch(() => {});
 
@@ -325,8 +287,7 @@ function generationRequestTraceMiddleware(req, res, next) {
       timingMs: Date.now() - startedAt,
       imageConcurrency: {
         limit: IMAGE_CONCURRENCY_LIMIT,
-        active: activeImageRequestCount,
-        queued: imageRequestQueue.length
+        ...imageQueueSnapshot()
       }
     }).catch(() => {});
     localGenerationRequestStartedAt.delete(requestId);
@@ -1133,8 +1094,7 @@ app.get("/api/health", (_req, res) => {
     gatewayBaseUrl: PRIMARY_CHANNEL_API_BASE_URL,
     imageConcurrency: {
       limit: IMAGE_CONCURRENCY_LIMIT,
-      active: activeImageRequestCount,
-      queued: imageRequestQueue.length
+      ...imageQueueSnapshot()
     },
     memory: {
       rssMb: Number((memory.rss / 1024 / 1024).toFixed(1)),
@@ -2795,8 +2755,7 @@ app.post("/api/generate-outfit", wrapOutfitUpload(imageForwardUpload.fields([
     localEdit: Boolean(payload.localEdit?.enabled),
     imageConcurrency: {
       limit: IMAGE_CONCURRENCY_LIMIT,
-      active: activeImageRequestCount,
-      queued: imageRequestQueue.length
+      ...imageQueueSnapshot()
     }
   }).catch(() => {});
 
@@ -2814,8 +2773,7 @@ app.post("/api/generate-outfit", wrapOutfitUpload(imageForwardUpload.fields([
       queueWaitMs,
       imageConcurrency: {
         limit: IMAGE_CONCURRENCY_LIMIT,
-        active: activeImageRequestCount,
-        queued: imageRequestQueue.length
+        ...imageQueueSnapshot()
       }
     });
     const billing = await prepareImageBillingForRequest({
@@ -3427,8 +3385,7 @@ app.post("/api/images", wrapOutfitUpload(imageForwardUpload.array("image", IMAGE
     deferAutoSave,
     imageConcurrency: {
       limit: IMAGE_CONCURRENCY_LIMIT,
-      active: activeImageRequestCount,
-      queued: imageRequestQueue.length
+      ...imageQueueSnapshot()
     }
   }).catch(() => {});
 
@@ -3446,8 +3403,7 @@ app.post("/api/images", wrapOutfitUpload(imageForwardUpload.array("image", IMAGE
       queueWaitMs,
       imageConcurrency: {
         limit: IMAGE_CONCURRENCY_LIMIT,
-        active: activeImageRequestCount,
-        queued: imageRequestQueue.length
+        ...imageQueueSnapshot()
       }
     });
     const billing = await prepareImageBillingForRequest({

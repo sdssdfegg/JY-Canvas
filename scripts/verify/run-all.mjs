@@ -46,6 +46,9 @@ const ORDER = [
   //   所以必须能被自动发现）。跑得很快，排在起进程的那批之前。
   "runtime-config-baseline-check",
   "auth-key-parity-check",
+  // V11-RF-101 硬性交付物：出图并发状态只能各有一处定义点（在 server/core/image-concurrency.js 内）；
+  // 复用 V11-RF-010 的真相源收集器，将来 routes/** 自建第二份会被自动抓红。纯源码检查，跑得快。
+  "state-singleton-check",
   "canvas-asset-check",
   "history-repair-check",
   "history-integrity-check",
