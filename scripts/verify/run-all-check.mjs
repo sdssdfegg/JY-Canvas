@@ -1,7 +1,7 @@
 // 验证「验证脚本已被接入 npm test / npm run check」这件事本身。
 //
 // 覆盖：
-//   1. package.json 里 test / check 已指向 run-all；check 仍包含全部源码语法检查
+//   1. package.json 里 test / check 已指向 run-all；check 串起 scripts/check-syntax.mjs 作语法检查统一入口
 //   2. run-all 能发现全部可执行验证脚本（数量与磁盘一致，且顺序表里的都在）
 //   3. --only 过滤生效；找不到时报错退出（退出码 2）；--list 只打印不执行
 //   4. **失败会传播**：故意放一个必失败的脚本进去，run-all 必须退出非 0 并在输出里点名
@@ -31,14 +31,27 @@ check("package.json 有 npm test 且指向 run-all",
 check("npm run check 里串上了 run-all（语法检查 + 全部验证脚本）",
   String(pkg.scripts?.check || "").includes("node scripts/verify/run-all.mjs"),
   String(pkg.scripts?.check || "").slice(-60));
-check("check 仍然包含全部源码语法检查（14 个 node --check 目标）",
-  ([...String(pkg.scripts?.check || "").matchAll(/node\s+--check\s+(\S+)/g)]
-    .map((m) => m[1])
-    .filter((target) => !target.replace(/\\/g, "/").startsWith("scripts/")).length) === 14,
-  `实际 ${([...String(pkg.scripts?.check || "").matchAll(/node\s+--check\s+(\S+)/g)].length)} 个`);
-check("保留 check:syntax 便于单独跑语法检查",
-  String(pkg.scripts?.["check:syntax"] || "").includes("node --check"),
-  String(pkg.scripts?.["check:syntax"] || "(缺失)").slice(0, 40));
+// 语法检查入口早已从「package.json 里手写 14 条 node --check」改为
+// scripts/check-syntax.mjs（自动扫描 server/src/scripts/prompts）。故此处只断言
+// check 串起了 check-syntax.mjs，不再核对会腐烂的手写 node --check 清单。
+const CHECK_SYNTAX_PATH = "scripts/check-syntax.mjs";
+check("npm run check 串起了 scripts/check-syntax.mjs（语法检查统一入口）",
+  String(pkg.scripts?.check || "").includes(CHECK_SYNTAX_PATH),
+  String(pkg.scripts?.check || "").slice(-80));
+// 更强断言：直接从 check-syntax.mjs 源码读出 SCAN_ROOTS，确认覆盖 server/src/scripts/prompts。
+const checkSyntaxSource = readFileSync(path.join(ROOT, CHECK_SYNTAX_PATH), "utf8");
+const scanRootsMatch = /const SCAN_ROOTS\s*=\s*\[([\s\S]*?)\]/.exec(checkSyntaxSource);
+const scanRoots = scanRootsMatch
+  ? [...scanRootsMatch[1].matchAll(/"([^"]+)"/g)].map((m) => m[1])
+  : [];
+const REQUIRED_ROOTS = ["server", "src", "scripts", "prompts"];
+check("check-syntax.mjs 的 SCAN_ROOTS 覆盖 server/src/scripts/prompts",
+  REQUIRED_ROOTS.every((r) => scanRoots.includes(r)),
+  `SCAN_ROOTS=[${scanRoots.join(",")}]`);
+// check:syntax 便于单独跑语法检查 —— 只要存在且指向 check-syntax.mjs 即可，不再要求含 node --check。
+check("保留 check:syntax 便于单独跑语法检查（指向 scripts/check-syntax.mjs）",
+  String(pkg.scripts?.["check:syntax"] || "").includes(CHECK_SYNTAX_PATH),
+  String(pkg.scripts?.["check:syntax"] || "(缺失)").slice(0, 60));
 
 // ---------- 2) run-all 能发现全部脚本 ----------
 // `__` 开头的是测试夹具（见 run-all.mjs 的 isFixture），不属于正式验证集，
@@ -120,8 +133,8 @@ const fixturePath = path.join(VERIFY_DIR, "__fail-fixture-check.mjs");
 check("失败夹具常驻在脚本目录里", existsSync(fixturePath), path.relative(ROOT, fixturePath));
 // 夹具默认不该被跑（否则残留一个必失败文件会把整套测试带崩），但 --only 点名时要能选中。
 check("夹具不进默认执行列表",
-  !listScripts().names.includes("__fail-fixture-check"),
-  "夹具混进默认列表了");
+  !defaultList.names.includes("__fail-fixture-check"),
+  `默认列表含夹具=${defaultList.names.includes("__fail-fixture-check")}`);
 check("夹具可以被 --only 点名选中（元测试需要它验失败传播）",
   listScripts(["--only", "__fail-fixture-check"]).names.includes("__fail-fixture-check"),
   listScripts(["--only", "__fail-fixture-check"]).names.join(","));
@@ -139,7 +152,7 @@ check("夹具可以被 --only 点名选中（元测试需要它验失败传播�
   const failRunText = spawnSync(NODE, [path.join(VERIFY_DIR, "run-all.mjs"), "--only", "__fail-fixture-check"], { cwd: ROOT, encoding: "utf8" });
   check("run-all：人读输出里点名失败脚本",
     failRunText.status === 1 && /失败脚本：__fail-fixture-check/.test(failRunText.stdout),
-    `status=${failRunText.status} 输出未点名`);
+    `status=${failRunText.status} stdout含点名=${/失败脚本：__fail-fixture-check/.test(failRunText.stdout)}`);
 }
 check("跑完夹具后脚本目录仍是干净的（没有残留临时文件）",
   readdirSync(VERIFY_DIR).filter((name) => name.startsWith("__")).length === 1,
