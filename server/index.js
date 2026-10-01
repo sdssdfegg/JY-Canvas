@@ -14,26 +14,15 @@ import {
   summarizeResponse
 } from "./channel.js";
 import {
-  PRIMARY_CHANNEL_API_BASE_URL,
-  publicChannelGateways,
-  publicChannelModels,
-  publicChannelPolicyConfig,
-  publicRoutingCatalog
-} from "./channel-config.js";
-import { checkGatewayConnectivity } from "./core/gateway-connectivity.js";
-import {
   JINGYIN_VIDEO_GATEWAY_CHANNEL_ID,
   createGatewayVideoBody,
   gatewayVideoBaseUrl,
-  normalizeVideoGenerationRequest,
-  publicVideoModels,
-  publicVideoPolicyConfig
+  normalizeVideoGenerationRequest
 } from "./video-config.js";
 import {
   billingGatewayPolicy,
   prepareVideoBillingTask,
-  publicBillingErrorPayload,
-  publicBillingGatewayPolicy
+  publicBillingErrorPayload
 } from "./billing-gateway.js";
 import { createDetailAiPlan } from "./detail-ai.js";
 import { buildDetailPromptGroup as buildDetailPromptGroupV2 } from "./detail-middleware.js";
@@ -75,7 +64,6 @@ import {
   writeProcessedImage
 } from "./core/asset-persist.js";
 import {
-  clientDiagnosticStage,
   imageFailureMessage,
   imagePromptLogFields,
   isImageAuthError,
@@ -83,7 +71,6 @@ import {
   publicImageErrorCode,
   publicImageErrorPayload,
   resolveApiKey,
-  sanitizeClientDiagnosticValue,
   shouldTreatPrivateChannelAuthAsChannelFault,
   shouldTryNextChannel,
   shouldTryNextImageVariant,
@@ -162,6 +149,7 @@ import {
   wrapOutfitUpload
 } from "./core/uploads.js";
 import { outfitUploadFileGroups } from "./core/outfit-upload-groups.js";
+import { registerSystemRoutes } from "./routes/system.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -203,194 +191,7 @@ process.on("uncaughtException", (error) => {
 
 
 
-app.get("/api/config", (_req, res) => {
-  const billingPolicy = publicBillingGatewayPolicy();
-  const videoPolicy = publicVideoPolicyConfig();
-  const videoAvailableByGateway = billingPolicy.enabled;
-  const videoAvailable = videoPolicy.enabled || videoAvailableByGateway;
-  res.json({
-    ok: true,
-    defaultBaseUrl: PRIMARY_CHANNEL_API_BASE_URL,
-    fallbackBaseUrl: "",
-    hasServerKey: false,
-    channelPolicy: publicChannelPolicyConfig(),
-    models: publicChannelModels(),
-    routing: publicRoutingCatalog(),
-    billingGatewayPolicy: {
-      ...billingPolicy,
-      videoRequired: VIDEO_BILLING_GATEWAY_REQUIRED
-    },
-    videoPolicy: {
-      ...videoPolicy,
-      enabled: videoAvailable,
-      routeSource: videoAvailableByGateway ? "billing-gateway" : (videoPolicy.enabled ? "server-key" : "unconfigured")
-    },
-    videoModels: publicVideoModels().map((model) => ({
-      ...model,
-      enabled: videoAvailable
-    }))
-  });
-});
-
-// 与 3.0 使用同一份模型能力/手动线路目录；旧 V11 页面也可直接读取。
-app.get("/api/ecommerce/routing", (_req, res) => {
-  res.json({ ok: true, ...publicRoutingCatalog() });
-});
-
-/**
- * POST /api/connection-test —— 「连接测试」。
- *
- * 行为对照 3.0 的 `/api/providers/test-connection`：
- *   只向上游发 `GET {base}/models`（带 Authorization），**不调用生图、不上传图片、不扣费**。
- * 与 3.0 的差异：V11 的网关/线路来自本仓库的 channel 配置，KEY 由前端传入（服务端不落盘），
- * 所以这里按 V11 自己的字段名收发。
- *
- * 安全：
- *   - 绝不回显 API Key / Authorization；
- *   - 上游错误信息先做脱敏（去掉 key/token 片段）再返回；
- *   - 不写入任何日志文件，也不返回完整响应体，只给结论 + 状态码 + 耗时。
- */
-app.post("/api/connection-test", async (req, res) => {
-  const body = req.body && typeof req.body === "object" ? req.body : {};
-  const requestedBaseUrl = String(body.baseUrl || body.base_url || "").trim().replace(/\/+$/, "");
-  const fallbackBaseUrl = String(channelBaseCandidates()[0] || PRIMARY_CHANNEL_API_BASE_URL || "").replace(/\/+$/, "");
-  const baseUrl = requestedBaseUrl || fallbackBaseUrl;
-  const startedAt = Date.now();
-
-  if (!baseUrl) {
-    return res.status(400).json({ ok: false, status: 0, message: "请先填写请求地址", latencyMs: 0 });
-  }
-  if (!/^https?:\/\//i.test(baseUrl)) {
-    return res.status(400).json({ ok: false, status: 0, message: "请求地址必须以 http:// 或 https:// 开头", latencyMs: 0 });
-  }
-
-  const apiKey = resolveApiKey(body.apiKey);
-  if (!apiKey) {
-    return res.status(400).json({ ok: false, status: 0, message: "请先填写或保存 API Key", latencyMs: 0 });
-  }
-
-  // 与 3.0 一致：base 以 /v1 结尾就直接拼 /models，否则补 /v1/models。
-  const probeUrl = /\/v1$/i.test(baseUrl) ? `${baseUrl}/models` : `${baseUrl}/v1/models`;
-  const abort = createAbortSignal(15000);
-  try {
-    const response = await fetch(probeUrl, {
-      method: "GET",
-      redirect: "manual",
-      signal: abort.signal,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json"
-      }
-    });
-    const status = Number(response.status || 0);
-    let message;
-    if (status === 401 || status === 403) {
-      message = `API Key 无效或无权限（HTTP ${status}）`;
-    } else if (status === 404) {
-      message = "连接可达，但上游没有 /v1/models 接口（HTTP 404）";
-    } else if (status >= 500) {
-      message = `上游服务暂时不可用（HTTP ${status}）`;
-    } else if (status >= 400) {
-      message = `上游拒绝了探测请求（HTTP ${status}）`;
-    } else {
-      // 只读模型清单，用来证明这条线路真的可用；不展示完整响应内容。
-      let modelCount = 0;
-      try {
-        const payload = await response.json();
-        const list = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload?.models) ? payload.models : [];
-        modelCount = list.length;
-      } catch { /* 模型清单解析失败不影响连通结论 */ }
-      message = modelCount > 0
-        ? `连接正常，可用模型 ${modelCount} 个`
-        : "连接正常";
-    }
-    return res.json({
-      ok: status >= 200 && status < 400,
-      status,
-      latencyMs: Date.now() - startedAt,
-      model: String(body.model || ""),
-      channelId: String(body.channelId || ""),
-      message
-    });
-  } catch (error) {
-    const isTimeout = error?.name === "AbortError";
-    const raw = error instanceof Error ? error.message : String(error);
-    // 脱敏：上游报错里可能带 key/token 片段，统一替换掉再回前端。
-    const safe = raw.replace(/sk-[A-Za-z0-9_-]{6,}/g, "sk-***").replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer ***");
-    return res.json({
-      ok: false,
-      status: 0,
-      latencyMs: Date.now() - startedAt,
-      model: String(body.model || ""),
-      channelId: String(body.channelId || ""),
-      message: isTimeout ? "连接超时（15 秒无响应）" : `连接失败：${safe}`
-    });
-  } finally {
-    abort.dispose();
-  }
-});
-
-app.get("/api/gateways", (_req, res) => {
-  const gateways = publicChannelGateways();
-  res.json({
-    ok: true,
-    priorityRule: "priority 数字越小越靠前；第 1 个是主中转站，后续是备用中转站。",
-    activeEndpointCount: gateways.length,
-    gateways
-  });
-});
-
-app.get("/api/gateways/status", async (_req, res) => {
-  const gateways = publicChannelGateways();
-  const checks = await Promise.all(gateways.map(checkGatewayConnectivity));
-  res.json({
-    ok: true,
-    checkedAt: new Date().toISOString(),
-    priorityRule: "priority 数字越小越靠前；本检查不携带用户 KEY、不调用生图、不扣费。",
-    activeEndpointCount: checks.length,
-    allReachable: checks.every((item) => item.reachable),
-    gateways: checks
-  });
-});
-
-app.get("/api/health", (_req, res) => {
-  const memory = process.memoryUsage();
-  res.json({
-    ok: true,
-    version: "11.0.0",
-    now: new Date().toISOString(),
-    gatewayBaseUrl: PRIMARY_CHANNEL_API_BASE_URL,
-    imageConcurrency: {
-      limit: IMAGE_CONCURRENCY_LIMIT,
-      ...imageQueueSnapshot()
-    },
-    memory: {
-      rssMb: Number((memory.rss / 1024 / 1024).toFixed(1)),
-      heapUsedMb: Number((memory.heapUsed / 1024 / 1024).toFixed(1)),
-      heapTotalMb: Number((memory.heapTotal / 1024 / 1024).toFixed(1)),
-      externalMb: Number((memory.external / 1024 / 1024).toFixed(1))
-    },
-    uptimeSec: Math.floor(process.uptime())
-  });
-});
-
-app.post("/api/client-diagnostic-event", (req, res) => {
-  const body = req.body && typeof req.body === "object" ? req.body : {};
-  const requestId = String(body.requestId || `client_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
-  writeGenerationLog({
-    time: new Date().toISOString(),
-    requestId,
-    ok: body.ok !== false,
-    stage: clientDiagnosticStage(body.stage),
-    event: sanitizeClientDiagnosticValue("event", body.event || body.stage || ""),
-    endpoint: sanitizeClientDiagnosticValue("endpoint", body.endpoint || body.url || ""),
-    method: sanitizeClientDiagnosticValue("method", body.method || ""),
-    status: Number.isFinite(Number(body.status)) ? Number(body.status) : undefined,
-    durationMs: Number.isFinite(Number(body.durationMs)) ? Number(body.durationMs) : undefined,
-    detail: sanitizeClientDiagnosticValue("detail", body.detail || {})
-  }).catch(() => {});
-  res.json({ ok: true });
-});
+registerSystemRoutes(app);
 
 app.post("/api/debug/image-request-params", async (req, res) => {
   try {
