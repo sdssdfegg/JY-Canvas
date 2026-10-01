@@ -149,6 +149,9 @@ import { generationRequestTraceMiddleware, localUploadParseMs } from "./core/gen
 import { prepareImageBillingForRequest, finalizeBillingInBackground } from "./core/billing-attempts.js";
 import { compactLogMessage, sanitizeFilePart } from "./core/format-utils.js";
 import { logProcessFault, writeAssetLog, writeGenerationLog } from "./core/generation-logger.js";
+import { buildImageRequestDiagnostic } from "./core/image-diagnostics.js";
+import { historyItemForImmediateDisplay, hasHistoryDisplayArchive } from "./core/history-display.js";
+import { openDirectory, pickDirectory } from "./core/directory-picker.js";
 import {
   IMAGE_UPLOAD_PARSE_CEILING,
   ensureFileBuffer,
@@ -234,77 +237,6 @@ process.on("uncaughtException", (error) => {
 
 
 
-async function openDirectory(directory) {
-  const resolved = await setSaveDirectory(directory || await getSaveDirectory());
-  const child = spawn("explorer.exe", [resolved], {
-    detached: true,
-    stdio: "ignore",
-    windowsHide: false
-  });
-  child.unref();
-  return resolved;
-}
-
-async function pickDirectory(initialDirectory) {
-  const normalizedInitialDirectory = await normalizeUsableSaveDirectory(initialDirectory);
-  await mkdir(normalizedInitialDirectory, { recursive: true });
-  return new Promise((resolve, reject) => {
-    const script = [
-      "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
-      "Add-Type -AssemblyName System.Windows.Forms | Out-Null",
-      "Add-Type -AssemblyName System.Drawing | Out-Null",
-      "$owner = New-Object System.Windows.Forms.Form",
-      "$owner.Text = 'Jingyin Directory Picker'",
-      "$owner.ShowInTaskbar = $false",
-      "$owner.StartPosition = 'Manual'",
-      "$owner.Size = New-Object System.Drawing.Size(1, 1)",
-      "$owner.Location = New-Object System.Drawing.Point(-32000, -32000)",
-      "$owner.TopMost = $true",
-      "$owner.Opacity = 0",
-      "$null = $owner.Show()",
-      "$owner.Activate()",
-      "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog",
-      "$dialog.Description = 'Select save directory'",
-      "$dialog.ShowNewFolderButton = $true",
-      "$dialog.RootFolder = [System.Environment+SpecialFolder]::MyComputer",
-      "$initial = $env:JY_PICK_INITIAL",
-      "if ($initial -and (Test-Path -LiteralPath $initial)) { $dialog.SelectedPath = $initial }",
-      "try { $result = $dialog.ShowDialog($owner); if ($result -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dialog.SelectedPath } } finally { $owner.Close(); $owner.Dispose(); $dialog.Dispose() }"
-    ].join("; ");
-
-    const child = spawn("powershell.exe", [
-      "-NoProfile",
-      "-STA",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-Command",
-      script
-    ], {
-      env: { ...process.env, JY_PICK_INITIAL: normalizedInitialDirectory },
-      windowsHide: true
-    });
-
-    let stdout = "";
-    let stderr = "";
-    child.stdout?.setEncoding("utf8");
-    child.stderr?.setEncoding("utf8");
-    child.stdout?.on("data", (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr?.on("data", (chunk) => {
-      stderr += chunk;
-    });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code !== 0) {
-        reject(new Error(stderr.trim() || `目录选择器退出 ${code}`));
-        return;
-      }
-      const directory = stdout.trim();
-      resolve(directory ? path.resolve(directory) : "");
-    });
-  });
-}
 
 
 
@@ -322,71 +254,6 @@ async function pickDirectory(initialDirectory) {
  * 判定与前端共用同一份实现（src/shared/image-hosts.js），发布时由 esbuild 内联进 bundle。
  */
 
-function imageForImmediateDisplay(image) {
-  if (!image || typeof image !== "object") return image;
-  if (image.type !== "url") return image;
-  const sourceUrl = String(image.sourceUrl || image.value || "").trim();
-  if (!/^https?:\/\//i.test(sourceUrl)) return image;
-  const localUrl = imageProxyUrl(sourceUrl);
-  return {
-    ...image,
-    value: sourceUrl,
-    localUrl,
-    proxySourceUrl: sourceUrl,
-    sourceUrl
-  };
-}
-
-function isBase64ImagePayload(image) {
-  if (!image || typeof image !== "object") return false;
-  if (image.type === "b64_json") return true;
-  return /^data:image\/[a-z0-9.+-]+;base64,/i.test(String(image.value || image.localUrl || ""));
-}
-
-function hasHistoryDisplayArchive(item) {
-  return Boolean(
-    item?.image?.archiveFile
-    || String(item?.image?.localUrl || "").startsWith("/api/history-image/")
-  );
-}
-
-async function historyItemForImmediateDisplay(item, requestId = "", timeoutMs = RESULT_DISPLAY_CACHE_BLOCKING_TIMEOUT_MS) {
-  const normalized = normalizeHistoryItem(item);
-  const wasArchived = hasHistoryDisplayArchive(normalized);
-  const cacheStartedAt = Date.now();
-  const archived = await archiveIncomingHistoryItem(normalized, timeoutMs);
-  if (hasHistoryDisplayArchive(archived)) {
-    if (!wasArchived) {
-      await writeGenerationLog({
-        time: new Date().toISOString(),
-        requestId: requestId || item.id,
-        ok: true,
-        stage: isBase64ImagePayload(item?.image) ? "display-cache-base64-history-image" : "display-cache-url-history-image",
-        itemId: item.id,
-        archiveFile: archived.image.archiveFile || "",
-        localUrl: archived.image.localUrl || "",
-        timingMs: Date.now() - cacheStartedAt,
-        timeoutMs
-      });
-    }
-    return archived;
-  }
-  if (!wasArchived && normalized?.image) {
-    await writeGenerationLog({
-      time: new Date().toISOString(),
-      requestId: requestId || item.id,
-      ok: true,
-      stage: "display-cache-history-image-deferred",
-      itemId: item.id,
-      timingMs: Date.now() - cacheStartedAt,
-      timeoutMs
-    });
-  }
-  return {
-    ...normalized,
-    image: imageForImmediateDisplay(archived?.image || normalized?.image)
-  };
-}
 
 
 function channelBaseCandidates() {
@@ -445,112 +312,6 @@ function imageRequestLogTargets(params, files, baseUrls) {
   ));
 }
 
-function clampDiagnosticImageCount(value) {
-  return Math.max(0, Math.min(12, Number.parseInt(value, 10) || 0));
-}
-
-function diagnosticPlaceholderFiles(count) {
-  return Array.from({ length: count }, (_, index) => ({
-    buffer: Buffer.from([0]),
-    mimetype: "image/png",
-    originalname: `diagnostic-image-${index + 1}.png`,
-    size: 0
-  }));
-}
-
-function diagnosticFieldValue(key, value, params, imageIndex) {
-  const field = String(key || "").toLowerCase();
-  if (field.includes("key") || field === "authorization" || field.includes("token")) return "[hidden]";
-  if (field === "prompt") return "[hidden]";
-  if (field === "model") return String(value || "") === params.model ? params.model : "[server-mapped]";
-  if (field === "image") return `image#${imageIndex}`;
-  return String(value ?? "");
-}
-
-async function describeDiagnosticVariantFields(variant, params) {
-  if (variant.protocol === "json") {
-    const payload = JSON.parse(await variant.createBody());
-    return Object.entries(payload).map(([key, value]) => ({
-      key,
-      value: diagnosticFieldValue(key, value, params, 0)
-    }));
-  }
-
-  let imageIndex = 0;
-  const body = await variant.createBody();
-  return Array.from(body.entries()).map(([key, value]) => {
-    const isImage = String(key || "").toLowerCase() === "image";
-    if (isImage) imageIndex += 1;
-    return {
-      key,
-      value: diagnosticFieldValue(key, typeof value === "string" ? value : "", params, imageIndex)
-    };
-  });
-}
-
-async function buildImageRequestDiagnostic(input = {}) {
-  const requestedImageCount = clampDiagnosticImageCount(input.imageCount);
-  const hasImages = Boolean(input.hasImages ?? requestedImageCount > 0);
-  const imageCount = hasImages ? Math.max(1, requestedImageCount || 2) : 0;
-  const params = normalizeImageRequest({
-    ...input,
-    prompt: "diagnostic prompt omitted",
-    n: input.n || 1
-  });
-  const files = diagnosticPlaceholderFiles(imageCount);
-  const baseCandidates = imageChannelBaseCandidates(params.model);
-  const primaryBaseUrl = baseCandidates[0] || PRIMARY_CHANNEL_API_BASE_URL;
-  const primaryParams = imageParamsForBaseUrl(params, primaryBaseUrl);
-  const variants = await Promise.all(buildImageRequestVariants(primaryParams, files).map(async (variant, index) => ({
-    attempt: index + 1,
-    id: variant.id,
-    path: variant.path,
-    protocol: variant.protocol,
-    requestFormat: variant.requestFormat,
-    modelField: variant.model === params.model ? params.model : "[server-mapped]",
-    fields: await describeDiagnosticVariantFields(variant, params)
-  })));
-
-  return {
-    ok: true,
-    generatedAt: new Date().toISOString(),
-    charged: false,
-    upstreamCalled: false,
-    security: {
-      apiKeyIncluded: false,
-      promptIncluded: false,
-      imageContentIncluded: false,
-      upstreamBaseUrlIncluded: false,
-      priceIncluded: false
-    },
-    params: {
-      model: params.model,
-      source: params.source || "",
-      workflowMode: params.workflowMode || "",
-      imageSize: params.imageSize,
-      aspectRatio: params.aspectRatio,
-      n: params.n,
-      hasImages: files.length > 0,
-      imageCount: files.length
-    },
-    routes: baseCandidates.map((baseUrl, index) => {
-      const logFields = channelLogFields(baseUrl, index, baseCandidates.length);
-      return {
-        attempt: index + 1,
-        role: logFields.channelRole,
-        fallback: Boolean(logFields.channelIsFallback)
-      };
-    }),
-    billingGateway: {
-      enabled: billingGatewayPolicy().enabled,
-      note: billingGatewayPolicy().enabled
-        ? "真实生成时计费网关可能签发优先路由；自检不会展示签发路由、token、KEY 或真实域名。"
-        : "未启用计费签发；自检只展示本地静态候选摘要。"
-    },
-    primary: variants[0] || null,
-    variants
-  };
-}
 
 function outfitUploadFileGroups(req) {
   if (Array.isArray(req.files)) {
