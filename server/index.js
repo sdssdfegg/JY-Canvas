@@ -130,8 +130,7 @@ import {
   RESULT_CACHE_CONTROL,
   RESULT_CACHE_POST_WRITE_CLEANUP_DELAY_MS,
   RESULT_DISPLAY_CACHE_BLOCKING_TIMEOUT_MS,
-  VIDEO_BILLING_GATEWAY_REQUIRED,
-  VIDEO_ROUTE_SESSION_TTL_MS
+  VIDEO_BILLING_GATEWAY_REQUIRED
 } from "./core/runtime-config.js";
 import { acquireImageSlot, imageSlotWeight, imageQueueSnapshot } from "./core/image-concurrency.js";
 import { generationRequestTraceMiddleware, localUploadParseMs } from "./core/generation-trace.js";
@@ -147,11 +146,10 @@ import {
 } from "./core/image-channel-candidates.js";
 import { historyItemForImmediateDisplay, hasHistoryDisplayArchive } from "./core/history-display.js";
 import {
-  videoRouteText,
-  hasHeader,
-  safeSignedRouteHeaders,
-  signedRouteCredential
-} from "./core/route-helpers.js";
+  createVideoRouteFromBillingTask,
+  rememberVideoRouteSession,
+  videoRouteForStatus
+} from "./core/video-route-session.js";
 import {
   imageCandidateEntries,
   imageChannelLogForCandidate,
@@ -171,7 +169,6 @@ import {
   wrapOutfitUpload
 } from "./core/uploads.js";
 import { outfitUploadFileGroups } from "./core/outfit-upload-groups.js";
-const videoRouteSessions = new Map();
 let resultCacheCleanupStarted = false;
 
 app.use(express.json({ limit: "100mb" }));
@@ -512,106 +509,6 @@ app.post("/api/debug/image-request-params", async (req, res) => {
     });
   }
 });
-
-function videoRouteUrl(rawValue, baseUrl, fallbackPath) {
-  const raw = videoRouteText(rawValue || fallbackPath);
-  if (/^https?:\/\//i.test(raw)) return raw;
-  const normalizedBase = normalizeBaseUrl(baseUrl || gatewayVideoBaseUrl());
-  const routePath = raw.startsWith("/") ? raw : `/${raw}`;
-  return `${normalizedBase}${routePath}`;
-}
-
-function videoStatusUrlFromRoute(route, taskId) {
-  const encodedTaskId = encodeURIComponent(taskId);
-  const template = videoRouteText(route.statusUrlTemplate || route.statusUrl || "");
-  if (template) {
-    return videoRouteUrl(
-      template
-        .replace(/\{task_id\}/g, encodedTaskId)
-        .replace(/\{taskId\}/g, encodedTaskId)
-        .replace(/:taskId\b/g, encodedTaskId)
-        .replace(/:task_id\b/g, encodedTaskId),
-      route.baseUrl,
-      `/video/generations/${encodedTaskId}`
-    );
-  }
-  return videoRouteUrl(route.statusPath, route.baseUrl, `/video/generations/${encodedTaskId}`);
-}
-
-function createVideoRouteFromBillingTask(billingTask, fallbackBaseUrl, fallbackApiKey) {
-  const signedRoute = billingTask?.signedRoute && typeof billingTask.signedRoute === "object" && !Array.isArray(billingTask.signedRoute)
-    ? billingTask.signedRoute
-    : null;
-  const route = signedRoute || {};
-  const baseUrl = normalizeBaseUrl(
-    route.baseUrl
-    || route.base_url
-    || route.upstreamBaseUrl
-    || route.upstream_base_url
-    || fallbackBaseUrl
-  );
-  const headers = safeSignedRouteHeaders(route.headers);
-  const credential = signedRouteCredential(route) || resolveApiKey(fallbackApiKey);
-  if (credential && !hasHeader(headers, "authorization")) {
-    headers.Authorization = /^Bearer\s+/i.test(credential) ? credential : `Bearer ${credential}`;
-  }
-  const routeTokenHeader = videoRouteText(route.routeTokenHeader || route.route_token_header);
-  if (routeTokenHeader && billingTask?.routeToken && !hasHeader(headers, routeTokenHeader)) {
-    headers[routeTokenHeader] = billingTask.routeToken;
-  }
-
-  return {
-    baseUrl,
-    createUrl: videoRouteUrl(
-      route.createUrl
-      || route.create_url
-      || route.generationUrl
-      || route.generation_url
-      || route.url
-      || route.path,
-      baseUrl,
-      "/video/generations"
-    ),
-    statusUrlTemplate: videoRouteText(route.statusUrlTemplate || route.status_url_template || route.statusUrl || route.status_url),
-    statusPath: videoRouteText(route.statusPath || route.status_path),
-    headers,
-    usesSignedRoute: Boolean(signedRoute),
-    hasCredential: hasHeader(headers, "authorization") || Boolean(routeTokenHeader && billingTask?.routeToken),
-    channelId: videoRouteText(route.channelId || route.channel_id || JINGYIN_VIDEO_GATEWAY_CHANNEL_ID),
-    channelRole: videoRouteText(route.channelRole || route.channel_role || "video-primary")
-  };
-}
-
-function rememberVideoRouteSession(taskId, route) {
-  if (!taskId || !route?.hasCredential) return;
-  const now = Date.now();
-  for (const [id, session] of videoRouteSessions) {
-    if (!session?.expiresAt || session.expiresAt <= now) videoRouteSessions.delete(id);
-  }
-  videoRouteSessions.set(taskId, {
-    ...route,
-    createUrl: "",
-    expiresAt: now + VIDEO_ROUTE_SESSION_TTL_MS
-  });
-}
-
-function videoRouteForStatus(taskId, fallbackBaseUrl, fallbackApiKey) {
-  const now = Date.now();
-  const session = videoRouteSessions.get(taskId);
-  if (session?.expiresAt > now) {
-    return {
-      ...session,
-      statusUrl: videoStatusUrlFromRoute(session, taskId)
-    };
-  }
-  if (session) videoRouteSessions.delete(taskId);
-  const route = createVideoRouteFromBillingTask(null, fallbackBaseUrl, fallbackApiKey);
-  return {
-    ...route,
-    statusUrl: videoStatusUrlFromRoute(route, taskId)
-  };
-}
-
 app.post("/api/videos/generations", async (req, res) => {
   const receivedAt = Date.now();
   const requestId = `vid_${receivedAt}_${Math.random().toString(36).slice(2, 9)}`;

@@ -1,10 +1,12 @@
 // 单例状态门禁（V11-RF-101 的硬性交付物，不是可选项）。
 //
-// 断言：activeImageRequestCount / imageRequestQueue 这两个出图并发状态符号，
-// 在【全部服务端源码】里只允许各有 1 处定义点（let/const/var 声明），
-// 且该定义点必须位于 server/core/image-concurrency.js 内。
-// 任何其它文件里出现第二处声明，都代表有人"自建第二份并发状态"，
+// 断言：以下进程级单例状态符号，在【全部服务端源码】里只允许各有 1 处定义点
+// （let/const/var 声明），且该定义点必须位于指定的目标模块内。
+// 任何其它文件里出现第二处声明，都代表有人"自建第二份状态"，
 // 立即变红并点名文件（这是批次 3/4 的公共护栏）。
+//   - activeImageRequestCount / imageRequestQueue → 出图并发状态（RF-101）。
+//   - videoRouteSessions → 视频线路会话状态（RF-113，与 101 同一类单例陷阱：
+//     状态有两份 = 会话丢失 / 轮询拿不到原线路，表现为视频状态查询走错线路或 401）。
 //
 // 复用 V11-RF-010 的「服务端源码真相源」收集器 listServerSourceFiles()，
 // 这样将来 server/routes/** 出现"各持一份"会被自动抓住，不需要回头改本脚本。
@@ -16,8 +18,14 @@ import process from "node:process";
 import { listServerSourceFiles } from "./lib/server-sources.mjs";
 
 const ROOT = process.cwd();
-const TARGET_MODULE = path.join("server", "core", "image-concurrency.js");
-const SYMBOLS = ["activeImageRequestCount", "imageRequestQueue"];
+
+// 每个受监视符号：必须在「唯一目标模块」里有且仅有一处定义点（let/const/var）。
+// 以后新增进程级单例状态，直接往这里加一条即可，不需要改下面的逻辑。
+const MONITORED = [
+  { symbol: "activeImageRequestCount", targetModule: path.join("server", "core", "image-concurrency.js") },
+  { symbol: "imageRequestQueue", targetModule: path.join("server", "core", "image-concurrency.js") },
+  { symbol: "videoRouteSessions", targetModule: path.join("server", "core", "video-route-session.js") }
+];
 
 // 去掉注释，避免注释/字符串里的字样被误判成定义点。
 // 行注释只切「行首或空白后的 //」（保留 http:// 这类协议写法），且只切到行尾。
@@ -49,7 +57,7 @@ const files = listServerSourceFiles();
 const failures = [];
 const report = {};
 
-for (const symbol of SYMBOLS) {
+for (const { symbol, targetModule } of MONITORED) {
   const perFile = [];
   for (const file of files) {
     let source;
@@ -65,7 +73,7 @@ for (const symbol of SYMBOLS) {
     });
   }
   const totalDefs = perFile.reduce((n, f) => n + f.definitions.length, 0);
-  const bad = perFile.filter((f) => f.file !== TARGET_MODULE);
+  const bad = perFile.filter((f) => f.file !== targetModule);
   const offending = [];
   if (totalDefs !== 1) {
     offending.push(`定义点 ${totalDefs} 处（期望 1）`);
@@ -77,9 +85,10 @@ for (const symbol of SYMBOLS) {
     offending.push("未在任何服务端源码中找到定义");
   }
   if (offending.length > 0) {
-    failures.push({ symbol, reasons: offending, files: perFile.map((f) => f.file) });
+    failures.push({ symbol, targetModule, reasons: offending, files: perFile.map((f) => f.file) });
   }
   report[symbol] = {
+    targetModule,
     definitions: totalDefs,
     references: perFile.reduce((n, f) => n + f.references, 0),
     files: perFile
@@ -87,7 +96,11 @@ for (const symbol of SYMBOLS) {
 }
 
 const ok = failures.length === 0;
-const output = { ok, targetModule: TARGET_MODULE, symbols: report };
+const output = {
+  ok,
+  monitored: MONITORED.map((m) => ({ symbol: m.symbol, targetModule: m.targetModule })),
+  symbols: report
+};
 if (!ok) output.failures = failures;
 console.log(JSON.stringify(output, null, 2));
 process.exit(ok ? 0 : 1);
