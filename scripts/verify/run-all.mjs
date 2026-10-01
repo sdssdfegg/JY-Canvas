@@ -56,6 +56,13 @@ const ORDER = [
   // 且 dataDir/日志目录/uploadTempDir 都落在 rootDir 下；JINGYIN_RELEASE_ROOT 仍最高优先。
   // 纯进程内断言（不 spawn），跑得快，排在起进程的那批之前。
   "app-paths-check",
+  // V11-RF-018 交付物：相对导入路径存在性门禁（血案直接解药 ——
+  // RF-116 把 app-bootstrap 搬进 core/ 后写成 ./static-assets.generated.js，
+  // 启动直接 ERR_MODULE_NOT_FOUND，而当时所有门禁都抓不到）。
+  // 只扫 server/** 源码里写死的 import/export/import() 字面量说明符，
+  // 复用 RF-010 的真相源收集器，将来 server/routes/** 写错同样自动点名。
+  // 无基线无棘轮：坏路径任何时刻都是错。纯源码检查，跑得很快。
+  "import-path-check",
   "canvas-asset-check",
   "history-repair-check",
   "history-integrity-check",
