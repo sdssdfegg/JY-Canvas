@@ -68,7 +68,6 @@ import {
 } from "./core/app-paths.js";
 import {
   getSaveDirectory,
-  normalizeUsableSaveDirectory,
   setSaveDirectory
 } from "./core/app-settings.js";
 import { gatewayCompressionMiddleware } from "./core/http-compression.js";
@@ -78,7 +77,6 @@ import {
 } from "./core/file-naming.js";
 import {
   downloadExternalImageWithFallback,
-  imageProxyUrl,
   parseProxyTarget,
   streamExternalImageProxy
 } from "./core/image-proxy.js";
@@ -119,10 +117,8 @@ import { canvasAssetPath, historyImagePath, referenceAssetPath } from "./core/as
 import {
   annotateHistoryIntegrity,
   appendHistoryResults,
-  archiveIncomingHistoryItem,
   ensureHistoryRepairBackup,
   itemWithArchivedImage,
-  normalizeHistoryItem,
   readHistoryResults,
   writeHistoryResults
 } from "./core/history-store.js";
