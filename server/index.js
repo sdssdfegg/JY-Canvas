@@ -1,14 +1,12 @@
 import "dotenv/config";
 import express from "express";
 import { spawn } from "node:child_process";
-import { createReadStream, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
 // 图片地址判定与前端共用同一份（发布时 esbuild 会把 src/shared 内联进 server bundle）。
 // 注意：这只管"图片回传"；生图 API 仍然只允许官方中转，见 PRIMARY_CHANNEL_API_BASE_URL。
 import {
-  buildImageRequestVariants,
   extractImagesFromResponse,
   normalizeBaseUrl,
   normalizeImageRequest,
@@ -18,16 +16,9 @@ import {
 } from "./channel.js";
 import {
   PRIMARY_CHANNEL_API_BASE_URL,
-  buildChannelBaseCandidates,
-  buildImageChannelBaseCandidates,
-  channelEndpointForBaseUrl,
-  apiKeyForChannel,
-  apiKeyHeadersForChannel,
-  channelLogFields,
   publicChannelGateways,
   publicChannelModels,
   publicChannelPolicyConfig,
-  upstreamModelForChannel,
   publicRoutingCatalog
 } from "./channel-config.js";
 import {
@@ -81,6 +72,7 @@ import {
   streamExternalImageProxy
 } from "./core/image-proxy.js";
 import { createAbortSignal, readTextSafely } from "./core/http-client.js";
+import { streamLocalImageFile } from "./core/local-image-stream.js";
 import {
   archiveReferenceAssets,
   buildHistoryItems,
@@ -113,6 +105,7 @@ import {
   scheduleResultCacheCleanup,
   startResultCacheCleanup
 } from "./core/result-cache.js";
+import { cacheOutfitGeneratedImageForDisplay, archiveOutfitGeneratedImageInBackground } from "./core/outfit-archive.js";
 import { canvasAssetPath, historyImagePath, referenceAssetPath } from "./core/asset-urls.js";
 import {
   annotateHistoryIntegrity,
@@ -126,7 +119,6 @@ import { imageBufferFromPayload } from "./core/image-payload.js";
 const app = express();
 
 import {
-  DOWNLOAD_CHUNK_BYTES,
   IMAGE_CHANNEL_ATTEMPT_TIMEOUT_MS,
   IMAGE_CONCURRENCY_LIMIT,
   IMAGE_PROXY_TIMEOUT_MS,
@@ -136,7 +128,6 @@ import {
   RESULT_CACHE_CONTROL,
   RESULT_CACHE_POST_WRITE_CLEANUP_DELAY_MS,
   RESULT_DISPLAY_CACHE_BLOCKING_TIMEOUT_MS,
-  RESULT_DISPLAY_CACHE_TIMEOUT_MS,
   VIDEO_BILLING_GATEWAY_REQUIRED,
   VIDEO_ROUTE_SESSION_TTL_MS
 } from "./core/runtime-config.js";
@@ -146,7 +137,27 @@ import { prepareImageBillingForRequest, finalizeBillingInBackground } from "./co
 import { compactLogMessage, sanitizeFilePart } from "./core/format-utils.js";
 import { logProcessFault, writeAssetLog, writeGenerationLog } from "./core/generation-logger.js";
 import { buildImageRequestDiagnostic } from "./core/image-diagnostics.js";
+import {
+  channelBaseCandidates,
+  imageChannelBaseCandidates,
+  prepareJsonImageUrlsForChannel,
+  imageRequestLogTargets
+} from "./core/image-channel-candidates.js";
 import { historyItemForImmediateDisplay, hasHistoryDisplayArchive } from "./core/history-display.js";
+import {
+  videoRouteText,
+  hasHeader,
+  safeSignedRouteHeaders,
+  signedRouteCredential
+} from "./core/route-helpers.js";
+import {
+  imageCandidateEntries,
+  imageChannelLogForCandidate,
+  imageApiKeyForCandidate,
+  imageRequestVariantsForCandidate,
+  imageUrlForCandidate,
+  imageHeadersForCandidate
+} from "./core/image-route-candidates.js";
 import { openDirectory, pickDirectory } from "./core/directory-picker.js";
 import {
   IMAGE_UPLOAD_PARSE_CEILING,
@@ -157,6 +168,7 @@ import {
   upload,
   wrapOutfitUpload
 } from "./core/uploads.js";
+import { outfitUploadFileGroups } from "./core/outfit-upload-groups.js";
 const videoRouteSessions = new Map();
 let resultCacheCleanupStarted = false;
 
@@ -252,228 +264,6 @@ process.on("uncaughtException", (error) => {
 
 
 
-function channelBaseCandidates() {
-  // 中文注释：每次请求都从主渠道开始；备用渠道只做当次故障兜底，不把上次成功备用缓存成下一次默认。
-  return buildChannelBaseCandidates(PRIMARY_CHANNEL_API_BASE_URL);
-}
-
-function imageChannelBaseCandidates(model) {
-  return buildImageChannelBaseCandidates(model);
-}
-
-const JSON_IMAGE_URLS_CHANNEL = "silent-tt25-line-07";
-
-// New API's billing expression cannot read channelId from multipart fields.
-// Prepare the same compact input that the Pro JSON path uses, but keep it
-// limited to TT 2.5 Subdirect. Other TT 2.5 lines and masked edits stay on
-// their existing multipart path.
-async function prepareJsonImageUrlsForChannel(params, files) {
-  if (
-    params?.model !== "tt-image-2.5"
-    || params?.channelId !== JSON_IMAGE_URLS_CHANNEL
-    || params?.maskFile
-    || (Array.isArray(params?.referenceDataUrls) && params.referenceDataUrls.length > 0)
-    || !Array.isArray(files)
-    || files.length === 0
-  ) return params;
-
-  const referenceDataUrls = [];
-  for (const file of files.slice(0, Number(params.maxInputImages || 8))) {
-    await ensureFileBuffer(file);
-    if (!Buffer.isBuffer(file?.buffer) || file.buffer.length === 0) continue;
-    const mimeType = String(file.mimetype || mimeTypeFromFile(file.originalname) || "image/png");
-    if (!/^image\//i.test(mimeType)) continue;
-    referenceDataUrls.push(`data:${mimeType};base64,${file.buffer.toString("base64")}`);
-  }
-  return referenceDataUrls.length > 0 ? { ...params, referenceDataUrls } : params;
-}
-
-function imageParamsForBaseUrl(params, baseUrl) {
-  const upstreamModel = upstreamModelForChannel(baseUrl, params.model);
-  return upstreamModel === params.model ? params : { ...params, model: upstreamModel };
-}
-
-function imageRequestVariantsForBaseUrl(params, files, baseUrl) {
-  return buildImageRequestVariants(imageParamsForBaseUrl(params, baseUrl), files);
-}
-
-function imageRequestLogTargets(params, files, baseUrls) {
-  return baseUrls.flatMap((baseUrl) => (
-    imageRequestVariantsForBaseUrl(params, files, baseUrl).map((variant) => ({
-      url: `${baseUrl}${variant.path}`,
-      protocol: variant.protocol,
-      model: variant.model,
-      requestFormat: variant.requestFormat
-    }))
-  ));
-}
-
-
-function outfitUploadFileGroups(req) {
-  if (Array.isArray(req.files)) {
-    return {
-      imageFiles: req.files,
-      maskFile: null
-    };
-  }
-  const groups = req.files && typeof req.files === "object" ? req.files : {};
-  return {
-    imageFiles: Array.isArray(groups.image) ? groups.image : [],
-    maskFile: Array.isArray(groups.mask) ? groups.mask[0] || null : null
-  };
-}
-
-
-function imageFromOutfitArchive(archived) {
-  if (!archived?.localUrl) return null;
-  return {
-    type: "url",
-    value: archived.localUrl,
-    localUrl: archived.localUrl,
-    archiveMime: archived.archiveMime || mimeTypeFromFile(archived.filename),
-    resultArchiveFile: archived.filename,
-    ...(archived.sourceUrl ? { sourceUrl: archived.sourceUrl } : {})
-  };
-}
-
-function parseByteRange(rangeHeader, size) {
-  const raw = String(rangeHeader || "").trim();
-  if (!raw) return null;
-  const match = /^bytes=(\d*)-(\d*)$/i.exec(raw);
-  if (!match) return false;
-
-  const [, startText, endText] = match;
-  if (!startText && !endText) return false;
-
-  let start;
-  let end;
-  if (!startText) {
-    const suffixLength = Number.parseInt(endText, 10);
-    if (!Number.isFinite(suffixLength) || suffixLength <= 0) return false;
-    start = Math.max(0, size - suffixLength);
-    end = size - 1;
-  } else {
-    start = Number.parseInt(startText, 10);
-    end = endText ? Number.parseInt(endText, 10) : size - 1;
-  }
-
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= size) {
-    return false;
-  }
-
-  return { start, end: Math.min(end, size - 1) };
-}
-
-async function streamLocalImageFile(req, res, file, options = {}) {
-  const info = await stat(file);
-  if (!info.isFile()) throw new Error("not_file");
-
-  const size = info.size;
-  const range = parseByteRange(req.headers.range, size);
-  const headers = {
-    "Accept-Ranges": "bytes",
-    "Content-Type": options.contentType || mimeTypeFromFile(file),
-    "Cache-Control": options.cacheControl || "public, max-age=31536000, immutable"
-  };
-
-  if (range === false) {
-    res.status(416)
-      .set({
-        ...headers,
-        "Content-Range": `bytes */${size}`
-      })
-      .end();
-    return;
-  }
-
-  if (size === 0) {
-    res.status(200).set({ ...headers, "Content-Length": "0" }).end();
-    return;
-  }
-
-  const start = range?.start ?? 0;
-  const end = range?.end ?? size - 1;
-  const contentLength = end - start + 1;
-  res.status(range ? 206 : 200).set({
-    ...headers,
-    "Content-Length": String(contentLength),
-    ...(range ? { "Content-Range": `bytes ${start}-${end}/${size}` } : {})
-  });
-
-  await pipeline(createReadStream(file, { start, end, highWaterMark: DOWNLOAD_CHUNK_BYTES }), res);
-}
-
-
-async function archiveOutfitGeneratedImage(image, taskId, timeoutMs = IMAGE_PROXY_TIMEOUT_MS) {
-  const payload = await imageBufferFromPayload(image, timeoutMs);
-  const ext = imageExtensionFromType(payload.mimeType, payload.sourceUrl);
-  const safeTaskId = sanitizeFilePart(taskId || "task");
-  const filename = `HZ-${new Date().getDate()}-${safeTaskId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
-  const target = outfitResultPath(filename);
-  await mkdir(resultDir, { recursive: true });
-  await writeFile(target, payload.buffer, { flag: "wx" });
-  scheduleResultCacheCleanup("post-result-write", RESULT_CACHE_POST_WRITE_CLEANUP_DELAY_MS);
-  return {
-    type: "local",
-    filename,
-    localUrl: outfitResultUrl(filename),
-    bytes: payload.buffer.length,
-    archiveMime: payload.mimeType,
-    ...(payload.sourceUrl ? { sourceUrl: payload.sourceUrl } : {})
-  };
-}
-
-async function cacheOutfitGeneratedImageForDisplay(image, taskId, timeoutMs = RESULT_DISPLAY_CACHE_TIMEOUT_MS) {
-  const startedAt = Date.now();
-  try {
-    const archived = await archiveOutfitGeneratedImage(image, taskId, timeoutMs);
-    await writeGenerationLog({
-      time: new Date().toISOString(),
-      requestId: taskId,
-      ok: true,
-      stage: "display-cache-outfit-result-image",
-      bytes: archived.bytes,
-      localUrl: archived.localUrl,
-      sourceUrl: archived.sourceUrl || "",
-      timingMs: Date.now() - startedAt,
-      timeoutMs
-    });
-    return imageFromOutfitArchive(archived) || image;
-  } catch (error) {
-    await writeGenerationLog({
-      time: new Date().toISOString(),
-      requestId: taskId,
-      ok: false,
-      stage: "display-cache-outfit-result-image",
-      error: error instanceof Error ? error.message : String(error),
-      timingMs: Date.now() - startedAt,
-      timeoutMs
-    });
-    return image;
-  }
-}
-
-function archiveOutfitGeneratedImageInBackground(image, taskId, stage = "background-cache-outfit-result-image") {
-  setTimeout(() => {
-    archiveOutfitGeneratedImage(image, taskId)
-      .then((archived) => writeGenerationLog({
-        time: new Date().toISOString(),
-        requestId: taskId,
-        ok: true,
-        stage,
-        bytes: archived.bytes,
-        localUrl: archived.localUrl,
-        sourceUrl: archived.sourceUrl || ""
-      }))
-      .catch((error) => writeGenerationLog({
-        time: new Date().toISOString(),
-        requestId: taskId,
-        ok: false,
-        stage,
-        error: error instanceof Error ? error.message : String(error)
-      }));
-  }, 0);
-}
 
 app.get("/api/config", (_req, res) => {
   const billingPolicy = publicBillingGatewayPolicy();
@@ -829,41 +619,6 @@ function publicVideoTaskPayload(json = {}, fallbackTaskId = "") {
   };
 }
 
-function videoRouteText(value) {
-  return String(value || "").trim();
-}
-
-function hasHeader(headers, name) {
-  const target = String(name || "").toLowerCase();
-  return Object.keys(headers || {}).some((key) => key.toLowerCase() === target);
-}
-
-function safeSignedRouteHeaders(input = {}) {
-  const headers = {};
-  if (!input || typeof input !== "object" || Array.isArray(input)) return headers;
-  const blocked = new Set(["host", "connection", "content-length", "transfer-encoding"]);
-  for (const [key, value] of Object.entries(input)) {
-    const name = videoRouteText(key);
-    if (!name || blocked.has(name.toLowerCase())) continue;
-    const text = videoRouteText(value);
-    if (text) headers[name] = text;
-  }
-  return headers;
-}
-
-function signedRouteCredential(route = {}) {
-  return resolveApiKey(
-    route.apiKey
-    || route.api_key
-    || route.bearerToken
-    || route.bearer_token
-    || route.token
-    || route.accessToken
-    || route.access_token
-    || ""
-  );
-}
-
 function videoRouteUrl(rawValue, baseUrl, fallbackPath) {
   const raw = videoRouteText(rawValue || fallbackPath);
   if (/^https?:\/\//i.test(raw)) return raw;
@@ -930,151 +685,6 @@ function createVideoRouteFromBillingTask(billingTask, fallbackBaseUrl, fallbackA
     hasCredential: hasHeader(headers, "authorization") || Boolean(routeTokenHeader && billingTask?.routeToken),
     channelId: videoRouteText(route.channelId || route.channel_id || JINGYIN_VIDEO_GATEWAY_CHANNEL_ID),
     channelRole: videoRouteText(route.channelRole || route.channel_role || "video-primary")
-  };
-}
-
-function bearerHeaderValue(credential) {
-  const text = resolveApiKey(credential);
-  if (!text) return "";
-  return /^Bearer\s+/i.test(text) ? text : `Bearer ${text}`;
-}
-
-function imageRouteUrl(rawValue, baseUrl, fallbackPath) {
-  const raw = videoRouteText(rawValue || fallbackPath);
-  if (/^https?:\/\//i.test(raw)) return raw;
-  const normalizedBase = normalizeBaseUrl(baseUrl);
-  const routePath = raw.startsWith("/") ? raw : `/${raw}`;
-  return `${normalizedBase}${routePath}`;
-}
-
-function imageRouteModel(route = {}) {
-  return videoRouteText(
-    route.model
-    || route.upstreamModel
-    || route.upstream_model
-    || route.realModel
-    || route.real_model
-  );
-}
-
-function createImageRouteFromBillingTask(billingTask) {
-  const signedRoute = billingTask?.signedRoute && typeof billingTask.signedRoute === "object" && !Array.isArray(billingTask.signedRoute)
-    ? billingTask.signedRoute
-    : null;
-  if (!signedRoute) return null;
-
-  const route = signedRoute;
-  const baseUrl = normalizeBaseUrl(
-    route.baseUrl
-    || route.base_url
-    || route.upstreamBaseUrl
-    || route.upstream_base_url
-    || ""
-  );
-  if (!baseUrl) return null;
-
-  const headers = safeSignedRouteHeaders(route.headers);
-  const credential = signedRouteCredential(route);
-  const routeApiKeyHeader = videoRouteText(route.apiKeyHeader || route.api_key_header || route.authHeader || route.auth_header);
-  if (credential && routeApiKeyHeader && !hasHeader(headers, routeApiKeyHeader)) {
-    headers[routeApiKeyHeader] = credential;
-  } else if (credential && !hasHeader(headers, "authorization")) {
-    headers.Authorization = bearerHeaderValue(credential);
-  }
-  const routeTokenHeader = videoRouteText(route.routeTokenHeader || route.route_token_header);
-  if (routeTokenHeader && billingTask?.routeToken && !hasHeader(headers, routeTokenHeader)) {
-    headers[routeTokenHeader] = billingTask.routeToken;
-  }
-  const hasApiKeyHeader = Boolean(routeApiKeyHeader && hasHeader(headers, routeApiKeyHeader));
-
-  return {
-    baseUrl,
-    headers,
-    usesSignedRoute: true,
-    hasCredential: hasHeader(headers, "authorization") || hasApiKeyHeader || Boolean(routeTokenHeader && billingTask?.routeToken),
-    channelId: videoRouteText(route.channelId || route.channel_id || "billing-signed-image"),
-    channelRole: videoRouteText(route.channelRole || route.channel_role || "image-signed"),
-    channelLabel: videoRouteText(route.channelLabel || route.channel_label || "静音计费签发图片路由"),
-    model: imageRouteModel(route),
-    route
-  };
-}
-
-function imageCandidateEntries(baseUrls = [], billingTask = null) {
-  const entries = [];
-  const signedRoute = createImageRouteFromBillingTask(billingTask);
-  if (signedRoute) entries.push(signedRoute);
-  const seen = new Set(entries.map((entry) => normalizeBaseUrl(entry.baseUrl)));
-  for (const baseUrl of baseUrls) {
-    const normalized = normalizeBaseUrl(baseUrl);
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
-    const endpoint = channelEndpointForBaseUrl(normalized);
-    entries.push({
-      baseUrl: normalized,
-      headers: {},
-      usesSignedRoute: false,
-      hasCredential: Boolean(endpoint?.upstreamApiKey),
-      channelId: endpoint?.id || "",
-      channelRole: endpoint?.role || "",
-      channelLabel: endpoint?.label || "",
-      model: "",
-      route: null
-    });
-  }
-  return entries;
-}
-
-function imageChannelLogForCandidate(candidate, index, candidateCount) {
-  const baseLog = channelLogFields(candidate.baseUrl, index, candidateCount);
-  if (!candidate?.usesSignedRoute) return baseLog;
-  const channelRole = candidate.channelRole || baseLog.channelRole || "image-signed";
-  return {
-    ...baseLog,
-    channelId: candidate.channelId || baseLog.channelId || "billing-signed-image",
-    channelLabel: candidate.channelLabel || baseLog.channelLabel || "静音计费签发图片路由",
-    channelRole,
-    channelIsFallback: index > 0 || /fallback|backup/i.test(channelRole),
-    channelBaseUrl: normalizeBaseUrl(candidate.baseUrl),
-    channelAttempt: index + 1,
-    channelCandidateCount: candidateCount,
-    channelSignedRoute: true
-  };
-}
-
-function imageParamsForCandidate(params, candidate) {
-  const upstreamModel = candidate?.model || upstreamModelForChannel(candidate.baseUrl, params.model);
-  return upstreamModel === params.model ? params : { ...params, model: upstreamModel };
-}
-
-function imageRequestVariantsForCandidate(params, files, candidate) {
-  return buildImageRequestVariants(imageParamsForCandidate(params, candidate), files);
-}
-
-function imageUrlForCandidate(candidate, variant, hasImages) {
-  if (!candidate?.usesSignedRoute) return `${candidate.baseUrl}${variant.path}`;
-  const route = candidate.route || {};
-  const raw = hasImages
-    ? route.editUrl || route.edit_url || route.editsUrl || route.edits_url || route.url || route.path
-    : route.generationUrl || route.generation_url || route.generationsUrl || route.generations_url || route.createUrl || route.create_url || route.url || route.path;
-  return imageRouteUrl(raw, candidate.baseUrl, variant.path);
-}
-
-function imageApiKeyForCandidate(candidate, fallbackApiKey) {
-  if (candidate?.usesSignedRoute && candidate.hasCredential) return "";
-  if (candidate?.usesSignedRoute) return signedRouteCredential(candidate.route) || apiKeyForChannel(candidate.baseUrl, fallbackApiKey);
-  return apiKeyForChannel(candidate.baseUrl, fallbackApiKey);
-}
-
-function imageHeadersForCandidate(candidate, channelApiKey, variantHeaders = {}) {
-  const headers = { ...(candidate?.headers || {}) };
-  const authHeaders = apiKeyHeadersForChannel(candidate?.baseUrl, channelApiKey);
-  for (const [name, value] of Object.entries(authHeaders)) {
-    if (value && !hasHeader(headers, name)) headers[name] = value;
-  }
-  return {
-    ...headers,
-    ...variantHeaders
   };
 }
 

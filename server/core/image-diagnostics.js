@@ -16,31 +16,18 @@
 // 🔴 逐字保留"探测请求形状"：变体数量、占位图构造、字段名 —— 下游
 //    tt25-subdirect-wire-check 与 routing-check 是它的断言，改形状会掩盖真实回归。
 //
-// 关于 imageParamsForBaseUrl：它在 index.js 里还有另一个调用方
-// （imageRequestVariantsForBaseUrl，未见得随本单搬走），因此**保留在 index.js 一份、
-// 这里再放一份本地副本**，避免循环依赖、也避免破坏"只搬定义 + 只改 import"的两 hunk 纪律。
-// 两份文本逐字节一致；日后若把 imageParamsForBaseUrl 提到共享模块，两处一起改。
+// 关于 imageParamsForBaseUrl / imageChannelBaseCandidates：这两个薄包装已在
+// V11-RF-110 抽到 server/core/image-channel-candidates.js（与 index.js 共享同一份定义），
+// 这里直接复用，不再保留本地副本。循环依赖随之消失，也顺带清掉了 V11-RF-106 当时
+// 为避开循环依赖而留下的"同名函数 2 处定义"漂移源。
 
 import { normalizeImageRequest, buildImageRequestVariants } from "../channel.js";
 import {
-  buildImageChannelBaseCandidates,
   PRIMARY_CHANNEL_API_BASE_URL,
-  channelLogFields,
-  upstreamModelForChannel
+  channelLogFields
 } from "../channel-config.js";
+import { imageParamsForBaseUrl, imageChannelBaseCandidates } from "./image-channel-candidates.js";
 import { billingGatewayPolicy } from "../billing-gateway.js";
-
-// 以下两个是 index.js 里的本地薄包装（imageParamsForBaseUrl / imageChannelBaseCandidates），
-// 它们在 index.js 还有别的调用方，不能随本单搬走；这里各放一份本地副本，
-// 避免循环依赖、也守住"只搬定义 + 只改 import"的两 hunk 纪律。两份文本逐字节一致。
-function imageParamsForBaseUrl(params, baseUrl) {
-  const upstreamModel = upstreamModelForChannel(baseUrl, params.model);
-  return upstreamModel === params.model ? params : { ...params, model: upstreamModel };
-}
-
-function imageChannelBaseCandidates(model) {
-  return buildImageChannelBaseCandidates(model);
-}
 
 function clampDiagnosticImageCount(value) {
   return Math.max(0, Math.min(12, Number.parseInt(value, 10) || 0));
