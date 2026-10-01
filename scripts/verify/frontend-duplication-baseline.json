@@ -1,0 +1,152 @@
+{
+  "note": "前端跨文件同名顶层函数基线：记录当前已存在的跨文件同名顶层函数，只用来拦「新增」。注意本基线按「行首顶层」判据生成（缩进的内层函数不纳入），与评估报告初版那 104 条（未锚定行首、混入内层函数）不是同一口径。抽到 src/shared/ 消掉后跑一次 --update 把它从账单里划掉。",
+  "generatedAt": "2026-10-01",
+  "scanScope": {
+    "root": "src/",
+    "extensions": [
+      ".js",
+      ".jsx"
+    ],
+    "excludes": [
+      "node_modules",
+      "dist",
+      "skill-baselines",
+      "tmp",
+      ".codex-artifacts"
+    ],
+    "fileCount": 36,
+    "files": [
+      "src/api/assets.js",
+      "src/api/client.js",
+      "src/api/config.js",
+      "src/api/connection.js",
+      "src/api/debug.js",
+      "src/api/history.js",
+      "src/api/images.js",
+      "src/api/outfit.js",
+      "src/api/prompts.js",
+      "src/api/save.js",
+      "src/api/storage.js",
+      "src/api/videos.js",
+      "src/features/auth/api-key.js",
+      "src/image-editor.jsx",
+      "src/lib/format/index.js",
+      "src/lib/storage/json-storage.js",
+      "src/local-edit-mask.js",
+      "src/main.jsx",
+      "src/models.js",
+      "src/outfit-workflow.jsx",
+      "src/shared/DebouncedTextarea.jsx",
+      "src/shared/error-boundary.jsx",
+      "src/shared/error-report.js",
+      "src/shared/generation-errors.js",
+      "src/shared/image-hosts.js",
+      "src/shared/image-split.js",
+      "src/shared/local-edit-geometry.js",
+      "src/shared/local-edit-mask.js",
+      "src/shared/models.js",
+      "src/shared/outfit-intent.js",
+      "src/shared/quickgen-prompt-rules.js",
+      "src/shared/result-image.js",
+      "src/shared/retouch-intent.js",
+      "src/shared/routing.js",
+      "src/shared/ui/ChannelPicker.jsx",
+      "src/shared/ui/Modal.jsx"
+    ]
+  },
+  "duplicates": {
+    "asText": [
+      "src/shared/outfit-intent.js",
+      "src/shared/retouch-intent.js"
+    ],
+    "canvasToBlob": [
+      "src/image-editor.jsx",
+      "src/main.jsx",
+      "src/outfit-workflow.jsx",
+      "src/shared/local-edit-geometry.js"
+    ],
+    "clamp": [
+      "src/image-editor.jsx",
+      "src/shared/local-edit-mask.js"
+    ],
+    "diagnosticImageSourceType": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "fileBaseName": [
+      "src/image-editor.jsx",
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "imageBitmapFromBlob": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "imageBitmapFromFile": [
+      "src/image-editor.jsx",
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "imageFilesFromClipboard": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "imageFilesFromList": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "isImageFile": [
+      "src/image-editor.jsx",
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "isVideoTaskCompleted": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "isVideoTaskFailed": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "loadPromptCategories": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "loadPromptPresets": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "normalizePromptCategories": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "normalizePromptCategoryName": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "normalizePromptPreset": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "pickEnum": [
+      "src/shared/outfit-intent.js",
+      "src/shared/retouch-intent.js"
+    ],
+    "referenceSource": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "ReferenceThumbTray": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "videoResultUrl": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ],
+    "videoTaskStatusText": [
+      "src/main.jsx",
+      "src/outfit-workflow.jsx"
+    ]
+  }
+}

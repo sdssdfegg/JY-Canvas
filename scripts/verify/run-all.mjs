@@ -40,6 +40,12 @@ const ORDER = [
   // shared-ui-duplication：跨文件同名组件的棘轮（存量记账、新增即失败；
   //   另外额外报告同名两份实现是否已经分叉）。
   "shared-ui-duplication-check",
+  // V11-RF-019 交付物：前端跨文件同名**顶层函数**棘轮（camelCase 函数，与上面组件的
+  //   PascalCase 判据互补；两者允许重叠，如 ReferenceThumbTray 两边都命中，重叠不代表冲突）。
+  //   提取逻辑收在 lib/frontend-sources.mjs，与审计脚本共用一份，避免两套正则各自漂移。
+  //   额外带「扫描范围漂移」自检：基线口径与当前口径不一致即判红（98/104/22 三次数字反复
+  //   的根因就是口径漂移静默改了结论）。存量 22 条记账、新增即失败。纯源码检查，跑得快。
+  "frontend-duplication-check",
   // auth-key-parity：前后端 KEY 清洗规则逐用例一致（登记表第 13 行"后续可抽共享测试用例"）。
   // runtime-config-baseline：守住 server/core/runtime-config.js 的默认值
   // （超时 / 并发 / 缓存策略都是历史实测调校出来的，改了不报错、只改出图行为，
