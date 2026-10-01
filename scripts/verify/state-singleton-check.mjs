@@ -7,6 +7,8 @@
 //   - activeImageRequestCount / imageRequestQueue → 出图并发状态（RF-101）。
 //   - videoRouteSessions → 视频线路会话状态（RF-113，与 101 同一类单例陷阱：
 //     状态有两份 = 会话丢失 / 轮询拿不到原线路，表现为视频状态查询走错线路或 401）。
+//   - resultCacheCleanupStarted → 结果缓存清理启动标记（RF-116，与 101/113 同一类单例陷阱：
+//     状态有两份 = 清理可能跑两次 / 漏跑，表现为缓存清理行为异常）。
 //
 // 复用 V11-RF-010 的「服务端源码真相源」收集器 listServerSourceFiles()，
 // 这样将来 server/routes/** 出现"各持一份"会被自动抓住，不需要回头改本脚本。
@@ -24,7 +26,8 @@ const ROOT = process.cwd();
 const MONITORED = [
   { symbol: "activeImageRequestCount", targetModule: path.join("server", "core", "image-concurrency.js") },
   { symbol: "imageRequestQueue", targetModule: path.join("server", "core", "image-concurrency.js") },
-  { symbol: "videoRouteSessions", targetModule: path.join("server", "core", "video-route-session.js") }
+  { symbol: "videoRouteSessions", targetModule: path.join("server", "core", "video-route-session.js") },
+  { symbol: "resultCacheCleanupStarted", targetModule: path.join("server", "core", "app-bootstrap.js") }
 ];
 
 // 去掉注释，避免注释/字符串里的字样被误判成定义点。

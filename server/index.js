@@ -45,11 +45,8 @@ import { createOutfitQualityCheck } from "./outfit-quality-ai.js";
 import { createOutfitPoseAnchor } from "./outfit-pose-ai.js";
 import { createQuickPromptRewrite, quickPromptFallback } from "./quick-prompt-ai.js";
 import { createReferencePromptRewrite, localReferencePrompt } from "./reference-ai.js";
-import { EMBEDDED_STATIC_ASSETS } from "./static-assets.generated.js";
-
 import {
   dataDir,
-  packagedRootDir,
   resultDir,
   rootDir
 } from "./core/app-paths.js";
@@ -100,8 +97,7 @@ import {
 import {
   outfitResultPath,
   outfitResultUrl,
-  scheduleResultCacheCleanup,
-  startResultCacheCleanup
+  scheduleResultCacheCleanup
 } from "./core/result-cache.js";
 import { cacheOutfitGeneratedImageForDisplay, archiveOutfitGeneratedImageInBackground } from "./core/outfit-archive.js";
 import { canvasAssetPath, historyImagePath, referenceAssetPath } from "./core/asset-urls.js";
@@ -115,15 +111,15 @@ import {
 } from "./core/history-store.js";
 import { imageBufferFromPayload } from "./core/image-payload.js";
 import { STORAGE_TARGETS, STORAGE_IMAGE_PATTERN, storageUsageSnapshot } from "./core/storage-usage.js";
+import { createAppBootstrap, sendEmbeddedStaticAsset } from "./core/app-bootstrap.js";
 const app = express();
+const { listenOnPort } = createAppBootstrap(app);
 
 import {
   IMAGE_CHANNEL_ATTEMPT_TIMEOUT_MS,
   IMAGE_CONCURRENCY_LIMIT,
   IMAGE_PROXY_TIMEOUT_MS,
-  LOCAL_HTTP_TIMEOUT_MS,
   PORT,
-  PORT_FALLBACK_LIMIT,
   RESULT_CACHE_CONTROL,
   RESULT_CACHE_POST_WRITE_CLEANUP_DELAY_MS,
   RESULT_DISPLAY_CACHE_BLOCKING_TIMEOUT_MS,
@@ -166,66 +162,12 @@ import {
   wrapOutfitUpload
 } from "./core/uploads.js";
 import { outfitUploadFileGroups } from "./core/outfit-upload-groups.js";
-let resultCacheCleanupStarted = false;
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
 app.use(generationRequestTraceMiddleware);
 
 
-function shouldAutoOpenBrowser() {
-  return process.env.JINGYIN_NO_BROWSER !== "1" && (
-    Boolean(packagedRootDir) || process.env.JINGYIN_OPEN_BROWSER === "1"
-  );
-}
-
-function openAppInBrowser(port = PORT) {
-  if (!shouldAutoOpenBrowser()) return;
-  const url = `http://127.0.0.1:${port}/`;
-  const command = process.platform === "win32"
-    ? { file: "cmd.exe", args: ["/c", "start", "", url] }
-    : process.platform === "darwin"
-      ? { file: "open", args: [url] }
-      : { file: "xdg-open", args: [url] };
-  try {
-    const child = spawn(command.file, command.args, {
-      detached: true,
-      stdio: "ignore",
-      windowsHide: true
-    });
-    child.unref();
-  } catch {
-    // Opening the browser is a convenience; the local server still works without it.
-  }
-}
-
-function sendEmbeddedStaticAsset(req, res) {
-  const files = EMBEDDED_STATIC_ASSETS?.files;
-  if (!files) return false;
-
-  let pathname = "/";
-  try {
-    pathname = new URL(req.originalUrl || req.url || "/", "http://127.0.0.1").pathname;
-  } catch {
-    pathname = "/";
-  }
-
-  const normalizedPath = pathname === "/" ? "/index.html" : decodeURIComponent(pathname);
-  const asset = files[normalizedPath] || (!path.extname(normalizedPath) ? files["/index.html"] : null);
-  if (!asset) return false;
-
-  const body = Buffer.from(asset.data, "base64");
-  res.status(200)
-    .set({
-      "Content-Type": asset.type || "application/octet-stream",
-      "Content-Length": String(body.length),
-      "Cache-Control": normalizedPath.startsWith("/assets/")
-        ? "public, max-age=31536000, immutable"
-        : "no-cache"
-    })
-    .end(body);
-  return true;
-}
 
 
 
@@ -2676,45 +2618,6 @@ async function attachFrontend() {
       next(error);
     }
   });
-}
-
-function startResultCacheCleanupOnce() {
-  if (resultCacheCleanupStarted) return;
-  resultCacheCleanupStarted = true;
-  startResultCacheCleanup();
-}
-
-function configureHttpServer(server) {
-  server.requestTimeout = LOCAL_HTTP_TIMEOUT_MS;
-  server.headersTimeout = LOCAL_HTTP_TIMEOUT_MS + 30000;
-  server.keepAliveTimeout = 65000;
-  server.timeout = LOCAL_HTTP_TIMEOUT_MS;
-}
-
-function listenOnPort(port, remainingFallbacks = PORT_FALLBACK_LIMIT) {
-  const server = app.listen(port, "127.0.0.1", () => {
-    console.log(`Jingyin AI Canvas http://127.0.0.1:${port}`);
-    startResultCacheCleanupOnce();
-    openAppInBrowser(port);
-  });
-  configureHttpServer(server);
-  server.on("error", (error) => {
-    if (error?.code === "EADDRINUSE" && remainingFallbacks > 0) {
-      const nextPort = port + 1;
-      console.warn(`Port ${port} is already in use, trying ${nextPort}.`);
-      setTimeout(() => listenOnPort(nextPort, remainingFallbacks - 1), 100);
-      return;
-    }
-    if (error?.code === "EADDRINUSE" && shouldAutoOpenBrowser()) {
-      console.error(`Port ${port} is already in use. Opened the existing local app instead.`);
-      openAppInBrowser(port);
-      process.exitCode = 0;
-      return;
-    }
-    console.error(error);
-    process.exitCode = 1;
-  });
-  return server;
 }
 
 attachFrontend().then(() => {
