@@ -12,6 +12,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { listServerSourceFiles } from "./lib/server-sources.mjs";
 
 const root = process.cwd();
 let failures = 0;
@@ -51,6 +52,12 @@ const scanned = [
   "server/channel.js",
   "server/index.js"
 ];
+// V11-RF-010：服务端源码真相源统一为 index.js + core/routes/shared；按文件粒度追加（过滤不存在目录）。
+// 不重复追加已在数组里的 server/index.js；不追加 server/channel-config.js（已由专门检查覆盖）；不追加 features。
+for (const abs of listServerSourceFiles()) {
+  const rel = path.relative(root, abs).replace(/\\/g, "/");
+  if (!scanned.includes(rel)) scanned.push(rel);
+}
 
 const DENY_LIST_FILES = {
   "server/channel-config.js": "export const FORBIDDEN_CHANNEL_IDS",

@@ -22,10 +22,11 @@
 // 用法：node scripts/verify/local-edit-base-file-check.mjs
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, unlinkSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { installExitCleanup, stopChild } from "./lib/sandbox.mjs";
+import { listServerSourceFiles } from "./lib/server-sources.mjs";
 import {
   formatPixelSize,
   localPasteSizeReport,
@@ -38,26 +39,9 @@ const APP_PORT = 8812;
 const GEOMETRY_FILE = path.join(ROOT, "src", "shared", "local-edit-geometry.js");
 const OUTFIT_FILE = path.join(ROOT, "src", "outfit-workflow.jsx");
 const MAIN_FILE = path.join(ROOT, "src", "main.jsx");
-/** 收集 server/core 下所有 .js 模块的路径（不存在则返回空数组）。 */
-function collectServerCoreSources() {
-  const coreDir = path.join(ROOT, "server", "core");
-  try {
-    return readdirSync(coreDir)
-      .filter((name) => name.endsWith(".js"))
-      .map((name) => path.join(coreDir, name));
-  } catch {
-    return [];
-  }
-}
-
-// 后端源码不止 server/index.js 一个文件：
-// Phase 1 拆分后，诊断日志那段搬到了 server/core/generation-logger.js。
-// 如果这里还只盯着 index.js，代码其实没坏、检查却会误报。
-// 所以把 server/core 下的模块一起算进来 —— 后端再拆分也不用回来改脚本。
-const SERVER_SOURCES = [
-  path.join(ROOT, "server", "index.js"),
-  ...collectServerCoreSources()
-];
+// 后端源码真相源（index.js + core/routes/shared 下所有模块）统一由共享模块收集，
+// 后续 Phase 拆分（搬到 routes/shared）后脚本无需逐个改：见 ./lib/server-sources.mjs。
+const SERVER_SOURCES = listServerSourceFiles();
 const STYLES_FILE = path.join(ROOT, "src", "styles.css");
 const EMBEDDED_STYLES_FILE = path.join(ROOT, "src", "outfit-workflow.css");
 const HISTORY_FILE = path.join(ROOT, "data", "history.json");

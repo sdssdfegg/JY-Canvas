@@ -17,6 +17,7 @@ import http from "node:http";
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { freshSandbox, removeTreeSync } from "./lib/sandbox.mjs";
+import { listServerSourceFiles } from "./lib/server-sources.mjs";
 import path from "node:path";
 import process from "node:process";
 import {
@@ -366,13 +367,7 @@ for (let attempt = 0; attempt < 6 && !sandboxRemoved; attempt += 1) {
   // 真相源不再只有 index.js：Phase 1 把服务端拆成了 server/core/*.js，
   // 图片代理那段已经搬进 server/core/image-proxy.js，这条 import 也跟着走了。
   // 所以这里扫「index.js + core 下所有模块」，否则拆一次就误报一次。
-  const coreDir = path.join(ROOT, "server", "core");
-  const serverFiles = [
-    path.join(ROOT, "server", "index.js"),
-    ...(existsSync(coreDir) ? fs.readdirSync(coreDir) : [])
-      .filter((name) => name.endsWith(".js"))
-      .map((name) => path.join(coreDir, name))
-  ].filter((file) => existsSync(file));
+  const serverFiles = listServerSourceFiles();
   const serverSource = serverFiles.map((file) => fs.readFileSync(file, "utf8")).join("\n");
   const singleSourceFile = serverFiles.find((file) =>
     /from "(\.\.\/)+src\/shared\/image-hosts\.js"/.test(fs.readFileSync(file, "utf8")));

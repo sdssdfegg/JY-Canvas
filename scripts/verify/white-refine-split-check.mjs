@@ -21,6 +21,7 @@ import {
   writeSplitHalvesEnabled
 } from "../../src/shared/image-split.js";
 import { freshSandbox, installExitCleanup, removeSandbox, stopChild } from "./lib/sandbox.mjs";
+import { readServerSources } from "./lib/server-sources.mjs";
 
 const ROOT = process.cwd();
 const NODE = path.join(ROOT, "runtime", "node", "node.exe");
@@ -28,7 +29,6 @@ const APP_PORT = 8828;
 const SANDBOX_ROOT = path.join(ROOT, ".codex-artifacts", "white-refine-split-check");
 const CLIENT = path.join(ROOT, "src", "outfit-workflow.jsx");
 const CSS = path.join(ROOT, "src", "features", "outfit", "white-refine-split.css");
-const SERVER = path.join(ROOT, "server", "index.js");
 
 const results = [];
 function check(name, pass, detail = "") {
@@ -38,7 +38,7 @@ function check(name, pass, detail = "") {
 const { readFileSync } = await import("node:fs");
 const clientSource = readFileSync(CLIENT, "utf8");
 const cssSource = readFileSync(CSS, "utf8");
-const serverSource = readFileSync(SERVER, "utf8");
+const serverSource = readServerSources();
 
 // ---------- 1) 中线算法（3.0 同口径） ----------
 check("宽 2000 → 中线 1000，左 1000 / 右 1000",
