@@ -8,7 +8,6 @@ import path from "node:path";
 // 注意：这只管"图片回传"；生图 API 仍然只允许官方中转，见 PRIMARY_CHANNEL_API_BASE_URL。
 import {
   extractImagesFromResponse,
-  normalizeBaseUrl,
   normalizeImageRequest,
   validateImageCapabilities,
   validateImageRouting,
@@ -21,6 +20,7 @@ import {
   publicChannelPolicyConfig,
   publicRoutingCatalog
 } from "./channel-config.js";
+import { checkGatewayConnectivity } from "./core/gateway-connectivity.js";
 import {
   JINGYIN_VIDEO_GATEWAY_CHANNEL_ID,
   createGatewayVideoBody,
@@ -294,52 +294,6 @@ app.get("/api/config", (_req, res) => {
 app.get("/api/ecommerce/routing", (_req, res) => {
   res.json({ ok: true, ...publicRoutingCatalog() });
 });
-
-function gatewayRootUrl(baseUrl) {
-  return normalizeBaseUrl(baseUrl).replace(/\/v1$/i, "");
-}
-
-async function checkGatewayConnectivity(gateway) {
-  const url = gatewayRootUrl(gateway.baseUrl);
-  const startedAt = Date.now();
-  const abort = createAbortSignal(8000);
-  try {
-    let response = await fetch(url, {
-      method: "HEAD",
-      signal: abort.signal
-    });
-    if (response.status === 405) {
-      response = await fetch(url, {
-        method: "GET",
-        signal: abort.signal
-      });
-    }
-    return {
-      ...gateway,
-      checkUrl: url,
-      reachable: true,
-      ok: response.status >= 200 && response.status < 500,
-      status: response.status,
-      statusText: response.statusText,
-      server: response.headers.get("server") || "",
-      latencyMs: Date.now() - startedAt
-    };
-  } catch (error) {
-    return {
-      ...gateway,
-      checkUrl: url,
-      reachable: false,
-      ok: false,
-      status: 0,
-      statusText: "",
-      server: "",
-      latencyMs: Date.now() - startedAt,
-      error: error?.name === "AbortError" ? "timeout" : error instanceof Error ? error.message : String(error)
-    };
-  } finally {
-    abort.dispose();
-  }
-}
 
 /**
  * POST /api/connection-test —— 「连接测试」。
