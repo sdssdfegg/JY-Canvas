@@ -94,3 +94,7 @@ API/代码模板/*.zip
 # 运行时由 `npm run build:assets` 重新生成；README 明确"不手工维护"。
 # 纳入版本库会导致每次小改都是 3.3MB diff，长期显著膨胀仓库。
 server/static-assets.generated.js
+
+# ---- 执行者记忆目录（WorkBuddy 工具临时产物，不入库）----
+# 见 REFACTOR_TICKETS.md §5.2 待办 #2。
+.workbuddy/

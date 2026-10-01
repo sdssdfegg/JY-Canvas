@@ -1,0 +1,1594 @@
+# REFACTOR_TICKETS.md
+
+**项目**：静音AI绘画 V11（包名 `jingyin-internal-canvas`，v11.0.0）· 本清单作用于 **v4.0 重构工作目录**
+**工作区**：`D:\源码开发\静音AI画板v4.0源码`（V11 源码的 clone，零远程，`upstream` 指向 V11 源目录）
+**本轮主线**：`server/index.js` 剩余部分 → `server/routes/*` + 剩余 `server/core` 模块
+**本轮禁区**：`src/main.jsx`、`src/outfit-workflow.jsx` **不生成整体搬迁工单**（仅本文点名的极小范围例外）
+**配套执行单**（都是**发给具备命令执行能力的 AI 代理**的分步操作单，不是给人手填的表）：
+- [V4.0-执行单-V11-RF-000-010.md](V4.0-执行单-V11-RF-000-010.md) —— V11-RF-000 与 V11-RF-010（**两张均已关闭**，只作格式范本与历史留档，**不要再发出去执行**）
+- [V4.0-执行单-V11-RF-101-103.md](V4.0-执行单-V11-RF-101-103.md) —— V11-RF-101 / 102 / 103（批次 3 前三单，均已提交、⏳ 待行为验证）
+- [V4.0-执行单-V11-RF-011.md](V4.0-执行单-V11-RF-011.md) —— **V11-RF-011 热修**：P1 人工决策门 + 12 步 + 值级复核对照表 + 前端挂载分支切换的核对（**已提交 919d615、已关闭**）
+- [V4.0-执行单-V11-RF-104-106.md](V4.0-执行单-V11-RF-104-106.md) —— 批次 3 第二批（104/105/106，**已完成**；含三类 hunk 修正）
+- [V4.0-执行单-V11-RF-107-109.md](V4.0-执行单-V11-RF-107-109.md) —— 批次 3 第三批（107/108/109，**已完成**；含依赖符号盘点表与孤儿 import 清理做法）
+- [V4.0-执行单-V11-RF-110.md](V4.0-执行单-V11-RF-110.md) —— V11-RF-110（**已完成**；含"应删孤儿"与"看着像孤儿但不许删"两份对照清单）
+- [V4.0-执行单-V11-RF-112-113.md](V4.0-执行单-V11-RF-112-113.md) —— **当前有效执行单（112 视频错误文案 + 113 视频线路会话）**：含"状态单例"陷阱处理（`videoRouteSessions` 在 `172` 行）与扩展 `state-singleton-check` 的要求
+
+---
+
+## 0. 取证说明（先读这一节，否则后面的验收条件会被误用）
+
+### 0.1 快照事实（均为本工作区当前磁盘状态，可逐条复核）
+
+| 事实 | 值 | 复核方式 |
+| --- | --- | --- |
+| `server/index.js` | **3888 行**，45 处 `app.use/get/post/delete` 注册 | 全文行数 + 路由注册扫描 |
+| `server/core/` | **16 个模块**（app-paths、runtime-config、format-utils、generation-logger、uploads、app-settings、http-compression、file-naming、http-client、image-proxy、history-store、asset-urls、image-payload、asset-persist、image-error-policy、result-cache） | `server/core/*.js` 列举 |
+| `server/routes/` | **不存在** | 目录列举 |
+| `server/shared/` | **不存在** | 目录列举 |
+| `src/main.jsx` / `src/outfit-workflow.jsx` / `src/image-editor.jsx` | 8953 / 11523 / 1104 行 | 全文行数 |
+| `scripts/verify/run-all.mjs` ORDER | **35 项**（含 101 的 `state-singleton-check`、011 的 `app-paths-check`；另含元测试 `run-all-check`、启动器检查 `check-launcher`）。**数字位链**：101 前 33 → 101 后 **34** → 011 后 **35** → **`012` 与 `016` 都各自会让它 35→36，谁先做谁先占位，一律以改前 `--list` 为准** | `ORDER` 数组 |
+| ESLint 棘轮基线 | error 0 / warning 26，按「文件\|规则」记账；`server/index.js\|no-unused-vars = 2` | `scripts/verify/lint-baseline.json` |
+| ⚠️ 上格「26」是 **2026-09-25 生成基线时的历史值，不是当前真实总数** | 2026-10-01 全量 eslint 实测：`prompts/server/outfit-skill.js` 已是 **0 warning**（基线记的是 2 —— 该文件里 `referenceMentioned` / `masterWearingLockLines` 两个符号现已不存在）→ **当前真实总数低于 26**。故任何「总数必须等于 26」的写法都是错的；正确不变量是**刷新前后 current.total 不变（净增 0）** | `.codex-artifacts/baseline-2026-10-01/eslint-full.json` |
+| 上述那 2 条的**真实构成** | 基线建立于 2026-09-25，当时是 `deferOutfitAutoSave`（刻意保留）+ `buildDetailPromptGroup`（已确认死代码）。后者已于 2026-09-30 删除 → **当前实际应为 1**，即 `server/index.js` 这一格多出 **1 个单位的余量**（棘轮允许变少）。搬家时会用到这笔余量，见 §4 D-2 | `V11-第4b阶段-lint行为风险审查与棘轮-交付报告-2026-09-25.md:224` + `版本记录.md:182` |
+| 重复组件基线 | 仅 `ReferenceThumbTray`（`src/main.jsx` + `src/outfit-workflow.jsx`） | `scripts/verify/shared-ui-baseline.json` |
+| 打包入口 | `scripts/secure-win-release.mjs` 的 `entryPoints` 硬编码 `server/index.js` | 该脚本内 |
+
+### 0.2 ⚠️ 本会话未能执行任何命令（必须由你在真机复核）
+
+本会话的文件沙盒对该工作区授权失败（`SetNamedSecurityInfoW failed (Win32 5): grantWrite(...)`），**所有 `pwsh` 调用在启动阶段即被拒绝**，因此：
+
+- 本文**没有**实际运行过 `run-all.mjs`、`eslint`、`git`；所有结论均来自**逐文件静态取证**。
+- 凡标注「**静态推定**」的结论，请在真机上用本文给出的命令确认后再据此开工。
+- 沙盒通过 ≠ 功能正确：**每张工单的收尾都必须有你真机冒烟**，见 §3。
+
+### 0.3 🔴 P0 发现：`npm run check` 当前应为**红**（静态推定，待真机确认）
+
+**证据链（三条互不依赖）**：
+
+1. `scripts/verify/local-edit-base-file-check.mjs:146-148` 断言 `src/outfit-workflow.jsx` 中存在
+   `composeOutfitLocalEditBlob(` 换行后跟 `resolveLocalEditBaseFile(selectedBase),` 的调用形状，断言名即 `"批量：局部详情面板贴回底图同样走共享规则"`。
+2. 全树取证：`LocalDetailPanel` 在 `src/` 下 **0 处**出现；`selectedBase` 在 `src/` 下 **0 处**出现；
+   `composeOutfitLocalEditBlob(` 全树只有 **1 处**调用（`src/outfit-workflow.jsx:9476`），实参是 `originalFile`，不是 `selectedBase`。
+3. `版本记录.md:183` 记载：2026-09-30 的清理提交把「**从未渲染的半成品组件 `LocalDetailPanel`**」及其唯一依赖一并删除。
+   即：**断言的目标代码已被删除，断言没跟着删** → 该 check 恒为 `false` → 脚本 `process.exitCode = 1` → `run-all.mjs` 报失败 → `npm run check` 红。
+
+**另有环境相关的一条红**（同一脚本）：`local-edit-base-file-check.mjs:368-370` 在拿不到浏览器回执时执行的是 `check(..., false)`，而不是 skip 语义。
+所以**没装 Tabbit CLI 的机器上这个脚本必然失败**（其余脚本多是「部分跳过」语义）。是否要改成 skipped 语义是**门禁松紧的决策**，见 §4 待决策项 D-1，本文不擅自开单。
+
+**真机确认命令**（先跑这两条，结果贴进开工记录）：
+
+```powershell
+cd "D:\源码开发\静音AI画板v4.0源码"
+.\runtime\node\node.exe scripts\verify\run-all.mjs --only local-edit-base
+.\runtime\node\node.exe scripts\verify\run-all.mjs
+```
+
+### 0.4 🟠 与任务书不一致之处（已按取证结论修正，不改的前提下不做臆测）
+
+| 任务书描述 | 取证结论 | 处理 |
+| --- | --- | --- |
+| 问题③「`LocalDetailPanel` 没有使用 `resolveLocalEditBaseFile` 原图优先共享规则」 | 该组件在**本工作区不存在**（已作死代码删除）。现存**唯一**贴回路径 `src/outfit-workflow.jsx:9470 → 9476` 已使用 `resolveLocalEditBaseFile(task.modelItem)`，且被同一校验脚本 `:136-138` 覆盖 | 单子改为 **V11-RF-000：门禁僵尸断言修复**；`LocalDetailPanel` 的「复活」属**新功能**，不在这张重构单里 |
+| 已抽离模块清单（任务书列 13 项） | 磁盘上 `server/core/` 实为 **16 个模块**（多出 `asset-persist.js`、`image-error-policy.js`、`result-cache.js`） | 本文以磁盘为准 |
+
+### 0.5 标记语义
+
+- 🔴 **串行**：必须先合并前置工单才能开始（共享同一段代码 / 会互相破坏基线 / 会改动同一文件同一区域）。
+- 🟢 **可并行**：逻辑上无依赖，**执行先后可任意**。
+  但注意：**任何时刻只允许一个人改 `server/index.js`**——本文拆出的路由与 core 工单都要动这个文件。
+  多人并行时每人独立分支，最后统一 rebase；不允许两个分支同时改同一行区间。
+
+### 0.6 每张工单都适用的通用验收基线（下称 **AB**）
+
+- **AB-1 `run-all` 全绿**：`.\runtime\node\node.exe scripts\verify\run-all.mjs` → `[run-all] N 个脚本：通过 N，失败 0`，退出码 0。
+  （浏览器类探针的 `skipped` 不算失败，但必须在 PR/提交说明里写明「哪些探针这次没跑」。）
+- **AB-2 lint 棘轮不新增**：`.\runtime\node\node.exe scripts\verify\lint-ratchet-check.mjs` → `regressions` 为空。
+  **新文件 = 新 key**：把代码搬进新模块后，新模块里出现的任何 warning 都算「新增」（`baseline.counts[新key] ?? 0`）；所以**搬运必须不带着 unused 变量走**。
+- **AB-3 语法门禁**：`.\runtime\node\node.exe scripts\check-syntax.mjs` 通过（`check-syntax.mjs` 自动扫 `server/src/scripts/prompts`，无需人工登记新文件）。
+- **AB-4 沙盒等价差分**：用 `scripts/verify/lib/sandbox.mjs` 的 `freshSandbox / stopChild / removeSandbox` 各起一个实例（搬家前 / 搬家后），对**同一组请求**比对四元组：
+  ① HTTP 状态码与响应 JSON（剔除时间戳类字段）② 落盘产物 SHA256 ③ `logs/tasks/<日期>/<任务ID>.txt` 文本 ④ `data/history.json` 指纹。
+  差分不一致 = 该工单不通过，**当场回退，不允许「顺手修一下」**。
+  🔴 **AB-4 补充（2026-10-01 起生效·值级复核）**：凡搬运涉及 `import.meta.url` / `__filename` / `__dirname` / `process.cwd()` / `path.resolve(自身所在目录, …)` 的代码，
+  **必须做「值级」复核**（打印搬运前后的实际解析结果并比对），**文本级 diff 无法发现随目录深度变化的偏移**。
+  实例见 §1.3（`app-paths` 的 `rootDir` 因从 `server/` 搬到 `server/core/` 而整体下移一层，逐字未改却改了行为）。
+- **AB-5 提交纪律**：一张工单一个 commit。commit message 必须二选一写明：
+  「仅结构搬运，无逻辑改动（逐字节等价）」 / 「仅修 bug，无结构改动」。
+  **结构搬运与 bug 修复禁止出现在同一个 commit**。
+- **AB-6 行号锚定**：本文给出的行区间只对**当前快照**有效，前置工单合并后必然漂移。
+  实际切割请按「函数名 + 相邻注释」锚定，禁止按行号盲切（见 `V4.0-起步说明.md` 记录的 V11/v4 行号漂移坑）。
+
+### 0.7 通用禁止修改清单（下称 **G**，每张工单的「禁止修改文件清单」= G + 该单的额外项）
+
+- **G-1** `server/skill-baselines/**` —— V3 对照副本，**禁止修改任何文件**。
+- **G-2** `prompts/**` —— 提示词与后端规则集；本清单无任何工单需要动它（改了就是另一个工单、必须单独确认）。
+- **G-3** `scripts/verify/lint-baseline.json`、`scripts/verify/shared-ui-baseline.json`、`scripts/verify/runtime-config-baseline.json`
+  —— 只有工单**明确要求**时才能 `--update`，且必须在 commit message 写原因。**禁止用 `--update` 掩盖新增问题**。
+- **G-4** `server/static-assets.generated.js`、`dist/**`、`data/**`、`logs/**`、`tmp/**`、`node_modules/**`、`.codex-artifacts/**` —— 生成物/运行目录，不手工维护。
+- **G-5** `server/index.js` 的 `deferOutfitAutoSave`（快照第 2772 行）—— **刻意保留**的 unused 门禁标记。
+  禁止删除、禁止加 `void`、禁止为消除 lint 警告改它。（配套行为钉桩：`outfit-defer-autosave-check.mjs`。）
+- **G-6** 红线：禁止新增任何渠道商 KEY、禁止内置旧直连地址、生图/视频只允许 `https://api.jingyin.online/v1`。
+  本轮所有搬运**不得触碰** `PRIMARY_CHANNEL_API_BASE_URL` 及其取值来源。
+- **G-7** `src/main.jsx`、`src/outfit-workflow.jsx` 不得整体搬迁；仅允许 V11-RF-002 / V11-RF-003 点名的小范围改动。
+- **G-8** 搬运时禁止改名（函数/常量/导出名一律逐字保留），禁止调整语句顺序，禁止重排 import 语义，禁止「顺手格式化」。
+  唯一允许的例外是 V11-RF-116（启动模块必须把 `app` 作为参数注入，见该单说明）。
+
+### 0.8 接口 → 校验脚本速查（写「自测校验点」时直接查这张表）
+
+| 接口 | 覆盖它的脚本 |
+| --- | --- |
+| `/api/config` | `http-mock-check` |
+| `/api/health` | `error-boundary-check`、`check-launcher`（ps1 文案）、几乎所有脚本的实例就绪探测 |
+| `/api/connection-test` | `connection-test-check` |
+| `/api/ecommerce/routing`、`/api/gateways*` | `routing-check` |
+| `/api/client-diagnostic-event` | `local-edit-base-file-check`（端到端写日志段） |
+| `/api/images` | `http-mock-check`、`generation-failure-path-check`、`pro-wire-check` |
+| `/api/generate-outfit` | `http-mock-check`、`outfit-defer-autosave-check`、`outfit-intent-request-check`、`retouch-intent-request-check`、`batch-prompt-passthrough-check`、`image-host-allowlist-check`、`local-edit-base-file-check` |
+| `/api/save-processed-image` | `white-refine-split-check`（另有**源码级**断言，见 V11-RF-208） |
+| `/api/history`、`/api/history/repair` | `history-integrity-check`、`history-repair-check` |
+| `/api/canvas-assets`、`/api/canvas-asset/:filename` | `canvas-asset-check` |
+| `/api/image-proxy` | `image-host-allowlist-check` |
+| `/api/result/:filename` | `history-integrity-check`、`outfit-defer-autosave-check` |
+| `/api/videos/*` | **无专用脚本** → 只能靠沙盒差分 + 真机冒烟（见 §3 组C） |
+| `/api/storage/*`、`/api/save-directory`、`/api/pick-directory`、`/api/detail-prompts`、`/api/quick-prompt-rewrite`、`/api/reference-prompt-rewrite`、`/api/outfit-master-fit-analysis`、`/api/outfit-quality-check` | **无专用脚本** → 沙盒差分 + 真机冒烟（§3 组B/D/E） |
+
+### 0.9 给执行者（人或 AI）的硬约束
+
+1. 一次只搬一件事；**结构搬运与 bug 修复绝不混在同一次提交**。
+2. 只搬运，不改判断条件、不改阈值数字、不改提示词、不改出图参数、不改文件名/字段名。
+3. 每单必须 AB-1~AB-4 全过；**沙盒通过不等于功能正确，真机冒烟不可省略**。
+4. 新功能一律写 `src/features/<功能名>/`；**禁止继续往 `main.jsx` / `outfit-workflow.jsx` 加代码**。
+5. 遇到「不搬就过不去」的地方，**停下来开新单**，不要在同一次提交里解决。
+6. 🔒 **单一写入纪律**：**执行者不得修改 `REFACTOR_TICKETS.md` 或任何总表 / 执行单 / 交付报告类 `.md`**（每张任务单都会带上这一句）。成果以**汇报**交回，由文档作者统一落表。理由：这类文档是跨会话的唯一契约，两个写入者会互相覆盖（已实际发生过一次）。
+7. **搬前必做的一件事（2026-10-01 教训）**：动手前**遍历待搬区间里的每一个顶层标识符**（函数 / 常量 / 正则），逐个搜全文件引用 —— **只被这段内部使用的才随单搬走；被外部使用的必须留下**。
+   `V11-RF-106` 漏了这一步：`buildImageRequestDiagnostic` 引用的 `imageParamsForBaseUrl` / `imageChannelBaseCandidates` 在 `index.js` 另有 3 个调用方，结果被迫在新模块里放**逐字节副本** ⇒ **同名函数 2 处定义**（详见 §5 与 V11-RF-110 的强制验收条款）。**复制实现是本项目明令避免的漂移源**，只能作为最后一招并当场登记欠账。
+   🔴 **2026-10-01 追加：执行单里那份"依赖清单"也是人写的，同样会漏 —— 已发生两次**（`106` 漏了两个薄包装；`111` 漏了 `channelEndpointForBaseUrl`，由执行者机械核查抓出）。
+   ⇒ **权威判定永远是"机械核查"，不是执行单的清单**：把新模块**实际 import 的符号**逐个回搜 `index.js`，再跑 `eslint` 兜底。执行单的清单只用来**提示重点**。
+8. **import 行的放置（为"一单一 commit"服务）**：若一单要在 `server/index.js` 加 import，请把它插在**与被搬函数相关的 import 附近**，**不要**把多单的 import 全堆在同一处 —— 相邻多行会被 git 合成一个 hunk，导致"一单一 commit"无法自然拆分（`9f699a1` 就是这么被并成一个提交的）。
+9. 🔴 **「三类 hunk」修正（2026-10-01，来自 RF-104/105/106 真机红）**：此前写的"每单 diff **只允许两个 hunk**（删定义 + 加 import）"是**错的** —— 它把"清理孤儿 import"当成越界，结果三单留下 **4 个只剩 import 行、正文 0 次使用**的符号，`server/index.js|no-unused-vars` 由 1 涨到 **5**（基线 2）⇒ 棘轮报"新增 1 组 lint 问题"（**棘轮行为完全正确**）。
+   **正确规则**：每单 diff **允许且必须**包含这三类 hunk ——
+   ① **删定义**（搬走的部分）；② **加本单的 import**；③ **清理因搬家而变成孤儿的 import**。
+   **第 ③ 类怎么找（机械做法，别靠记性）**：把新模块的依赖清单列出来（它 import 了哪些符号），逐个在 `index.js` 里搜；**若某符号只剩 import 行本身，就删掉那一行**。收尾再用 eslint 兜底：`server/index.js` 的 `no-unused-vars` 只应剩 **`deferOutfitAutoSave`（G-5 刻意保留）** 这 1 条。
+   ⚠️ 先例：`V11-RF-103` 当时做过这件事（移除了 `finalizeBillingTask`/`prepareBillingTask` 两个孤儿 import），104–106 漏了 ⇒ 说明**不能靠执行者自觉，要写进单子里**。
+
+---
+
+## 1. 批次与依赖总览
+
+| 批次 | 工单 | 内容 | 标记 | 前置 |
+| --- | --- | --- | --- | --- |
+| 批次 0 | V11-RF-000 | 门禁僵尸断言修复（问题③的真实形态） | 🔴 | 无 |
+| 批次 1 | V11-RF-001 | KEY 清洗顺序 bug（问题②） | 🟢 | 无（**事实门槛**：000 已合入 + 全套 `npm run check` 绿灯；禁止与 000 的负向测试窗口并行） |
+| 批次 1 | V11-RF-002 | `ReferenceThumbTray` 批量版补 P1 修复（问题①） | 🟢 | 无（**事实门槛**：000 已合入 + 全套绿灯；禁止与 000 负向测试窗口并行，且不与 010 之后的文件搬家同期执行） |
+| **热修（优先）** | **V11-RF-011** | **`server/core/app-paths.js` 的 `rootDir` 少一层：源码模式下 data/logs 落进源码树**（2026-10-01 核验新发现，见 §1.3） | 🔴 | 无依赖；**决策：先修本单，再跑批次 3 真机验收** |
+| 门禁加固 | V11-RF-012 | 把「并发队列语义」固化进门禁（L2-101 转正，纯进程内） | 🟢 | V11-RF-101（已提交）；与 016 抢同一数字位，以改前 `--list` 为准 |
+| 测试基建 | V11-RF-014 / 015 / 016 | `run-all` 输出截断修复 / `run-all-check` 两条过时断言 / **服务端同名函数重复门禁**（三单均已关闭；016 已上护栏） | 🟢 | 已完成 |
+| **前置抽取（关键）** | **V11-RF-017** | 把图片/视频**共用**的 4 个路由辅助抽到 `core/route-helpers.js` | 🔴 | 无依赖，但**必须排在 111 与 112/113 之前**（见该单说明） |
+| 批次 2 | V11-RF-010 | 校验脚本「服务端源码真相源」统一 | 🔴 | V11-RF-000 |
+| 批次 3 | V11-RF-101 ~ 116 | `server/index.js` → 剩余 `server/core` 模块（**16 单**，编号 101–116 连续，账目核对见本批标题下方） | 见表 | V11-RF-010 |
+| 批次 4 | V11-RF-201 ~ 213 | `server/index.js` → `server/routes/*`（13 单） | 见表 | 对应 core 单 |
+| 批次 4' | V11-RF-003 | `ReferenceThumbTray` 抽 `src/shared/ui/`（前端，可选后置） | 🔴 | V11-RF-002 |
+| 批次 5 | V11-RF-220 | `server/index.js` 只留启动（抽出 `server/app.js`；**接管 116 留下的 `attachFrontend` 与末尾启动块**，见评审 D1 归属裁定） | 🔴 | 全部批次 4 + V11-RF-116 |
+| 持续 | — | 每单收尾的真机冒烟（§3） | — | — |
+
+**建议落地顺序（也是唯一安全顺序）**：000 → 010 →（001、002 任意先后，可插空）→ **011（热修，先做）** → **批次 3 真机验收（清 §5.1 欠账）** → 012（门禁加固，可与后续任意单并行）→ 批次 3 剩余单自底向上 → 批次 4 由小到大 → 220。
+
+### 1.1 评审强制修正记录（Qwen3.8-Max 参谋评审 → 逐条落表）
+
+| 评审项 | 修正要求 | 落在本表的哪里 | 执行结果 |
+| --- | --- | --- | --- |
+| **D1** | `V11-RF-116` 与 `V11-RF-220` 的 `attachFrontend` 归属矛盾 | V11-RF-116「🔴 本单范围」+ 禁止修改清单 + 验收条件 7；V11-RF-220「🔴 本单接管」+ 验收条件 4 | ✅ 已执行：116 **只搬纯启动函数**，`3809-3842 attachFrontend` 与末尾启动块 `3883-3888` **留在 index.js**，明确移交 220 |
+| **D2** | 批次 3「16 单」更正为 15 单（若确认没有第 16 个任务） | 批次 3 标题下方的「批次账目核对」；§1 批次表第 3 行 | ✅ **已关闭**：参谋最新复核确认 D2 属**此前计数错误**，批次 3 **保持 16 张工单（101–116）**，总工单无需改动 |
+| **D3** | V11-RF-101 验收缺口（4 处消费方 + 静态断言） | V11-RF-101 验收条件 4、5 + 自测校验点（含负向验证） | ✅ 已执行：4 处消费方逐一列出并要求全部改走只读快照；新增 `state-singleton-check.mjs` 静态断言（符号定义点仅 1 处），并登记进 ORDER |
+| **D4** | 批次 4 路由注入契约缺口 | 批次 4「🔴 依赖注入契约」四条 + 留证要求（依赖注入表） | ✅ 已执行：注册函数必须显式接收 `app` + 外部依赖对象；禁止重新实例化 multer/有状态单例；禁止隐式抓取 index.js 作用域变量 |
+| **D5-1** | V11-RF-212 基线刷新防掩盖三步 | V11-RF-212 验收条件 2 的「基线刷新三步防护」+ 自测校验点的证据链 | ✅ 已执行：防护① 刷新前证明只有一条且**总数为净增 0**（⚠️ 2026-10-01 修正：原写"总数=26"是错的，26 只是 2026-09-25 的历史基线值，当前真实总数更低，见 §0.1 实测注记）；防护② 刷新后 diff 只允许两处计数变更；防护③ 提交附完整 diff 文本 |
+| **D5-2** | V11-RF-001 / 002 前置门槛；002 增加"不与 010 之后的搬家同期" | 两张单的「前置依赖任务ID」字段；§1 批次表第 1 行 | ✅ 已执行：前置仍为「无」，但补上**事实开工门槛**（000 已合入 + 全套绿灯 + 禁止与 000 负向测试窗口并行）；002 另加"不与 010 之后搬家同期" |
+
+**关于 D2 的结案记录**：本表当时按**文件实证**复核 —— `101–116` 为连续 16 个编号、逐个有实体工单（第 16 个即 `V11-RF-116`），故未按"改写为 15 单"执行。
+参谋最新复核已确认「15 单」为**此前计数错误**，D2 **结案关闭**，批次 3 账目维持 **16 单**，总工单不做改动。
+今后若确实要合并其中两张（例如把 116 并入 220），那属于**重新划分批次**，必须显式写进评审记录，而不是把账目数字改小后让编号悬空。
+
+### 1.2 2026-10-01 交付核验（批次 0 / 批次 2 结项复核 · 由文档作者静态核验）
+
+**核验方式声明**：核验者所在会话**不能执行任何命令**（沙盒拒绝对该工作区授权写 ACL）。以下结论全部来自**读文件 + 读交付留档**，未运行任何脚本。
+
+#### 一、已证实成立的部分
+
+| 项 | 证据 |
+| --- | --- |
+| V11-RF-010 交付物合契约 | `scripts/verify/lib/server-sources.mjs`：纳入 `index.js + core/routes/shared`（`INCLUDE_DIRS = ["core","routes","shared"]`）；排除 `features/skill-baselines/生成物`（靠"只遍历点名目录"天然实现）；**存在性过滤**到位（目录 `existsSync` 早返回 + 单文件读取 try/catch）；lint 干净（三个导入全部被使用） |
+| 4 个脚本改造合契约 | `routing-check`：**逐文件**追加（未合并成整体文本）、未追加 `server/channel-config.js`、未追加 `features` → 与 10-8 的三条「绝对不要」一致；`white-refine`：改用整体文本；`image-host`：改用共享文件列表且保留「找出 import 了 image-hosts 的那个文件」的报告逻辑；`local-edit-base`：`SERVER_SOURCES = listServerSourceFiles()` |
+| 零业务改动 | `server/index.js` 仍 **3888 行**；`src/outfit-workflow.jsx` 仍 **11523 行**且第 9470 行 `const originalFile = resolveLocalEditBaseFile(task.modelItem);` **逐字节还原**（000 的 0-7 探针已复原干净） |
+| 门禁脚本数未变 | 全套输出末行 `[run-all] 33 个脚本` |
+| 部分负向验证留档齐全 | `white-refine`：`negA-white.txt`(ok:true = 搬家后仍命中) / `negB-white.txt`(ok:false = 证伪) / `final-white.txt`(ok:true = 已还原)；000 的 0-7：`local-edit-base-neg.txt`(ok:false) |
+| 棘轮替代脚本**逻辑**可信 | `.codex-artifacts/baseline-2026-10-01/compare-ratchet.mjs` 的 `countsOf` / 比较 / 排序与 `lint-ratchet-check.mjs` **逐行等价** → 它的 `regressions=0` **结论可信**（但见下方 #1：它仍不能替代门禁本身） |
+
+#### 二、三处必须修正或补强的偏差
+
+| # | 偏差 | 证据 | 要求 |
+| --- | --- | --- | --- |
+| **1** | 「14 项失败是 4 类互不相关的环境问题」**不成立** —— 它们是**同一个根因：该执行环境不能可靠 spawn 子进程** | ① `lint-ratchet`：`spawnSync ... EBUSY`（原文）；② `run-all-check`：`run.stdout` 非字符串 → TypeError（该脚本 `:50-51` 正是 spawnSync 之后直接 `.split`）；③ `check-launcher`：`ps1 exit=null, expected=7` + 「ps1 通过 PowerShell 解析」FAIL（子进程根本没跑起来）；④ 11 个脚本 30s 超时「V11 测试实例未起来」。这与 `V4.0-起步说明.md` §二记录的受限环境（"连 `spawnSync("node --version")` 都返回 EBUSY"）是**同一现象** | 在**能正常 spawn 的终端**（真正的 PowerShell，而非受限会话）重跑全套；目标：**「测试实例未起来」归零** + **`lint-ratchet` 自己能跑通**（不接受替代脚本作为门禁结论） |
+| **2** | 「000 无源码级断言失败（仅剩浏览器探针类环境红）」**表述过强** | `local-edit-base-file-check.mjs:275` 的 `waitForHealth` 失败会 throw → 第 279 行的 `verifyTaskLogWiring()` **从未执行**、其 2 条断言从未注册。27 项 = 3 逻辑 + 4 对账单 + 10 源码级 + 8 可见性 + 1 浏览器探针 + 1 history 指纹，**全部是静态/逻辑项**。即这一轮**没有拿到任何端到端证据** | 结论不变（无源码回归），但记录必须改写成「**零端到端证据**」，否则后人会误以为端到端过了 |
+| **3** | 10-10② 与棘轮结论的**留档缺失** | 留档目录里只有 `routing.txt`(失败 0 / 共 172) 与 `after-routing.txt`(失败 0 / 共 172) 两次"绿"，**没有**「共 173 项 + FAIL 点名 `server/core/uploads.js`」那一次的输出；`compare-ratchet` 的输出也未落成文本（只留了原始 `eslint-full.json`，可复算但未成证） | 补齐这两处留档；在补齐前，这两条按「**未闭环**」记账（本项目纪律：未留证 = 未完成） |
+
+#### 三、由本次核验修正的**本文档自身错误**（已就地改掉）
+
+- **「总数严格等于 26」是错的**：`baseline.totals.total = 26` 是 2026-09-25 生成基线时的历史值；2026-10-01 的 `eslint-full.json` 实测显示 `prompts/server/outfit-skill.js` 已是 **0 warning**（基线记的是 2 —— 该文件里 `referenceMentioned` / `masterWearingLockLines` 已不存在，只剩一行注释提到名字）。
+  因此 **V11-RF-212 的「基线刷新三步防护①」与 §4 D-2 已全部改为「净增 0」口径**。不改的话，212 会被一条**不可能满足**的条件卡死。
+
+#### 四、批次 3 开工判定（结论：**暂不开工**）
+
+**判据**：批次 3 每张单的验收条件都依赖 `run-all`（AB-1）与 lint 棘轮（AB-2），而这两者**当前在本机都不可执行**（见二 #1）。批次 3 是**第一次真正改 `server/**` 业务代码**（并发队列、计费签发、结果归档、两个主端点），失去这两张网等于闭眼搬 3888 行 —— 执行单 P5 的原话就是"**不要在红的基线上开工**"。
+
+**开工前必须清掉的三项**：
+
+1. 换到能正常 spawn 的终端重跑全套 → 「测试实例未起来」= 0、`lint-ratchet` 自身跑通；
+2. 补齐二 #3 的两处留档（或明确记为未闭环）；
+3. 按二 #2 修正 000 的表述（已在本文 §5 与 §1.2 记录）。
+
+**已就绪、不需要再确认的**：101 的验收条件 5 要求复用 010 的共享真相源模块 —— **该依赖已具备**；101 合入后门禁脚本数 33 → 34（§0.1 已注记）。
+
+### 1.3 2026-10-01 核验新发现：`app-paths` 的 `rootDir` 少一层（**既有缺陷，非本批引入**）
+
+**现象（磁盘实证）**：`server/logs/tasks/2026-10-01/task_1_verify-localpaste-*.txt`（**17 个残留**）+ `server/logs/generation.jsonl` 落在**源码树内**；仓库根**没有** `logs/`，也没有 `data/`（`**/history.json` 只出现在 `.codex-artifacts/…` 与 `tmp/sb-*` 沙盒目录里）。
+
+**根因（考古对照 —— 决定性证据）**：
+
+| 搬迁前（V3 快照 `server/skill-baselines/V3-…-2026-08-06/server-index.js`） | 搬迁后（`server/core/app-paths.js`） |
+| --- | --- |
+| `:32 const runtimeDir = path.dirname(runtimeFile);` | `:25` 同 |
+| `:33 const sourceRootDir = path.resolve(runtimeDir, "..");` | `:26` **逐字未改** |
+| `:50 … \|\| sourceRootDir` | `:44` 同 |
+
+代码**逐字一致**，但**文件所在目录深度变了**：
+- 搬迁前文件在 `server/` → `path.resolve(<root>/server, "..")` = **`<root>`** ✓（与该文件"5. 源码开发模式 → 仓库根目录"的注释一致）
+- 搬到 `server/core/` 后 → `path.resolve(<root>/server/core, "..")` = **`<root>/server`** ✗
+
+⇒ 这**恰好是"逐行搬运 + ESLint no-undef 零缺失"这类文本级等价证明抓不到的偏差**：它取决于文件自身的位置，而不是文本内容。
+
+**影响**（**仅源码/网页运行模式**，即 `runtime\node\node.exe server\index.js` 或 .bat 启动时）：
+
+1. **用户数据与日志落进源码树**：实际是 `<root>/server/data`、`<root>/server/logs`，与 `AGENTS.md`、`01-目录分区与维护地图.md` 的记载**不符**；任何按 `<root>/data` 做的备份/清理都会**静默漏掉全部数据**。
+2. **`local-edit-base-file-check` 的端到端断言被这条缺陷挡住**：脚本按 `<root>/logs/tasks/<日期>/<requestId>.txt` 读，服务端却写在 `<root>/server/logs/…` ⇒ 在**能起实例**的真机上该断言会**失败**（"任务日志未生成"）；而它的清理段删的是不存在的路径，真文件永远清不掉 —— **那 17 个残留就是这么攒出来的**。
+3. `server/logs/`、`server/data/` **已被 `.gitignore` 覆盖**（`logs/`、`data/` 是不含斜杠的模式，按 git 语义匹配**任意层级**）⇒ 不会误入提交，但磁盘污染 + "数据到底在哪"的排查成本会长期存在。
+4. **打包模式不受影响**：`packagedRootDir` / `%LOCALAPPDATA%\静音AI绘画数据` 分支优先级高于 `sourceRootDir`，EXE 运行时路径正确。
+
+**处置**：见 **V11-RF-011**（热修，独立 commit）。**禁止**把它塞进批次 3 的任一单（结构搬运与行为修复不得同 commit）。
+
+**执行状态（2026-10-01）**：✅ 代码已修复（`sourceRootDir` 由 `path.resolve(runtimeDir, "..")` 改为 `path.resolve(runtimeDir, "..", "..")` —— 文件从 `server/` 搬到 `server/core/` 后需上溯两级才到仓库根），顶部注释与 `sourceRootDir` 注释同步说明"勿改回一级"。✅ **本环境验证全部通过**：① 改前探针 rootDir=`<root>/server`、distDir 不存在；② 改后探针 rootDir=仓库根、dataDir=`<root>/data`、uploadTempDir=`<root>/tmp/uploads`、日志目录=`<root>/logs`、distDir 存在（前端挂载分支将切到磁盘 dist）；③ 新增门禁 `scripts/verify/app-paths-check.mjs`（纯进程内）登记 ORDER（**34→35**），覆盖"源码兜底 rootDir=仓库根 + 落点 + JINGYIN_RELEASE_ROOT 仍最高"；正向 ok:true，负向把层级改回一级→变红并点名 `…/server`（已逐字节还原）；④ `run-all --list` 由 34→35。⛔ **提交暂挂**（执行单 P2 门槛：须等能 spawn 的真机跑完 AB-1 全套 35 项失败 0 + `local-edit-base-file-check` 端到端转 PASS 后再独立提交，禁止与批次 3 混 commit）。⚠️ **P1 数据落点决策**：`server/data/results` 为空（0 文件）、`server/logs/` 仅 17 个 `task_1_verify-localpaste-*` 测试残留 + `generation.jsonl`（测试残留）；仓库根 `data/app-settings.json` 已存在且正是修复后目标落点 ⇒ **无真实用户数据需迁移**。（清理 `server/logs/` 已于 2026-10-01 在本环境执行：删除 17 个 `task_1_verify-localpaste-*` 残留 + `generation.jsonl`；`server/data` 仅空 `results/`，亦一并删除。二者均被 `.gitignore` 覆盖，不进提交；停服后服务端会在仓库根自动重建 `logs/`。）
+⚠️ **修之前必须人工确认**：是否已有机器把真实数据落在 `<root>/server/data` —— 因为修复会把落点改回 `<root>/data`，涉及"已有数据怎么办"的人工决策，**不是自动搬迁**。
+
+**给真机验收的一条预警**：跑 AB-1 时若 `local-edit-base-file-check` 出现与"端到端写日志 / 临时日志已清理"相关的 1–2 条失败，**那是本条缺陷，不是 V11-RF-101/102/103 的回归** —— 先别回退那三单。
+
+**清理建议（人工，1 分钟）**：删除 `server/logs/`（17 个 `task_1_verify-localpaste-*` 全是测试残留 + `generation.jsonl`），目录会被服务端自动重建。删之前按文件名确认没有真实运行日志混在里面。
+
+#### 现场发现（同日）：双击启动器「进不了页面」——与本节同源，但**不是本次修复引入的回归**
+
+**证据链（全部来自磁盘，可复核）**：
+
+| 证据 | 读数 | 说明 |
+| --- | --- | --- |
+| `启动静音内测画板.bat` → `scripts/start-jingyin-board.ps1` | **不设 `NODE_ENV`** | ⇒ 服务器进的是 `attachFrontend()` 的 **vite dev 分支**，不是 production 的 dist/内嵌分支 |
+| `logs/launcher-server.log` | `[vite] (client) Re-optimizing dependencies because vite config has changed` + `Jingyin AI Canvas http://127.0.0.1:8787` | 服务器**起来了**，vite 正在跑（root 变化使 vite 依赖缓存失效 → 重新预构建） |
+| `logs/launcher-server.err.log` | **空** | 服务端**没有任何异常** |
+| `logs/generation.jsonl`（仓库根） | 最后一条是 `2026-09-30T16:06Z`；**没有** 13:13 那次的 `client-app-loaded` | ⇒ **前端从未加载成功**（应用启动时会发这条客户端事件） |
+| `node_modules/.vite/deps/_metadata.json` | 存在 | vite 预构建至少跑过一次 |
+| `data/app-settings.json`（仓库根） | 存在（`data/` 下唯一文件） | 与"修复后落点 = 仓库根"一致，且**没有** history/results ⇒ P1 的"无真实用户数据需迁移"成立 |
+
+**根因判断（按可能性排序）**：
+1. **vite dev 首次预构建窗口**：root 变化让 vite 依赖缓存失效，首次请求触发 re-optimize，期间浏览器常拿到 `504 (Outdated Optimize Dep)` → **白屏/卡住，刷新一次通常即好**。对这个体量（`main.jsx` 8953 行 + `outfit-workflow.jsx` 11523 行）首屏转换本身就慢。
+2. **启动器开浏览器太早**：`ps1` 在 `/api/health` 通过后就 `Start-Process $AppUrl`，而 health 通过**与 vite 是否就绪无关** ⇒ 用户看到的是"已经在跑的慢加载"，容易判定为"进不去"。
+3. 服务端 500 / 崩溃**已被排除**（stderr 为空、端口已监听）。
+
+**🔴 关键结论（别搞反）**：**修复前，这条 dev 分支本来就打不开页面。**
+`attachFrontend()` 的 dev 分支读的是 `path.join(rootDir, "index.html")`：
+- **改前** `rootDir = <root>/server` ⇒ 读 `<root>/server/index.html` ⇒ **该文件不存在**（仓库根有 `index.html`，`server/` 下没有）⇒ 必然报错；
+- **改后** `rootDir = <root>` ⇒ 读 `<root>/index.html` ⇒ **存在且引用 `/src/main.jsx`** ⇒ 这条分支**第一次具备能打开的条件**。
+
+⇒ "进不了页面"**不是 011 引入的回归**，而是 011 **第一次让这条路可能走通**，从而暴露了 vite dev 的首次加载体验问题（以及一个产品级问题，见 §4 D-5）。
+
+**立即补救（按顺序试，前两步通常就够）**：
+1. 页面出来后**手动刷新一次**（vite re-optimize 后必须刷新才能拿到新依赖）；
+2. 仍白屏 → F12 看 Console/Network：若为 `504 (Outdated Optimize Dep)` ⇒ 删掉 `node_modules\.vite`、重启服务、再刷新；
+3. **最稳的可用路径**：让服务走 **production 分支**（启动前设 `NODE_ENV=production`，或临时在 `.bat` 里加一行）⇒ 服务 `<root>/dist`。
+   已核：`dist/index.html` 引用 `/assets/index-FHAEZSa6.js` 与 `/assets/index-4tqmSYnl.css`，**两者都在**；且 `src/` 自该次构建以来未改动 ⇒ 页面应当秒开。
+   **这条同时验证执行单 1-6 预警的"前端来源由内嵌切到磁盘 dist"**。
+
+**顺带发现一个启动器证据缺口（值得单开小单）**：`ps1` 只在**启动失败**或"服务已在运行"时才写 `launcher-diagnostic.log`；**启动成功时它保留上一次的内容**（本次残留的正是 08:59 的 `check-launcher` 夹具运行，我一开始就被它误导过）⇒ 现场排障会读到过期诊断。建议：无论成功失败都重写诊断日志（含端口、node 路径、**前端分支判定**）。
+
+**✅ 2026-10-01 真机复测结论（用户实机，双击 `.bat`）**：**页面可以打开、出图正常** ⇒ 上面的判断成立：011 让 dev 分支第一次可用，**不是**回归。这同时构成 **011 的 1-12 冒烟**与 **101 组 A 的主体**（见 §5.1 B4）。
+
+**011 的验收状态（2026-10-01 结论）**：
+| 验收项 | 状态 |
+| --- | --- |
+| 1-5 值级复核（`rootDir`/`dataDir`/`uploadTempDir`/日志目录/distDir） | ✅ 改前/改后对照表已出 |
+| 1-7 新门禁 `app-paths-check` + ORDER 34→35 | ✅ 真机全套里 `app-paths-check … 通过` |
+| 1-8 正负向成对 | ✅ 负向变红并点名实际值、已还原 |
+| **1-11** `local-edit-base-file-check` 端到端转 PASS | ✅ **36/36**（此前一直被本缺陷挡红） |
+| **1-12** 真机出图 + `data`/`logs` 落在仓库根 | ✅ 出图正常；日志落在 `logs/tasks/2026-10-01/`；`data/` 在根 |
+| **P2 提交门槛**：全套 **35 项失败 0** | ⏳ **仅差这一项** —— 被 `run-all.mjs` 的 `process.exit()` 偶发截断挡住（→ **V11-RF-014**，1 行）。修完补跑一次即可提交 |
+
+**⚠️ 归因待确认的一条（不要抢功）**：用户另报"**批量生成时切换页面会导致生图结果卡住**"的问题现在**不再复现**。
+- 这是**前端**（`outfit-workflow.jsx` 的运行账本/结果恢复，见 §0.7 登记表相关行）的语义，本批 101–103 与 011 **都没有碰过前端**；
+- 在**能复现出该问题的旧副本**上做一次对照（同一条批量任务、同样的切页面动作）之前，**不得**把"不再复现"写成"本批修复了它"；
+- 若确认它在本工作区此前可复现、现在不可复现，才值得单独开一张**前端 bug 单**去定位（那会是一条高价值线索，但不属于本轮 server 搬运的功劳）。
+
+---
+
+## 2. 工单
+
+### 批次 0 · 门禁
+
+---
+
+#### V11-RF-000 · 修掉 `local-edit-base-file-check` 的僵尸断言（门禁当前为红）
+
+> **分步操作单**：[V4.0-执行单-V11-RF-000-010.md](V4.0-执行单-V11-RF-000-010.md) §1（含 0-1~0-9 九步与收尾自检清单）
+
+- **任务类型**：【bug修复】（修的是**验证脚本**，不是业务代码；不改任何业务行为）
+- **目标操作文件**：
+  - `scripts/verify/local-edit-base-file-check.mjs`（第 146-148 行那条断言；必要时补注释说明）
+- **前置依赖任务ID**：无（**必须第一个做**，否则后面每一单的 AB-1 都无从判断）
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：`src/outfit-workflow.jsx`、`src/main.jsx`、`src/shared/local-edit-geometry.js`（本单**只许动验证脚本**）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（已确认该脚本当前恒红，修完必须转绿）。
+  2. **AB-2 lint 棘轮基线不能新增问题**（本单不产生新文件，理论上无变化；仍须实跑确认）。
+  3. 该脚本自身 `results` 中不再出现由这条断言产生的 `false`；`--only local-edit-base` 退出码 0（**前提**：真机装有 `%LOCALAPPDATA%\Tabbit\LocalAgent\bin\tabbit-cli.exe`；没有时按 §4 D-1 决策）。
+  4. 两分支决策写进 commit message：
+     - **分支A（推荐）**：删除该断言，并在脚本注释写明「断言目标 `LocalDetailPanel` 已于 2026-09-30 作为从未渲染的半成品删除，原图优先规则由 136-138 行的四条断言覆盖」。
+     - **分支B**：若业务上确要复活「局部详情面板」，**另开新功能单**（不属于本重构清单）；本单仍按分支A先解除门禁红。
+  5. `outfit-defer-autosave-check`、`local-edit-base-file-check` 逻辑级断言（原图优先 / 缺原图退回副本 / null 安全）全部保持通过 —— **搬脚本不许削弱已有判别力**。
+- **自测校验点**：
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only local-edit-base`（期望退出码 0）
+  - 负向验证（必须有）：临时把 `src/outfit-workflow.jsx:9470` 的 `resolveLocalEditBaseFile(task.modelItem)` 改成取上传副本 → 该脚本 **136-138 行必须变红** → 改回。证明剩余断言仍有判别力。
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs`（全套）
+- **真机冒烟**：不需要独立冒烟（无业务改动）；但**必须在真机跑一次全套**，结果贴进开工记录。
+
+---
+
+### 批次 1 · 三处已知问题（②① 为真 bug；③ 见 V11-RF-000）
+
+---
+
+#### V11-RF-001 · `normalizeApiKeyInput` 清洗顺序导致部分粘贴来源 401（问题②）
+
+- **任务类型**：【bug修复】
+- **目标操作文件**：
+  - `src/features/auth/api-key.js`（第 1-7 行的 `normalizeApiKeyInput`）
+  - `server/features/auth/api-key.js`（第 1-7 行，**两份必须逐字一致**）
+- **前置依赖任务ID**：无
+  **【事实开工门槛（评审 D5-2）：V11-RF-000 已合入，且全套 `npm run check` 绿灯；禁止与 V11-RF-000 的负向测试窗口并行操作】**（000 的 0-7 会临时改坏业务源码，同期操作会让失败归属无法判定）
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`scripts/verify/auth-key-parity-check.mjs`（**禁止**改脚本或其 `knownDefects` 白名单 —— 修好后缺陷条目必须**自动消失**，改脚本即视为作弊）、`server/core/image-error-policy.js`（`resolveApiKey` 只是转发，不得改）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**；其中 `auth-key-parity-check` 必须仍为通过（20 个用例前后端逐字节一致 + 6 条关键规则生效）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. `auth-key-parity-check` 输出的 `knownDefectCount` 由 1 → **0**，`knownDefects` 为空数组，**且未修改该脚本**。
+  4. 目标行为（脚本 `:135-136` 的同一条用例）：输入 `'Bearer \u200B"sk-jingyin-123456"\uFEFF '` → 输出必须恰为 `sk-jingyin-123456`。
+  5. 不变量不得回退（脚本 `:88-102` 已钉）：去 `Bearer`（大小写不敏感）、去首尾引号、去 `\s` 与 `\u200B-\u200D\uFEFF`、中间空格也删、空/`null`/`undefined` 返回 `""` 不抛异常。
+  6. 两份实现 diff 为空（防「改一边忘一边」）。
+  7. 保持纯函数、无副作用；不改函数名、不改导出名、不新增依赖。
+- **自测校验点**：
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only auth-key` → `ok:true` 且 `knownDefectCount:0`
+  - `git diff --stat src/features/auth/api-key.js server/features/auth/api-key.js` → 两文件改动行数相同、内容一致
+  - 手工用例（不写进脚本，临时 node -e 验证后丢弃）：微信粘贴样本 `'"sk-xxx"\u200B'`、Excel 样本 `'\t"sk-xxx"\t'`
+- **真机冒烟**：**【必须·独立】** 从**微信聊天窗口**复制一个真 KEY（首尾带不可见字符）→ 粘贴进设置 → 保存 → 直接出图。看：① 界面显示无引号残留 ② 请求 200 ③ `logs/tasks/<日期>/` 里该请求没有 401/`invalid_api_key`。
+
+---
+
+#### V11-RF-002 · 批量版 `ReferenceThumbTray` 缺失 P1 修复（问题①，只修行为，不搬代码）
+
+- **任务类型**：【bug修复】（**本单禁止同时抽组件**——抽取是 V11-RF-003，必须另一个 commit）
+- **目标操作文件**：
+  - `src/outfit-workflow.jsx`（`ReferenceThumbTray`，快照第 2697-2757 行；以及第 82 行的 `result-image.js` import 行；调用点第 10430-10437 行需复核签名）
+- **前置依赖任务ID**：无
+  **【事实开工门槛（评审 D5-2）：V11-RF-000 已合入，且全套 `npm run check` 绿灯；禁止与 V11-RF-000 的负向测试窗口并行操作】**（000 的负向验证会**临时改坏本单要动的同一个文件** `src/outfit-workflow.jsx`，同期操作必然互相污染）
+  **另：不与 V11-RF-010 之后的任何文件搬家同期执行**（搬家会改动校验脚本的扫描范围，同期做会让失败归属无法判定）
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：
+  - `src/main.jsx` 的 `ReferenceThumbTray`（第 1291-1362 行）与 `CachedImage`（第 1198 行）——**本单是单侧补齐，不是双侧改写**
+  - `src/shared/result-image.js`（只许 import，不许改）
+  - `scripts/verify/shared-ui-baseline.json`（**禁止** `--update`：本单不消除重复，重复基线保持原样）
+  - `src/outfit-workflow.css` / `src/styles.css`（样式不动）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**；其中 `shared-ui-duplication-check` 必须仍为 `ok:true`
+     （`ReferenceThumbTray` 实现哈希仍不一致 → 该脚本会继续把它挂在 `drifted` 里，这是**预期**，属存量，不判死）。
+  2. **AB-2 lint 棘轮基线不能新增问题**（新增 import 必须真的被用上，否则产生新的 `no-unused-vars` → 直接判不通过）。
+  3. 批量版行为向主画板版对齐，**且只对齐 P1 那两条**：
+     - a) 带 `missing: true` 标记的参考图**不再渲染、不再发请求**；
+     - b) 地址不在白名单的参考图**不再渲染、不再发请求**（改用 `isAllowedReferenceImage(reference, referenceSource)`）。
+     - 缺失数量 > 0 或仅剩数量提示时，仍渲染原有的「N 张参考」数量提示（`referenceCountPill`），`title` 文案与主画板版同义。
+  4. **不得改变**批量版自身的既有契约（这是与主画板版的真实差异，本单不合并它们）：
+     - `onOpen(reference, index, items)` 的调用形状与第 10434 行调用点的期望保持一致；
+     - 仍用原生 `<img>`（不引入 `CachedImage`）；
+     - `key` 兜底、`className`、`onContextMenu` / `onImageDragStart` 行为逐字保持。
+  5. 不引入新的跨文件同名组件；不新增样式类名。
+- **自测校验点**：
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only shared-ui`（期望 `ok:true`，`drifted` 仍列出 ReferenceThumbTray）
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only ui-duplication` 与 `--only modal-shell`（回归）
+  - 静态自查：`isAllowedReferenceImage` 在 `src/outfit-workflow.jsx` 中确有使用点（否则 lint 会红）
+- **真机冒烟**：**【必须·独立】** 批量页 → 打开一条**含失效参考图**的历史记录（或用旧记录复现）→ 观察：① 网络面板**不再**对失效/非白名单地址发请求 ② 缩略条显示数量提示而不是破图 ③ 正常参考图仍能点开大图、右键菜单、拖拽。
+
+---
+
+#### V11-RF-011 · 🔴 热修：`server/core/app-paths.js` 的 `rootDir` 少一层（源码模式 data/logs 落进源码树）
+
+> **背景与新发现**：见 §1.3（含考古对照证据）。这是 **既有缺陷**（Phase 1 把 app-paths 从 `server/` 搬到 `server/core/` 时引入），**不是** V11-RF-101/102/103 造成的。
+> **决策（2026-10-01）**：**先修本单，再跑批次 3 的真机验收**（采纳"方案 A"）—— 否则 AB-1 里 `local-edit-base-file-check` 的端到端断言会失败，看起来像三单的回归，每跑一次都要重新人工判断。
+> **分步操作单**：[V4.0-执行单-V11-RF-011.md](V4.0-执行单-V11-RF-011.md)（P1 人工决策门 + 12 步 + 值级复核对照表 + 判读速查 + 自检清单）
+
+- **任务类型**：【bug修复】（**只改行为，不做任何结构搬运**；独立 commit，禁止与任何搬迁单同提交）
+- **目标操作文件**：
+  - `server/core/app-paths.js`（`sourceRootDir` 的层级计算，快照 `:25-26`；必要时同步该文件顶部那条已经失效的注释"5. 源码开发模式 → 仓库根目录"）
+  - 新增一条断言脚本（建议 `scripts/verify/app-paths-check.mjs`，**纯进程内、不 spawn**）并登记进 `run-all.mjs` 的 `ORDER`（脚本数 **34 → 35**）
+- **前置依赖任务ID**：无
+- **标记**：🔴 串行（与批次 3 的真机验收互斥：**要么先修完再跑 AB-1，要么在跑 AB-1 时明确按 §1.3 的预警忽略该失败项**，二选一并记录）
+- **禁止修改文件清单**：G 全部；额外禁止：
+  - `server/skill-baselines/**`（V3 对照副本，**只许读来对照**）
+  - 任何 `*baseline*.json`
+  - **`data/**`、`logs/**`、`server/data/**`、`server/logs/**`**：本单**只允许读**，**禁止**任何自动搬迁/删除动作（数据搬迁是人工决策）
+  - `server/index.js` 与三个新 core 模块（本单**不得**顺手动批次 3 的文件）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**；**AB-2 lint 棘轮基线不能新增问题**。
+  2. **修复依据可复现**：`server/skill-baselines/V3-…-2026-08-06/server-index.js:32-33,50` 与 `server/core/app-paths.js:25-26,44` 三行逐字对应，但两文件**所在目录深度不同** ⇒ `path.resolve(runtimeDir, "..")` 的**值**从 `<root>` 变成 `<root>/server`。
+  3. 修复后（源码模式）新增断言必须证明：**`rootDir` == 仓库根**（即 `<root>/data`、`<root>/logs` 为落点），并断言**打包分支优先级未被破坏**（`JINGYIN_RELEASE_ROOT` / macOS / `%LOCALAPPDATA%\静音AI绘画数据` / 自带 `dist` 四种情形仍优先于源码兜底）。
+  4. **正向 + 负向成对**：断言在修好的代码上通过；把层级改回少一层的写法 → 断言**必须变红并点明实际解析值**。
+  5. 🔴 **数据落点确认（人工前置，不得跳过）**：先检查是否存在 `<root>/server/data`、`<root>/server/logs` 里已积累的**真实**数据（本轮已知只有 17 个测试残留日志）；若存在真实数据，**必须由人决定**是否迁移、如何迁移，并把决定写进 commit message。**禁止**脚本自动搬。
+  6. 修复后 `local-edit-base-file-check` 的端到端断言（"服务端：把该事件写进任务日志"与"临时任务日志已清理"）应在**能起实例的真机上转为 PASS** —— 这是本单最强的验收证据（它此前一直被这条缺陷挡住，见 §1.3 影响 2）。
+  7. 🔴 **必须有连带行为变化的记录（前端挂载分支切换）**：`server/index.js` 的 `attachFrontend()` 用 `path.join(rootDir, "dist")` 判断磁盘前端是否存在。
+     - **改前**：`rootDir` 指错 ⇒ `<root>/server/dist` 不存在 ⇒ 生产模式走**内嵌静态资源**（`server/static-assets.generated.js`）；
+     - **改后**：`<root>/dist/index.html` **确实存在**（已核）⇒ 生产模式改走**磁盘 `dist/`**。
+     所以本单**必须**：先跑一次前端构建让 `<root>/dist` 与当前 `src/` 一致，再真机对照界面；并在 commit message 里写明"前端来源分支由内嵌切换为磁盘 dist"。
+     ⚠️ 若真机界面**变旧**，那是 `<root>/dist` 过期（本修复把一直没被用到的 dist 启用了），**处理方式是重新构建，不是回退本单**。
+- **自测校验点**：
+  - 值级复核（AB-4 补充）：分别在**修复前/后**打印源码模式下的 `rootDir` / `dataDir` / `logs` 落点，并排比对（这是本单的核心证据）
+  - `.\runtime\node\node.exe scripts\verify\app-paths-check.mjs`（正/负向各一次）
+  - `run-all --list` 由 **34 → 35**
+  - 真机：起一次服务 → 确认日志写到 `<root>/logs/tasks/<日期>/`（而不是 `server/logs/`）→ 跑一次 `local-edit-base-file-check` 的端到端段
+- **真机冒烟**：**【必须·独立】**：双击 `启动静音内测画板.bat` → 出一张图 → 确认数据/日志落在**仓库根**的 `data/`、`logs/`（而不是 `server/` 下）；再从设置里看历史记录是否仍能读到旧数据（若旧数据在 `server/data`，此处会暴露"要不要迁移"的问题）。
+
+---
+
+#### V11-RF-012 · 把「并发队列语义」固化进门禁（L2-101 转正）
+
+> **决策（2026-10-01）**：L2 测试原先只落在 `.codex-artifacts/`（gitignored）⇒ **它们是取证、不是门禁，下次没人会跑**。按"至少固化 101 那条"的建议开出本小单（101 守的是**单例契约**里"这一份的行为"，与源码级的 `state-singleton-check` 互补）。
+> **分步操作单**：待补（本单很小，照本条执行即可；开工前记下改前 `--list` 数字）
+
+- **任务类型**：【结构搬运重构】（**只增验证，零业务改动**）
+- **目标操作文件**：
+  - 新建 `scripts/verify/image-queue-semantics-check.mjs`（**纯进程内**，直接 import `server/core/image-concurrency.js`，不 spawn、不起服务）
+  - 改 `scripts/verify/run-all.mjs` 的 `ORDER`（加一行；数字位见下）
+- **前置依赖任务ID**：V11-RF-101（已提交于 `6d9716a`）
+- **标记**：🟢 可并行（与 V11-RF-011 无逻辑依赖，但**两者抢同一个数字位**：谁先做谁先占，**一律以改前 `--list` 为准**，不要互相假定 35/36）
+- **禁止修改文件清单**：G 全部；额外禁止：
+  - `server/core/image-concurrency.js`（本单**零业务改动**；若断言发现模块行为与契约不符 → **另开 bug 单**，不要在本单里改业务代码）
+  - 任何 `*baseline*.json`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**；**AB-2 lint 棘轮基线不能新增问题**。
+  2. 断言至少覆盖（把 `.codex-artifacts/batch3-2026-10-01/l2-101.mjs` 的 13 项**转正**，并补齐边界）：
+     - `imageSlotWeight` 记账：超过 `IMAGE_CONCURRENCY_LIMIT` 被夹住；`0` / 非数字 → `1`；中间值原样；
+     - 取满 `IMAGE_CONCURRENCY_LIMIT` 后，第 N+1 个**进入排队**且**尚未被放行**；
+     - 释放一个后**按 FIFO 放行**，`active` 回到上限、`queued` 归 0；
+     - **重复释放是 no-op**，`active` **不为负**；
+     - 快照**返回新对象**，且改写返回值**不影响**内部状态（只读契约）；
+     - 全部释放后 `active` 回到 `0`。
+  3. **不许把测试写脆**：等待放行用**确定性的任务让渡**（微/宏任务顺序），并在注释里写明依赖的是哪一层任务队列；不要依赖墙钟睡眠或"重试若干次"。
+  4. 文件头必须写清与 `state-singleton-check` 的分工：**前者管"状态只有一份"（源码级）**，**本单管"这一份的行为契约"（运行级）** —— 两者一起才构成 101 的完整护栏。
+- **自测校验点**：
+  - 新脚本正/负向成对：把 `imageSlotWeight` 的夹取临时改错（例如去掉上限）→ 新脚本**必须变红并打印实际值** → 逐字节还原；
+  - `run-all --list` 相对改前 **+1**（011 未做则 34→35；011 已做则 35→36）；
+  - `run-all-check` 的"顺序表覆盖所有磁盘脚本"不报漏登记。
+- **真机冒烟**：不需要（纯进程内逻辑）；但**必须**在能 spawn 的终端跑一次全套，确认新脚本没影响其它脚本的顺序与结论。
+
+---
+
+#### V11-RF-014 · `run-all.mjs` 用 `process.exit()` 硬退出，管道输出会被截断（元测试偶发红）
+
+> **发现来源（2026-10-01 真机首跑）**：全套 **34/35**，唯一失败是元测试 `run-all-check`，失败项为
+> 「run-all：人读输出里点名失败脚本」，detail = `status=1 输出未点名`（即**退出码正确、但输出里找不到 `失败脚本：__fail-fixture-check`**）。
+> 而在**用户自己的终端里**（TTY）同一命令**能看到**那行 `[run-all] 失败脚本：…` ⇒ 典型的"管道 vs TTY"差异。
+
+- **任务类型**：【bug修复】（**测试基建**，零业务改动；独立 commit）
+- **目标操作文件**：`scripts/verify/run-all.mjs`（**结尾处**：`process.exit(failed.length === 0 ? 0 : 1);`）
+- **前置依赖任务ID**：无
+- **标记**：🟢 可并行（但建议**排在 011 提交之前**，见验收条件 3）
+- **禁止修改文件清单**：G 全部；额外禁止：任何业务代码、任何 `*baseline*.json`、`run-all.mjs` 的 `ORDER` 顺序表（本单只改结尾那一行）
+- **根因（已定位，可直接复核）**：`run-all.mjs` 结尾用 `process.exit(code)` **强制退出**。Node 文档明确：`process.exit()` 会"尽快退出，**即使还有未完成的异步 I/O**（包括写到 `process.stdout`/`process.stderr` 的）"。
+  - stdout 是 **TTY**（用户终端）→ 写入同步 → 最后几行正常显示；
+  - stdout 是**管道**（`run-all-check` 用 `spawnSync(..., {encoding:"utf8"})` 捕获）→ 写入异步 → **最后一行 `失败脚本：…` 可能被丢掉** ⇒ 元测试正则匹配失败。
+  - 这也解释了它为什么是**偶发**：取决于时序，不取决于代码正确性。
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（**35 项、失败 0**）；**AB-2 lint 棘轮基线不能新增问题**。
+  2. 改法：把强制退出改成"设置退出码后正常结束"（`process.exitCode = …`），让 Node 自己 flush 完再退；**不得**顺手改其它任何输出/逻辑。
+  3. **稳定性验证（本单的核心）**：连续跑 `run-all-check` **至少 3 次**，每次都必须是 `ok:true`（偶发 bug 必须用重复跑证明修掉了，而不是一次通过就算）。
+  4. 顺带记录：`.[\runtime\node\node.exe scripts\verify\run-all.mjs]` 的末行 `[run-all] 失败脚本：…` 在**管道捕获**下也能稳定出现（可用 `--only __fail-fixture-check` 单测这一条路径）。
+- **自测校验点**：
+  - `scripts/verify/run-all-check.mjs` 连跑 3 次全绿；
+  - `run-all --only __fail-fixture-check` 退出码 1 且输出含 `失败脚本：__fail-fixture-check`；
+  - 全套 35/35。
+- **真机冒烟**：不需要（纯测试基建）。
+- **为什么建议排在 011 之前**：011 的提交门槛写的是"全套 **35 项失败 0**"。有这么一条**已知偶发**的红，门槛就退化成"人工判断例外"，以后每单都要重复判断一次 —— 用 1 行改动把门槛恢复成"二值"，比每次豁免更省事。
+- **✅ 2026-10-01 真机复核：修复生效** —— 真机跑 `run-all-check.mjs` 后，「run-all：人读输出里点名失败脚本」已变为 **`pass: true`**（此前在管道捕获下必红）⇒ 本单**已闭环**。
+
+---
+
+#### V11-RF-015 · `run-all-check.mjs` 两条**过时断言**（按 `check-syntax.mjs` 改造前的老写法检查 `package.json`）
+
+> **发现来源（2026-10-01 真机复核 V11-RF-014 时一并暴露）**：`run-all-check` 报 `ok:false`、`failed:2`，两条失败都不是业务问题，而是**断言内容过期**：
+> - 「check 仍然包含全部源码语法检查（14 个 `node --check` 目标）」→ detail `实际 0 个`
+> - 「保留 `check:syntax` 便于单独跑语法检查」→ 要求含字面量 `node --check`
+
+- **任务类型**：【bug修复】（**测试基建**，零业务改动；独立 commit）
+- **目标操作文件**：`scripts/verify/run-all-check.mjs`（`34-41` 两条断言；外加 detail 文案中性化，见验收 4）
+- **前置依赖任务ID**：V11-RF-014（已完成）
+- **标记**：🟢 可并行（但**建议排在"全套 35/35"确认之前**，否则那条门槛永远差一项）
+- **禁止修改文件清单**：G 全部；额外禁止：**`package.json`**（见下方"别修错方向"）、任何业务代码、任何 `*baseline*.json`
+- **根因（已定位）**：`package.json` 的语法检查入口**早已改成** `scripts/check-syntax.mjs`（espree 进程内自动扫描 `server/src/scripts/prompts`，见该文件头部注释与 `V4.0-起步说明.md` 的"node --check 清单会腐烂"一节）：
+  - 现在 `check` = `node scripts/check-syntax.mjs && node scripts/verify/run-all.mjs`
+  - 现在 `check:syntax` = `node scripts/check-syntax.mjs`
+  但 `run-all-check.mjs` 里那两条断言**还停留在"package.json 里有一串手写的 `node --check <文件>`"的旧设计**（旧设计要求正好 14 个目标）⇒ 正则匹配 0 个、`check:syntax` 不含 `node --check` ⇒ **永远红**。`run-all-check` 自己的另一条断言（`:31-33`「`check` 里串上了 run-all」）**当时改过了**，这两条漏改。
+- **🔴 别修错方向**：**不要**为了迎合断言，把 14 条 `node --check <文件>` 写回 `package.json` —— 那正是当年被删掉的"会腐烂的手写清单"（每加一个后端模块就要手动添一行）。**要改的是断言**。
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（**35 项、失败 0**）；**AB-2 lint 棘轮基线不能新增问题**。
+  2. 断言 3 改为**按新设计检查**：`check` 必须包含 `scripts/check-syntax.mjs`（语法检查入口在位）。
+     **建议再补一条更强的**：从 `scripts/check-syntax.mjs` 源码里读出 `SCAN_ROOTS`，断言它覆盖 `server`、`src`、`scripts`、`prompts`（这才是"覆盖全部源码"这一意图在新设计下的等价物）。
+  3. 断言 4 改为：`check:syntax` 存在且指向 `scripts/check-syntax.mjs`（不再要求含 `node --check`）。
+  4. **detail 文案中性化（顺手，但要做）**：现在 `check(name, cond, detail)` 的 `detail` **无论通过与否都会打印**，而且有两处写成了"结论式"文本 ——
+     - `:142` `status=${…} 输出未点名`
+     - `:124` `夹具混进默认列表了`
+     于是**通过时也会显示"未点名/混进列表了"**，把读者带偏（本次已实际误导过两轮）。改成中性描述（如 `status=1 stdout含点名=true`）。
+  5. 不得削弱其它断言的判别力：改完后**负向验证**——临时把 `package.json` 的 `check` 改成不含 `check-syntax.mjs`，断言 3 必须变红并说明缺了什么；复原。
+- **自测校验点**：
+  - `scripts/verify/run-all-check.mjs` **连续 3 次** `ok:true`、`failed:0`、`total` 不变（偶发类改动必须重复跑）；
+  - `run-all --list` 仍 **35 项**；
+  - **全套 `run-all` = 35 项、失败 0**（这一步同时是 **V11-RF-011 提交门槛的最终观测**——011 已提交，但"35/35"此前从未被观测到）。
+- **真机冒烟**：不需要（纯测试基建）。
+- **完成后的连带效果**：这是"全套 35/35"的**最后一块拼图**；它绿了，`V11-RF-011` 与批次 3 前三单的 AB-1 才算形式上闭环，之后才可以开 `V11-RF-104`。
+- **✅ 2026-10-01 真机复核通过**：`run-all-check` 由 `ok:false`（failed 2）转为 **`ok:true`、`total:27`、`failed:0`**；全套 **35/35** ⇒ 本单闭环。
+
+---
+
+#### V11-RF-016 · 新增「服务端同名函数重复」门禁（把 RF-106 暴露的漂移源机器化）
+
+> **为什么值得做**：前端跨文件同名组件已有机器门禁（`shared-ui-duplication-check`），但**服务端函数没有**。
+> 2026-10-01 `V11-RF-106` 就实际产生了 **`imageParamsForBaseUrl` / `imageChannelBaseCandidates` 各 2 处定义**（`index.js` + 新模块的逐字节副本）—— 这正是"登记表拦不住、只靠人记性必然漂移"的那类问题，和当初 `ReferenceThumbTray` 分叉是同一个病。
+
+- **任务类型**：【结构搬运重构】（**测试基建**，零业务改动；独立 commit）
+- **目标操作文件**：新建 `scripts/verify/server-duplication-check.mjs`；改 `scripts/verify/run-all.mjs` 的 `ORDER`（登记一行；脚本数 **35 → 36**）
+- **前置依赖任务ID**：V11-RF-010（复用其 `lib/server-sources.mjs` 作为源码真相源）
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：任何 `server/**` 业务代码、任何 `*baseline*.json`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**；**AB-2 lint 棘轮基线不能新增问题**。
+  2. 断言内容：扫描**服务端源码**（复用 `listServerSourceFiles()`），找出**跨文件同名**的顶层 `function` 声明；对存量做**棘轮记账**（允许存在、新增即失败），并单独报告"同一份实现被复制"的可疑项。
+  3. **棘轮要有基线文件**：`scripts/verify/server-duplication-baseline.json`，配套 `--update`，与 `shared-ui-baseline.json` 同款。
+  4. **首跑必须先把现有存量登记清楚**，至少包含：`imageParamsForBaseUrl`、`imageChannelBaseCandidates`（RF-106 遗留，等 **V11-RF-110** 收口后从账单里划掉）、以及 `skill-baselines` 下的历史副本（**必须排除**，那是冻结快照）。
+  5. **负向验证**：临时把 `server/core/` 下某个函数复制到另一个服务端文件 → 该门禁**必须变红并点名两处文件** → 复原。
+- **自测校验点**：新脚本正/负向成对；`--list` 由 35 → 36；`run-all-check` 的"顺序表覆盖所有磁盘脚本"不报漏登记。
+- **真机冒烟**：不需要（纯源码检查）。
+- **与 V11-RF-110 的关系**：110 收口后要跑一次 `--update` 把那两条从账单划掉 —— **这正好证明门禁在跟着代码走**，而不是一份死账。
+
+---
+
+#### V11-RF-003 · `ReferenceThumbTray` 抽到 `src/shared/ui/`（结构与接口归一，前端，可选后置）
+
+> **分步操作单**：待补（本单为可选后置，开工前先确认 V11-RF-002 已合入且 `run-all` 绿）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：
+  - 新建：`src/shared/ui/ReferenceThumbTray.jsx`
+  - 改：`src/main.jsx`（删除本地定义 1291-1362 行 → 改 import；调用点 7185 / 7236 / 7793 / 8084 行复核）
+  - 改：`src/outfit-workflow.jsx`（删除本地定义 → 改 import；调用点 10430-10437 行复核）
+  - 改：`scripts/verify/shared-ui-baseline.json`（**本单明确要求** `--update` 把 `ReferenceThumbTray` 从重复账单划掉 —— G-3 的授权例外）
+- **前置依赖任务ID**：**V11-RF-002**（必须在两份行为对齐后再抽；否则等于把 P1 差异固化进共享组件）
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：`src/features/outfit/workflows/**`、`src/shared/result-image.js`、两个 CSS 文件（类名与作用域**不得**改：批量侧样式挂在 `.outfitWorkflowEmbedded` 作用域下，主画板侧是全局同名类，改名即视觉回归）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**；`shared-ui-duplication-check` 由 `ok:true + drifted:1` 变为 **`ok:true` 且 `duplicates` 不含 `ReferenceThumbTray`**。
+  2. **AB-2 lint 棘轮基线不能新增问题**；特别地，新文件不得引入 `react-hooks/exhaustive-deps` 或 `no-unused-vars` 新 key。
+  3. **接口归一必须是「等价改写」而不是「随手统一」**，两条调用点语义逐一对齐：
+     - 主画板侧原为 `onOpen(items, index)`；
+     - 批量侧原为 `onOpen(reference, index, items)`；
+     - 统一签名由**本单在 commit message 里写明**，并在批量侧的调用点做**机械等价改写**（取 `items[index]`），
+       **必须给出「点第 N 张缩略图 → 打开的还是第 N 张」的真机证据**。
+  4. 图片渲染组件差异用**注入**解决：共享组件接收可选的图片组件参数（默认原生 `img`），`src/main.jsx` 传它自己的 `CachedImage`，
+     `src/outfit-workflow.jsx` 不传（继续用原生 `img`）。**不允许**把 `CachedImage` 反向搬进批量页。
+  5. `missing` 过滤 + 白名单过滤 + 数量提示 + `+N` 溢出提示 + 键盘 Enter/Space 打开 + 右键菜单 + 拖拽 行为逐条保持不变。
+  6. 两处调用点的 props 完整性以沙盒/真机对照截图为准（改前 / 改后同一条历史记录、同一条批量结果）。
+- **自测校验点**：
+  - `.\runtime\node\node.exe scripts\verify\shared-ui-duplication-check.mjs --update`（然后 `git diff` 确认账单只剩该条的删除，**没有**其他条目被误删）
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only shared-ui` → 期望 `duplicateCount` 下降、`regressions` 为空
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only ui-duplication` / `--only modal-shell`
+  - `.\runtime\node\node.exe node_modules\vite\bin\vite.js build`（前端改动，AB 之外的必跑项）
+- **真机冒烟**：**【必须·独立】** 主画板（快捷生成 + 一键详情 + 图库）与批量页各打开一条含多张参考图的历史记录：逐张点击、右键、拖拽，与改前截图逐张对照。
+
+---
+
+### 批次 2 · 验证基建
+
+---
+
+#### V11-RF-010 · 统一「服务端源码真相源」，让后续搬家不再逐个改脚本
+
+> **分步操作单**：[V4.0-执行单-V11-RF-000-010.md](V4.0-执行单-V11-RF-000-010.md) §2（含 10-1~10-12 十二步、三条负向验证与收尾自检清单）
+
+- **任务类型**：【结构搬运重构】（**只动验证基建，不动业务代码**）
+- **目标操作文件**：
+  - 新建：`scripts/verify/lib/server-sources.mjs`
+  - 改：`scripts/verify/local-edit-base-file-check.mjs`（第 41-60 行现地自建 `collectServerCoreSources()` → 改用共享实现）
+  - 改：`scripts/verify/image-host-allowlist-check.mjs`（第 366-372 行同类逻辑 → 改用共享实现）
+  - 改：`scripts/verify/white-refine-split-check.mjs`（第 31 行 `SERVER` 单词定死 `server/index.js`，第 107 行断言 `/app\.post\("\/api\/save-processed-image"/` → 改为在**全部服务端源码**里找该路由注册，保住判别力）
+  - 改：`scripts/verify/routing-check.mjs`（第 44-53 行 `scanned` 列表 → 追加 `server/core/**`、`server/routes/**`、`server/shared/**`，**保持逐文件粒度**）
+- **前置依赖任务ID**：V11-RF-000
+- **标记**：🔴 串行（批次 3 的任何一单开始之前必须合入）
+- **禁止修改文件清单**：G 全部；额外禁止：`server/**`（本单**零业务改动**）、`scripts/verify/run-all.mjs` 的 ORDER（不改执行顺序）、任何 `*baseline*.json`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**，且**至少**：`local-edit-base-file-check`、`image-host-allowlist-check`、`white-refine-split-check`、`routing-check` 四个脚本的断言语义**保持不变**（失败项数量与项名与改前一致）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 共享实现的范围**明确排除**：`server/features/**`（KEY 清洗有自己的 parity 脚本）、`server/skill-baselines/**`、`server/static-assets.generated.js`。
+     若把 `features/` 一并纳入，`routing-check` 的逐文件语义会被稀释 —— **不允许**。
+  4. `server-sources.mjs` 放在 `lib/` 下是刻意的：`run-all.mjs` 只把**根目录**的 `.mjs` 当可执行脚本（见该脚本 `discoverRunnable()`），新文件不会被误跑成独立门禁。
+  5. **负向验证（必须有）**：临时把 `server/index.js` 里 `/api/save-processed-image` 的注册整段剪切到一个临时新文件 `server/routes/__tmp.js` → `white-refine-split-check` 必须仍通过 → 删除临时文件 → 复原。证明「搬家后断言自动跟随」真的生效。
+  6. `routing-check` 的负向验证：在 `server/core/` 下某个文件里临时写入一个旧渠道 token → 必须变红 → 复原。
+- **自测校验点**：
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only local-edit-base` / `--only image-host` / `--only white-refine` / `--only routing`
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --list`（确认脚本清单条数与改前一致：**33 项**；若 V11-RF-101 已先行合入则为 34 —— 以你 10-3 记下的改前基线为准）
+  - 上述两条负向验证的**失败输出**贴在提交里
+- **真机冒烟**：不需要（无业务改动）。
+
+---
+
+### 批次 3 · `server/index.js` → 剩余 `server/core` 模块
+
+> 统一搬运手法（每单都按这套做，下文不重复）：
+> ① 按「函数名 + 相邻注释」定位，把整段**逐字节**剪切到新模块；② 在 `server/index.js` 原位置改为 import；
+> ③ 清理因搬家产生的孤儿 import（`check-syntax.mjs` + eslint 都会抓）；④ AB-4 沙盒差分；⑤ 收尾真机冒烟。
+> **路由注册顺序、中间件注册顺序、常量取值来源一律不得变动。**
+
+> **🔴 批次账目核对（评审 D2 的复核结论：保留 16 单，不改为 15）**
+> 编号区间 `101–116` 是**连续 16 个编号**，逐个都对应一张有实体内容的工单，**无跳号、无空号、无遗漏**：
+> `101` image-concurrency · `102` generation-trace · `103` billing-attempts · `104` directory-picker · `105` history-display ·
+> `106` image-diagnostics · `107` outfit-upload-groups · `108` local-image-stream · `109` outfit-archive ·
+> `110` image-channel-candidates · `111` image-route-candidates · `112` video-error-policy · `113` video-route-session ·
+> `114` storage-usage · `115` gateway-connectivity · `116` app-bootstrap（范围已按 D1 收窄，见该单）。
+> **结论**：本批次确为 **16 单**，「第 16 个任务」就是 **V11-RF-116**，因此**不执行"全部改写为 15 单"**。
+> 评审意见 D2 的改写条件是"若没有第 16 个任务"；核对结果是有，故按证据保留 16。
+> ⚠️ 易混淆点：批次 3 **开始前** `server/core/` 已有 **16 个模块**（见 §0.1），批次 3 是在此之上**再加 16 个**新模块；
+> 两个「16」含义不同（前者是存量，后者是本批工单数），不要据此推断本批应为 15。
+
+---
+
+#### V11-RF-101 · `core/image-concurrency.js`（出图并发槽位与排队）
+
+> **分步操作单**：[V4.0-执行单-V11-RF-101-103.md](V4.0-执行单-V11-RF-101-103.md) §1（1-1~1-12；含新增 `state-singleton-check` 与 33→34 的账目变更）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/image-concurrency.js`；改 `server/index.js`（状态 `160-161`；函数 `225 imageSlotWeight` / `229 drainImageQueue` / `239 acquireImageSlot`）
+- **前置依赖任务ID**：V11-RF-010
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/runtime-config.js`（`IMAGE_CONCURRENCY_LIMIT` 是实测调校值，由 `runtime-config-baseline-check` 守着）、`scripts/verify/runtime-config-baseline.json`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`http-mock-check`、`outfit-defer-autosave-check`、`generation-failure-path-check`）。
+  2. **AB-2 lint 棘轮基线不能新增问题**（新文件不得出现 `no-unused-vars` 新 key）。
+  3. 状态必须仍是**进程级单例**：`activeImageRequestCount` / `imageRequestQueue` 搬家后**只能有一份**，禁止出现「路由各持一份 Map/数组」。
+     必须导出：`acquireImageSlot`、`imageSlotWeight`，以及**一个只读快照**（供消费方拿 `active` / `queued`）。
+  4. 🔴 **4 处消费方必须全部改为调用新导出的只读快照**（与第 3 条配套，逐一核对，**不允许任何一处继续直接读状态变量**）：
+     - ① `/api/health`（快照 `1134-1138`，`imageConcurrency.limit/active/queued`）
+     - ② trace 中间件 **2 处**：`local-request-received`（`299-303`）与 `local-response-finished`（`326-330`）
+     - ③ `/api/generate-outfit`（`2796-2800` 请求诊断、`2815-2819` 取槽后日志）
+     - ④ `/api/images`（`3430-3431` 请求诊断、`3445-3450` 取槽后日志）
+  5. 🔴 **新增静态断言（本单的硬性交付物，不是可选项）**：
+     `activeImageRequestCount` 与 `imageRequestQueue` 这两个符号在全服务端源码里**只允许各有 1 处定义点**（都在 `server/core/image-concurrency.js` 内）；
+     其余任何出现位置**必须是通过 import 引用**（调用导出函数 / 读快照），**不得出现第二处 `let` / `const` 声明**。
+     - **落点**：新增 `scripts/verify/state-singleton-check.mjs`（本项目惯例：一个关注点一个脚本），并登记进 `run-all.mjs` 的 `ORDER`。
+     - **实现要求**：断言用的源码范围**必须复用 V11-RF-010 的共享真相源模块**（`scripts/verify/lib/server-sources.mjs`），
+       这样将来 `server/routes/**` 出现"各持一份"时能被自动抓住，不需要回来改这个脚本。
+     - ⚠️ **连带影响**：本单合入后全套门禁脚本数由 **33 → 34**。本文与 `V4.0-执行单-V11-RF-000-010.md` 里所有「33」的表述
+       都要同步更新（§0.1 已加注记）。这是**预期内的数字变化**，不是漂移。
+  6. 排队/放行时序**逐字保持**：`queueMicrotask(drainImageQueue)`、`Math.max(0, ...)` 兜底、`weight` 默认值 1 均不得改。
+  7. `/api/health` 响应 JSON 的 `imageConcurrency` 三字段（`limit` / `active` / `queued`）与搬家前逐字段相同。
+- **自测校验点**：
+  - AB-4 沙盒差分：同时打 6 个并发 `/api/images` 请求，比对两版 `/api/health` 的 `imageConcurrency` 序列与生成日志里的 `image-slot-acquired` / `queueWaitMs` 字段
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only http-mock` / `--only outfit-defer`
+  - **新断言的正向验证**：新脚本输出 `ok:true`，且报告里能看到「定义点 1 处 / 引用点 N 处」的分列统计
+  - **新断言的负向验证（必须做，证明它有判别力）**：临时在 `server/index.js` 顶部加一行 `let activeImageRequestCount = 0;` → 新脚本**必须变红并点名该文件** → 删除该行后恢复绿；
+    再临时在 `server/routes/` 下一个文件里加同样一行（该目录可能尚不存在，可临时创建）→ 仍必须变红 → 复原
+- **真机冒烟**：**【必须·合并 组A】**
+
+---
+
+#### V11-RF-102 · `core/generation-trace.js`（本地请求追踪中间件）
+
+> **分步操作单**：[V4.0-执行单-V11-RF-101-103.md](V4.0-执行单-V11-RF-101-103.md) §2（2-1~2-9；含"注册顺序不得挪"与 requestId 口径陷阱）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/generation-trace.js`；改 `server/index.js`（状态 `163`；`261 isGenerationTraceEndpoint` / `269 generationRequestTraceMiddleware`；注册点 `168`）
+- **前置依赖任务ID**：V11-RF-101（同段区域相邻，串行更安全）
+- **标记**：🔴 串行（与 V11-RF-101 同属 `160-337` 区块）
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/generation-logger.js`（既有模块，本单只调用）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`local-edit-base-file-check` 的端到端写日志段、`generation-failure-path-check`）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. **中间件注册顺序不得变**：必须在 `app.use(express.json(...))` / `app.use(gatewayCompressionMiddleware)` **之后**、所有 `/api` 路由**之前**注册。
+  4. 🔴 **必须逐字保留一处既有「口径不一致」**（这是最容易被人/AI「顺手修好」的陷阱）：
+     中间件用 **header**（`x-jingyin-client-request-id`）派生 `requestId` 存入 map；
+     而 `/api/generate-outfit`（`2791`）与 `/api/images`（`3425`）查 map 用的是 **payload 派生**的 `requestId`。
+     两者常态不相等 → 查不到 → 回落 `receivedAt` → `localUploadParseMs = 0`。
+     **搬运后行为必须一模一样**；如需修正，另开 bug 单并单独验证，**不得混在本单**。
+     因此本模块需要导出的是**查询函数**（例如按 `requestId` 取开始时间 + 回落 `receivedAt`），而不是把 Map 暴露出去让路由自己查。
+  5. 仍只对 `POST /api/images`、`POST /api/generate-outfit`、`POST /api/videos/generations` 三个端点生效；三处日志 stage 名（`local-request-received` / `local-request-aborted` / `local-response-finished`）与文本逐字保持。
+- **自测校验点**：
+  - AB-4 沙盒差分：分别对三个端点各发 1 个成功请求 + 1 个中断请求，比对 `logs/tasks/<日期>/<任务ID>.txt` **全文**（含 `imageConcurrency`、`localUploadParseMs`、`timingMs` 字段的存在性与相对关系）
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only local-edit-base` / `--only generation-failure-path`
+- **真机冒烟**：**【必须·合并 组A + 组E】**
+
+---
+
+#### V11-RF-103 · `core/billing-attempts.js`（中转站计费/签发与尝试汇总）
+
+> **分步操作单**：[V4.0-执行单-V11-RF-101-103.md](V4.0-执行单-V11-RF-101-103.md) §3（3-1~3-9；含"只改 import、调用点零改动"与计费条数核对）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/billing-attempts.js`；改 `server/index.js`（`338 billingChannelCandidates` / `352 billingAttemptSummaries` / `364 prepareImageBillingForRequest` / `403 finalizeBillingInBackground`）
+- **前置依赖任务ID**：V11-RF-102
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/billing-gateway.js`、`server/channel-config.js`（本单只调用）、`server/core/image-error-policy.js`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`http-mock-check` 全 8 组 `/api/images` + 4 组 `/api/generate-outfit`、`pro-wire-check`）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. **计费语义零偏移**：`prepare*` / `finalize*` 的调用时机、参数、错误吞并方式（`finalizeBillingInBackground` 的后台不阻塞）逐字保持；**禁止**把「先记账后出图」改成别的顺序。
+  4. 与 `https://api.jingyin.online` 的通信路径不变（G-6）；不得新增任何上游地址或 KEY 读取。
+  5. 上游失败/超时的公开口径（`publicBillingErrorPayload` 等来自 `server/billing-gateway.js`）不变。
+- **自测校验点**：
+  - AB-4 沙盒差分：mock 上游返回 200 / 401 / 429 / 500 / 超时 各一次，比对两版**响应 JSON**（含 `error` / `message`）与生成日志里的计费相关字段
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only http-mock` / `--only pro-wire`
+  - 用 `speed-investigation.mjs`（只读取证工具，`run-all` 不含它）对比搬家前后计费阶段耗时量级，异常即停
+- **真机冒烟**：**【必须·合并 组A】**（并额外确认：真机出图后中转站后台的计费记录条数与出图张数一致）
+
+---
+
+#### V11-RF-104 · `core/directory-picker.js`（保存目录的选择/打开）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/directory-picker.js`；改 `server/index.js`（`447 openDirectory` / `458 pickDirectory`）
+- **前置依赖任务ID**：V11-RF-010
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/app-settings.js`、`server/core/app-paths.js`（保存目录的读取/记忆归它们）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 三平台分支（`win32` / `darwin` / 其他）的 PowerShell / osascript / zenity 命令文本**逐字保持**（禁止「优化」命令、禁止改超时与参数）。
+  4. 失败与取消路径的返回值语义不变（取消 ≠ 异常；无 GUI 环境的兜底行为不变）。
+- **自测校验点**：
+  - AB-4 沙盒差分：调用 `POST /api/pick-directory`（无 GUI 时会走失败/兜底分支）比对两版响应；`GET/POST /api/save-directory` 往返一致
+  - 静态自查：`child_process.spawn` 的 stdio 配置与搬家前逐字一致
+- **真机冒烟**：**【必须·合并 组D】**（真机点一次「指定文件夹」，确认弹窗能出、能记住）
+
+---
+
+#### V11-RF-105 · `core/history-display.js`（历史条目即时展示解析）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/history-display.js`；改 `server/index.js`（`535 imageForImmediateDisplay` / `550 isBase64ImagePayload` / `556 hasHistoryDisplayArchive` / `563 historyItemForImmediateDisplay`）
+- **前置依赖任务ID**：V11-RF-010
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/history-store.js`、`server/core/result-cache.js`（既有模块，只调用）、`scripts/verify/runtime-config-baseline.json`（`RESULT_DISPLAY_CACHE_*` 常量受基线保护）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`history-integrity-check`、`history-repair-check`、`outfit-defer-autosave-check` 的显示契约段）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 展示缓存的三态（命中 / 未命中 / 超时阻塞上限）与 `data:` base64 判定分支逐字保持；**禁止**改 `RESULT_DISPLAY_CACHE_BLOCKING_TIMEOUT_MS` 的用法。
+  4. 返回对象的字段名与结构不变（前端按字段名取值）。
+- **自测校验点**：
+  - AB-4 沙盒差分：构造「归档存在 / 归档缺失 / 只有 base64」三种历史条目，比对 `/api/history` 响应 JSON 与 `logs` 文本
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only history-integrity` / `--only history-repair` / `--only outfit-defer`
+- **真机冒烟**：**【必须·合并 组B】**
+
+---
+
+#### V11-RF-106 · `core/image-diagnostics.js`（出图传参自检）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/image-diagnostics.js`；改 `server/index.js`（`658 clampDiagnosticImageCount` / `662 diagnosticPlaceholderFiles` / `671 diagnosticFieldValue` / `680 describeDiagnosticVariantFields` / `701 buildImageRequestDiagnostic`）
+- **前置依赖任务ID**：V11-RF-101
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/channel.js`、`server/core/image-error-policy.js`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. **脱敏范围不得扩大或缩小**：`sanitize*` / 截断长度（如 `compactLogMessage(..., 180/900)`）逐字保持；KEY 类字段仍然不落盘、不返回。
+  4. 该模块会**真的向上游发探测请求**（`/api/debug/image-request-params`）：请求形状（变体数量、占位图、字段名）逐字保持 —— 它正是 `tt25-subdirect-wire-check` 那条链路的诊断入口，改形状会掩盖真实回归。
+- **自测校验点**：
+  - AB-4 沙盒差分：对同一份参数调用 `POST /api/debug/image-request-params`，比对两版响应 JSON（剔除时间戳）
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only tt25-subdirect-wire` / `--only routing`
+  - 手工：真机点一次界面上的「传参自检」，确认输出条目数与改前一致
+- **真机冒烟**：**【必须·合并 组E】**
+
+---
+
+#### V11-RF-107 · `core/outfit-upload-groups.js`（批量上传分组）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/outfit-upload-groups.js`；改 `server/index.js`（`765 outfitUploadFileGroups` / `780 imageFromOutfitArchive`）
+- **前置依赖任务ID**：V11-RF-010
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/uploads.js`（multer 实例与字段上限，受既有断言保护）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`http-mock-check` 的 `/api/generate-outfit` 4 组、`batch-prompt-passthrough-check`）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 分组规则（`image` / `mask` / 兼容旧字段名）与「多图只取第一张」等既有取舍逐字保持；**禁止**顺手放宽 `IMAGE_UPLOAD_PARSE_CEILING`。
+  4. 返回结构（`imageFiles` / `maskFile` 等字段名）不变。
+- **自测校验点**：
+  - AB-4 沙盒差分：分别上传 1 图 / 6 图 / 带 mask / 带旧字段名 四组，比对两版响应与落盘产物 SHA256
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only http-mock` / `--only batch-prompt-passthrough`
+- **真机冒烟**：**【必须·合并 组A】**
+
+---
+
+#### V11-RF-108 · `core/local-image-stream.js`（本地图片分段读取）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/local-image-stream.js`；改 `server/index.js`（`792 parseByteRange` / `820 streamLocalImageFile`）
+- **前置依赖任务ID**：V11-RF-010
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/file-naming.js`、`server/core/http-compression.js`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`history-integrity-check`、`canvas-asset-check`）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 分段（`Range`）语义逐字保持：`206` / `416` / `200` 三种状态码分支、`Content-Range` / `Accept-Ranges` / `Content-Length` 头、以及 `RESULT_CACHE_CONTROL` 的用法均不得改。
+  4. `parseByteRange` 与 `streamLocalImageFile` 是否拆成两个文件由本单决定：**若拆，则拆成两个 commit**（「一次只搬一件事」）。
+     两者是唯一调用关系（`825` 是唯一调用点），合并为一个模块 `local-image-stream.js` 也算一件事。
+- **自测校验点**：
+  - AB-4 沙盒差分：对 `/api/result/*.png`、`/api/history-image/*`、`/api/canvas-asset/*`、`/api/reference-asset/*` 各发「无 Range / 合法 Range / 越界 Range」三种请求，比对状态码 + 响应头 + 字节 SHA256
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only history-integrity` / `--only canvas-asset` / `--only image-host`
+- **真机冒烟**：**【必须·合并 组B】**（重点看：历史图/结果图能正常显示、不出现半张图）
+
+---
+
+#### V11-RF-109 · `core/outfit-archive.js`（批量结果归档与显示缓存）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/outfit-archive.js`；改 `server/index.js`（`860 archiveOutfitGeneratedImage` / `879 cacheOutfitGeneratedImageForDisplay` / `909 archiveOutfitGeneratedImageInBackground`）
+- **前置依赖任务ID**：V11-RF-105
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：
+  - `server/index.js` 的 `deferOutfitAutoSave`（`2772`，**G-5 刻意保留的 unused 标记**）
+  - `server/core/result-cache.js`、`server/core/image-proxy.js`
+  - `scripts/verify/outfit-defer-autosave-check.mjs`（**禁止改测试**：它钉的是当前显示契约）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`outfit-defer-autosave-check` 5 组断言全过）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. **显示契约不得改**：`/api/generate-outfit` 仍返回本地 `HZ-` 地址且该地址能取回 PNG；归档**没有**被 `deferAutoSave` 跳过（这是 V11 的现状，与 V3 不同）。
+     **禁止**「参考 V3 把跳过归档照搬回来」——那会同时踩到显示契约与 `outfit-defer-autosave-check`。
+  4. 后台归档的 fire-and-forget 时机与 `.catch(() => {})` 吞并方式逐字保持。
+- **自测校验点**：
+  - AB-4 沙盒差分：`/api/generate-outfit` 两组（带 `deferAutoSave`+`localEdit` / 不带），比对响应形状、`data/results` 落盘 SHA256、`data/history.json` 指纹（**该接口本身不写历史**，指纹必须不变）
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only outfit-defer` / `--only outfit-intent-request` / `--only retouch-intent-request`
+- **真机冒烟**：**【必须·合并 组A】**（重点：批量出图后结果图在界面上**立刻可见**，且重启软件后历史里仍能看到）
+
+---
+
+#### V11-RF-110 · `core/image-channel-candidates.js`（图片线路候选与 JSON 转发形状）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/image-channel-candidates.js`；改 `server/index.js`（`602 channelBaseCandidates` / `607 imageChannelBaseCandidates` / `611 JSON_IMAGE_URLS_CHANNEL` / `617 prepareJsonImageUrlsForChannel` / `638 imageParamsForBaseUrl` / `643 imageRequestVariantsForBaseUrl` / `647 imageRequestLogTargets`）
+- **前置依赖任务ID**：V11-RF-010
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/channel-config.js`、`server/channel.js`、`src/shared/routing.js`（线路目录的唯一真相源）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`routing-check`、`tt25-subdirect-wire-check`、`http-mock-check`）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. `JSON_IMAGE_URLS_CHANNEL` 的取值（`silent-tt25-line-07`）**逐字不改**；它触发的「JSON + `image_urls`」转发形状（中转计费表达式只解析 JSON 请求体）不得改。
+  4. 线路候选顺序与过滤规则逐字保持（旧线路 token 不得因搬运而出现在新文件里 —— `routing-check` 会扫）。
+  5. 🔴 **强制收口条款（2026-10-01 新增，来自 `V11-RF-106` 的偏差）**：本单搬走 `imageParamsForBaseUrl` 与 `imageChannelBaseCandidates` 之后，**必须删除 `server/core/image-diagnostics.js` 里那两份本地副本**（该单为避开循环依赖临时放了一份逐字节副本，见 §5 的 RF-104/105/106 记录），并把 `image-diagnostics.js` 改为**从本模块 import**。
+      **验收证据**：`imageParamsForBaseUrl` 与 `imageChannelBaseCandidates` 在全服务端源码里**各只剩 1 处定义**（在 `server/core/image-channel-candidates.js` 内）。这正是"同名函数只允许一处定义"的判据，也是 **V11-RF-016** 要机器化盯住的东西。
+     ⚠️ 本单**是本条欠账的唯一负责人**：不删就算本单未完成。
+- **自测校验点**：
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only routing` / `--only tt25-subdirect-wire` / `--only http-mock`
+  - AB-4 沙盒差分：mock 上游记录请求体形状，比对两版（multipart vs JSON 的切换点必须一致）
+- **真机冒烟**：**【必须·合并 组A】**
+
+---
+
+#### V11-RF-017 · `core/route-helpers.js`（图片/视频**共用**的路由辅助）· 🔴 **必须排在 111 之前**
+
+> **为什么新增这一单（2026-10-01 发现）**：`V11-RF-111` 的块引用了 4 个"住在视频区"的辅助函数 ——
+> `videoRouteText:614` / `hasHeader:618` / `safeSignedRouteHeaders:623` / `signedRouteCredential:636`，
+> 而它们**同时被图片与视频两条功能共用**（图片块用到 `725/733/758/759/761/763/766/770/776/777/778/779/842/847/855`；视频区用到 `650/659/686/687/688/691/692/708/709/712/713/714`）。
+> 按项目规则"**共用能力不进功能私有目录**"，必须先抽到 `server/core/`。
+> 若先做 111，只剩两条错路：**在新模块里复制**（＝ 第二次 106 事故，`server-duplication-check` 会当场拦下）或**图片模块 import 视频模块**（依赖方向与命名都错）。
+> ✅ 这 4 个函数正好是**连续区间 `614`–`647`**，可整段搬。
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/route-helpers.js`；改 `server/index.js`（`614`–`647`）
+- **前置依赖任务ID**：无
+- **标记**：🔴 串行（**V11-RF-111 与 112/113 都以本单为前置**）
+- **禁止修改文件清单**：G 全部；额外禁止：`index.js` 的 `649 videoRouteUrl` 及之后（视频块属 112/113）；**不得给 `videoRouteText` 改名**（G-8）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（**36 项、失败 0**）；**AB-2 lint 棘轮基线不能新增问题**。
+  2. 4 个函数逐字节搬运；`videoRouteText` **名字不变**，并在文件头注释说明"图片/视频共用、名字是历史遗留"。
+  3. 逐字保留：`safeSignedRouteHeaders` 的屏蔽头集合（`host`/`connection`/`content-length`/`transfer-encoding`）与空值丢弃；`hasHeader` 的**大小写不敏感**；`signedRouteCredential` 的**八字段兜底顺序**。
+  4. 调用点零改动；`eslint server/index.js` 只剩 `deferOutfitAutoSave` 1 条。
+  5. **`server-duplication-check` 绿**（`duplicates` 为空）。
+- **自测校验点**：全套 36/36 + 棘轮空 + 新门禁绿。
+- **真机冒烟**：不需要（真实影响由 111 与 112 的冒烟覆盖）。
+- **分步操作单**：[V4.0-执行单-V11-RF-017-111.md](V4.0-执行单-V11-RF-017-111.md) §1
+
+---
+
+#### V11-RF-111 · `core/image-route-candidates.js`（图片线路解析与请求头）
+
+> **🔴 前置变更（2026-10-01）**：本单**必须**在 `V11-RF-017` 之后做 —— 它要 import `./route-helpers.js` 里的 4 个共用辅助（`videoRouteText` / `hasHeader` / `safeSignedRouteHeaders` / `signedRouteCredential`），**禁止复制**。
+> **分步操作单**：[V4.0-执行单-V11-RF-017-111.md](V4.0-执行单-V11-RF-017-111.md) §2（含依赖清单、12 处调用点、孤儿清理重点）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/image-route-candidates.js`；改 `server/index.js`（`1390 bearerHeaderValue` / `1396 imageRouteUrl` / `1404 imageRouteModel` / `1414 createImageRouteFromBillingTask` / `1457 imageCandidateEntries` / `1482 imageChannelLogForCandidate` / `1499 imageParamsForCandidate` / `1504 imageRequestVariantsForCandidate` / `1508 imageUrlForCandidate` / `1517 imageApiKeyForCandidate` / `1523 imageHeadersForCandidate`）
+- **前置依赖任务ID**：V11-RF-103（依赖计费任务对象形状）
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/billing-gateway.js`、`server/core/image-error-policy.js`（`resolveApiKey` / `shouldTryNextChannel` 等判定归它）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`http-mock-check`、`pro-wire-check`、`tt25-subdirect-wire-check`）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 计费任务 → 线路的映射逐字保持（含 `signedRouteCredential`、`resolveApiKey` 兜底顺序）；**KEY 仍然只在内存中经手，不落盘、不进日志**。
+  4. 请求头拼装顺序与覆盖规则（`variantHeaders` 合并）逐字保持 —— 顺序变了可能改变上游行为。
+- **自测校验点**：
+  - AB-4 沙盒差分：mock 上游返回「签名线路 / 非签名线路 / 无线路回落默认」三类，比对两版请求头 + 请求体（KEY 除外，按脱敏比对）
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only http-mock` / `--only pro-wire` / `--only tt25-subdirect-wire`
+- **真机冒烟**：**【必须·合并 组A】**
+
+---
+
+#### V11-RF-112 · `core/video-error-policy.js`（视频错误码与公开文案）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/video-error-policy.js`；改 `server/index.js`（`1178 publicVideoErrorCode` / `1187 publicVideoErrorMessage` / `1197 publicVideoTaskFailureMessage` / `1206 publicVideoTaskPayload`）
+- **前置依赖任务ID**：V11-RF-010
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/image-error-policy.js`、`server/video-config.js`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 错误码枚举与**每一个中文字案逐字不改**（用户可见文案；改了要单独确认）。
+  4. 「上游资源不足 → 已自动退款」这类特殊文案的触发正则逐字保持。
+- **自测校验点**：
+  - AB-4 沙盒差分（**该模块无专用脚本**）：mock 上游分别返回 401 / 403 / 429 / 500 / 超时 / `all cookies failed`，比对两版响应 JSON 的 `error` + `message`（逐字节）
+- **真机冒烟**：**【必须·合并 组C】**
+
+---
+
+#### V11-RF-113 · `core/video-route-session.js`（视频线路会话与状态查询）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/video-route-session.js`；改 `server/index.js`（状态 `162 const videoRouteSessions = new Map()`；`1286 videoRouteText` → `1563 videoRouteForStatus` 整段，含 `1535 rememberVideoRouteSession`）
+- **前置依赖任务ID**：V11-RF-103、V11-RF-112
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/video-config.js`、`scripts/verify/runtime-config-baseline.json`（`VIDEO_ROUTE_SESSION_TTL_MS` 受基线保护）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 会话 Map 仍是**进程级单例**、TTL 清理时机（懒清理循环）与 `expiresAt` 字段语义逐字保持；**禁止**改 TTL 数值。
+  4. 状态查询的**降级链**逐字保持：会话命中 → 签名线路 → 回落默认 baseUrl/apiKey；`hasHeader` 大小写不敏感判定不变。
+- **自测校验点**：
+  - AB-4 沙盒差分（**无专用脚本**）：mock 上游，走「创建任务 → 轮询状态」全流程，比对两次响应 JSON + 生成日志；再构造「会话过期」场景比对降级结果
+- **真机冒烟**：**【必须·合并 组C】**
+
+---
+
+#### V11-RF-114 · `core/storage-usage.js`（数据目录用量快照）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/storage-usage.js`；改 `server/index.js`（`2101-2156`：说明注释块 + `STORAGE_TARGETS` + `STORAGE_IMAGE_PATTERN` + `storageDirUsage` + `storageUsageSnapshot`）
+- **前置依赖任务ID**：V11-RF-010
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/app-paths.js`（6 个目录的解析归它）、`server/core/history-store.js`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. `STORAGE_TARGETS` 六项的 `key` / `label` / `imagesOnly` / `resetsHistory` **逐字不改**（前端按 `key` 取项、按 `label` 显示）。
+  4. 目录不存在视为 0（不抛异常）、单文件读不到跳过 —— 两个 `catch` 分支逐字保持。
+  5. 返回字段（`rootDir` / `dataDir` / `logsDir` / `items` / `totalBytes` / `historyCount`）不变。
+- **自测校验点**：
+  - AB-4 沙盒差分：沙盒里造几个文件，比对两版 `/api/storage/usage` 响应 JSON（剔除路径前缀差异）
+- **真机冒烟**：**【必须·合并 组B】**（打开「数据与存储」面板，核对六个目录的文件数与体积**与磁盘实际一致**）
+
+---
+
+#### V11-RF-115 · `core/gateway-connectivity.js`（网关连通性探测）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/gateway-connectivity.js`；改 `server/index.js`（`965 gatewayRootUrl` / `969 checkGatewayConnectivity`，含尾部到 `1023`）
+- **前置依赖任务ID**：V11-RF-010
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/http-client.js`（`createAbortSignal` 归它）、`server/channel.js`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`connection-test-check`、`routing-check`）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 探测手法逐字保持：`HEAD` → 405 时回落 `GET`；8000ms 超时；`ok = status >= 200 && status < 500` 的判定边界不变。
+  4. 返回字段（`checkUrl` / `reachable` / `ok` / `status` / `statusText` / `server` / `latencyMs`）不变；失败分支的 `reachable:false` 语义不变。
+- **自测校验点**：
+  - AB-4 沙盒差分：mock 网关分别返回 200 / 405+GET 200 / 500 / 连接拒绝，比对两版 `/api/gateways/status` 响应形状
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only connection-test` / `--only routing`
+- **真机冒烟**：**【必须·合并 组D】**（真机点「连接测试」，看结果与改前一致）
+
+---
+
+#### V11-RF-116 · `core/app-bootstrap.js`（前端挂载与监听启动）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/core/app-bootstrap.js`；改 `server/index.js`（状态 `164`；`171 shouldAutoOpenBrowser` / `177 openAppInBrowser` / `197 sendEmbeddedStaticAsset` / `3844 startResultCacheCleanupOnce` / `3850 configureHttpServer` / `3857 listenOnPort`）
+- **🔴 本单范围（已按评审 D1 收窄）**：**只搬「纯启动函数」**。`3809-3842` 的 `attachFrontend`（前端挂载 / 静态资源 / SPA 回落 / dev 中间件）与末尾启动块 `3883-3888` **原样保留在 `server/index.js`**，**归属 V11-RF-220 处理**（见该单）。本单完成后 `server/index.js` 里仍应能读到 `attachFrontend` 的定义与它的调用 —— 这是本单与 220 的**职责分界**，不允许交叉。
+- **前置依赖任务ID**：V11-RF-114、V11-RF-115（放在 core 批次最后）
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：
+  - `scripts/secure-win-release.mjs` 的 `entryPoints`（**打包入口必须仍是 `server/index.js`**）
+  - 🔴 `server/index.js` 的 `3809-3842 attachFrontend`（**一行都不许动**；含它的四个分支与 vite 动态导入）。
+    —— 唯一的例外是**文件顶部**为 `sendEmbeddedStaticAsset` 新增/调整 import（见验收条件 7），该 import 不在 `3809-3842` 区间内
+  - 🔴 `server/index.js` 末尾的启动块（`3883-3888` 的 `attachFrontend().then(...)`）—— 保留在 `index.js`
+  - `启动静音内测画板.bat`、`scripts/check-launcher` 相关文件
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`check-launcher`、`error-boundary-check`）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 这是**唯一允许改签名**的搬运单（G-8 例外）：`express()` 实例仍由 `server/index.js` 创建，
+     启动相关函数改为**接收 `app` 参数**（或返回 `{ configureHttpServer, listenOnPort }` 的工厂）。
+     **禁止**在新模块里 `express()` 出第二个 app 实例 —— 那会让中间件/路由全部脱钩（灾难性静默失败）。
+  4. 端口占用回落逐字保持：`EADDRINUSE` 且 `remainingFallbacks > 0` → `port + 1`、100ms 后重试；
+     `EADDRINUSE` 且允许自动开浏览器 → 打印「已打开现有实例」并 `process.exitCode = 0`。
+  5. `PORT_FALLBACK_LIMIT` 的取值来源仍是 `server/core/runtime-config.js`（受基线保护）。
+  6. `server.requestTimeout` / `headersTimeout`(+30000) / `keepAliveTimeout`(65000) / `timeout` 四个数值逐字保持。
+  7. **职责分界证明**：diff 里 `attachFrontend`（`3809-3842`）**函数体零改动**、启动块（`3883-3888`）零改动；
+     **不得搬 `attachFrontend` 内的静态资源挂载 / SPA 回落 / vite dev 分支逻辑**；
+     **`sendEmbeddedStaticAsset`（快照 `197`）作为被 `attachFrontend` 调用的工具函数，随本单搬走属允许** ——
+     它的定义进 `server/core/app-bootstrap.js`，**调用点仍留在 `server/index.js` 的 `attachFrontend` 内**
+     （`index.js` 只允许在文件顶部新增/调整 import，`attachFrontend` 函数体内那一行调用不得改）。
+- **自测校验点**：
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only check-launcher` / `--only error-boundary`
+  - **端口占用负向验证**：先起一个实例，再起第二个 → 必须看到 `Port 8787 is already in use, trying 8788.` 与「打开现有实例」行为，与改前逐字一致
+  - **边界自查**：在 `server/index.js` 里仍能搜到 `attachFrontend` 的定义与调用；`server/core/app-bootstrap.js` 内**不得**出现 `attachFrontend` 字样；
+    反向确认 `sendEmbeddedStaticAsset` 的**定义已落在 `app-bootstrap.js`**、而它的**调用点仍在 `index.js` 的 `attachFrontend` 内**（这是验收条件 7 的正向证据）
+  - 静态：`server/index.js` 行数下降，且末尾启动块仍在 index.js
+- **真机冒烟**：**【必须·独立】**（本单影响启动路径）双击 `启动静音内测画板.bat` → 页面能打开；再**重复双击一次** → 走端口占用分支、正确打开已有实例、不报错。
+
+---
+
+### 批次 4 · `server/index.js` → `server/routes/*`
+
+> 统一手法：新建 `server/routes/<名字>.routes.js`，导出**注册函数**，在 `server/index.js` 里按**原来的顺序**调用注册；
+> 注册顺序即中间件生效顺序，**不得重排**。每个路由单都必须先跑一次全套验证建立改前基线。
+>
+> **🔴 依赖注入契约（评审 D4 —— 对批次 4 每一张单都是硬性验收项，各单不再重复罗列）**
+> 1. 路由注册函数的入参**必须显式**：第一个参数是 `app` 实例，第二个参数是一个**外部依赖对象**
+>    （叫 `deps` 或别的名字都行，但必须是一个显式形参）。**不允许**只传 `app`，然后靠模块作用域去拿别的东西。
+> 2. **不允许路由模块内部重新实例化任何共享件。** 本仓库的对应物，照此逐条核对：
+>    - **multer / 上传中间件**：`upload`、`imageForwardUpload`、`largeImageUpload`、`wrapOutfitUpload`、`IMAGE_UPLOAD_PARSE_CEILING`
+>      —— **只能**来自 `server/core/uploads.js`（import 或经 `deps` 注入）；**禁止**在路由模块里再写一次 `multer(...)`。
+>    - **有状态单例**：并发队列与只读快照、视频线路会话、本地请求追踪时间表
+>      —— **只能**来自批次 3 抽出的 `server/core/*` 模块（同一份 ESM 实例）；**禁止**在路由模块里 `new Map()` / `let count = 0` 自建第二份。
+>    - **路径 / 设置 / 阈值**：只能来自 `server/core/app-paths.js`、`app-settings.js`、`runtime-config.js`。
+> 3. **不允许从「旧的 `server/index.js` 作用域」隐式抓取变量。** `server/index.js` 里为注册而存在的临时变量
+>    （局部 `const`、循环变量、注册用的包装对象）一律不得被路由模块依赖 —— 路由模块只能依赖「它自己 import 的」和「`deps` 里显式给的」。
+>    **自检办法**：把 `server/routes/<新文件>.js` 单独拿出来看，能否不打开 `server/index.js` 就讲清每个自由标识符的来处；讲不清即违反契约。
+> 4. **禁止为了"省事"引入 `express.Router()` 或第二次 `express()`**（本轮明确不引入 Router，见 §4 D-3）。
+>
+> **留证要求**：批次 4 每张单的 commit message 必须附一张**依赖注入表**（两列即可）：
+> 左列 = 该路由模块用到的每个外部符号；右列 = 它的来源（`import server/core/xxx.js` / `deps` 注入 / `app` 形参）。
+> 表里只要出现「来自 index.js 作用域」这一种来源，本单直接判不通过。
+
+---
+
+#### V11-RF-201 · `routes/system.routes.js`（配置 / 线路 / 网关 / 健康 / 客户端诊断）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/routes/system.routes.js`；改 `server/index.js`（`931 /api/config`、`961 /api/ecommerce/routing`、`1024 /api/connection-test`、`1104 /api/gateways`、`1114 /api/gateways/status`、`1127 /api/health`、`1149 /api/client-diagnostic-event`）
+- **前置依赖任务ID**：V11-RF-101（健康检查读并发快照）、V11-RF-115（网关探测）
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：`scripts/check-launcher`、`启动静音内测画板.bat`（依赖 `/api/health` 文案）、`server/channel-config.js`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`http-mock-check` 的 `/api/config`、`connection-test-check`、`routing-check`、`error-boundary-check`、`check-launcher`）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. `/api/config` 的**每一个字段**逐字保持（`defaultBaseUrl` / `hasServerKey: false` / `channelPolicy` / `models` / `routing` / `billingGatewayPolicy.videoRequired` / `videoPolicy.enabled+routeSource` / 映射后的 `videoModels`）；
+     `hasServerKey` **必须仍为 `false`**（G-6：本地不内置 KEY）。
+  4. `/api/health` 的 `version: "11.0.0"`、`imageConcurrency` 三字段、`memory` 四项、`uptimeSec` 全保持。
+  5. `/api/client-diagnostic-event` 的落盘行为不变（`local-edit-base-file-check` 的端到端断言依赖它写 `logs/tasks/<日期>/<任务ID>.txt`）。
+- **自测校验点**：
+  - AB-4 沙盒差分：`GET /api/config`、`/api/ecommerce/routing`、`/api/gateways`、`/api/gateways/status`、`/api/health` + `POST /api/connection-test`、`POST /api/client-diagnostic-event` 逐个比对响应 JSON（剔除 `now` / `uptimeSec` / `latencyMs`）
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only http-mock` / `--only connection-test` / `--only routing` / `--only error-boundary` / `--only check-launcher`
+- **真机冒烟**：**【必须·合并 组D】**（打开设置面板看模型/线路列表、点连接测试、看「数据与存储」页无异常）
+
+---
+
+#### V11-RF-202 · `routes/debug.routes.js`（出图传参自检）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/routes/debug.routes.js`；改 `server/index.js`（`1167 /api/debug/image-request-params`）
+- **前置依赖任务ID**：V11-RF-106
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/image-diagnostics.js`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 错误分支逐字保持：异常时 `400` + `{ ok:false, message: "传参自检失败" }`。
+  4. 该端点是**调试入口**，仍然只在本地服务上暴露；不得为它开新的鉴权或网络监听（不改变监听地址 `127.0.0.1`）。
+- **自测校验点**：
+  - AB-4 沙盒差分：正常参数 / 空 body / 非法参数三组比对响应
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only tt25-subdirect-wire`
+- **真机冒烟**：**【必须·合并 组E】**
+
+---
+
+#### V11-RF-203 · `routes/videos.routes.js`（视频生成与状态）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/routes/videos.routes.js`；改 `server/index.js`（`1565 POST /api/videos/generations`、`1832 POST /api/videos/status`）
+- **前置依赖任务ID**：V11-RF-112、V11-RF-113
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/video-config.js`、`server/billing-gateway.js`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（注意：**该端点无专用脚本**，AB 通过不足以证明正确 → 真机冒烟不可替代）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 请求解析（`normalizeVideoGenerationRequest`）、网关视频 body 构造、计费签发与状态查询链路逐字保持；`VIDEO_BILLING_GATEWAY_REQUIRED` 的用法不变。
+  4. 中间件追踪对该端点仍然生效（`isGenerationTraceEndpoint` 列表包含 `/api/videos/generations`）。
+  5. 视频私钥仍只在中转站侧（G-6）：本地不新增任何视频 KEY 读取分支。
+- **自测校验点**：
+  - AB-4 沙盒差分：mock 上游，走「创建 → 轮询到成功」「创建失败」「轮询到失败」「上游超时」四条路径，比对两版响应 JSON + 生成日志（**该模块无专用脚本，这里必须逐字节比**）
+- **真机冒烟**：**【必须·合并 组C】**（快捷视频与批量视频面板各跑一次，看能出片、状态轮询正常、失败提示文案正常）
+
+---
+
+#### V11-RF-204 · `routes/prompts.routes.js`（快捷/参考提示词重写）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/routes/prompts.routes.js`；改 `server/index.js`（`1953 /api/quick-prompt-rewrite`、`1986 /api/reference-prompt-rewrite`）
+- **前置依赖任务ID**：V11-RF-110
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/quick-prompt-ai.js`、`server/reference-ai.js`、`prompts/**`（G-2：提示词规则集不在这张单里）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 两条端点的降级行为逐字保持：解析失败 `400` 文案、缺 KEY `400 + missing_api_key` 文案、上游失败 `502` 时的本地兜底提示词（`quickPromptFallback` / `localReferencePrompt`）**必须仍然生效** —— 这是断网时的可用性保障。
+  4. 上传字段与上限（`upload.array("image", 6)`、`upload.fields([...])`）逐字保持。
+- **自测校验点**：
+  - AB-4 沙盒差分（**这两个端点没有专用脚本**）：mock 上游返回 200 / 500 / 超时，比对两版响应与兜底文案
+  - 注意区分：`quickgen-prompt-passthrough-check` 是**前端纯函数**检查（`src/shared/quickgen-prompt-rules.js` 的「只发用户原话」契约），**不覆盖这两个端点**，不要拿它当本单的证据
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs`（全套，确认没有连带回归）
+- **真机冒烟**：**【必须·合并 组E】**（在快捷生成里点一次提示词优化；再**断网**点一次，确认走了本地兜底而不是白屏/报错）
+
+---
+
+#### V11-RF-205 · `routes/history.routes.js`（历史读写/修复/清空）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/routes/history.routes.js`；改 `server/index.js`（`2025 GET /api/history`、`2051 POST /api/history/repair`、`2078 POST /api/history`、`2088 DELETE /api/history`）
+- **前置依赖任务ID**：V11-RF-105
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/history-store.js`、`server/core/history-display.js`、**`data/history.json`**（真实数据，禁止用于试验）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`history-integrity-check`、`history-repair-check`）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. **写盘语义逐字保持**：`writeHistoryResults(results, { replaceBackup: results.length === 0 })` 这类「清空才覆盖备份」的规则不得改；
+     `POST /api/history` 的合并规则与 `DELETE /api/history` 的 `POST body 的 ids 过滤` 语义不得改。
+  4. `POST /api/history/repair` 默认**只标记不删除**；只有显式 `dropMissing:true` 才清理 —— 逐字保持。
+  5. 验证脚本用的沙盒数据目录机制不变（脚本靠环境变量指向沙盒，真实 `data/` 指纹必须前后一致）。
+- **自测校验点**：
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only history-integrity` / `--only history-repair`
+  - AB-4 沙盒差分：GET / POST / DELETE / repair（含 `dropMissing` 两态）五组请求，比对响应 JSON + 沙盒 `history.json` 指纹
+  - 收尾确认：真实 `data/history.json` 的 SHA256 与开工前一致
+- **真机冒烟**：**【必须·合并 组B】**（真机上：出图后看历史里能看到 → 打开「历史修复」看只标记不删 → 清空一次历史看界面与磁盘一致）
+
+---
+
+#### V11-RF-206 · `routes/storage.routes.js`（数据与存储自助）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/routes/storage.routes.js`；改 `server/index.js`（`2158 /api/storage/usage`、`2166 /api/storage/reveal`、`2185 /api/storage/clean`）
+- **前置依赖任务ID**：V11-RF-114
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/storage-usage.js`、`server/core/app-paths.js`、**真实 `data/**` 与 `logs/**`**（清理类接口的验证一律在沙盒里做）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（该端点**无专用脚本** → 沙盒差分必须逐字节比）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 🔴 **`/api/storage/clean` 的安全边界逐字保持**（这是全项目最危险的一端）：
+     只删固定目录下的**普通文件**；图片类目录**只删图片扩展名**；清历史图片时**同时把历史清单置空并覆盖备份**；
+     **禁止**跟随符号链接/目录递归删除/越界路径；接受的目标 `key` 必须仍在白名单内（未知 key 一律拒绝）。
+  4. `/api/storage/reveal` 只打开目录、不执行 shell 拼接外部输入。
+  5. 失败时返回 `500 + { ok:false, error }`，不得静默成功。
+- **自测校验点**：
+  - AB-4 沙盒差分：usage / reveal（无 GUI 环境走失败分支）/ clean（合法 key、未知 key、目录不存在）逐个比对，**重点是删除了哪些文件、留下了哪些文件**（用文件清单比对，不用体积）
+  - 负向验证（必须有）：在沙盒里放一个**非图片扩展名**文件到图片类目录 → 调 clean → 该文件**必须还在**
+- **真机冒烟**：**【必须·合并 组B】**（真机打开「数据与存储」：看用量、打开数据目录、**只对非关键目录试一次清理**并核对磁盘）
+
+---
+
+#### V11-RF-207 · `routes/assets.routes.js`（历史图/参考图/画布资源读取）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/routes/assets.routes.js`；改 `server/index.js`（`2229 /api/history-image/:filename`、`2238 /api/reference-asset/:filename`、`2247 POST /api/canvas-assets`、`2281 /api/canvas-asset/:filename`）
+- **前置依赖任务ID**：V11-RF-108
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/asset-urls.js`、`server/core/local-image-stream.js`、`server/core/app-paths.js`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`canvas-asset-check`、`history-integrity-check`、`image-host-allowlist-check`）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 🔴 **路径穿越防护逐字保持**：`canvas-asset-check` 里那条 `../data/history.json` 的用例必须仍然被拒；
+     `:filename` 的清洗（`sanitizeFilePart` / `path.basename` 口径）不得放松。
+  4. `canvas-asset-check` 提到的「`return res.json({...})` 之后还留着 18 行旧实现」这类**已知冗余**在本单**原样搬走**，
+     **禁止**借搬运顺手删除（删死代码是另一张单，必须单独确认判别力）。
+  5. 上传上限与字段名（`upload.array("image", 12)`）、空上传的 `400` 行为不变。
+- **自测校验点**：
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only canvas-asset` / `--only history-integrity` / `--only image-host`
+  - AB-4 沙盒差分：合法文件 / 不存在文件 / 穿越路径 / 空上传 四组
+- **真机冒烟**：**【必须·合并 组B】**（无限画布/图库/历史里的图片都能正常显示）
+
+---
+
+#### V11-RF-208 · `routes/save.routes.js`（保存目录 + 保存图片 + 结果图读取）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/routes/save.routes.js`；改 `server/index.js`（`2289 GET /api/save-directory`、`2294 POST /api/save-directory`、`2306 POST /api/pick-directory`、`2321 POST /api/open-save-directory`、`2407 POST /api/save-image`、`2426 POST /api/save-processed-image`、`2458 POST /api/cache-result-image`、`2486 GET /api/result/:filename`）
+- **前置依赖任务ID**：V11-RF-104、V11-RF-108
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/app-settings.js`、`server/core/asset-persist.js`、`server/core/file-naming.js`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`white-refine-split-check`）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 🔴 **必须同步更新一条源码级断言**：`scripts/verify/white-refine-split-check.mjs`（第 31 行 `SERVER`、第 107 行断言）
+     在 `V11-RF-010` 之后应已改为「在全部服务端源码里找 `/api/save-processed-image` 注册」。本单搬完后**必须实跑确认它仍能命中**；
+     若 T-010 尚未合入，则本单不得开工。
+  4. 保存语义逐字保持：`normalizeUsableSaveDirectory` / `setSaveDirectory` 的校验与记忆；文件名安全化（`sanitizeFilePart`、`sanitizeSubfolderName`）不得放松；「白底精修中线剪裁成两张」的落盘行为不得变。
+  5. `/api/result/:filename` 的分段读取走 `server/core/local-image-stream.js`（V11-RF-108 的成果），不得复制一份新实现。
+- **自测校验点**：
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only white-refine` / `--only history-integrity` / `--only local-edit-base`
+  - AB-4 沙盒差分：保存到沙盒目录后比对**落盘文件 SHA256 + 文件名**；非法目录名 / 不可写目录的失败文案逐字比对
+- **真机冒烟**：**【必须·合并 组B】**（真机：指定保存目录 → 出一张图 → 下载/保存到该目录 → 打开目录确认文件在；白底精修跑一次确认落两张）
+
+---
+
+#### V11-RF-209 · `routes/detail.routes.js`（一键详情/主图提示词组）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/routes/detail.routes.js`；改 `server/index.js`（`2333 POST /api/detail-prompts`）
+- **前置依赖任务ID**：V11-RF-107
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：
+  - **`prompts/server/detail-skills.js`（G-2 里的历史硬性决策：一键详情/主图保留完整规则集，本单严禁改动）**
+  - `server/detail-ai.js`、`server/detail-middleware.js`
+  - `server/index.js` 里已被删除的 `buildDetailPromptGroup` **不得复活**（见 `版本记录.md:182`）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 上传字段（`upload.fields([...])`）、`resolveApiKey` 校验、`createDetailAiPlan` 调用与错误公开口径逐字保持。
+  4. 响应结构（前端按字段取用）不变。
+- **自测校验点**：
+  - AB-4 沙盒差分：mock 上游，走「正常 / 缺 KEY / 上游失败」三条路径比对响应
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs`（全套；该端点无专用脚本）
+- **真机冒烟**：**【必须·合并 组D】**（真机跑一次一键详情/主图，确认能出图且提示词组行为与改前一致）
+
+---
+
+#### V11-RF-210 · `routes/outfit-analysis.routes.js`（母版贴合分析 + 质检）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/routes/outfit-analysis.routes.js`；改 `server/index.js`（`3155 POST /api/outfit-master-fit-analysis`、`3229 POST /api/outfit-quality-check`）
+- **前置依赖任务ID**：V11-RF-103、V11-RF-107
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/outfit-master-fit-ai.js`、`server/outfit-quality-ai.js`、`server/outfit-pose-ai.js`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（该端点无专用脚本 → 沙盒差分必须逐字节）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 失败分支的公开错误映射（`publicPayload.*`）与 `writeGenerationLog` 的 stage 名（`outfit-quality-check` 等）逐字保持；
+     `timing.totalMs` 的计算口径不变。
+  4. 上传上限与字段名不变。
+- **自测校验点**：
+  - AB-4 沙盒差分：mock 上游 200 / 500 / 超时，比对响应 JSON 与生成日志文本
+- **真机冒烟**：**【必须·合并 组A】**（批量里跑一次姿态/质检相关子流程，看结果与日志）
+
+---
+
+#### V11-RF-211 · `routes/image-proxy.routes.js`（图片代理）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/routes/image-proxy.routes.js`；改 `server/index.js`（`3321 GET /api/image-proxy`）
+- **前置依赖任务ID**：V11-RF-010（`server/core/image-proxy.js` 已抽出）
+- **标记**：🟢 可并行
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/image-proxy.js`、`src/shared/image-hosts.js`（前后端白名单唯一真相源）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（重点：`image-host-allowlist-check`：私网地址拒、真实 CDN 放行、`ftp://` 拒）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. 🔴 **白名单判定与拒绝路径逐字保持**：非白名单主机直接 `403 { ok:false, message:"blocked_image_host" }` 且**不发起任何上游请求**；无效地址 `400`；
+     `blocked_image_host` 的资产日志（`writeAssetLog` stage `image-proxy-blocked-host`）仍要写。
+  4. 该端点仍是**唯一**允许的出图图片回传通道；不得新增第二个代理入口（G-6）。
+- **自测校验点**：
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only image-host`
+  - AB-4 沙盒差分：白名单 / 私网 / `ftp://` / 缺 `url` 参数 四组
+- **真机冒烟**：**【必须·合并 组D】**（旧的 CDN 结果图仍能显示；非白名单地址显示为缺图而不是长时间转圈）
+
+---
+
+#### V11-RF-212 · `routes/outfit.routes.js`（批量生成主端点，最大一单）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/routes/outfit.routes.js`；改 `server/index.js`（`2500-3154`，`POST /api/generate-outfit` 整段）
+- **前置依赖任务ID**：V11-RF-101、V11-RF-102、V11-RF-103、V11-RF-105、V11-RF-107、V11-RF-109、V11-RF-110、V11-RF-111（**缺一不可**）
+- **标记**：🔴 串行（本单是全局风险最高的一单，**必须独占一个工作日，不允许与其他单并行**）
+- **禁止修改文件清单**：G 全部；额外禁止：
+  - **`deferOutfitAutoSave`（G-5：刻意保留的 unused，本单严禁删除/加 `void`/改它）**
+  - `prompts/server/outfit-skill.js`、`server/outfit-skill.js`、`src/shared/outfit-intent.js`、`src/shared/retouch-intent.js`
+    （历史硬性决策：2026-09-26 起批量侧**只发用户原话** + 结构化意图编译，**严禁偷偷复原已删除的通用 SKILL 规则块/换装规则开关字段**）
+  - `src/outfit-workflow.jsx` 的任务构建代码（本单只动服务端）
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**，其中**必须全过**：`http-mock-check`（4 组 `/api/generate-outfit`）、`outfit-defer-autosave-check`、`outfit-intent-request-check`、`retouch-intent-request-check`、`batch-prompt-passthrough-check`、`local-edit-base-file-check`、`resize-long-edge-check`、`image-host-allowlist-check`。
+  2. **AB-2 lint 棘轮不能新增问题** —— 本单有一处**已预告的、必须显式处理的例外**（见 §4 D-2）：
+     `deferOutfitAutoSave`（G-5 刻意保留的 unused）就在本单要整体搬走的 `2500-3154` 段里，**无法把它单独留在 `server/index.js`**。
+     搬完后必然出现 `server/routes/outfit.routes.js|no-unused-vars = 1` 这个**新 key** → 棘轮按字面判失败。
+     事实账目（已核对）：`server/index.js|no-unused-vars` 现在的真实值是 **1**，而基线写的是 **2**
+     （基线里另一条 `buildDetailPromptGroup` 已于 2026-09-30 删除），所以搬完后**全项目 warning 总数不变（净增 0；不是"等于 26"——见 §0.1 的实测注记）**：
+     `server/index.js` 由 2→0（变少，允许）、新文件 0→1（新 key）。
+     **处理方式二选一，必须在 commit message 里写明选哪个**：
+     ① 刷新基线并附说明（**本文推荐的唯一诚实做法**）；
+     ② 由你决定解除这个标记（**那是业务决定，不是重构**，见 D-2 ③），解除后本单不需要动基线。
+     **除这一处之外，AB-2 不得有任何其它新增。**
+     🔴 **基线刷新三步防护（评审 D5-1：三步逐条留证，缺一条即判本单不通过）**
+     - **防护① · 刷新前先证明「只有这一条」**：必须能证明除预告条目外没有任何其它回归。两种可接受方式，任选其一并在提交里写明用了哪种：
+       - **(a) 删行探针**：临时把 `deferOutfitAutoSave` 那一行**整行删掉**再跑棘轮 → `regressions` 必须为**空**，且**全项目 warning 总数与刷新前的实测值相同（净增 0）**；
+         随后**逐字节还原**，并用 diff 证明还原干净（该行仍在、文件与探针前一致）。
+       - **(b) 直读输出**：不删代码，直接读棘轮输出 → `regressions` 数组里**只有预告的那一条**，
+         且 `current.total` **等于刷新前的实测总数**。
+         ⚠️ **不要拿基线文件里的 `baseline.totals.total = 26` 当基准** —— 那是 2026-09-25 的历史值，当前真实总数已更低（见 §0.1 的实测注记）。
+       - **唯一不变量是「净增为 0」**：删行探针后总数高于实测值，或刷新后总数高于刷新前 → **停，不许刷新基线**。
+     - **防护② · 刷新后核对 diff，只允许两处变更**：
+       - (i) `counts` 里 `"server/index.js|no-unused-vars"` 这条**整条消失**（该文件计数归 0 时，刷新逻辑会把整个 key 移除）；
+       - (ii) 新增 `"server/routes/outfit.routes.js|no-unused-vars": 1`。
+       - **除这两处之外，任何其它条目变化、任何 `totals` 变化，一律判失败并回退。**
+       - 说明性例外（须在提交里点明，避免被误当成第三处变更）：`generatedAt` 会变成刷新当天的日期 —— 这是刷新动作本身写入的，属预期内的非计数变更。
+     - **防护③ · 提交必须附带基线的完整 diff 文本**（`scripts/verify/lint-baseline.json` 的 diff 全文贴进 commit message 或作为提交附件），**不接受"只说刷新了"的提交**。
+  3. **请求/响应形状逐字节保持**：`/api/generate-outfit` 返回的本地 `HZ-` 地址、错误码/文案、`attempts` 数组、诊断字段（含 `localUploadParseMs`、`imageConcurrency`）全部不变。
+  4. **提示词出口不变**：真正发给上游的 prompt 与搬家前**逐字节相同**（这条由 mock 脚本钉住，必须贴出对比证据）。
+  5. **结构化意图校验不变**：非法枚举仍返回 `400`（`validateOutfitIntent` / `validateRetouchIntent` 的调用点与顺序不变）。
+  6. **局部回贴底图规则不变**：仍由前端决定并经服务端转发；服务端不得新增任何「底图选择」逻辑。
+- **自测校验点**：
+  - AB-4 沙盒差分（**本单必须做最细的一组**）：至少覆盖「普通批量 / 换装结构化意图 / 精修结构化意图 / 局部回贴（带 mask）/ 扩图 / 多图 / 缺 KEY / 上游 401 / 上游 429 / 上游超时 / 中途中断」11 条路径；
+    每条比对响应 JSON + mock 上游收到的**最终 prompt 全文** + 落盘产物 SHA256 + 任务日志全文
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only outfit`（连带 outfit-intent 两单）
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only http-mock` / `--only batch-prompt` / `--only local-edit` / `--only resize-long-edge`
+  - **基线刷新的证据链（对应验收条件 2 的三步防护，缺一条即不通过）**：
+    ① 刷新**前**：棘轮输出（证明除预告条目外 `regressions` 为空 / 或删行探针后的空 `regressions`）+ **本次实测的 current.total 读数**；
+    ② 刷新**后**：`scripts/verify/lint-baseline.json` 的 diff（只允许「`server/index.js|no-unused-vars` 整条消失」+「新增 `server/routes/outfit.routes.js|no-unused-vars: 1`」这两处计数变更）；
+    ③ 把上述完整 diff 文本附进 commit message（不接受"只说刷新了"）。
+    另：删行探针若使用，必须用 diff 证明 `deferOutfitAutoSave` 那一行**已逐字节还原**（G-5）。
+- **真机冒烟**：**【必须·独立】**（本单必须单独冒烟，不能与其他单合并）：
+  ① 批量换装出 2 张图；② 局部回贴（涂抹蒙版）出 1 张并确认**贴回尺寸 = 原图尺寸**；③ 扩图 1 张；
+  ④ 中途点停止/关页面再回来，确认任务状态与历史恢复正确；⑤ 看 `logs/tasks/<日期>/<任务ID>.txt` 阶段流水完整。
+
+---
+
+#### V11-RF-213 · `routes/images.routes.js`（通用生图端点）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/routes/images.routes.js`；改 `server/index.js`（`3376-3807`，`POST /api/images` 整段）
+- **前置依赖任务ID**：V11-RF-101、V11-RF-102、V11-RF-103、V11-RF-110、V11-RF-111
+- **标记**：🔴 串行
+- **禁止修改文件清单**：G 全部；额外禁止：`prompts/server/detail-skills.js`、`server/detail-ai.js`、`server/core/asset-persist.js`、`server/core/image-error-policy.js`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**，其中**必须全过**：`http-mock-check`（8 组 `/api/images`）、`generation-failure-path-check`、`pro-wire-check`、`tt25-subdirect-wire-check`、`canvas-asset-check`、`history-integrity-check`。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. **重试/换线路策略逐字保持**：`shouldTryNextChannel` / `shouldTryNextImageVariant` / `shouldTreatPrivateChannelAuthAsChannelFault` 的调用点与判定顺序不变；
+     `imageCandidateEntries` 的遍历顺序不变。
+  4. **落盘与历史写入语义不变**：`persistGeneratedItemsInBackground` 只被本端点调用；结果文件命名（`writeJingyinNumberedImage` / `writeProcessedImage`）不变。
+  5. **413 / 上传上限**行为不变（`IMAGE_UPLOAD_PARSE_CEILING`、`largeImageUpload`、失败时 `removeUploadedFiles` 必须仍被调用，不留临时垃圾）。
+- **自测校验点**：
+  - AB-4 沙盒差分：至少覆盖「单图成功 / 多图 / 私网 KEY 鉴权失败换线路 / 429 / 500 / 超时 / 超大上传(413) / 无 KEY」8 条路径；
+    比对响应 JSON + 落盘文件名与 SHA256 + `tmp/uploads` 是否残留
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only http-mock` / `--only generation-failure-path` / `--only pro-wire` / `--only tt25-subdirect-wire`
+- **真机冒烟**：**【必须·独立】**：主画板快捷生图 2 张 + 参考生图 1 张；上传一张 **>25MB** 的图确认报错文案里的 MB 数字正确、`tmp/uploads` 无残留；断网出图一次确认失败提示与重试行为正常。
+
+---
+
+### 批次 5 · 收尾（可选）
+
+---
+
+#### V11-RF-220 · `server/index.js` 只留启动（抽出 `server/app.js`）
+
+- **任务类型**：【结构搬运重构】
+- **目标操作文件**：新建 `server/app.js`（创建 app、注册中间件与全部路由，导出 `app`/`createApp`）；改 `server/index.js`
+- **🔴 本单接管 V11-RF-116 明确留下的两块（评审 D1 的归属裁定）**：
+  - `attachFrontend`（快照 `3809-3842`）：前端挂载 —— `NODE_ENV === "production"` 分支、「有 `dist/index.html` 用静态文件 / 否则用内嵌资源」两级回落、dev 分支的 vite 中间件与 `transformIndexHtml`。
+    **归属建议**：随 `server/app.js` 一起走（它本质是 app 的装配），但**必须在本单 commit message 里写明最终落点**。
+  - 末尾启动块（快照 `3883-3888` 的 `attachFrontend().then(...)`）：**必须留在 `server/index.js`**（它是进程入口的唯一动作）。
+  - 本单完成后 `server/index.js` 只保留「导入 + 创建 app + 调用 attachFrontend + 启动」的最小引导；`listenOnPort` / `configureHttpServer` 已在 V11-RF-116 搬走，**不得在本单重复搬运或就地重建**。
+- **前置依赖任务ID**：V11-RF-116、V11-RF-201 ~ V11-RF-213（**全部**）
+- **标记**：🔴 串行（放最后）
+- **禁止修改文件清单**：G 全部；额外禁止：`scripts/secure-win-release.mjs` 的 `entryPoints`（**必须仍是 `server/index.js`**，若改成 `server/app.js` 需单独确认打包链路）、`启动静音内测画板.bat`
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（全套 33 项；若 V11-RF-101 已合入则为 34 项 —— 以你改前的基线数字为准）。
+  2. **AB-2 lint 棘轮基线不能新增问题**。
+  3. **中间件与路由注册顺序逐字保持**（这是本单唯一的真实风险：顺序变了鉴权/压缩/追踪行为就会变）。
+     注册顺序必须与搬家前的 `server/index.js` 自上而下**完全一致**，并在 commit message 里贴出「旧顺序 → 新顺序」对照表。
+  4. **`attachFrontend` 内部逐字保持**（本单从 V11-RF-116 接管）：
+     `NODE_ENV === "production"` 分支、「有 `dist/index.html` 用静态文件 / 否则用内嵌资源」的两级回落、
+     dev 分支里 `await import("vite")` 的懒加载与 `transformIndexHtml` 流程、以及 `app.get("*")` 的注册位置，全部不得改。
+  5. `server/index.js` 行数降到百行量级；不得再承载任何路由与业务逻辑；末尾启动块仍在 `index.js`。
+  6. `scripts/check-syntax.mjs` 自动覆盖新文件（无需人工登记）；`run-all.mjs --list` 脚本数与改前基线一致（33，或 101 合入后的 34）。
+- **自测校验点**：
+  - AB-4 沙盒差分：跑**全套 run-all** 作为最强等价性证据（全套脚本都在打同一个服务）+ 至少 3 条真机路径的响应比对
+  - **前端挂载两条分支都要验**：① `vite build` 通过（产物可被 `dist/` 静态分支消费）；② dev 启动后浏览器能正常打开页面（走 vite 中间件与 `transformIndexHtml` 分支）
+  - 打包冒烟：`.\runtime\node\node.exe scripts\secure-win-release.mjs` 的**干跑/构建阶段**若可用则跑一次，确认入口未变
+- **真机冒烟**：**【必须·独立】**（双击 `启动静音内测画板.bat`，确认能起、能用）
+
+---
+
+## 3. 真机冒烟测试清单（沙盒通过 ≠ 功能正确）
+
+**规则**：每张工单收尾，按它标注的「冒烟组」跑对应组一次；标【必须·独立】的工单必须**单独**跑一次，不允许与其他单合并。
+
+| 组 | 覆盖工单 | 冒烟动作（开发者真机，`.\runtime\node\node.exe server\index.js` 后浏览器操作） | 看什么 |
+| --- | --- | --- | --- |
+| **A** | 101, 102, 103, 107, 109, 110, 111, 210, 212* | ① 快捷生图 1 张 ② 批量换装 2 张 ③ 局部回贴（涂抹）1 张 ④ 断网再出一次 | 能出图、图片不发虚；贴回输出尺寸=原图尺寸；断网时失败提示正常且任务状态可恢复 |
+| **B** | 105, 108, 114, 205, 206, 207, 208 | ① 打开历史/图库看图 ② 打开「数据与存储」看用量 ③ 指定保存目录并保存一张 ④ 历史修复（只标记） | 图片能显示（不半张）；用量数字与磁盘一致；保存的文件真的在目标目录；修复不误删 |
+| **C** | 112, 113, 203 | ① 快捷视频出 1 条 ② 批量视频面板出 1 条 ③ 故意给一个无效视频模型 | 能出片、状态轮询正常结束；失败文案正常（不是空白/英文栈） |
+| **D** | 104, 115, 201, 209, 211 | ① 打开设置看模型/线路 ② 点连接测试 ③ 指定文件夹 ④ 一键详情/主图 1 张 ⑤ 打开一条含旧 CDN 图的历史 | 列表与价格正常；连接测试有结果；目录弹窗能出能记住；详情能出图；旧图能显示或缺图卡片自愈 |
+| **E** | 102, 106, 202, 204 | ⚠️ **注意（2026-10-01 实测更正）**：② 「传参自检」**在界面上已经不存在**（`main.jsx:2904` / `outfit-workflow.jsx:6770` 注明：2026-09-25 起设置里的「开发诊断」区（含传参自检按钮）已整体替换为「连接测试」）。<br>⇒ 组 E 对 **106** 的有效冒烟只能是 ① **提示词优化（联网 + 断网各一次）**；106 自身的验证改为**直接 `POST /api/debug/image-request-params`**（沙盒差分三组入参），**不要再让人类去找那个按钮** | 联网返回模型文案、断网走本地兜底；106 的差分三组响应结构一致 |
+| **独立** | 001（微信粘贴 KEY）、002（失效参考图）、116（启动/重复双击）、212（批量全链路）、213（含 >25MB 上传）、220（打包启动） | 见各工单「真机冒烟」条目 | 逐条对照 |
+
+\* 212 虽在组 A 有覆盖，但**必须额外独立跑一次**（见该单）。
+
+**冒烟记录要求**（写进提交或 PR）：日期、机器、执行的工单、做了什么、看到什么、有没有异常截图/日志路径。**没有真机记录 = 该单不算关闭。**
+
+---
+
+## 4. 待决策项（需要你拍板，本文不擅自开单）
+
+> 编号提示：本节的 **D-1 ~ D-4** 是**待决策项**（带连字符）；§1.1 里的 **D1 ~ D5** 是**评审修正项**（不带连字符）。两套编号不要混。
+> 工单正文里写「见 §4 D-2 / D-3」时，指的是**本节**的待决策项。
+
+- **D-1 · `local-edit-base-file-check` 的浏览器探针语义**：该脚本在拿不到浏览器回执时记的是**失败**（`check(..., false)`），而其余脚本多是「部分跳过」。若你的机器稳定没有 Tabbit CLI，`run-all` 永远红。要不要把它改成 skipped 语义（会**放松门禁**，属独立决策）？建议：**先确认真机是否装了** `%LOCALAPPDATA%\Tabbit\LocalAgent\bin\tabbit-cli.exe`，装了就不动。
+- **D-2 · `deferOutfitAutoSave` 与 lint 棘轮的冲突（V11-RF-212 会遇到）**：它是**刻意保留的 unused**（G-5），且位置就在 V11-RF-212 要整体搬走的 `/api/generate-outfit` 处理函数体内 —— **无法只留这一行在 `server/index.js`**。
+  账目（已核对）：基线 `server/index.js|no-unused-vars = 2`，其中 `buildDetailPromptGroup` 已于 2026-09-30 删除 → 现在真实值是 **1**；搬完后 `server/index.js` 2→0（变少，允许）、`server/routes/outfit.routes.js` 0→1（**新 key，字面判失败**），**全项目总数净增 0**（⚠️ 不是"等于 26"：`baseline.totals.total = 26` 是 2026-09-25 的历史值，2026-10-01 实测 `prompts/server/outfit-skill.js` 已从 2 条降为 0 条，当前真实总数更低）。三条路：
+  ① **推荐**：搬完后刷新一次 lint 基线，提交信息写明「G-5 刻意保留的门禁标记随代码迁移，全项目 warning 总数未增加（净增 0）」。
+     这是唯一既完成搬运、又不掩盖问题、也不撒谎的做法。**但刷新必须走 V11-RF-212 验收条件 2 里的「基线刷新三步防护」（防护① 刷新前证明只有这一条且净增 0 / 防护② 刷新后 diff 只允许两处变更 / 防护③ 提交附完整 diff 文本）** —— 三步缺一即判该单不通过。
+  ② **暂缓 V11-RF-212**：把最大的这一单留到最后再决定（`server/index.js` 仍是路由宿主），其余单照做。棘轮零扰动。
+  ③ 由你决定**解除这个标记**（删掉或接线使用）—— **那是一次业务决定，不是重构**，必须单独一张工单、单独验证，不得塞进 V11-RF-212。
+- **D-3 · `server/routes` 的注册风格**：本文统一要求「导出注册函数、在 `server/index.js` 按原顺序调用」。若你更想用 `express.Router()`，需要确认中间件顺序与 `app.get("*")` 前端回落注册的相对位置 —— 建议本轮**不引入 Router**，把顺序风险压到最小。
+- **D-4 · 前端两大巨石**：本轮**不开整体搬迁单**。`src/features/outfit/workflows/` 下 11 个分区仍只有 README（现状），按童子军原则**只在该分区业务真正被修改时**才迁实体代码。
+- **D-5 · 🔴 源码版启动器到底该走哪个前端分支？（新品，现场暴露）**：`启动静音内测画板.bat` → `scripts/start-jingyin-board.ps1` **不设 `NODE_ENV`**，因此双击启动**永远走 vite dev 分支**。后果（见 §1.3 现场发现）：首屏要过 vite 依赖预构建（慢、脆弱、白屏需刷新），且**在 011 之前这条分支根本打不开页面**。
+  三条路，需要你拍板（这不是我能擅自改的）：
+  1. **让启动器显式走 production 分支**（`.bat`/`ps1` 里设 `NODE_ENV=production`）⇒ 直接服务 `<root>/dist` 或内嵌资源，**秒开、稳**；代价是改源码后需要重新构建才生效（开发时就该用 `npm run dev`）。
+  2. **保持 dev 分支**，但补两件事：启动器等"vite 就绪"再开浏览器；诊断日志记录分支判定与首屏耗时。
+  3. 两条并存：`.bat` 走 production，另留一个开发者用的 `dev.bat`（`npm run dev`）。
+  **建议 1 或 3**（产品承诺是"双击就能用"）。定了之后开 `V11-RF-013` 工单（含 `check-launcher` 的断言同步）。
+  顺带一条小单（可与 013 合并）：**启动成功时 `ps1` 不重写 `launcher-diagnostic.log`**，导致现场排障会读到上一次的过期诊断（本次就误导过一次）。
+  **⏸️ 2026-10-01 现状**：用户实机确认"能用、出图正常"，因此**暂不改**（能用就别动）；待 011 提交后再定。
+- **D-6 · 老交付报告的归档（已定，等时机）**：根目录 21 份 `V11-*-2026-08/09-*.md` 历史交付报告 **不删除**，**等批次 3（101–116）全部关单后一次性归档**到 `docs/历史交付报告/`。
+  - **为什么不删**：总表把它们当**证据**引用 —— `V11-第4b阶段-lint行为风险审查与棘轮-交付报告-2026-09-25.md`（§0.1 第 28 行：lint 基线 26 条构成的唯一出处）、`版本记录.md`（§1.3 与 V11-RF-209：`LocalDetailPanel` 删除 / `buildDetailPromptGroup` 不得复活的唯一记载）、`V4.0-起步说明.md`（§0.6：行号漂移与受限环境 EBUSY 的出处）。项目纪律是"**未留证 = 未完成**"，删报告等于拆审计链。
+  - **归档时要同步改的引用**：移动后只需改 `REFACTOR_TICKETS.md` 里指向那份 4b 报告的路径（`版本记录.md`、`V4.0-起步说明.md` 留在根不动）。
+  - **可随手清的**（不属归档范围）：`.codex-artifacts/` 里的旧目录、`tmp/sb-*`、`logs/` 里旧的 `launcher-*.log`（留最近 2–3 个）。
+  - **保留到关单再删**：`.codex-artifacts/baseline-2026-10-01/`、`.codex-artifacts/batch3-2026-10-01/`（当前核验与关单要用）。
+  - **绝不能删**：`data/`（用户设置与历史）、`runtime/`、`node_modules/`、**`dist/`**（011 之后 production 分支会用它提供页面）、`server/static-assets.generated.js`（内嵌兜底）。
+
+---
+
+## 5. 变更记录（关闭工单时在这里追加一行）
+
+| 日期 | 工单 | 结论 | 真机冒烟 | 提交号 |
+| --- | --- | --- | --- | --- |
+| 2026-10-01 | V11-RF-000 | 僵尸断言早已由 3ac261e 移除；本回合真机核验：脚本无源码级断言失败（仅剩浏览器探针类环境红，归属 D-1）；0-7 负向验证通过（136/143 断言能抓回归），业务代码已逐字节还原 | 不需要（无业务改动）；已跑脚本+负向验证 | 3ac261e |
+| （待填） | V11-RF-001 | | | |
+| （待填） | V11-RF-002 | | | |
+| 2026-10-01 | **V11-RF-011** | ✅ **已提交**（热修：`rootDir` 少一层，Phase 1 搬迁遗留）。值级复核改前/改后对照 + 新门禁 `app-paths-check`（纯进程内）+ ORDER **34→35**；打包优先级链逐字未改；P1 决策：**无真实用户数据需迁移**（`server/data` 不存在；根 `data/` 仅 `app-settings.json`）。真机证据：`local-edit-base-file-check` **36/36**（此前一直被本缺陷挡红）、真机出图正常、日志落在**仓库根** `logs/tasks/` | 已做（双击 .bat 出图正常） | **919d615**（独立 commit，不与任何批次混） |
+| 2026-10-01 | **V11-RF-014** | ✅ **已提交并真机复核生效**（测试基建）：`run-all.mjs` 末行 `process.exit(...)` → `process.exitCode = ...`，让 stdout 完整 flush。真机跑 `run-all-check` 后，「人读输出里点名失败脚本」已由红转 **`pass:true`** ⇒ 本单闭环；同次运行**另行暴露**两条过时断言 → **V11-RF-015** | 不需要 | **cfac8fc**（独立 commit，仅 1 行） |
+| 2026-10-01 | **V11-RF-015** | ✅ **实现完成 + 真机复核通过**（测试基建）：`run-all-check.mjs` 两条过时断言改为按 `check-syntax.mjs` 新设计检查（`check` 串 `check-syntax.mjs`；**新增更强断言**从源码正则读 `SCAN_ROOTS` 并断言覆盖 `server/src/scripts/prompts`）；`check:syntax` 改为断言指向 `check-syntax.mjs`；`:137/:155` 两处误导性 detail 改中性。**`package.json` 一个字未改**（没复活那串会腐烂的手写清单）。真机：`run-all-check` 由 `ok:false`（failed 2）转为 **`ok:true`、`total:27`、`failed:0`** | 不需要 | （独立 commit，见执行者汇报） |
+| 2026-10-01 | V11-RF-010 | 新建共享模块 `scripts/verify/lib/server-sources.mjs`（统一收集 index.js + core/routes/shared 下所有 .js，目录不存在安全跳过）；4 个脚本改用该模块，零业务改动；10-10 三条负向验证全过（改名路由仍命中 / core 写禁令牌被点名 / routes-shared 不存在四脚本均正常跑完）；全套 run-all 仅 14 项失败且全部为环境类（V11 测试实例未起来 11 项 + lint-ratchet EBUSY + run-all-check 自身 TypeError + check-launcher ps1 环境），无源码级断言回归 | 已跑 4 脚本本体 + 负向验证 + 全量 eslint 棘轮（regressions=0）；主入口 33 项未变 | b990647（原记录写作"待提交"，2026-10-01 由文档作者回填；交付核验见 §1.2） |
+| 2026-10-01 | V11-RF-101 | ✅ **已关闭**（AB-1 于 **2026-10-01 真机观测达成**：全套 **35 项、失败 0**；`run-all-check` `ok:true`、`total:27`）。已抽 `server/core/image-concurrency.js`（状态定义仅 1 处、7 个读取点收口到 `imageQueueSnapshot()`、3 个调用点齐、快照只读、limit 来自 runtime-config）；门禁 `state-singleton-check` 已建并登记 ORDER（**33→34**）+ 负向验证两次点名；L2 进程内测试 14 项全过；**真机冒烟**：出图正常 + 任务日志里「本地并发队列已放行 / 本地并发排队：0 毫秒」在册 | 已做（真机出图正常） | 6d9716a |
+| 2026-10-01 | V11-RF-102 | ✅ **已关闭**（AB-1 同上达成）。已抽 `server/core/generation-trace.js`（注册行位置未变、内部 Map 未导出、requestId 口径逐字保留并注释标注"不可修正"）；L2 假 `req`/`res` 测试 10 项全过；**真机证据**：`logs/tasks/2026-10-01/task_1_1790837961424_tfhyxo.txt` 显示「本地服务收到生成请求」→「本地服务响应结束」（200）阶段齐全 ⇒ 覆盖了 L2 未覆盖的"日志真的被写出"那一层 | 已做（组 A 主体） | df722b7 |
+| 2026-10-01 | V11-RF-103 | ✅ **已关闭**（AB-1 同上达成）。已抽 `server/core/billing-attempts.js`（仅改 import、13+2 调用点零改动、无 KEY 字面量/无新上游地址、孤儿 import 处理正确）；L2 测试 16 项全过（401/429/超时 + 禁用态不调 fetch）。⚠️ **遗留说明（不影响关闭）**：真机日志里**没有** `billing-gateway-prepare/-finalize` 阶段 ⇒ 当前配置下**计费网关未启用**，该模块在真实请求里只跑了"透传 + 未启用早返回"两条路径；`enabled:true` 的签发/落账路径**无真机证据**，留待启用计费网关的环境再补 | 已做（真机出图 3 张，中转站侧计费一致） | edab30d |
+| 2026-10-01 | **V11-RF-104 / 105 / 106** | ✅ **已关闭（2026-10-01 真机 35/35）** —— 三单合并为 1 个 commit `9f699a1`（三行 import 相邻被 git 并成一个 hunk；**已知偏离"一单一 commit"**，回退映射见下行）。已抽 `server/core/directory-picker.js`（`openDirectory`/`pickDirectory`）、`history-display.js`（`imageForImmediateDisplay`/`isBase64ImagePayload`/`hasHistoryDisplayArchive`/`historyItemForImmediateDisplay`）、`image-diagnostics.js`（`clampDiagnosticImageCount`/`diagnosticPlaceholderFiles`/`diagnosticFieldValue`/`describeDiagnosticVariantFields`/`buildImageRequestDiagnostic`）；`server/index.js` **3673 → 3430 行**，5 处调用点逐字未改（`719` 调试路由 / `1858`+`1873` 保存目录 / `3133`+`3136` 批量结果历史）。**沙箱内**：`node --check` 4 文件、3 个新模块 eslint 0/0、进程内 `logic-test.mjs` ALL PASS。**真机**：全套 **35/35**；冒烟（人类）——**组 B 通过**（前端上传与缩略图正常）；**组 E 无效**（「传参自检」UI 已于 2026-09-25 移除，见 §3 更正）；**组 D 未单独点**（低风险，可顺手补）。<br>🔴 **两笔记账**：① `V11-RF-106` 因两个薄包装无法搬走而在新模块内放**逐字节副本** ⇒ 同名函数各 2 处定义（收口人 **V11-RF-110**，护栏 **V11-RF-016**；根因是执行单漏写依赖 → §0.9 第 7 条）；② 首次真机红 = **4 个孤儿 import** 未清（`normalizeUsableSaveDirectory:71`/`imageProxyUrl:81`/`archiveIncomingHistoryItem:122`/`normalizeHistoryItem:125`）⇒ `server/index.js\|no-unused-vars` 1→5（基线 2）⇒ **棘轮拦下（行为完全正确）**；根因是执行单"只允许两个 hunk"的规则把"清孤儿 import"误判为越界 ⇒ 已改 **三类 hunk**（§0.9 第 9 条）。<br>回退映射：删 104 → 删 `directory-picker.js` + 对应 import 行；105/106 同理。 | 已做（**组 B + 组 D 均通过**；E 无 UI 入口） | **9f699a1**（搬运）+ **57f01a9**（孤儿修正） |
+| 2026-10-01 | **V11-RF-107 / 108 / 109** | ✅ **已关闭（真机 35/35）**。已抽 `server/core/outfit-upload-groups.js`（`outfitUploadFileGroups`/`imageFromOutfitArchive`）、`local-image-stream.js`（`parseByteRange`/`streamLocalImageFile`）、`outfit-archive.js`（`archiveOutfitGeneratedImage`/`cacheOutfitGeneratedImageForDisplay`/`archiveOutfitGeneratedImageInBackground`）；`server/index.js` **3430 → 3264 行**。<br>✅ **本批做对的**：**跨模块依赖 109 → 107 用 import 而不是复制**（已核：`imageFromOutfitArchive` 全服务端只在 `outfit-upload-groups.js:17` 定义、由 `outfit-archive.js:13` import）—— 正面吸收了 106 的教训；`parseByteRange`（纯函数）**8/8 进程内测试通过**；3 个新模块 eslint 0；**孤儿 import 用"全文件 grep + eslint"机械判定**，共清 4 处，其中 `parseByteRange`/`archiveOutfitGeneratedImage` 是执行单**没列到**的险漏（靠机械做法兜住的）。<br>📌 三单各 1 个 commit、import 分散放置（§0.9 第 8 条生效）。<br>⚠️ **未单独做的冒烟**：107 组 A（上传三形态）、108 组 B、109 组 A —— 其中 **109 的显示契约已由 `outfit-defer-autosave-check` 5 组全过覆盖**，108 的"图片完整显示"与 107 的"上传"在用户实机使用中已多次通过 | 部分（用户实机上传/缩略图正常） | 🔴 **未提交（压在工作树里）** —— 见 §5.2 |
+| 2026-10-01 | **V11-RF-017 / 111** | ✅ **代码完成 + 真机 36/36**（`server/core/` 现 **28 个模块**；`index.js` **3212 → 3040 行**）。<br>**017**：新建 `server/core/route-helpers.js`，逐字节搬 4 个**图片/视频共用**辅助（`videoRouteText`/`hasHeader`/`safeSignedRouteHeaders`/`signedRouteCredential`，原 `614`–`647` 连续区间）；`videoRouteText` **保持原名**（G-8）并留注释；屏蔽头集合 / 大小写不敏感 / 八字段兜底顺序逐字保留。<br>**111**：新建 `server/core/image-route-candidates.js`，搬 11 个图片线路函数（原 `718`–`861`）；**4 个共用辅助 import 自 `./route-helpers.js`，未复制**（文件头把"禁止复制 + 016 门禁会拦"写进注释）；导出 6 个外部符号、5 个内部符号不导出（最小暴露）。<br>**已核**：`index.js` 12 处调用点全部在位（`1999-2011` / `2620-2632`）；4 个辅助仍被视频块使用（`623`–`687`）故无孤儿；6 条孤儿 import 已清；`server-duplication-check` 绿、0 跨文件同名。<br>📌 **执行单自身又漏了一条依赖**：`111` 还用到 `channelEndpointForBaseUrl`（`../channel-config.js`），由执行者的机械核查抓出 —— 已把"**以机械核查为准、执行单清单只是提示**"写进 §0.9 第 7 条（同类漏项已发生两次：106、111）。 | 组 A 未做（`tt25` JSON 路径；`tt25-subdirect-wire-check` 绿） | 🔴 **未提交** —— 见 §5.2 |
+| 2026-10-01 | **V11-RF-110** | ✅ **已关闭（真机 35/35）**。已抽 `server/core/image-channel-candidates.js`（`channelBaseCandidates` / `imageChannelBaseCandidates` / `JSON_IMAGE_URLS_CHANNEL` / `prepareJsonImageUrlsForChannel` / `imageParamsForBaseUrl` / `imageRequestVariantsForBaseUrl` / `imageRequestLogTargets`）；`server/index.js` **3264 → 3212 行**，**12 处调用点逐字未改**（行号一致偏移 −52）；`JSON_IMAGE_URLS_CHANNEL` 值仍为 `silent-tt25-line-07`。<br>✅ **强制还债条款已兑现**：删除 `image-diagnostics.js` 里 106 遗留的**两份逐字节副本**，改为 `import` 自新模块；**并连带清掉该文件里随之变孤儿的 `buildImageChannelBaseCandidates` / `upstreamModelForChannel` 两项 import**（这是"清孤儿的连锁反应"，正是我在执行单里标红的陷阱）。<br>✅ **收口证据（已核）**：全服务端 `function imageParamsForBaseUrl` / `function imageChannelBaseCandidates` **各只剩 1 处定义**（都在 `image-channel-candidates.js`）；`index.js` 里 `buildChannelBaseCandidates` / `buildImageChannelBaseCandidates` 两个孤儿**已消失**；"不许删"的 4 项（`buildImageRequestVariants` / `upstreamModelForChannel` / `ensureFileBuffer` / `mimeTypeFromFile`）**均仍在**。<br>📌 该文件头部注释已更新说明"副本已在 110 抽走、循环依赖消失"，把欠账的来龙去脉留在了代码里 | 组 A 未单独做（`tt25` 走 JSON 路径；`tt25-subdirect-wire-check` 已过） | 🔴 **未提交（压在工作树里）** —— 见 §5.2 |
+| 2026-10-01 | **V11-RF-016** | ✅ **已关闭（真机 36/36）**（测试基建）：新增 `scripts/verify/server-duplication-check.mjs`（138 行，**复用 `listServerSourceFiles()`**；只认**行首**顶层 `function`/`async function`；跨文件同名即红并**点名两处 `文件:行号`**；棘轮 + `--update`）+ 基线 `server-duplication-baseline.json`（**`duplicates: {}` = 考古确认基线干净**，扫描 27 文件 / 70 函数 / 0 重复）+ `run-all --list` **35 → 36**（插在纯源码批次、`state-singleton-check` 之后）。**负向验证**：临时把 `parseByteRange` 复制进 `__tmp_dup.js` → 变红并点名两处（`local-image-stream.js:7` 与 `__tmp_dup.js:3`）→ 删除后转绿。**本单是 106 事故的机器护栏**：此后任何"复制一份实现"都会被当场拦下 | 不需要（纯源码） | **8730a09**（独立 commit，3 文件 146 行） |
+| （删） | ~~V11-RF-011 重复行~~ | 2026-10-01 由文档作者删除：执行者在并发写入时另加过一条 011 记录（状态停在"提交暂挂/（待提交）"），权威行在上方（含提交号 **919d615** 与已关闭状态）。**这行留痕本身就是为了记住"两个写入者会互相覆盖"的教训** | — | — |
+| … | … | | | |
+
+### 5.1 行为证据欠账回收清单（批次 3 前三单 · 逐条勾掉后才可把 ⏳ 改 ✅）
+
+> **口径**：`§5` 的「关闭」绑定 **① 欠账清零 + ② 分支合入**，不是"提交了"。三单现处 `⏳ 待行为验证`。
+> **AB-2 的准确说法**：**棘轮脚本本身未跑通**（本环境 `spawnSync` EBUSY）；已完成的替代证据是「eslint 全量直跑 + 与棘轮逻辑逐行等价的比较脚本」——替代证据**可信但不能写成"AB-2 通过"**。
+
+**A. 在本环境即可完成（纯源码 / 进程内，不需要 spawn）—— ✅ 2026-10-01 全部完成并已由文档作者核验留档**
+- [x] **A1 · 101 门禁负向验证（执行单 1-8）**：✅ 两次都变红并点名 —— `neg-1-index.json`（`ok:false`、定义点 2 处、点名 `server\index.js`）、`neg-2-routes.json`（点名 `server\routes\__tmp_neg\foo.js`），临时目录已清理（`server/routes` 已不存在）。留档：`.codex-artifacts/batch3-2026-10-01/`
+- [x] **A2 · L2-101 进程内逻辑测试**：✅ 14 项全过（`l2-101.json`，`failed:[]`）—— 含**快照只读**（改返回值不影响内部）、取满后第 6 个排队且未放行、释放后按 **FIFO** 放行、`weight` 夹取、重复释放 no-op、清空后回 0。
+- [x] **A3 · L2-102 进程内逻辑测试**：✅ 10 项全过（`l2-102.json`）。⚠️ **覆盖边界（必须记住）**：该测试设 `JINGYIN_DISABLE_GENERATION_LOGS=1`（开关真实存在于 `generation-logger.js:26`），因此验证的是 Map 生命周期 / 未追踪端点不写日志 / `localUploadParseMs` 口径，**未验证三个 stage 日志真的被写出** → 那层**只能靠 B3**。
+- [x] **A4 · L2-103 进程内逻辑测试**：✅ 16 项全过（`l2-103.json`）—— 两个纯函数 + monkey-patch 全局 `fetch` 造 401/429/超时（含 429→504 的公开口径）+ 禁用态不调 fetch。
+- [x] **A5 · AB-2 替代证据留档**：✅ `eslint-batch.json` + `eslint-batch.err` 已落盘（棘轮脚本本身仍未跑通，B2 不变）。
+- [ ] **A6 ·（建议，非必须）把 L2-101 转正为门禁** → 已开 **V11-RF-012**（现在它们只在 `.codex-artifacts/` 里，**是取证不是门禁，下次没人会跑**）。
+
+**B. 必须在能 spawn 的真机终端完成**
+- [x] **B1 · AB-1**：✅ **2026-10-01 真机最终观测：全套 `[run-all] 35 个脚本：通过 35，失败 0`**（先用 `run-all-check` 单跑确认 `ok:true / total:27 / failed:0`）。
+  过程留痕：真机首跑曾是 **34/35**，唯一失败为元测试 `run-all-check`，且先后暴露**两个互不相关的测试基建缺陷** → `V11-RF-014`（`run-all.mjs` 用 `process.exit()` 硬退出导致管道输出被截断）+ `V11-RF-015`（`run-all-check` 两条按老写法检查 `package.json` 的过时断言）。两者与本批业务改动**均无关**，修复后即 35/35。
+  ✅ 其余全绿，其中关键几条：`local-edit-base-file-check` **36/36**（此前一直被 §1.3 缺陷挡红 ⇒ **011 的 1-11 验收达成**；且端到端 2 条与浏览器探针 7 条这次全部跑到）、`app-paths-check` ✓、`state-singleton-check` ✓、`check-launcher` 44/44 ✓、`pro/http-mock/routing/white-refine/outfit-defer` 等全过。
+- [x] **B2 · AB-2**：✅ **2026-10-01 真机通过**（跑的是**真棘轮脚本**，不是替代证据）：`regressions` **为空数组**；`current` = **20** warning（基线记 26）。
+  `improved` 三条：`prompts/server/outfit-skill.js|no-unused-vars` 2→0、**`server/index.js|no-unused-vars` 2→1**、`src/outfit-workflow.jsx|no-unused-vars` 3→0。
+  🔴 **注意**：`deferOutfitAutoSave` **不可能**出现在 `regressions`（它在基线里）。若它出现在 `regressions`，说明该文件计数**反而增加**了 → 当场回退，不要放行。
+- [~] **B3 · AB-4 沙盒等价差分**（对照父提交 `b990647`）：**🔶 形式未做，实质已由真机证据覆盖大半** —— 用户 2026-10-01 的真实出图在仓库根留下了任务日志 `logs/tasks/2026-10-01/task_1_1790837961424_tfhyxo.txt`（177 行，`/api/generate-outfit` 全流程），其中：
+  - ✅ **102 的中间件三段都在**：「前端点击生成，准备提交」（前端 stage）→「**本地服务收到生成请求**」→ … →「**本地服务响应结束**」（状态码 200、本地请求体大小、本阶段耗时都在）⇒ 102 的日志流水在真实请求下正常。
+  - ✅ **101 的并发放行与计费无关字段都在**：「**本地并发队列已放行**」+「本地并发排队：0 毫秒」（即 `image-slot-acquired` 的 `queueWaitMs` 字段）。
+  - ✅ **011 的落点**：日志落在**仓库根** `logs/tasks/…`（不是 `server/logs/`）。
+  - ⛔ **仍未做**：与父提交 `b990647` 的**逐字节对照**；**103 的计费签发/落账路径在真实请求里没有出现**（见下）。
+  - 🔎 **重要观察（降低 103 风险，但要说清）**：该日志里**没有** `billing-gateway-prepare` / `billing-gateway-finalize` 阶段 ⇒ 当前配置下计费网关**未启用**（`prepareImageBillingTask` 走 `{enabled:false}` 早返回）。也就是说 103 搬走的代码在真实请求里**只跑了"透传 + 未启用早返回"两条路径**，`enabled:true` 的签发/落账路径**没有真机证据**（L2 里只用了 mocked `fetch`）。⇒ 103 的"五响应真机差分"要么在**启用计费网关**的环境做，要么明确记为"该路径当前不在生产配置中执行"。
+  - 📌 另记一条**性能观察（不是缺陷，不开单）**：「批量结果图下载/本地缓存」本阶段耗时 **23.657 秒**，而日志标注「本阶段超时上限：8.000 秒」—— 说明该"上限"不是硬中断。若用户后续再报"结果出来慢/像卡住"，这里是第一个嫌疑点（对应尚未搬运的 109 `outfit-archive`）。
+- [~] **B4 · 真机冒烟**：🔶 **2026-10-01 真机部分通过**（用户实机：双击 `.bat` → **页面可打开**、**出图正常**）。这同时顶掉了 **V11-RF-011 的 1-12 冒烟**（页面可用）与 **101 组 A 的主体**。
+  ⛔ 仍缺、需单独核：**102 的组 E**（提示词优化，联网+断网各一次）与**日志流水**；**103 的中转站后台计费条数 = 出图张数**；**局部回贴（涂抹蒙版）贴回尺寸 = 原图尺寸**（这条最容易看出 101/103 有没有搬坏）。
+  📌 用户另报"批量生成时切换页面导致结果卡住"的问题**当前不再复现** —— **归因待确认**，在确认前**不得**写成"本批修复了该问题"（见 §1.3 现场发现末尾）。
+
+**C. 收口动作（全部勾完后）**
+- [ ] 🔴 **先做 V11-RF-011，再跑 B1/B2**（决策 2026-10-01）：否则 `local-edit-base-file-check` 的端到端断言会因 `rootDir` 缺陷变红，污染 B1 的判读（详见 §1.3）。
+- [ ] 把 §5 三行由 ⏳ 改为 ✅，并把本清单的 A/B 全部标为已勾。
+- [ ] 确认三单所在分支 `batch3-rf101-103` **已合入主线**；未合入前，任何下游工作区都要先确认包含该分支（否则会照旧快照 3888 行切错位置）。
+- [ ] 之后才允许开 **V11-RF-104**（行号已随本批漂移，一律按符号名锚定）。
+
+### 5.2 🔴 未提交改动的落地方案（2026-10-01 状态）
+
+**现状**：`107` / `108` / `109` / `110` / `017` / `111` **六单的改动全部压在工作树里未提交**（执行者主动暂挂，理由正确：整文件 `git add index.js` 会把多单混进一个 commit，违反"一单一 commit"）。
+
+**✅ 2026-10-01 真机核对完毕，账目清楚、无"来源不明"的改动**（`git diff --stat` 实测）：
+| 文件 | 改动量 | 归属 |
+| --- | --- | --- |
+| `AGENTS.md` | 4 行 | 文档修正（过期源码路径）—— **不要混进代码 commit**，单独一个 `docs:` 提交 |
+| `server/core/image-diagnostics.js` | 25 行 | **110 的强制还债**（删两份副本 + 连带孤儿 + 注释） |
+| `server/index.js` | **438 行**（删 ≈408 / 加 ≈30） | **正好等于六单搬走的总量**，即上表六个区间之和 |
+
+⇒ 执行者先前说的"9 个 pre-existing hunk"**不是别的改动**，只是 git 把六单的"删块 / 加 import"自动切成的 9 个 hunk。**可以放心按下面方案 A 拆。**
+
+**已落库的提交（真机核对）**：`9f699a1`（104–106 搬运）→ `57f01a9`（104–106 孤儿修正）→ `8730a09`（016 门禁）。当前分支 **`batch3-rf101-103`**（尚未合入主线）。
+
+**⚠️ 两个待办（本轮发现）**：
+1. **文档层完全没有纳入版本控制** —— `REFACTOR_TICKETS.md` 与 7 份执行单、2 份交接/报告全是 `??` 未跟踪。**这是整个重构的契约层，丢了就全丢**。建议单独一个 commit 纳管；若坚持不入库，请定期备份到仓库外。
+2. `?? .workbuddy/`（执行者的记忆目录）建议加进 `.gitignore`（属工具临时产物，不该入库）。
+
+**🔴 本轮决定（2026-10-01）：本批采用「方案 B」落库。**
+**原因（环境决定，不是偷懒）**：方案 A 需要**交互式** `git add -p` 逐个选 hunk，而执行环境的 shell **大概率没有 TTY**（`git add -p` 跑不起来）；让人类对着满屏 diff 按 `y`/`n` 更不可取。
+方案 B 只需整文件 `git add`（非交互），且**归属信息不丢** —— 把「工单 ↔ 模块 ↔ 原 index.js 区块」的**映射表写进 commit message**（见下方命令的第 3 个 `-m`），将来回退某张单照样能从 `git log` 查出来。
+**方案 A 保留**：等以后在**有 TTY 的终端**里、且改动分组明显时再用。
+
+**方案 A（备选，需要交互式 `git add -p`）：按「物理可分组」做 3 个代码 commit + 1 个文档 commit**
+
+> **为什么不是 6 个**：六单删块在 `index.js` 里的间隔 ——
+> `110`(255–310) → `107`(312–337，**隔 1 行**) → `108`(339–404，**隔 1 行**) → `109`(407–476，**隔 2 行**) → `017`(614–647，隔 **138** 行 ✓) → `111`(718–861，隔 **71** 行 ✓)。
+> 前四块只隔 1–2 行，**git 视为同一段改动**；硬拆必须手工编辑 patch（`git add -p` 的 `e`）—— 对"逐字节搬运"这种活，手编 patch 的**风险 > 收益**。能自然分开的就是 **3 组**。
+
+| # | commit 内容 | 必须同时包含 |
+| --- | --- | --- |
+| 1 | **107 + 108 + 109 + 110**（四个区块物理相邻，必须同组） | `outfit-upload-groups.js` + `local-image-stream.js` + `outfit-archive.js` + `image-channel-candidates.js` + **`image-diagnostics.js`（删两份副本）** + `index.js` 的「255–476 删块 + 这四单的 import 行」 |
+| 2 | **017** | `core/route-helpers.js` + `index.js` 的「614–647 删块 + import」 |
+| 3 | **111** | `core/image-route-candidates.js` + `index.js` 的「718–861 删块 + import + 清掉的孤儿」 |
+| 4 | **文档**（不混进代码 commit） | `AGENTS.md` + `REFACTOR_TICKETS.md` + 全部 `V4.0-执行单-*.md` |
+
+**建议的提交命令**（`git add -p` 只需 `y`/`n`，**不要**用 `e` 手工编辑）：
+
+```
+git add server/core/outfit-upload-groups.js server/core/local-image-stream.js server/core/outfit-archive.js server/core/image-channel-candidates.js server/core/image-diagnostics.js
+git add -p server/index.js      # 选「255–476 删块」+ 这四单的 import 行 → y，其余 → n
+git commit -m "refactor(server): 批次3 · RF-107/108/109/110 结构搬运（4 个 core 模块 + 删两份副本，调用点零改动）"
+
+git add server/core/route-helpers.js
+git add -p server/index.js      # 选「614–647 删块 + route-helpers import」
+git commit -m "refactor(server): RF-017 抽取图片/视频共用路由辅助到 core/route-helpers.js（videoRouteText 保持原名）"
+
+git add server/core/image-route-candidates.js
+git add -p server/index.js      # 选「718–861 删块 + import + 清掉的孤儿」
+git commit -m "refactor(server): RF-111 抽取图片线路候选到 core/image-route-candidates.js（import 017 模块，禁复制）"
+
+git add AGENTS.md REFACTOR_TICKETS.md V4.0-执行单-*.md
+git commit -m "docs: 修正源码路径 + 纳入重构契约层（工单总表与执行单）"
+```
+
+- 🔴 **原子性铁律（不可妥协）**：每个 commit 里，**「删掉的定义块」与「对应的 import 行」必须一起进**。
+  只进一半 ⇒ 中间状态的 `index.js` 要么缺定义（调用点直接 `ReferenceError`），要么多一个没人用的 import（lint 红）。
+- **import 行无需手工编辑**：执行者上一批已按 §0.9 第 8 条把 import **分开放**（`83` / `116` / `143` 附近 / `147-151` / `154-159`），它们本身就是分开的 hunk。
+  ⚠️ 仅 `017` 与 `111` 的两组 import 只隔 2 行：若 git 合成一个 hunk，**整段归给对应 commit** 即可，不要去 `e`。
+
+**方案 B（✅ 本批采用）：1 个 commit 打包这 6 单**（message 里列全 6 个工单号）+ **1 个文档 commit**。
+- **非交互**：只 `git add <整文件>`，不需要 TTY、不需要选 hunk —— 这是本批真正的决策依据。
+- **归属不丢**：commit message 第 3 个 `-m` 写入**工单↔模块↔原区块映射表**（`RF-107→outfit-upload-groups.js（原312-337）` …），回退定位靠它。
+- 理由：六单是**同一类纯搬运、且已整体验证 36/36（含真机冒烟）**，bisect 价值低；每个模块都是独立文件 ⇒ 回退＝删文件 + 删对应 import 行。
+
+**❌ 明确否决**：① **脏树上直接开工 112/113**（两批叠在同一 diff，出问题分不清归属）；② **先 stash 上批改动**（把已验证的 36/36 藏起来，`pop` 冲突即白干，且 112/113 改区与 stash 重叠、冲突概率高）；③ **让人类手工落库/选 hunk**（人最不该做的事）。
+
+**无论哪个方案**：落库后跑一次 `run-all`（**36/36**）确认提交后的工作树仍是绿的；提交号报回，由**文档作者**回填本表。
