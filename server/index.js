@@ -117,7 +117,6 @@ import { generationRequestTraceMiddleware, localUploadParseMs } from "./core/gen
 import { prepareImageBillingForRequest, finalizeBillingInBackground } from "./core/billing-attempts.js";
 import { compactLogMessage, sanitizeFilePart } from "./core/format-utils.js";
 import { logProcessFault, writeAssetLog, writeGenerationLog } from "./core/generation-logger.js";
-import { buildImageRequestDiagnostic } from "./core/image-diagnostics.js";
 import {
   channelBaseCandidates,
   imageChannelBaseCandidates,
@@ -150,6 +149,7 @@ import {
 } from "./core/uploads.js";
 import { outfitUploadFileGroups } from "./core/outfit-upload-groups.js";
 import { registerSystemRoutes } from "./routes/system.routes.js";
+import { registerDebugRoutes } from "./routes/debug.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -193,16 +193,8 @@ process.on("uncaughtException", (error) => {
 
 registerSystemRoutes(app);
 
-app.post("/api/debug/image-request-params", async (req, res) => {
-  try {
-    res.json(await buildImageRequestDiagnostic(req.body || {}));
-  } catch (error) {
-    res.status(400).json({
-      ok: false,
-      message: error instanceof Error ? error.message : "传参自检失败"
-    });
-  }
-});
+registerDebugRoutes(app);
+
 app.post("/api/videos/generations", async (req, res) => {
   const receivedAt = Date.now();
   const requestId = `vid_${receivedAt}_${Math.random().toString(36).slice(2, 9)}`;
