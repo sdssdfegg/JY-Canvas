@@ -40,8 +40,6 @@ import {
 } from "./video-config.js";
 import {
   billingGatewayPolicy,
-  finalizeBillingTask,
-  prepareImageBillingTask,
   prepareVideoBillingTask,
   publicBillingErrorPayload,
   publicBillingGatewayPolicy
@@ -148,6 +146,7 @@ import {
 } from "./core/runtime-config.js";
 import { acquireImageSlot, imageSlotWeight, imageQueueSnapshot } from "./core/image-concurrency.js";
 import { generationRequestTraceMiddleware, localUploadParseMs } from "./core/generation-trace.js";
+import { prepareImageBillingForRequest, finalizeBillingInBackground } from "./core/billing-attempts.js";
 import { compactLogMessage, sanitizeFilePart } from "./core/format-utils.js";
 import { logProcessFault, writeAssetLog, writeGenerationLog } from "./core/generation-logger.js";
 import {
@@ -221,101 +220,6 @@ function sendEmbeddedStaticAsset(req, res) {
   return true;
 }
 
-function billingChannelCandidates(baseUrls = [], params = {}) {
-  return baseUrls.map((baseUrl, index) => {
-    const channel = channelLogFields(baseUrl, index, baseUrls.length);
-    return {
-      channelId: channel.channelId,
-      channelRole: channel.channelRole,
-      channelAttempt: channel.channelAttempt,
-      channelCandidateCount: channel.channelCandidateCount,
-      model: upstreamModelForChannel(baseUrl, params.model),
-      billingMode: "lightweight-gateway"
-    };
-  });
-}
-
-function billingAttemptSummaries(attempts = []) {
-  return (Array.isArray(attempts) ? attempts : []).map((attempt) => ({
-    channelId: attempt?.channelId || "unknown",
-    channelRole: attempt?.channelRole || "unknown",
-    status: attempt?.status || 0,
-    ok: Boolean(attempt?.ok),
-    model: attempt?.model || "",
-    requestFormat: attempt?.requestFormat || "",
-    errorCode: attempt?.errorCode || ""
-  }));
-}
-
-async function prepareImageBillingForRequest({ requestId, apiKey, params, files, candidates, metadata }) {
-  try {
-    const billingTask = await prepareImageBillingTask({
-      requestId,
-      customerApiKey: apiKey,
-      params,
-      files,
-      candidates: billingChannelCandidates(candidates, params),
-      metadata
-    });
-    if (billingTask?.enabled) {
-      await writeGenerationLog({
-        time: new Date().toISOString(),
-        requestId,
-        ok: true,
-        stage: "billing-gateway-prepare",
-        billingGatewayTaskId: billingTask.gatewayTaskId,
-        hasRouteToken: Boolean(billingTask.routeToken),
-        signedRoute: Boolean(billingTask.signedRoute),
-        metadata
-      });
-    }
-    return { billingTask, errorPayload: null };
-  } catch (error) {
-    const errorPayload = publicBillingErrorPayload(error, requestId);
-    await writeGenerationLog({
-      time: new Date().toISOString(),
-      requestId,
-      ok: false,
-      stage: "billing-gateway-prepare",
-      status: errorPayload.status,
-      error: errorPayload.error,
-      message: errorPayload.message,
-      metadata
-    });
-    return { billingTask: null, errorPayload };
-  }
-}
-
-function finalizeBillingInBackground(billingTask, result = {}) {
-  if (!billingTask?.enabled) return;
-  const payload = {
-    ...result,
-    attempts: billingAttemptSummaries(result.attempts)
-  };
-  setTimeout(() => {
-    finalizeBillingTask(billingTask, payload)
-      .then((finalized) => writeGenerationLog({
-        time: new Date().toISOString(),
-        requestId: billingTask.requestId,
-        ok: true,
-        stage: "billing-gateway-finalize",
-        billingGatewayTaskId: billingTask.gatewayTaskId,
-        status: finalized.status,
-        resultOk: Boolean(payload.ok),
-        outputCount: payload.outputCount || 0,
-        timingMs: payload.timingMs || 0
-      }))
-      .catch((error) => writeGenerationLog({
-        time: new Date().toISOString(),
-        requestId: billingTask.requestId,
-        ok: false,
-        stage: "billing-gateway-finalize",
-        billingGatewayTaskId: billingTask.gatewayTaskId,
-        resultOk: Boolean(payload.ok),
-        error: error instanceof Error ? error.message : String(error)
-      }));
-  }, 0);
-}
 
 
 process.on("unhandledRejection", (reason) => {
