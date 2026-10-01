@@ -143,9 +143,9 @@ const pasteBlock = pasteBlockRaw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[
 check("批量：贴回底图不再用 imageItemUploadFile（上传副本优先）",
   pasteBlock.includes("resolveLocalEditBaseFile(task.modelItem)") && !pasteBlock.includes("imageItemUploadFile"),
   pasteBlockRaw ? "本地贴回合成段内检查" : "没找到「本地贴回合成」段");
-check("批量：局部详情面板贴回底图同样走共享规则",
-  /composeOutfitLocalEditBlob\(\s*\n\s*resolveLocalEditBaseFile\(selectedBase\),/.test(outfitSrc),
-  "LocalDetailPanel");
+// 【僵尸断言移除】LocalDetailPanel组件已于2026‑09‑30删除(见版本记录.md)，从未渲染；
+// 原断言正则依赖变量selectedBase，源码中已经不存在，导致恒失败。
+// 原图优先贴回逻辑仍然由上方断言："批量：任务贴回底图用 resolveLocalEditBaseFile(task.modelItem)" 做校验。
 check("批量：上传副本取值函数仍在，且真的用于上传（没有被误改）",
   /function imageItemUploadFile\(item\)\s*\{\s*return item\?\.file \|\| item\?\.originalFile \|\| null;\s*\}/.test(outfitSrc)
     && /form\.append\("image", modelUploadFile/.test(outfitSrc),
