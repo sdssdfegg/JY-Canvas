@@ -14,6 +14,7 @@
 //   3. Windows 打包 exe      → %LOCALAPPDATA%/静音AI绘画数据
 //   4. 可执行目录自带 dist/  → 该目录本身
 //   5. 源码开发模式          → 仓库根目录
+//      （本文件已从 server/ 搬到 server/core/，故"仓库根"需上溯两级，见下方 sourceRootDir 注释）
 
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -23,7 +24,12 @@ const runtimeFile = typeof require !== "undefined" && typeof __filename !== "und
   ? __filename
   : fileURLToPath(import.meta.url);
 const runtimeDir = path.dirname(runtimeFile);
-const sourceRootDir = path.resolve(runtimeDir, "..");
+// 注意：本文件最初位于 server/，后来搬到 server/core/。
+// 源码兜底分支必须回到"仓库根"，从 server/core/ 需上溯两级
+// （runtimeDir 即 server/core，".." 到 server，"..",".." 才到仓库根）。
+// 当初在 server/ 时只需一级；若改回一级，rootDir 会落到 server/，
+// data/logs 就会污染源码树（正是 V11-RF-011 要修的缺陷）——勿动。
+const sourceRootDir = path.resolve(runtimeDir, "..", "..");
 const executableRootDir = process.execPath ? path.dirname(process.execPath) : "";
 const executableName = path.basename(process.execPath || "").toLowerCase();
 const isMacAppBundleExecutable = process.platform === "darwin"
