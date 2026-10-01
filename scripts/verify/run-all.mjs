@@ -49,6 +49,9 @@ const ORDER = [
   // V11-RF-101 硬性交付物：出图并发状态只能各有一处定义点（在 server/core/image-concurrency.js 内）；
   // 复用 V11-RF-010 的真相源收集器，将来 routes/** 自建第二份会被自动抓红。纯源码检查，跑得快。
   "state-singleton-check",
+  // V11-RF-016 交付物：服务端跨文件同名顶层函数棘轮（存量记账、新增即失败、违规点名两处文件:行号）；
+  // 复用 V11-RF-010 的真相源收集器，将来 routes/shared/** 复制一份会被自动抓红。纯源码检查，跑得快。
+  "server-duplication-check",
   // V11-RF-011 交付物：app-paths 的 rootDir 在源码兜底分支必须等于仓库根，
   // 且 dataDir/日志目录/uploadTempDir 都落在 rootDir 下；JINGYIN_RELEASE_ROOT 仍最高优先。
   // 纯进程内断言（不 spawn），跑得快，排在起进程的那批之前。

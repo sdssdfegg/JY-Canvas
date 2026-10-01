@@ -1,0 +1,5 @@
+{
+  "note": "服务端跨文件同名函数基线：记录当前已存在的跨文件同名顶层函数，只用来拦「新增」。抽到共享模块（server/core 或 server/shared）消掉后跑一次 --update 把它从账单里划掉。",
+  "generatedAt": "2026-10-01",
+  "duplicates": {}
+}
