@@ -86,12 +86,9 @@ import {
   imageFailureMessage,
   imagePromptLogFields,
   isImageAuthError,
-  isImagePermissionError,
-  isImageQuotaError,
   isSmartOutfitInterventionEnabled,
   publicImageErrorCode,
   publicImageErrorPayload,
-  quotaFailureMessage,
   resolveApiKey,
   sanitizeClientDiagnosticValue,
   shouldTreatPrivateChannelAuthAsChannelFault,
@@ -99,6 +96,11 @@ import {
   shouldTryNextImageVariant,
   upstreamErrorMessage
 } from "./core/image-error-policy.js";
+import {
+  publicVideoErrorCode,
+  publicVideoErrorMessage,
+  publicVideoTaskPayload
+} from "./core/video-error-policy.js";
 import {
   outfitResultPath,
   outfitResultUrl,
@@ -510,114 +512,6 @@ app.post("/api/debug/image-request-params", async (req, res) => {
     });
   }
 });
-
-function publicVideoErrorCode(status, message) {
-  if (isImageAuthError(status, message)) return "invalid_api_key";
-  if (isImageQuotaError(status, message)) return "insufficient_quota";
-  if (isImagePermissionError(status, message)) return "permission_denied";
-  if (/model_not_found|model.*not.*found|unsupported.*model|模型.*不可用|模型.*不存在/i.test(String(message || ""))) return "model_unavailable";
-  if (status >= 500 || status === 429 || !status || /timeout|timed out|upstream|channel|渠道|上游/i.test(String(message || ""))) return "channel_timeout";
-  return "upstream_error";
-}
-
-function publicVideoErrorMessage(status, message) {
-  const code = publicVideoErrorCode(status, message);
-  if (code === "invalid_api_key") return "视频 API Key 无效或当前账号无权限，请检查配置后重试。";
-  if (code === "insufficient_quota") return quotaFailureMessage(message);
-  if (code === "permission_denied") return "当前视频通道无权调用该模型，请检查静音中转站视频权限。";
-  if (code === "model_unavailable") return "当前视频模型暂不可用，请稍后重试。";
-  if (code === "channel_timeout") return "视频生成超时，请重新生成。";
-  return compactLogMessage(message || `HTTP ${status}`, 600);
-}
-
-function publicVideoTaskFailureMessage(message) {
-  const text = compactLogMessage(message, 600);
-  if (!text) return null;
-  if (/all cookies failed|cookie#|insufficient\s+tokens/i.test(text)) {
-    return "视频上游通道资源不足，任务已自动退款，请稍后重试或切换可用视频渠道。";
-  }
-  return text;
-}
-
-function publicVideoTaskPayload(json = {}, fallbackTaskId = "") {
-  const firstDataItem = Array.isArray(json.data) ? json.data.find((item) => item && typeof item === "object") : null;
-  const dataObject = json.data && typeof json.data === "object" && !Array.isArray(json.data) ? json.data : null;
-  const taskObject = json.task && typeof json.task === "object" && !Array.isArray(json.task) ? json.task : null;
-  const nestedDataObject = dataObject?.data && typeof dataObject.data === "object" && !Array.isArray(dataObject.data) ? dataObject.data : null;
-  const output = json.output && typeof json.output === "object" ? json.output : null;
-  const videoUrl = [
-    json.url,
-    json.video_url,
-    json.output_url,
-    output?.url,
-    taskObject?.url,
-    taskObject?.video_url,
-    taskObject?.output_url,
-    dataObject?.url,
-    dataObject?.video_url,
-    dataObject?.output_url,
-    dataObject?.result_url,
-    nestedDataObject?.url,
-    nestedDataObject?.video_url,
-    nestedDataObject?.output_url,
-    nestedDataObject?.result_url,
-    firstDataItem?.url,
-    firstDataItem?.video_url,
-    firstDataItem?.output_url,
-    firstDataItem?.result_url
-  ].map((value) => String(value || "").trim()).find((value) => /^(https?:|data:)/i.test(value)) || "";
-  const rawErrorMessage = [
-    json.error?.message,
-    json.error,
-    taskObject?.error?.message,
-    taskObject?.error,
-    dataObject?.fail_reason,
-    dataObject?.error?.message,
-    dataObject?.error,
-    nestedDataObject?.error?.message,
-    nestedDataObject?.error,
-    nestedDataObject?.fail_reason,
-    firstDataItem?.fail_reason,
-    firstDataItem?.error?.message,
-    firstDataItem?.error,
-    dataObject?.result_url && !/^(https?:|data:)/i.test(String(dataObject.result_url)) ? dataObject.result_url : ""
-  ].map((value) => String(value || "").trim()).filter(Boolean)[0] || null;
-  const errorMessage = publicVideoTaskFailureMessage(rawErrorMessage);
-  const taskId = json.task_id
-    || json.taskId
-    || json.id
-    || json.video_id
-    || taskObject?.task_id
-    || taskObject?.taskId
-    || taskObject?.id
-    || dataObject?.task_id
-    || dataObject?.taskId
-    || dataObject?.id
-    || nestedDataObject?.task_id
-    || nestedDataObject?.taskId
-    || nestedDataObject?.id
-    || firstDataItem?.task_id
-    || firstDataItem?.taskId
-    || firstDataItem?.id
-    || fallbackTaskId
-    || "";
-  return {
-    taskId,
-    id: taskId,
-    status: json.status || taskObject?.status || dataObject?.status || nestedDataObject?.status || firstDataItem?.status || (taskId ? "queued" : "unknown"),
-    progress: Number.isFinite(Number(json.progress ?? taskObject?.progress ?? dataObject?.progress ?? nestedDataObject?.progress ?? firstDataItem?.progress))
-      ? Number(json.progress ?? taskObject?.progress ?? dataObject?.progress ?? nestedDataObject?.progress ?? firstDataItem?.progress)
-      : null,
-    url: videoUrl,
-    format: json.format || taskObject?.format || dataObject?.format || nestedDataObject?.format || firstDataItem?.format || "",
-    model: json.model || taskObject?.model || dataObject?.model || nestedDataObject?.model || firstDataItem?.model || "",
-    seconds: json.seconds || json.duration || taskObject?.seconds || taskObject?.duration || dataObject?.seconds || dataObject?.duration || nestedDataObject?.seconds || nestedDataObject?.duration || firstDataItem?.seconds || firstDataItem?.duration || "",
-    size: json.size || taskObject?.size || dataObject?.size || nestedDataObject?.size || firstDataItem?.size || "",
-    metadata: json.metadata || taskObject?.metadata || dataObject?.metadata || nestedDataObject?.metadata || firstDataItem?.metadata || null,
-    error: errorMessage,
-    raw: json
-  };
-}
 
 function videoRouteUrl(rawValue, baseUrl, fallbackPath) {
   const raw = videoRouteText(rawValue || fallbackPath);
