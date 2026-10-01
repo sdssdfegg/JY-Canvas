@@ -22,7 +22,7 @@ import {
   LOCAL_HTTP_TIMEOUT_MS
 } from "./runtime-config.js";
 import { packagedRootDir } from "./app-paths.js";
-import { EMBEDDED_STATIC_ASSETS } from "./static-assets.generated.js";
+import { EMBEDDED_STATIC_ASSETS } from "../static-assets.generated.js";
 import { startResultCacheCleanup } from "./result-cache.js";
 
 // 进程级单例（门禁监视目标，全服务端只允许这一处声明）。
