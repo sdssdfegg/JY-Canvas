@@ -66,7 +66,7 @@ function localReferencePrompt(input) {
   ].join("\n");
 }
 
-function buildSkillPayload(input, files, includeImages) {
+function buildReferenceSkillPayload(input, files, includeImages) {
   const productFiles = files.filter((file) => file.referenceRole === "product");
   const referenceFiles = files.filter((file) => file.referenceRole === "reference");
   const textPayload = {
@@ -137,7 +137,7 @@ function buildSkillPayload(input, files, includeImages) {
   return content;
 }
 
-function buildChatBody(input, files, includeImages, withJsonFormat) {
+function buildReferenceChatBody(input, files, includeImages, withJsonFormat) {
   const body = {
     model: modelName(input, REFERENCE_MODEL_SPEC),
     temperature: 0.15,
@@ -152,7 +152,7 @@ function buildChatBody(input, files, includeImages, withJsonFormat) {
       },
       {
         role: "user",
-        content: buildSkillPayload(input, files, includeImages)
+        content: buildReferenceSkillPayload(input, files, includeImages)
       }
     ]
   };
@@ -160,7 +160,7 @@ function buildChatBody(input, files, includeImages, withJsonFormat) {
   return body;
 }
 
-function normalizePlan(plan, input) {
+function normalizeReferencePlan(plan, input) {
   const prompt = asText(plan?.prompt, localReferencePrompt(input));
   return {
     prompt,
@@ -193,7 +193,7 @@ async function createReferencePromptRewrite({ input = {}, files = [], apiKey, ba
         const { response, parsed } = await postChatCompletion({
           baseUrl,
           apiKey,
-          body: buildChatBody(input, files, mode.includeImages, mode.withJsonFormat),
+          body: buildReferenceChatBody(input, files, mode.includeImages, mode.withJsonFormat),
           signal: abort.signal
         });
         const message = parsed.json?.error?.message || parsed.text || `HTTP ${response.status}`;
@@ -210,7 +210,7 @@ async function createReferencePromptRewrite({ input = {}, files = [], apiKey, ba
         if (!response.ok && mode.includeImages && shouldRetryWithoutImages(response.status, message)) continue;
         if (!response.ok) break;
 
-        const plan = normalizePlan(extractJsonObject(responseContent(parsed.json), "参考生图文本模型"), input);
+        const plan = normalizeReferencePlan(extractJsonObject(responseContent(parsed.json), "参考生图文本模型"), input);
         return {
           ok: true,
           mode: mode.includeImages ? "ai-vision" : "ai-text",

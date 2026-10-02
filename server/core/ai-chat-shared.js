@@ -31,8 +31,8 @@
 //   modelName(input, { fields, fallback })
 //     → 各入口读的 input 字段链不同；fields 是有序字段名，等价于原来的 `a || b || c`。
 //   postChatCompletion({ baseUrl, apiKey, body, signal })
-//     → 请求体由调用点用 buildChatBody 组装好后传进来；本函数只留 fetch + 读响应，
-//       不再认识任何业务字段，也不再和 buildChatBody 的签名互相绑死。
+//     → 请求体由调用点用各自的场景化 buildXxxChatBody 组装好后传进来；
+//       本函数只留 fetch + 读响应，不再认识任何业务字段，也不再和 buildXxxChatBody 的签名互相绑死。
 
 import { readTextSafely } from "./http-client.js";
 

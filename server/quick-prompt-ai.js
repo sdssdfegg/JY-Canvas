@@ -54,7 +54,7 @@ function quickPromptFallback(input = {}, files = []) {
   ].join("\n");
 }
 
-function buildSkillPayload(input, files, includeImages) {
+function buildQuickSkillPayload(input, files, includeImages) {
   const textPayload = {
     task: "快捷生成悬浮框提示词优化",
     goal: "把用户的原始提示词优化成一段可直接用于图片生成模型的电商生图提示词。",
@@ -124,7 +124,7 @@ function buildSkillPayload(input, files, includeImages) {
   return content;
 }
 
-function buildChatBody(input, files, includeImages, withJsonFormat) {
+function buildQuickChatBody(input, files, includeImages, withJsonFormat) {
   const body = {
     model: modelName(input, QUICK_MODEL_SPEC),
     temperature: 0.18,
@@ -140,7 +140,7 @@ function buildChatBody(input, files, includeImages, withJsonFormat) {
       },
       {
         role: "user",
-        content: buildSkillPayload(input, files, includeImages)
+        content: buildQuickSkillPayload(input, files, includeImages)
       }
     ]
   };
@@ -148,7 +148,7 @@ function buildChatBody(input, files, includeImages, withJsonFormat) {
   return body;
 }
 
-function normalizePlan(plan, input, files) {
+function normalizeQuickPlan(plan, input, files) {
   const prompt = asText(plan?.prompt, quickPromptFallback(input, files));
   return {
     prompt,
@@ -181,7 +181,7 @@ async function createQuickPromptRewrite({ input = {}, files = [], apiKey, baseUr
         const { response, parsed } = await postChatCompletion({
           baseUrl,
           apiKey,
-          body: buildChatBody(input, files, mode.includeImages, mode.withJsonFormat),
+          body: buildQuickChatBody(input, files, mode.includeImages, mode.withJsonFormat),
           signal: abort.signal
         });
         const message = parsed.json?.error?.message || parsed.text || `HTTP ${response.status}`;
@@ -198,7 +198,7 @@ async function createQuickPromptRewrite({ input = {}, files = [], apiKey, baseUr
         if (!response.ok && mode.includeImages && shouldRetryWithoutImages(response.status, message)) continue;
         if (!response.ok) break;
 
-        const plan = normalizePlan(extractJsonObject(responseContent(parsed.json), "快捷生成文本模型"), input, files);
+        const plan = normalizeQuickPlan(extractJsonObject(responseContent(parsed.json), "快捷生成文本模型"), input, files);
         return {
           ok: true,
           mode: mode.includeImages ? "ai-vision" : "ai-text",

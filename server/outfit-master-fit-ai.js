@@ -14,7 +14,7 @@ const MASTER_FIT_MODEL_SPEC = { fields: ["outfitMasterFitModel", "outfitPoseMode
 const OUTFIT_MASTER_FIT_TIMEOUT_MS = 60000;
 
 // 中文注释：压缩模型返回或日志文本，保留有效信息并限制长度，避免提示词过长。
-function compact(value, limit = 1200) {
+function compactPreserveNewlines(value, limit = 1200) {
   return String(value || "")
     .replace(/\r\n?/g, "\n")
     .replace(/[ \t]+\n/g, "\n")
@@ -81,11 +81,11 @@ function stripUnselectedLowerText(text, scope) {
       .filter((part) => part && !/(鞋|靴|脚踝|脚部)/.test(part))
       .join("；");
   }
-  return compact(next, 360);
+  return compactPreserveNewlines(next, 360);
 }
 
 function sanitizeUpperOnlyTuckDrape(text) {
-  const raw = compact(text, 360);
+  const raw = compactPreserveNewlines(text, 360);
   if (!raw) return "";
   return raw
     .split(/[；;。\n]/)
@@ -120,7 +120,7 @@ function buildOutfitFacts(plan, input = {}) {
   const scope = garmentScope(input);
   const text = (value, limit = 200) => {
     const joined = Array.isArray(value) ? value.filter(Boolean).join("；") : String(value ?? "");
-    return compact(joined, limit).replace(/\s+/g, " ");
+    return compactPreserveNewlines(joined, limit).replace(/\s+/g, " ");
   };
   // 未选下装/鞋子时把对应句子剔掉；剔干净了也算"未识别"，不补话。
   const scoped = (value, limit = 200) => {
@@ -236,7 +236,7 @@ function buildMasterFitAnalysisContent(input, clothingFile) {
 }
 
 // 中文注释：组装 chat/completions 请求体，使用低温度让规格提取尽量稳定。
-function buildChatBody(input, clothingFile, withJsonFormat) {
+function buildMasterFitChatBody(input, clothingFile, withJsonFormat) {
   const body = {
     model: modelName(input, MASTER_FIT_MODEL_SPEC),
     temperature: 0.1,
@@ -289,7 +289,7 @@ async function createOutfitMasterFitSpec({ input = {}, clothingFile, apiKey, bas
         const { response, parsed } = await postChatCompletion({
           baseUrl,
           apiKey,
-          body: buildChatBody(input, clothingFile, mode.withJsonFormat),
+          body: buildMasterFitChatBody(input, clothingFile, mode.withJsonFormat),
           signal: abort.signal
         });
         const message = parsed.json?.error?.message || parsed.json?.message || parsed.text || `HTTP ${response.status}`;

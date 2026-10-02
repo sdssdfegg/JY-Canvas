@@ -6,7 +6,7 @@ const QUALITY_MODEL_SPEC = { fields: ["outfitQualityModel", "outfitMasterFitMode
 const OUTFIT_QUALITY_TIMEOUT_MS = 75000;
 
 // 中文注释：压缩日志和模型返回文本，防止异常信息撑爆前端提示。
-function compact(value, limit = 1200) {
+function compactPreserveNewlines(value, limit = 1200) {
   return String(value || "")
     .replace(/\r\n?/g, "\n")
     .replace(/[ \t]+\n/g, "\n")
@@ -88,7 +88,7 @@ function workflowQualityRules(input) {
 function buildQualityCheckContent(input, files) {
   const rules = workflowQualityRules(input);
   const referenceFiles = files.reference || [];
-  const masterFitSpec = compact(input.masterFitSpec, 1800);
+  const masterFitSpec = compactPreserveNewlines(input.masterFitSpec, 1800);
   const payload = {
     task: rules.title,
     workflowMode: rules.mode,
@@ -156,7 +156,7 @@ function buildQualityCheckContent(input, files) {
 }
 
 // 中文注释：组装 chat/completions 请求体，用低温度保证质检结果稳定。
-function buildChatBody(input, files, withJsonFormat) {
+function buildQualityChatBody(input, files, withJsonFormat) {
   const body = {
     model: modelName(input, QUALITY_MODEL_SPEC),
     temperature: 0.1,
@@ -185,8 +185,8 @@ function normalizeQualityPlan(plan, input = {}) {
   const scoreRaw = Number(plan?.score);
   const score = Number.isFinite(scoreRaw) ? Math.max(0, Math.min(100, Math.round(scoreRaw))) : 0;
   const issues = Array.isArray(plan?.issues)
-    ? plan.issues.map((item) => compact(item, 120)).filter(Boolean).slice(0, 6)
-    : compact(plan?.issues, 300).split(/[；;\n]+/).map((item) => compact(item, 120)).filter(Boolean).slice(0, 6);
+    ? plan.issues.map((item) => compactPreserveNewlines(item, 120)).filter(Boolean).slice(0, 6)
+    : compactPreserveNewlines(plan?.issues, 300).split(/[；;\n]+/).map((item) => compactPreserveNewlines(item, 120)).filter(Boolean).slice(0, 6);
   const commonCritical = /脸.*(糊|崩|失真|错位|双脸|面具)|头.*(偏移|移动|变大|变小)|头身比.*(变|错|异常|不对)|下巴.*(重影|偏移|错|变)|脖子.*(断层|错|变|畸形|拉长|缩短)|头颈.*(错|变|畸形)|肤色.*(断层|不自然)/;
   const workflowCritical = mode === "face-swap"
     ? /(复制|带入|出现|参考|保留).*图2.*(衣|服装|衣领|肩膀|背景|场景|身体|姿势|拍摄角度|头部姿态|头发外轮廓|脖子|头身比)|图2.*(衣|服装|衣领|肩膀|背景|场景|身体|姿势|拍摄角度|头部姿态|头发外轮廓|脖子|头身比).*(复制|带入|进入|出现)|换衣|换装|衣服.*(改|换|变|不是图1)|背景.*(换|变|不是图1)|姿势.*(不像|不跟|没跟).*图1|像.*(母图|图2).*姿势/
@@ -198,12 +198,12 @@ function normalizeQualityPlan(plan, input = {}) {
   return {
     pass,
     score,
-    summary: compact(plan?.summary, 160) || (pass ? "质检通过，人物、姿态和服装整体稳定。" : "质检发现明显漂移，需要复核或返修。"),
+    summary: compactPreserveNewlines(plan?.summary, 160) || (pass ? "质检通过，人物、姿态和服装整体稳定。" : "质检发现明显漂移，需要复核或返修。"),
     issues,
-    repairPrompt: compact(plan?.repairPrompt, 360) || (pass ? "保持当前人物、服装、姿态和场景一致性继续生成。" : "返修时加强图1/图2角色边界，修复脸部清晰度、姿态跟随和服装穿法漂移。"),
-    faceQuality: compact(plan?.faceQuality, 80),
-    poseMatch: compact(plan?.poseMatch, 100),
-    outfitMatch: compact(plan?.outfitMatch, 120)
+    repairPrompt: compactPreserveNewlines(plan?.repairPrompt, 360) || (pass ? "保持当前人物、服装、姿态和场景一致性继续生成。" : "返修时加强图1/图2角色边界，修复脸部清晰度、姿态跟随和服装穿法漂移。"),
+    faceQuality: compactPreserveNewlines(plan?.faceQuality, 80),
+    poseMatch: compactPreserveNewlines(plan?.poseMatch, 100),
+    outfitMatch: compactPreserveNewlines(plan?.outfitMatch, 120)
   };
 }
 
@@ -229,7 +229,7 @@ async function createOutfitQualityCheck({ input = {}, files = {}, apiKey, baseUr
         const { response, parsed } = await postChatCompletion({
           baseUrl,
           apiKey,
-          body: buildChatBody(input, files, mode.withJsonFormat),
+          body: buildQualityChatBody(input, files, mode.withJsonFormat),
           signal: abort.signal
         });
         const message = parsed.json?.error?.message || parsed.json?.message || parsed.text || `HTTP ${response.status}`;

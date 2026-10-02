@@ -5,7 +5,7 @@ const DEFAULT_OUTFIT_POSE_MODEL = "gpt-5.4-mini";
 const POSE_MODEL_SPEC = { fields: ["outfitPoseModel", "detailAnalysisModel", "textModel"], fallback: DEFAULT_OUTFIT_POSE_MODEL };
 const OUTFIT_POSE_TIMEOUT_MS = 45000;
 
-function compact(value, limit = 1200) {
+function compactSingleLine(value, limit = 1200) {
   return String(value || "")
     .replace(/\s+/g, " ")
     .trim()
@@ -97,7 +97,7 @@ function buildPoseAnalysisContent(input, modelFile, includeImage) {
   return content;
 }
 
-function buildChatBody(input, modelFile, includeImage, withJsonFormat) {
+function buildPoseChatBody(input, modelFile, includeImage, withJsonFormat) {
   const backgroundChange = isBackgroundChangeInput(input);
   const faceSwap = isFaceSwapInput(input);
   const body = {
@@ -129,9 +129,9 @@ function buildChatBody(input, modelFile, includeImage, withJsonFormat) {
 function normalizePosePlan(plan, input = {}) {
   const backgroundChange = isBackgroundChangeInput(input);
   const faceSwap = isFaceSwapInput(input);
-  const headAnchor = compact(plan?.headAnchor, 500);
-  const bodyAnchor = compact(plan?.bodyAnchor, 500);
-  const compositionAnchor = compact(plan?.compositionAnchor, 500);
+  const headAnchor = compactSingleLine(plan?.headAnchor, 500);
+  const bodyAnchor = compactSingleLine(plan?.bodyAnchor, 500);
+  const compositionAnchor = compactSingleLine(plan?.compositionAnchor, 500);
   const fallback = faceSwap
     ? [
         "智能头脸锚点：把图1的头部中心、脸中心、头部大小、下巴、脸部朝向、脖子肩线、头身比和人物画面坐标当作不可移动模板；图1原发型、原脸型和原头饰只作为需要被图2覆盖的干扰源，不作为最终参考。",
@@ -155,7 +155,7 @@ function normalizePosePlan(plan, input = {}) {
         compositionAnchor,
         "只让图2服装贴合到原人物身上，不要把头摆正、不要重新居中、不要改变脸部大小、脖子长度、肩线高度、站立重心或人物在画面中的位置。"
       ];
-  const promptBlock = compact(plan?.promptBlock || fallback.filter(Boolean).join(" "), 900);
+  const promptBlock = compactSingleLine(plan?.promptBlock || fallback.filter(Boolean).join(" "), 900);
 
   if (!promptBlock) throw new Error("换装姿态分析结果为空");
   return {
@@ -185,7 +185,7 @@ async function createOutfitPoseAnchor({ input = {}, modelFile, apiKey, baseUrls 
         const { response, parsed } = await postChatCompletion({
           baseUrl,
           apiKey,
-          body: buildChatBody(input, modelFile, mode.includeImage, mode.withJsonFormat),
+          body: buildPoseChatBody(input, modelFile, mode.includeImage, mode.withJsonFormat),
           signal: abort.signal
         });
         const message = parsed.json?.error?.message || parsed.text || `HTTP ${response.status}`;

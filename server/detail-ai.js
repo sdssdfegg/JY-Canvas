@@ -172,7 +172,7 @@ function buildDetailAnalysisContent(input, files, includeImages) {
   return content;
 }
 
-function buildChatBody(input, files, includeImages, withJsonFormat) {
+function buildDetailChatBody(input, files, includeImages, withJsonFormat) {
   const body = {
     model: modelName(input, DETAIL_MODEL_SPEC),
     temperature: 0.2,
@@ -211,7 +211,7 @@ async function createDetailAiPlan({ input = {}, files = [], apiKey, baseUrls = [
         const { url, response, parsed } = await postChatCompletion({
           baseUrl,
           apiKey,
-          body: buildChatBody(input, files, mode.includeImages, mode.withJsonFormat),
+          body: buildDetailChatBody(input, files, mode.includeImages, mode.withJsonFormat),
           signal: abort.signal
         });
         const message = parsed.json?.error?.message || parsed.text || `HTTP ${response.status}`;
