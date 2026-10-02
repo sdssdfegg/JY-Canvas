@@ -160,6 +160,7 @@ import {
 } from "./shared/local-edit-mask.js";
 import "./styles.css";
 import { copyTextToClipboard } from "./shared/dom-actions.js";
+import { loadSaveDirectory, openSaveDirectoryModal, commitSaveDirectory, chooseSaveDirectory } from "./features/savedir/save-directory.js";
 
 const STORAGE_PREFIX = import.meta.env.VITE_JINGYIN_STORAGE_PREFIX || "jingyin-internal";
 const STORAGE_KEY = `${STORAGE_PREFIX}-settings-v3`;
@@ -4253,53 +4254,47 @@ function App() {
     setDetailGroups((current) => hydrateDetailGroupsWithHistory(current, storedResults));
   }
 
-  async function refreshSaveDirectory() {
-    try {
-      const payload = await getSaveDirectory();
-      setSaveDirectory(payload.directory);
-      setDirectoryDraft(payload.directory);
-      return payload.directory;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      addEvent("保存目录", message);
-      return "";
-    }
-  }
-
-  function openDirectoryModal() {
-    setDirectoryDraft(saveDirectory);
-    setIsDirectoryModalOpen(true);
-  }
-
-  async function confirmSaveDirectory() {
-    try {
-      const payload = await setSaveDirectoryRequest(directoryDraft);
-      setSaveDirectory(payload.directory);
-      setDirectoryDraft(payload.directory);
-      setIsDirectoryModalOpen(false);
-      addEvent("保存目录", "目录已更新");
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      addEvent("保存目录失败", message);
-    }
-  }
-
-  async function pickSaveDirectory() {
-    if (isPickingDirectory) return;
-    setIsPickingDirectory(true);
-    try {
-      const payload = await pickSaveDirectoryRequest(directoryDraft || saveDirectory);
-      if (!payload.cancelled && payload.directory) {
-        setDirectoryDraft(payload.directory);
-        addEvent("保存目录", "已选择目录，点击确定后生效");
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      addEvent("目录选择失败", message);
-    } finally {
-      setIsPickingDirectory(false);
-    }
-  }
+  // 保存目录域：实现在 src/features/savedir/save-directory.js（两侧同一份，语义等价）。
+  // 这里只保留同名薄壳：每次 render 重建，捕获最新的 state / setter / addEvent。
+  async function refreshSaveDirectory() {
+    return loadSaveDirectory({
+      getSaveDirectory,
+      setSaveDirectory,
+      setDirectoryDraft,
+      notify: addEvent
+    });
+  }
+
+  function openDirectoryModal() {
+    openSaveDirectoryModal({
+      saveDirectory,
+      setDirectoryDraft,
+      setIsDirectoryModalOpen
+    });
+  }
+
+  async function confirmSaveDirectory() {
+    return commitSaveDirectory({
+      directoryDraft,
+      setSaveDirectoryRequest,
+      setSaveDirectory,
+      setDirectoryDraft,
+      setIsDirectoryModalOpen,
+      notify: addEvent
+    });
+  }
+
+  async function pickSaveDirectory() {
+    return chooseSaveDirectory({
+      directoryDraft,
+      saveDirectory,
+      isPickingDirectory,
+      pickSaveDirectoryRequest,
+      setDirectoryDraft,
+      setIsPickingDirectory,
+      notify: addEvent
+    });
+  }
 
   function openSaveDirectory() {
     const sendOpenRequest = (directory) => {
