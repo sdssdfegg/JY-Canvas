@@ -3,7 +3,8 @@
 // 为什么要有这个文件（前端专项阶段 B · 刀 4）：
 //   `videoResultUrl` / `isVideoTaskCompleted` / `isVideoTaskFailed` / `videoTaskStatusText`
 //   此前在 src/main.jsx 与 src/outfit-workflow.jsx 各有一份，**逐字节完全一致**
-//   （比对区间：main.jsx:999-1022 ↔ outfit-workflow.jsx:6233-6256，diff 无差异）。
+//   （比对：两侧同名的这四个函数 —— 两份实现逐字节一致、diff 无差异；
+//     ⚠️ 跨文件引用只写函数名、不写行号：行号随任意一侧的编辑就会漂移，后人按图索骥只会被引到错处，刻意不补。）
 //   主画板与批量页一旦对「什么样的任务算完成 / 算失败」判定不一致，
 //   同一个任务在一处显示"已完成"、在另一处还在转圈 —— 这正是阶段 B 要拆的病根。
 //

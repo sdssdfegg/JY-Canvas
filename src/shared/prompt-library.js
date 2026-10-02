@@ -3,9 +3,8 @@
 // 为什么要有这个文件（前端专项阶段 B · 刀 5）：
 //   `normalizePromptCategoryName` / `normalizePromptCategories` / `normalizePromptPreset`
 //   此前在 src/main.jsx 与 src/outfit-workflow.jsx 各有一份，**逐字节完全一致**
-//   （比对：main.jsx:470-472 ↔ outfit-workflow.jsx:1928-1930；
-//          main.jsx:474-483 ↔ outfit-workflow.jsx:1932-1941；
-//          main.jsx:651-661 ↔ outfit-workflow.jsx:1943-1953，三对 diff 均无差异）。
+//   （比对：两侧同名的这三个函数 —— 三份实现逐字节一致、diff 均无差异；
+//     ⚠️ 跨文件引用只写函数名、不写行号：行号随任意一侧的编辑就会漂移，后人按图索骥只会被引到错处，刻意不补。）
 //   两个页面对「分类名怎么截断 / 预设怎么补默认值」一旦判定不一致，
 //   同一个预设在一处显示成 A、在另一处显示成 B —— 这正是阶段 B 要拆的病根。
 //
