@@ -128,7 +128,7 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 | **C** | V11-RF-033 | **只读审计**：19 条 `exhaustive-deps` 三类判定 | 🟢 | 中（19 处区间） | 无（可与 A/B 并行） |
 | **D** ✅ | V11-RF-048 | 🆕 `PreparedResultImage`（outfit）↔ `CachedImage`（shared）改名克隆 | ✅ **已完成 `e976e85`**（取超集；真实浏览器双挂载 21/21，含缓存反证） | 中 | 043-2 完成 |
 | **D** ✅ | V11-RF-050 | 局部编辑 4 块 → `src/features/local-edit/`（含 §6.0 守卫统一） | ✅ **已全部完成**：`0a5ca4c` 守卫 / `01b2325` 块② / `250aa8d` 块① / `eb0a4be` 块③ / `26baf43` 块④；🟢 **人工冒烟通过（拖选框 + 拉滑杆，2026-10-02）** | 大 | **RF-048 完成** |
-| **D** ⏳ | **V11-RF-051** | 🆕 `imageMimeFromSource` / `imageExtensionFromSource` 两对改名克隆 → `src/shared/result-image.js` | 🟢 **待派发** | 小 | **RF-050 完成** |
+| **D** ✅ | **V11-RF-051** | `imageMimeFromSource` / `imageExtensionFromSource` 两对改名克隆 → `src/shared/result-image.js` | ✅ **已完成 `34a376f`**（1560 条断言 0 失败 + 7/7 反证项；headless Edge 动态 import 9 组全对） | 小 | **RF-050 完成** |
 | **D** ✅ | **V11-RF-040d** | 4 条跨文件行号注释 → 只写函数名 | ✅ **已完成 `4837d49`，已合回主线 `9cfa54b`**（worktree 分支 `rf-040d`，零重叠合并） | 极小 | 无 |
 
 > **派单建议**：**A 批 5 单一次性派给一个执行者**（互不重叠文件，合计上下文远低于 500K）；
@@ -748,7 +748,9 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 | ②c 🆕 | `CachedImage` 同 `src` 去重路径（模块级 `DISPLAY_IMAGE_CACHE`） | ✅ **人工复核通过（2026-10-02）** | 用户实测：同一图片 URL 多次出现的界面显示正常 | V11-RF-043-1 ✅ |
 | ⑧ | `PreparedResultImage`（outfit）↔ `CachedImage`（shared）改名克隆 | ✅ **已修 `e976e85`** | 真实浏览器双挂载 21/21，含**缓存反证**（二次挂载即带 src）；埋点业务字段逐项一致。两处"看似分叉"经查为**假分叉**（超时 8000 vs 20000：outfit 唯一调用点固定传 20000；endpoint 默认值：两个调用点都显式传） | V11-RF-048 ✅ |
 | ⑧b 🆕 | RF-050 四块的交互层（拖选框 / 拉滑杆 / 白笔黑笔） | ✅ **人工冒烟通过（2026-10-02）** | 自动化侧 11.6 万条断言 + 浏览器 DOM 对照；本环境历史数据被并发清空致弹窗打不开，交互改由人工补验 | V11-RF-050 ✅ |
-| ⑧c 🆕 | `imageMimeFromSource` / `imageExtensionFromSource` 两对克隆 | 🔴 **未修**（019 看不见：组件内缩进函数） | 统筹实测 `26baf43`：main:4477/4488 ↔ outfit:8337/8348，**逐字节一致** | **V11-RF-051**（§6.5） |
+| ⑧c | `imageMimeFromSource` / `imageExtensionFromSource` 两对克隆（019 看不见：组件内缩进函数） | ✅ **已修 `34a376f`** | `Buffer.compare` 实测两份定义差异为 0（496B / 442B）；1560 条断言 0 失败 | **V11-RF-051** ✅ |
+| ⑧d 🆕 | lint 棘轮基线 **多记 1 条**（outfit `exhaustive-deps` 记 10 / 实测 9） | ✅ **已修 `ea64c48`**（收紧方向） | 4 条基线**逐条实测**，只此一条不符；修正后全仓实测 `errors 0 / warnings 18 / total 18` 与基线逐项吻合 | 统筹处置 |
+| ⑧e 🆕 | 🔴 **待人工冒烟**：拖拽落盘的扩展名 | ⏸ **待用户执行**（本环境无出图额度） | 两函数唯一消费者是 `beginImageDownloadDrag` 的 `dataTransfer.setData("DownloadURL", …)`，**该链路没有点击下载按钮** ⇒ 必须**把结果图拖到桌面/文件夹**验证 | — |
 | ③ | ~~「本地详情未走 `resolveLocalEditBaseFile`」~~ **已证伪 + 改判** | 🔴 **真漏走在裁剪回流链** | RF-044 只读定位：本地详情自身链路 4 个底图点**全部已走**（`:3250/:3267/:5016/:9354`，`outfit:9617` 强制 local-detail 带 `localEdit` 可证）⇒ **在本地详情链路内不成立**；真漏走是 `outfit-workflow.jsx:9466` | **V11-RF-047**（新立） |
 | ④ | 🔴 **undo/redo 陈旧闭包把旧 `tool`/`overlayOpacity` 写回项目存档** | ✅ **已修 + 人工冒烟通过** | `image-editor.jsx:651`；统筹已复核 `scheduleProjectSave:358-375` 写入字段 | **V11-RF-045** ✅ `25ce21c` |
 | ④b | 残留：`restoreSnapshot` 在 `await` 解码后才调 `scheduleProjectSave`，数毫秒窗口内改 `tool` 仍可能写旧值 | ⏸ **暂缓至阶段 D** | 彻底修法需把 5 个 state 镜像成 ref，改动面大；主路径已修 | **V11-RF-045b** |
@@ -899,6 +901,12 @@ git worktree add ..\jingyin-wt-batchC  HEAD
 | 2 | **027-4 验收写「`duplicateCount` 归零」但纯改名做不到** | 窗口② | 立 RF-027-4b 补做（§4） |
 | 3 | **口述派单文案与工单不同步**：文案沿用旧措辞「禁止 `--update`」，与工单 §4 刚写的授权矛盾 | 窗口② | 执行者按「工单是唯一派单契约」处理 ✅ 正确。**纪律：改工单授权时必须同步改派单模板** |
 | 4 | **RF-050 §6.3 缺 `--update` 授权条款**，但搬文件必然触发 `scopeDrift` 判红 | 窗口①（commit 里推断授权） | 已补授权 + 追认块①②。**纪律：授权必须白纸黑字，执行者不得推断**（§6.3） |
+
+- 🔴 **分支事实（2026-10-02 实测，别再被"主线"这个词绕晕）**：
+  当前工作分支是 **`batch3-rf101-103`**，本轮全部重构都在这上面 ⇒ **它就是工作主线**。
+  另有一个 `main` 分支，停在 `b990647`（RF-010），**落后 90 笔**；
+  实测 `main` 是 `batch3-rf101-103` 的祖先 ⇒ **可 fast-forward 合并**，无分叉风险。
+  ⇒ 收口时一次性 fast-forward 到 `main` 即可，**不要中途来回切分支**。
 
 ### 12.1 由此固化的三条派单前自查
 1. **派单文案 = 工单的投影**：改了工单任何授权/禁止条款，**同步改对应派单文案**，否则两份契约打架。
