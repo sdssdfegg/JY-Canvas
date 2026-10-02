@@ -83,7 +83,6 @@ import {
   scheduleResultCacheCleanup
 } from "./core/result-cache.js";
 import { cacheOutfitGeneratedImageForDisplay, archiveOutfitGeneratedImageInBackground } from "./core/outfit-archive.js";
-import { canvasAssetPath, historyImagePath, referenceAssetPath } from "./core/asset-urls.js";
 import { itemWithArchivedImage } from "./core/history-store.js";
 import { imageBufferFromPayload } from "./core/image-payload.js";
 import { createAppBootstrap, sendEmbeddedStaticAsset } from "./core/app-bootstrap.js";
@@ -141,6 +140,7 @@ import { registerDebugRoutes } from "./routes/debug.routes.js";
 import { registerPromptsRoutes } from "./routes/prompts.routes.js";
 import { registerHistoryRoutes } from "./routes/history.routes.js";
 import { registerStorageRoutes } from "./routes/storage.routes.js";
+import { registerAssetsRoutes } from "./routes/assets.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -580,65 +580,7 @@ registerHistoryRoutes(app);
 
 registerStorageRoutes(app);
 
-app.get("/api/history-image/:filename", async (req, res) => {
-  try {
-    const file = historyImagePath(req.params.filename);
-    await streamLocalImageFile(req, res, file);
-  } catch {
-    res.status(404).json({ ok: false, message: "历史图片不存在" });
-  }
-});
-
-app.get("/api/reference-asset/:filename", async (req, res) => {
-  try {
-    const file = referenceAssetPath(req.params.filename);
-    await streamLocalImageFile(req, res, file);
-  } catch {
-    res.status(404).json({ ok: false, message: "reference_asset_not_found" });
-  }
-});
-
-app.post("/api/canvas-assets", upload.array("image", 12), async (req, res) => {
-  try {
-    const files = (req.files || []).filter((file) => file?.buffer?.length);
-    if (files.length === 0) {
-      return res.status(400).json({ ok: false, message: "missing_canvas_assets" });
-    }
-
-    const createdAt = Date.now();
-    // 现在直接回 data URL：前端把画布资源随请求带上就行，不需要服务端落盘。
-    // （旧实现是写 data/canvas-assets 再回 /api/canvas-asset/xxx；那段代码已经删掉，
-    //  但 GET /api/canvas-asset/:filename 路由保留，用于兼容历史链接。）
-    return res.json({
-      ok: true,
-      assets: files.map((file, index) => {
-        const mimeType = file.mimetype || mimeTypeFromFile(file.originalname || "");
-        return {
-          id: `canvas_asset_${createdAt}_${index}`,
-          name: file.originalname || `canvas-${index + 1}.${imageExtensionFromType(mimeType, file.originalname)}`,
-          filename: "",
-          url: `data:${mimeType};base64,${file.buffer.toString("base64")}`,
-          mimeType,
-          size: file.size,
-          createdAt: createdAt + index
-        };
-      })
-    });
-  } catch (error) {
-    res.status(400).json({
-      ok: false,
-      message: error instanceof Error ? error.message : "canvas_asset_upload_failed"
-    });
-  }
-});
-
-app.get("/api/canvas-asset/:filename", async (req, res) => {
-  try {
-    await streamLocalImageFile(req, res, canvasAssetPath(req.params.filename));
-  } catch {
-    res.status(404).json({ ok: false, message: "canvas_asset_not_found" });
-  }
-});
+registerAssetsRoutes(app);
 
 app.get("/api/save-directory", async (_req, res) => {
   const directory = await setSaveDirectory(await getSaveDirectory());
