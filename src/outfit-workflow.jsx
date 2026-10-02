@@ -94,6 +94,8 @@ import {
   dataUrlFromBlob,
   dragDownloadDateStamp,
   padDragDownloadNumber,
+  previewDragStart,
+  previewPanFromDrag,
   referenceSource,
   resultImageCardState
 } from "./shared/result-image.js";
@@ -8502,28 +8504,16 @@ export default function OutfitWorkflow({
   }
 
   function startPreviewDrag(event) {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    previewDragRef.current = {
-      active: true,
-      moved: false,
-      startX: event.clientX,
-      startY: event.clientY,
-      startPan: previewPan
-    };
+    const drag = previewDragStart(event, previewPan);
+    if (drag) previewDragRef.current = drag;
   }
 
   function movePreviewDrag(event) {
     const drag = previewDragRef.current;
     if (!drag?.active) return;
-    const deltaX = event.clientX - drag.startX;
-    const deltaY = event.clientY - drag.startY;
-    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) drag.moved = true;
-    setPreviewPan({
-      x: drag.startPan.x + deltaX,
-      y: drag.startPan.y + deltaY
-    });
+    const { pan, moved } = previewPanFromDrag(drag, event);
+    if (moved) drag.moved = true;
+    setPreviewPan(pan);
   }
 
   function endPreviewDrag(event) {

@@ -274,3 +274,53 @@ export function dataUrlFromBlob(blob, errorMessage = "图片编码失败") {
     reader.readAsDataURL(blob);
   });
 }
+
+// ——— 预览灯箱的拖拽平移（V11-RF-058）———
+//
+// 这两个来自 src/main.jsx 的 `beginPreviewDrag` / `movePreviewDrag` 与
+// src/outfit-workflow.jsx 的 `startPreviewDrag` / `movePreviewDrag`：
+// 剥掉缩进后两侧**逐字节一致**（`movePreviewDrag` 连函数名都一样；`beginPreviewDrag` ↔
+// `startPreviewDrag` 只差函数名）⇒ 纯搬运，行为零变化。
+//
+// ⚠️ 同族的 `endPreviewDrag` **不搬**：两侧末尾一句分别是 `closePreview()` 与
+// `closePreviewModal()`（关闭入口不同），属真分叉，留在各自的组件里。
+// 另外 `handlePreviewWheel` ↔ `zoomPreviewByWheel` 缩放上限 4 vs 5、
+// `shiftPreview` ↔ `navigatePreview` 边界停住 vs 取模循环，也都是真分叉 —— 一并登记不搬。
+
+/**
+ * 按下指针开始平移预览。
+ *
+ * 🔴 非左键（button !== 0）时返回 **null**，调用方必须**判空后再赋值**给 drag ref ——
+ * 原实现在这个分支是「直接 return，不动 ref」；若改成无条件赋值会把正在进行的拖拽清掉。
+ *
+ * @returns {object|null} drag 状态对象（{ active, moved, startX, startY, startPan }）
+ */
+export function previewDragStart(event, pan) {
+  if (event.button !== 0) return null;
+  event.preventDefault();
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+  return {
+    active: true,
+    moved: false,
+    startX: event.clientX,
+    startY: event.clientY,
+    startPan: pan
+  };
+}
+
+/**
+ * 按指针位移算出新的平移量。
+ *
+ * @returns {{ pan: { x: number, y: number }, moved: boolean }}
+ *   `moved` 表示本次位移已超过 3px 阈值；调用方用它决定是否把 `drag.moved` 置真
+ *   （原实现只置真、从不回置 false，所以调用方必须写 `if (moved) …`，不能写成
+ *   `drag.moved = moved`，否则抖动回中会把已移动的标记清掉）。
+ */
+export function previewPanFromDrag(drag, event) {
+  const deltaX = event.clientX - drag.startX;
+  const deltaY = event.clientY - drag.startY;
+  return {
+    pan: { x: drag.startPan.x + deltaX, y: drag.startPan.y + deltaY },
+    moved: Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3
+  };
+}
