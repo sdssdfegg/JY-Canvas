@@ -138,6 +138,7 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 | **V** ✅ | **V11-RF-056** | 后端 DEF 正则盲区只读测量 | ✅ **已完成 `e0159e6`**（🔴 前提已过期：RF-026 早关闭该盲区；剩余盲区 2 个定义、扩判据新增 0 族 ⇒ **不立单**） | 小（只读） | — |
 | **D** ⏳ | **V11-RF-058** | 🆕 RQ 最小集 2 块纯函数（预览拖拽，23 行）→ `result-image.js` | 🟢 **待派发** | 小 | **RF-052 通过**（同落点） |
 | **D** ⏳ | **V11-RF-057** | 🆕 PL 簇抽 `usePromptLibrary`（14 块 / 138 行）→ `prompt-library.js`（**0 新文件**） | 🟢 **待派发** | 大 | **RF-058 通过** |
+| **V** ⏳ | **V11-RF-059** | 🆕 阶段 D 第二批备料（**只读**，跑 RF-055 档重测块级清单） | 🟢 **待派发**（**零冲突，可与任何窗口并行**） | 中（只读） | 无 |
 
 > **派单建议**：**A 批 5 单一次性派给一个执行者**（互不重叠文件，合计上下文远低于 500K）；
 > **B 批两刀串行走**；**C 批两单只读，可与 A/B 交给另一个执行者并行**；D 批等前三个批次收口再开。
@@ -931,6 +932,22 @@ RQ 只搬 2 块纯函数落既有 `src/shared/result-image.js` ⇒ **`fileCount`
 
 ---
 
+### 6.14 V11-RF-059 · 阶段 D 第二批备料（**只读审计**，用刚上线的 RF-055 档）
+
+- **任务类型**：【只读审计】｜**标记**：🟢 **零冲突**（不写任何文件 ⇒ 与任何窗口都可并行）
+- **动机**：`src/` 队列（RF-053 → 058 → 057）做完后需要**下一批开单依据**。
+  旧 D-2 清单是 `e5d003d` 快照，**已被 RF-051/052/047/053 消化掉一部分** ⇒ 必须重测，旧清单不可直接排产。
+- **工具**：`node scripts/verify/block-clone-advisory.mjs`（RF-055 产出的常驻档，**默认 `--miss 2` 保守档**）
+- **动作**：在固定快照 worktree 里跑一次当前 HEAD，输出三张表：
+  1. **最新块级清单**（剔 import，≥10 行）：函数名或首行特征 / 两侧「文件名 + 行号 + 快照 hash」/ 行数 /
+     三类预判（A 字节一致 / B 差 1–2 行 / C 差 ≥3 行）；
+  2. **落点建议**：**严格只用既有 `src/shared/*` 与 `src/features/*` 模块**，禁止建议新建文件；
+  3. **风险标注**：纯函数（可直接搬）vs 闭包依赖（需参数化或不可搬）。
+- **必答**：本轮已收口的（RF-051/052/047/053）**是否确实从清单里消失了** —— 这是该档有效性的活样本自校验。
+- **禁止**：改任何文件（含 `.md`）、裁决任何分叉（只标注）。
+
+---
+
 ## 7. 已知缺陷清单（录入 + 状态）
 
 | ID | 缺陷 | 状态 | 证据 | 归属工单 |
@@ -952,8 +969,8 @@ RQ 只搬 2 块纯函数落既有 `src/shared/result-image.js` ⇒ **`fileCount`
 | ⑥b 🆕 | `detailModel`（detail-ai.js）是 `modelName` 的**改名克隆** | ✅ **已收口 `84ae66c`** | `grep -rn "detailModel" server/` = 0；新发现克隆，已登记存量清单 | V11-RF-027-3 |
 | ⑥c 🆕 | `pose` 的 `mode.includeImage`（单数）与 detail 的 `includeImages`（复数） | ✅ **有意保留**（不得消） | 实测 `outfit-pose-ai.js:196` 在 `attempts.push({…})` 内 ⇒ 流进 API 响应体，改名破坏字节一致；且是**字段名**非顶层函数 ⇒ 门禁永远看不见 | — 登记备查 |
 | ⑦ | 块级克隆 **2570 行 / 56 块**；改名/结构克隆 **62 组**（51 等价 / **11 需人工确认**） | 🔵 **口径已锁定（D-2 审计）** | 见 §7.2 排产口径 | RF-032 ✅ → 归入 D-2 |
-| ⑨ 🆕 | **拖拽下载族 5 函数两侧各一份**（`safeDownloadFileName` / `padDragDownloadNumber` / `dragDownloadDateStamp` / `absoluteDownloadUrl` / `beginImageDownloadDrag`） | 🔴 **未修** | 统筹实测 `f1200c6`：去重缩进后**逐字节一致**（7+3+15+9+12 = **46 行 ×2**）；纯函数、仅依赖 `displayImageRequestUrl` 与已收口的 `imageMime/ExtensionFromSource` | **V11-RF-052**（§6.6） |
-| ⑨b 🆕 | `dataUrlFromBlob` 两侧差 1 行报错文案（「长图编码失败」vs「图片编码失败」） | 🔴 **未修**（已裁决：文案入参化） | 统筹实测：去缩进后**唯一实质差异**即该文案 | **V11-RF-052**（§6.6） |
+| ⑨ 🆕 | **拖拽下载族 5 函数两侧各一份**（`safeDownloadFileName` / `padDragDownloadNumber` / `dragDownloadDateStamp` / `absoluteDownloadUrl` / `beginImageDownloadDrag`） | ✅ **已修 `b934ec6`** | 统筹实测 `f1200c6`：去重缩进后**逐字节一致**（7+3+15+9+12 = **46 行 ×2**）；纯函数、仅依赖 `displayImageRequestUrl` 与已收口的 `imageMime/ExtensionFromSource`。两巨石残留定义实测 **0** | **V11-RF-052**（§6.6）✅ |
+| ⑨b 🆕 | `dataUrlFromBlob` 两侧差 1 行报错文案（「长图编码失败」vs「图片编码失败」） | ✅ **已修**（文案入参化） | 统筹实测：去缩进后**唯一实质差异**即该文案；签名 `(blob, errorMessage = "图片编码失败")`，main 调用点显式传「长图编码失败」⇒ 零行为变化 | **V11-RF-052**（§6.6）✅ |
 | ⑨c 🆕 | `imageSource`（outfit:2215）↔ `imageSourceFromResult`（`shared/models.js:53`）**是真分叉，不是改名克隆** | ⏸ **不搬（登记）** | outfit 版多 `image.cachedUrl` 优先、取值顺序也不同（cachedUrl→localUrl→b64→url vs localUrl→url→b64）⇒ 统一会改行为 | — 登记备查 |
 | ⑨d 🆕 | `ChannelPicker` 在 `main.jsx` 出现 5 次、`outfit-workflow.jsx` 出现 **0 次** | ⏸ **不派单（非重构债）** | 给批量页补这个组件 = **业务变更**，违反「只搬运/抽模块/修 bug、不改业务」 | — 转产品需求 |
 | ⑨e 🆕 | D-2 审计基于 `9cfa54b`，其中 **#1 `imageMimeFromSource`（46 行）已被 RF-051 收口** | ✅ **过期债，已剔除** | 排产前必须重新测量，旧快照清单不可直接排产 | — 口径校准 |
