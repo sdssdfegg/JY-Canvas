@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 49,
+    "fileCount": 50,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -42,6 +42,7 @@
       "src/outfit-workflow.jsx",
       "src/shared/DebouncedTextarea.jsx",
       "src/shared/canvas-blob.js",
+      "src/shared/dom-actions.js",
       "src/shared/error-boundary.jsx",
       "src/shared/error-report.js",
       "src/shared/file-name.js",

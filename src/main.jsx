@@ -159,6 +159,7 @@ import {
   normalizeMaskCanvas
 } from "./shared/local-edit-mask.js";
 import "./styles.css";
+import { copyTextToClipboard } from "./shared/dom-actions.js";
 
 const STORAGE_PREFIX = import.meta.env.VITE_JINGYIN_STORAGE_PREFIX || "jingyin-internal";
 const STORAGE_KEY = `${STORAGE_PREFIX}-settings-v3`;
@@ -4361,26 +4362,10 @@ function App() {
     return count > 0 ? `，已自动保存 ${count} 张` : "";
   }
 
-  async function copyText(text, successMessage = "已复制") {
-    if (!text) return;
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const field = document.createElement("textarea");
-        field.value = text;
-        field.style.position = "fixed";
-        field.style.opacity = "0";
-        document.body.appendChild(field);
-        field.select();
-        document.execCommand("copy");
-        document.body.removeChild(field);
-      }
-      addEvent("复制", successMessage);
-    } catch {
-      addEvent("复制失败", "浏览器没有允许剪贴板权限");
-    }
-  }
+  // 实现在 src/shared/dom-actions.js（两侧同一份，20 行逐字节一致）。
+  // 这里只保留闭包绑定壳：捕获本组件的 addEvent，14 处调用点因此无需改动。
+  const copyText = (text, successMessage = "已复制") =>
+    copyTextToClipboard(text, { successMessage, notify: addEvent });
 
   async function blobFromImageItem(item) {
     const src = imageSourceFromResult(item?.image);

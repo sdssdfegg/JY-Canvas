@@ -23,6 +23,7 @@ import { imageBitmapFromFile, isImageFile } from "./shared/image-input.js";
 // imageBitmapFromFile），与 shared/local-edit-mask.js 那份是同族重复。统一到 shared 版
 // （main.jsx / outfit-workflow.jsx 早已 import 它）；4 个调用点全部只"画到 canvas"，消费方式不变。
 import { imageBitmapFromDataUrl } from "./shared/local-edit-mask.js";
+import { preventFileDropNavigation } from "./shared/dom-actions.js";
 
 const EDITOR_DB_NAME = "jingyin-image-editor-v1";
 const EDITOR_STORE_NAME = "project";
@@ -293,12 +294,6 @@ export default function ImageEditorPanel({
   }, [baseMeta, overlayMeta]);
 
   useEffect(() => {
-    function preventFileDropNavigation(event) {
-      const types = Array.from(event.dataTransfer?.types || []);
-      if (!types.includes("Files")) return;
-      event.preventDefault();
-    }
-
     window.addEventListener("dragover", preventFileDropNavigation);
     window.addEventListener("drop", preventFileDropNavigation);
     return () => {
