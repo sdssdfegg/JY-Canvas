@@ -1258,18 +1258,36 @@ A 类函数型现在只剩 2 项，**且都是壳**：`refreshSaveDirectory(+4)`
 > **纪律：低阈值（≤10 行）的改名克隆必须靠「沿调用链往下追」发现，只跑清单会漏。**
 > 拿到任何「差 1–2 行」的块，都要往下追一层被调函数。
 
-**同批查证但本单未动（登记）**：`fileFromImageUrl`(main:4271) ↔ `imageFileFromDropUrl`(outfit:2629)
-语义等价，唯一实质差异是空名兜底（main `fileBaseName`→`"image"` / outfit→`"drag-image"`）；
-两侧调用点都显式传名 ⇒ 实际输出相同。**未搬的原因**：落 shared 会让目前零依赖的
-`image-input.js` 依赖 `api/assets.js`（`fetchImageBlob`），给纯模块引入网络耦合 ⇒ 落点待裁决。
+#### 同批查证：`fileFromImageUrl` ↔ `imageFileFromDropUrl` —— ✅ **已由 RF-065 收口（ca91a63）**
 
-#### 下一步（B2）
+统筹裁决落点 **`src/shared/result-image.js`**（不是 `image-input.js`）：
+该文件**本来就 import `../api/assets.js`**（`displayImageRequestUrl`）⇒ 网络依赖**已存在**，
+不引入新耦合；而 `image-input.js` 是零依赖纯模块，塞进去才会污染它。
+判定：语义等价（唯一差异是空名兜底，两侧 4 个调用点全显式传名 ⇒ 实际逐字不变），
+取 main 版（多一层 `|| "image"` 兜底，属**放宽**方向）。
 
-线 A 的函数型债已见底（A 类只剩 2 个有意保留的壳）。
-剩下的 A/B 类**绝大多数是 JSX 块**（32 / 18 / 13 / 12 / 57 / 33 行…）⇒ 必须**抽组件**才能消，
-属 B2，风险高于纯函数，需逐块配人工冒烟清单。首批候选：
-`applyLocalEdit` 33 行（两侧 `ModalHeader` 文案是真分叉，须参数化 title/subtitle）、
-预设卡片 JSX 57 行、主题选择 18 行。
+#### 下一步（B2）—— 🔴 本轮实测：**低垂果实已摘完，B2 需重新论证**
+
+线 A 的函数型债彻底见底（A 类只剩 2 个有意保留的壳）。剩余候选逐块实测后的结论（**都不是可搬项**）：
+
+| 候选 | 实测结论 | 处置 |
+|---|---|---|
+| A 类 32 行提示词库 UI | 首行 `))}`、末行 `<button className="promptChipMain"` ⇒ **不是自闭合片段**，无法整体抽组件 | ❌ 不搬 |
+| 预览拖拽三函数（begin/move/end） | 抽成工厂后 **36 行 → 38 行（净收益为负）** —— 印证「搬一块的固定成本与块大小无关」 | ❌ 不搬 |
+| `openEditorDb` ↔ `openHistoryDb` | 错误策略**真差异**（editor `resolve(null)` 静默 / history `reject(error)` 抛错）⇒ 统一任一方向都是收窄 | ❌ 登记 |
+| `filteredPromptPresets` useMemo（10 行字节一致） | 抽成纯函数后 **净省仅 3 行** | ❌ 不值 |
+| 主题选择 18 行 | 两侧 `themeOptions`/`settings.theme` vs `THEME_OPTIONS`/`effectiveTheme` ⇒ A 类判错，实为差异 | ❌ 登记 |
+| `imageFilesFrom*Drop` | 前段能力不同（main 结果 ID 拖拽 / outfit 目录条目遍历）⇒ 真分叉 | ❌ 已登记 |
+| outfit preview 域 272 行 | 其中 235 行是 3 个 **outfit 独有**诊断面板渲染函数，main 无对位 ⇒ 不是重复债 | ❌ 非债 |
+
+🔑 **地毯式兜底扫描已做且零命中**（脚本固化 `scripts/dev/scan-missed-clones.mjs`）：
+对 **shared 全部 131 个函数** × 三文件（main / outfit / image-editor）本地函数做
+「去函数名后的函数体 L1 归一化逐字比对」⇒ **0 处漏搬克隆**。
+⇒ 这实证了 advisory 盲区里的改名克隆（RF-064 / RF-065 两条）**已被挖干净**，
+   后续再发现同类只能靠追调用链，不能指望清单。
+
+⇒ **结论：继续抠块级重复的边际收益已趋近于零。剩余 18857 行的出路只有 B3 按域新建模块
+   （把独有业务逻辑整体搬出主组件），那需要逐域出只读设计 + 统筹批新建授权，不是"搬重复"。**
 
 ---
 
