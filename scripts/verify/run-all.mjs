@@ -113,7 +113,13 @@ const ORDER = [
  * 需要时直接跑：node scripts/verify/speed-investigation.mjs
  */
 const TOOLS = [
-  "speed-investigation"
+  "speed-investigation",
+  // V11-RF-055 交付物：前端「块级克隆」advisory 档（只报不记账，恒以 0 退出）。
+  // 放在 TOOLS 而不是 ORDER，理由与上面一致：它**不做断言**（不参与 ok、不写进
+  // duplicateCount、不进基线、不影响 lint 棘轮），进断言顺序表只会让每次 run-all
+  // 多印 ~54 块在册债务的噪声，且会扰动"27/38"这个大家都在比对的基线计数。
+  // 排产前手工跑：node scripts/verify/block-clone-advisory.mjs
+  "block-clone-advisory"
 ];
 
 /** 可直接执行的脚本（.mjs）；.js/.jsx 是浏览器侧模块，由脚本内部或手工加载。 */
