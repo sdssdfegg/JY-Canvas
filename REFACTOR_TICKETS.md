@@ -126,7 +126,10 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 | **B** ✅ | V11-RF-027-5 | 把顶层 `server/*.js` **纳入门禁视野**（点名制 → 目录扫描制） | ✅ **已完成 `f394716`**：扫描 51→**64** 文件（函数 227→368），`duplicateCount` **0**，`regressions []`，**登记 0 条** | 中 | **027-4b 通过** |
 | **C** | V11-RF-032 | **只读测量**：改名克隆 + 同名不同义 | 🟢 | 大（全 `src/**` 只读） | 无（可与 A/B 并行） |
 | **C** | V11-RF-033 | **只读审计**：19 条 `exhaustive-deps` 三类判定 | 🟢 | 中（19 处区间） | 无（可与 A/B 并行） |
-| **D** | V11-RF-050… | 阶段 C：局部编辑 4 块 → `src/features/local-edit/` | 🔴 | 大 | A/B/C 完成 |
+| **D** ✅ | V11-RF-048 | 🆕 `PreparedResultImage`（outfit）↔ `CachedImage`（shared）改名克隆 | ✅ **已完成 `e976e85`**（取超集；真实浏览器双挂载 21/21，含缓存反证） | 中 | 043-2 完成 |
+| **D** ✅ | V11-RF-050 | 局部编辑 4 块 → `src/features/local-edit/`（含 §6.0 守卫统一） | ✅ **已全部完成**：`0a5ca4c` 守卫 / `01b2325` 块② / `250aa8d` 块① / `eb0a4be` 块③ / `26baf43` 块④；🟢 **人工冒烟通过（拖选框 + 拉滑杆，2026-10-02）** | 大 | **RF-048 完成** |
+| **D** ⏳ | **V11-RF-051** | 🆕 `imageMimeFromSource` / `imageExtensionFromSource` 两对改名克隆 → `src/shared/result-image.js` | 🟢 **待派发** | 小 | **RF-050 完成** |
+| **D** ⏳ | **V11-RF-040d** | 🆕 4 条跨文件行号注释（RF-040c 同 genre）→ 只写函数名 | 🟢 **待派发**（**与 RF-051 文件零重叠** ⇒ 可并行） | 极小 | 无 |
 
 > **派单建议**：**A 批 5 单一次性派给一个执行者**（互不重叠文件，合计上下文远低于 500K）；
 > **B 批两刀串行走**；**C 批两单只读，可与 A/B 交给另一个执行者并行**；D 批等前三个批次收口再开。
@@ -689,6 +692,45 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 
 ---
 
+### 6.5 V11-RF-051 · `imageMimeFromSource` / `imageExtensionFromSource` 两对克隆（统筹按 `26baf43` 实测）
+
+- **任务类型**：【结构搬运】｜**标记**：🟢
+- **统筹实测**（HEAD `26baf43`）：
+
+  | 函数 | `main.jsx` | `outfit-workflow.jsx` | 长度 | 判定 |
+  | --- | --- | --- | --- | --- |
+  | `imageMimeFromSource` | `:4477` | `:8337` | 10 行 | **逐字节一致** |
+  | `imageExtensionFromSource` | `:4488` | `:8348` | 11 行 | **逐字节一致** |
+
+  两者均为**纯函数、无闭包依赖** ⇒ §0 第一类（字节一致），可直接搬。
+- 🔴 **它们都是缩进（组件内）函数 ⇒ 019 门禁一条也看不见**（§3 已坐实的盲区）。
+  ⇒ **本单完成后 `duplicateCount` 不会变化**，不得以"门禁没报"为由认为没有债务，也不得据此不做。
+- **落点**：`src/shared/result-image.js`。
+  🔑 **零漂移依据**：`main.jsx:90` 与 `outfit-workflow.jsx:94` **都已 import 该模块** ⇒ 只加一项，不新建文件。
+  语义同族：该模块已有 `diagnosticImageSourceType` / `referenceSource` / `brokenImageReason`，
+  同为「从图片来源推断属性」。
+- **动作**：删 4 份定义 → 两侧 import 各 +2 项 → 调用点不动
+- 🔴 **硬约束**：**禁止用 Edit 类整文件改写工具改两个巨石**（§9.3 已立为硬约束，RF-048 实测 diff 膨胀到 11278 行）。
+  改用 `node` 脚本按**内容锚点**打补丁（保留其余行 CRLF，仅改动行写 LF）。
+- **验收**：ESLint `no-unused-vars` 反证无孤儿；`vite build` 通过；`git diff --stat` 量级正常；
+  对照组（旧实现抄进 `tmp/`）覆盖全分支：`data:` / `.jpg` / `.webp` / `.gif` / 带 query / 兜底 `png`；
+  019 `duplicateCount` 保持 0、`scopeDrift` 无；lint 基线不动
+- **需人工冒烟**：生成结果图后**下载一次**，确认扩展名正确（png / jpg / webp 各试一种最好）
+
+### 6.6 V11-RF-040d · 4 条跨文件行号注释 → 只写函数名
+
+- **任务类型**：【纯注释】｜**标记**：🟢
+- **统筹实测位置**（`26baf43`）：
+  - `src/shared/prompt-library.js:6-8` —— 3 对（main.jsx:470-472 ↔ outfit:1928-1930 等）
+  - `src/shared/video-task.js:6` —— 1 对（main.jsx:999-1022 ↔ outfit:6233-6256）
+- **处置同 RF-040c**：删掉行号，只写函数名，并加半句「跨文件引用只写函数名、不写行号」防后人补回
+- **验收**：`node --check` 两个文件；纯注释零代码 ⇒ 无需对照组
+- 🔴 **与 RF-051 文件零重叠**（051 碰 `main.jsx` / `outfit-workflow.jsx` / `result-image.js`；
+  本单只碰 `prompt-library.js` / `video-task.js`）⇒ **两单可并行**，
+  但**第二窗口必须在 worktree 里做**（§11.1 第 1 条：同目录不允许两个 AI 同时写代码）
+
+---
+
 ## 7. 已知缺陷清单（录入 + 状态）
 
 | ID | 缺陷 | 状态 | 证据 | 归属工单 |
@@ -697,7 +739,9 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 | ② | `ReferenceThumbTray` 两份实现分叉 | ✅ **已收口 `bbf4586` + 🟢 人工复核通过** | 019 `duplicateCount` **1 → 0**（实测） | V11-RF-043-2 ✅ |
 | ②b | RF-043-2 带来的 **outfit 侧 4 处行为变化**（3 收窄 + 1 放宽） | ✅ **裁决接受 + 🟢 人工复核通过** | 见 §6.4 | V11-RF-043-2 ✅ |
 | ②c 🆕 | `CachedImage` 同 `src` 去重路径（模块级 `DISPLAY_IMAGE_CACHE`） | ✅ **人工复核通过（2026-10-02）** | 用户实测：同一图片 URL 多次出现的界面显示正常 | V11-RF-043-1 ✅ |
-| ⑧ 🆕 | `PreparedResultImage`（outfit）↔ `CachedImage`（shared）改名克隆 | 🔴 **进行中**（窗口①，工作区未提交） | 统筹实测见 §6.2；裁决「可统一，取超集」 | **V11-RF-048**（D-0） |
+| ⑧ | `PreparedResultImage`（outfit）↔ `CachedImage`（shared）改名克隆 | ✅ **已修 `e976e85`** | 真实浏览器双挂载 21/21，含**缓存反证**（二次挂载即带 src）；埋点业务字段逐项一致。两处"看似分叉"经查为**假分叉**（超时 8000 vs 20000：outfit 唯一调用点固定传 20000；endpoint 默认值：两个调用点都显式传） | V11-RF-048 ✅ |
+| ⑧b 🆕 | RF-050 四块的交互层（拖选框 / 拉滑杆 / 白笔黑笔） | ✅ **人工冒烟通过（2026-10-02）** | 自动化侧 11.6 万条断言 + 浏览器 DOM 对照；本环境历史数据被并发清空致弹窗打不开，交互改由人工补验 | V11-RF-050 ✅ |
+| ⑧c 🆕 | `imageMimeFromSource` / `imageExtensionFromSource` 两对克隆 | 🔴 **未修**（019 看不见：组件内缩进函数） | 统筹实测 `26baf43`：main:4477/4488 ↔ outfit:8337/8348，**逐字节一致** | **V11-RF-051**（§6.5） |
 | ③ | ~~「本地详情未走 `resolveLocalEditBaseFile`」~~ **已证伪 + 改判** | 🔴 **真漏走在裁剪回流链** | RF-044 只读定位：本地详情自身链路 4 个底图点**全部已走**（`:3250/:3267/:5016/:9354`，`outfit:9617` 强制 local-detail 带 `localEdit` 可证）⇒ **在本地详情链路内不成立**；真漏走是 `outfit-workflow.jsx:9466` | **V11-RF-047**（新立） |
 | ④ | 🔴 **undo/redo 陈旧闭包把旧 `tool`/`overlayOpacity` 写回项目存档** | ✅ **已修 + 人工冒烟通过** | `image-editor.jsx:651`；统筹已复核 `scheduleProjectSave:358-375` 写入字段 | **V11-RF-045** ✅ `25ce21c` |
 | ④b | 残留：`restoreSnapshot` 在 `await` 解码后才调 `scheduleProjectSave`，数毫秒窗口内改 `tool` 仍可能写旧值 | ⏸ **暂缓至阶段 D** | 彻底修法需把 5 个 state 镜像成 ref，改动面大；主路径已修 | **V11-RF-045b** |
@@ -757,6 +801,13 @@ G 清单约束的是「执行者为让门禁变绿而擅自改」。
 - `git commit -F - <<EOF` 可能被安全策略拦截 ⇒ 改用 `git commit -F tmp/commit-xxx.txt`。
 - 前端改动 `.jsx` **必须 `vite build`**；涉及服务端 import 的前端模块要用 release 同款 esbuild 打一次 bundle 验证。
 - Windows 下 `taskkill /PID` 在 Git Bash 会被路径转换破坏 ⇒ 用 PowerShell `Stop-Process -Id`。
+- 🔴 **🔴 禁用 Edit 类整文件改写工具去改两个巨石**（`main.jsx` / `outfit-workflow.jsx`）——本条为硬约束：
+  RF-048 时实测，Edit 会把整文件 **CRLF → LF**，diff 从几十行**膨胀到 11278/11345 行**，
+  真实改动被淹没、无法复核。
+  **正确做法**：用 `node` 脚本按**内容锚点**打补丁（保留其余行 CRLF，仅改动行写 LF），
+  或直接用 `git apply` 补丁。
+  🔴 **凡改过这两个文件，提交前必查 `git diff --stat`**：真实改动行数应与设计内的 hunk 量级相当，
+  出现万行级 diff 一律不许提交。
 
 ---
 
