@@ -94,13 +94,9 @@ import {
 } from "./shared/result-image.js";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
-import {
-  beginCropDrag,
-  changeCropScale,
-  endCropDrag,
-  moveCropDrag
-} from "./features/local-edit/crop-drag.js";
+import { changeCropScale } from "./features/local-edit/crop-drag.js";
 import { LocalEditBrushTools } from "./features/local-edit/LocalEditBrushTools.jsx";
+import { LocalEditCropOverlay } from "./features/local-edit/LocalEditCropOverlay.jsx";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
   FACT_UNRECOGNIZED,
@@ -5270,39 +5266,17 @@ function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, on
               onPointerLeave={leaveMaskPaint}
               onContextMenu={(event) => event.preventDefault()}
             />
-            {isMaskMode && brushCursor.visible && (
-              <div
-                className={`quickLocalBrushCursor ${maskTool === "eraser" ? "erase" : "paint"}`}
-                style={brushCursorStyle}
-              />
-            )}
-            {cropRect && displaySize.width > 0 && !isMaskMode && (
-              <div
-                className="quickLocalCropBox"
-                style={cropStyle}
-                onPointerDown={(event) => beginCropDrag(event, "move", cropDragCtx)}
-                onPointerMove={(event) => moveCropDrag(event, cropDragCtx)}
-                onPointerUp={(event) => endCropDrag(event, cropDragCtx)}
-                onPointerCancel={(event) => endCropDrag(event, cropDragCtx)}
-              >
-                <span />
-                {["nw", "ne", "sw", "se"].map((handle) => (
-                  <i
-                    className={`quickLocalCropHandle quickLocalCropHandle-${handle}`}
-                    key={handle}
-                    onPointerDown={(event) => beginCropDrag(event, `resize-${handle}`, cropDragCtx)}
-                    onPointerMove={(event) => moveCropDrag(event, cropDragCtx)}
-                    onPointerUp={(event) => endCropDrag(event, cropDragCtx)}
-                    onPointerCancel={(event) => endCropDrag(event, cropDragCtx)}
-                  />
-                ))}
-              </div>
-            )}
-            {cropRect && displaySize.width > 0 && isMaskMode && maskPainted && (
-              <div className="quickLocalMaskContextBox" style={cropStyle}>
-                <span>AI上下文</span>
-              </div>
-            )}
+            <LocalEditCropOverlay
+              isMaskMode={isMaskMode}
+              brushCursor={brushCursor}
+              maskTool={maskTool}
+              brushCursorStyle={brushCursorStyle}
+              cropRect={cropRect}
+              displaySize={displaySize}
+              cropStyle={cropStyle}
+              maskPainted={maskPainted}
+              cropDragCtx={cropDragCtx}
+            />
           </div>
         </div>
         <div className="quickLocalEditControls">
