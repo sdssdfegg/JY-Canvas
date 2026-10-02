@@ -1,8 +1,7 @@
 import "dotenv/config";
 import express from "express";
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 // 图片地址判定与前端共用同一份（发布时 esbuild 会把 src/shared 内联进 server bundle）。
 // 注意：这只管"图片回传"；生图 API 仍然只允许官方中转，见 PRIMARY_CHANNEL_API_BASE_URL。
@@ -33,7 +32,6 @@ import { createOutfitMasterFitSpec } from "./outfit-master-fit-ai.js";
 import { createOutfitQualityCheck } from "./outfit-quality-ai.js";
 import { createOutfitPoseAnchor } from "./outfit-pose-ai.js";
 import {
-  dataDir,
   resultDir,
   rootDir
 } from "./core/app-paths.js";
@@ -86,9 +84,8 @@ import {
 } from "./core/result-cache.js";
 import { cacheOutfitGeneratedImageForDisplay, archiveOutfitGeneratedImageInBackground } from "./core/outfit-archive.js";
 import { canvasAssetPath, historyImagePath, referenceAssetPath } from "./core/asset-urls.js";
-import { itemWithArchivedImage, writeHistoryResults } from "./core/history-store.js";
+import { itemWithArchivedImage } from "./core/history-store.js";
 import { imageBufferFromPayload } from "./core/image-payload.js";
-import { STORAGE_TARGETS, STORAGE_IMAGE_PATTERN, storageUsageSnapshot } from "./core/storage-usage.js";
 import { createAppBootstrap, sendEmbeddedStaticAsset } from "./core/app-bootstrap.js";
 const app = express();
 const { listenOnPort } = createAppBootstrap(app);
@@ -143,6 +140,7 @@ import { registerSystemRoutes } from "./routes/system.routes.js";
 import { registerDebugRoutes } from "./routes/debug.routes.js";
 import { registerPromptsRoutes } from "./routes/prompts.routes.js";
 import { registerHistoryRoutes } from "./routes/history.routes.js";
+import { registerStorageRoutes } from "./routes/storage.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -580,76 +578,7 @@ registerPromptsRoutes(app);
 
 registerHistoryRoutes(app);
 
-app.get("/api/storage/usage", async (_req, res) => {
-  try {
-    res.json({ ok: true, ...(await storageUsageSnapshot()) });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error?.message || String(error) });
-  }
-});
-
-app.post("/api/storage/reveal", async (req, res) => {
-  const which = String(req.body?.target || "data");
-  const target = STORAGE_TARGETS.find((item) => item.key === which);
-  const dir = target ? target.resolve() : dataDir;
-  try {
-    await mkdir(dir, { recursive: true });
-    if (process.platform === "win32") {
-      spawn("explorer.exe", [dir], { detached: true, stdio: "ignore" }).unref();
-    } else if (process.platform === "darwin") {
-      spawn("open", [dir], { detached: true, stdio: "ignore" }).unref();
-    } else {
-      spawn("xdg-open", [dir], { detached: true, stdio: "ignore" }).unref();
-    }
-    res.json({ ok: true, path: dir });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error?.message || String(error), path: dir });
-  }
-});
-
-app.post("/api/storage/clean", async (req, res) => {
-  const requested = Array.isArray(req.body?.targets) ? req.body.targets.map(String) : [];
-  const chosen = STORAGE_TARGETS.filter((item) => requested.includes(item.key));
-  if (chosen.length === 0) {
-    return res.status(400).json({ ok: false, error: "no_targets" });
-  }
-  const report = [];
-  for (const target of chosen) {
-    const dir = target.resolve();
-    let removedFiles = 0;
-    let freedBytes = 0;
-    let skipped = 0;
-    try {
-      const entries = await readdir(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (!entry.isFile()) {
-          skipped += 1;
-          continue;
-        }
-        if (target.imagesOnly && !STORAGE_IMAGE_PATTERN.test(entry.name)) {
-          skipped += 1;
-          continue;
-        }
-        const file = path.join(dir, entry.name);
-        try {
-          const info = await stat(file);
-          await unlink(file);
-          removedFiles += 1;
-          freedBytes += info.size;
-        } catch {
-          skipped += 1;
-        }
-      }
-    } catch {
-      // 目录不存在等：视为已经清空
-    }
-    if (target.resetsHistory) {
-      await writeHistoryResults([], { replaceBackup: true });
-    }
-    report.push({ key: target.key, label: target.label, path: dir, removedFiles, freedBytes, skipped });
-  }
-  res.json({ ok: true, report, ...(await storageUsageSnapshot()) });
-});
+registerStorageRoutes(app);
 
 app.get("/api/history-image/:filename", async (req, res) => {
   try {
