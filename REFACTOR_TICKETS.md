@@ -1218,10 +1218,58 @@ git apply --cached --recount --ignore-whitespace tmp/p.patch
 A 类函数型现在只剩 2 项，**且都是壳**：`refreshSaveDirectory(+4)` 19 行、`runConnectionTest` 11 行。
 ⇒ **块级克隆这条线的函数型债已清零**，剩下的 A 类全是 JSX 块（要抽组件，属 B2）。
 
-#### 下一步（B1-2）
+#### B1-2 · 无限画布域：**只搬得动纯计算层，模型层被 `defaultState` 缠住**（`69b0e48`）
 
-按 §三 耦合度排序，下一个是 **无限画布域（main 独有，35 函数 / 534 行，耦合 0.89，纯度 59%）**。
-它是 main 独有 ⇒ 不存在两侧同步问题，风险低于共有域。需先列「该域 state 被哪些非本域函数引用」再动手。
+**已搬（9 函数 / 85 行）** → 新建 `src/features/canvas/canvas-graph.js`：
+
+- 纯计算 7 个（69 行）：`incomingCanvasNodes` / `canvasResultItemsFromNode` /
+  `canvasPromptForGenerator` / `canvasImagesForGenerator` / `canvasImageEntriesForGenerator` /
+  `splitCanvasBatchEntries` / `buildCanvasBatchPrompt`
+  ⇒ 顶层 `export` 同名，**main 调用点一字未动**。
+- 视口换算 2 个（16 行）：`screenToCanvasPoint` / `canvasCenterPoint`
+  ⇒ 依赖（`canvasStageRef` / `canvasViewport`）提升为入参，改名为
+  `screenPointToCanvas(rect, viewport, …)` / `canvasCenterFromRect(rect, viewport, …)`；
+  main 保留 **3 行同名薄壳**传入 ⇒ 6 处调用点（含 JSX `onClick`）零改动。
+
+**🔴 试图搬但回滚：画布模型层（`createCanvasNode` 等，138 行）—— 登记为「不可搬」**
+
+- 实测：`createCanvasNode` 内部引用 app 级 **`defaultState`**（`model` / `imageSize` / `aspectRatio`）
+  与 **`clampCount`** ⇒ 它不是纯领域函数。`createInfiniteCanvas` / 两个 `normalize*` 都间接依赖它。
+- 强搬只有两条路，都不接受：① 改成工厂 `createCanvasModel({ defaults, clampCount })` ⇒ 函数体要重新缩进，
+  且 main 必须在模块级 `const {...} = createCanvasModel(...)`（放在 `clampCount` 之后），
+  引入**模块级求值顺序依赖**，脆弱；② 复制一份默认参数进 canvas 模块 ⇒ 与 app 默认值双份维护，必然漂移。
+- ⇒ **判据固化：`同域 ≠ 可搬`**。判定能否搬，看的是**函数体引用的自由标识符属不属于本域**，
+  不是看它名字像不像本域。`defaultState` 是 app 设置，不是画布概念。
+- 回滚方式：`git checkout -- src/main.jsx` + 删掉刚生成的 `canvas-model.js` / `shared/id.js`。
+
+#### B1-3 · `imageExtensionFromMime` ≡ `imageExtension`（`a90406c`）
+
+- 判定：函数体**逐字节一致**、形参同为 `(type)`，仅 `export` 前缀与函数名不同
+  （outfit:2613 ↔ `src/shared/image-input.js:25`）。
+- 零漂移：outfit **本来就从 `./shared/image-input.js` 导入** ⇒ 只在既有 import 块 +1 项。
+- 三类 hunk：删定义 6 行 / 加 import 1 项 / 无孤儿（4 处调用点原地改名）。
+
+##### 🔴 这条暴露了 advisory 档的一个盲区（判据升级）
+
+两个函数各 **5 行，低于 ≥10 行阈值** ⇒ 常驻档**一条都报不出来**。
+发现路径：B 类 `imageFilesFromReferenceDrop ↔ imageFilesFromDataTransfer`（差 1 行）
+→ 追它俩各自调用的 url→File 辅助函数 → 再追扩展名函数 → 撞见这条改名克隆。
+
+> **纪律：低阈值（≤10 行）的改名克隆必须靠「沿调用链往下追」发现，只跑清单会漏。**
+> 拿到任何「差 1–2 行」的块，都要往下追一层被调函数。
+
+**同批查证但本单未动（登记）**：`fileFromImageUrl`(main:4271) ↔ `imageFileFromDropUrl`(outfit:2629)
+语义等价，唯一实质差异是空名兜底（main `fileBaseName`→`"image"` / outfit→`"drag-image"`）；
+两侧调用点都显式传名 ⇒ 实际输出相同。**未搬的原因**：落 shared 会让目前零依赖的
+`image-input.js` 依赖 `api/assets.js`（`fetchImageBlob`），给纯模块引入网络耦合 ⇒ 落点待裁决。
+
+#### 下一步（B2）
+
+线 A 的函数型债已见底（A 类只剩 2 个有意保留的壳）。
+剩下的 A/B 类**绝大多数是 JSX 块**（32 / 18 / 13 / 12 / 57 / 33 行…）⇒ 必须**抽组件**才能消，
+属 B2，风险高于纯函数，需逐块配人工冒烟清单。首批候选：
+`applyLocalEdit` 33 行（两侧 `ModalHeader` 文案是真分叉，须参数化 title/subtitle）、
+预设卡片 JSX 57 行、主题选择 18 行。
 
 ---
 
