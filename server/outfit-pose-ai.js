@@ -1,12 +1,8 @@
 import { createAbortSignal } from "./core/http-client.js";
+import { asText, readResponse, responseContent, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_OUTFIT_POSE_MODEL = "gpt-5.4-mini";
 const OUTFIT_POSE_TIMEOUT_MS = 45000;
-
-function asText(value, fallback = "") {
-  const text = String(value ?? "").trim();
-  return text || fallback;
-}
 
 function compact(value, limit = 1200) {
   return String(value || "")
@@ -47,26 +43,6 @@ function isFaceSwapInput(input) {
     || (/目标人物图|人物图|模特图|原图/i.test(modelTitle) && /人脸参考|脸部参考|人脸身份|换脸|脸/i.test(clothingTitle));
 }
 
-function readResponse(response) {
-  return response.text().then((text) => {
-    try {
-      return { text, json: JSON.parse(text) };
-    } catch {
-      return { text, json: null };
-    }
-  });
-}
-
-function responseContent(payload) {
-  const message = payload?.choices?.[0]?.message;
-  if (!message) return "";
-  if (typeof message.content === "string") return message.content;
-  if (Array.isArray(message.content)) {
-    return message.content.map((part) => part.text || part.content || "").join("\n");
-  }
-  return "";
-}
-
 function extractJsonObject(text) {
   const raw = String(text || "").trim();
   if (!raw) throw new Error("换装姿态分析模型没有返回内容");
@@ -83,15 +59,6 @@ function extractJsonObject(text) {
     if (start >= 0 && end > start) return JSON.parse(unfenced.slice(start, end + 1));
     throw new Error("换装姿态分析模型返回的不是有效 JSON");
   }
-}
-
-function shouldRetryWithoutJsonFormat(status, text) {
-  const source = `${status} ${text}`.toLowerCase();
-  return status >= 400 && (
-    source.includes("response_format") ||
-    source.includes("json_object") ||
-    source.includes("unsupported")
-  );
 }
 
 function safeImagePart(file) {

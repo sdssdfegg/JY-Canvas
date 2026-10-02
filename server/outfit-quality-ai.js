@@ -1,13 +1,8 @@
 import { createAbortSignal } from "./core/http-client.js";
+import { asText, readResponse, responseContent, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_OUTFIT_QUALITY_MODEL = "gpt-5.4-mini";
 const OUTFIT_QUALITY_TIMEOUT_MS = 75000;
-
-// 中文注释：把任意输入整理成短文本，避免 undefined/null 混入质检提示词。
-function asText(value, fallback = "") {
-  const text = String(value ?? "").trim();
-  return text || fallback;
-}
 
 // 中文注释：压缩日志和模型返回文本，防止异常信息撑爆前端提示。
 function compact(value, limit = 1200) {
@@ -22,29 +17,6 @@ function compact(value, limit = 1200) {
 // 中文注释：选择视觉质检模型，默认沿用当前项目的轻量视觉文本模型。
 function modelName(input) {
   return asText(input.outfitQualityModel || input.outfitMasterFitModel || input.outfitPoseModel || input.detailAnalysisModel || input.textModel, DEFAULT_OUTFIT_QUALITY_MODEL);
-}
-
-// 中文注释：给质检请求加超时，避免生成完成后质检长期占用前端状态。
-// 中文注释：兼容中转站 JSON 或纯文本错误返回，便于统一提取错误信息。
-function readResponse(response) {
-  return response.text().then((text) => {
-    try {
-      return { text, json: JSON.parse(text) };
-    } catch {
-      return { text, json: null };
-    }
-  });
-}
-
-// 中文注释：从 chat/completions 结果里提取正文，兼容字符串与多段 content。
-function responseContent(payload) {
-  const message = payload?.choices?.[0]?.message;
-  if (!message) return "";
-  if (typeof message.content === "string") return message.content;
-  if (Array.isArray(message.content)) {
-    return message.content.map((part) => part.text || part.content || "").join("\n");
-  }
-  return "";
 }
 
 // 中文注释：模型可能包 Markdown 代码块，这里只抽 JSON 对象本体。
@@ -64,16 +36,6 @@ function extractJsonObject(text) {
     if (start >= 0 && end > start) return JSON.parse(unfenced.slice(start, end + 1));
     throw new Error("AI质检返回的不是有效 JSON");
   }
-}
-
-// 中文注释：部分中转站不支持 response_format，遇到这类错误后取消 JSON 格式约束重试。
-function shouldRetryWithoutJsonFormat(status, text) {
-  const source = `${status} ${text}`.toLowerCase();
-  return status >= 400 && (
-    source.includes("response_format")
-    || source.includes("json_object")
-    || source.includes("unsupported")
-  );
 }
 
 // 中文注释：把上传图转成视觉模型可读的 data URL 图片输入。

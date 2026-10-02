@@ -7,19 +7,11 @@ import {
   getIndustrySkillByText,
   getPlatformSkill
 } from "./detail-skills.js";
+import { asText, clamp, readResponse, responseContent, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_DETAIL_ANALYSIS_MODEL = "gpt-5.4-mini";
 const DETAIL_ANALYSIS_TIMEOUT_MS = 120000;
 const MAX_AI_IMAGE_COUNT = 10;
-
-function clamp(value, min, max, fallback) {
-  return Math.max(min, Math.min(max, Number.parseInt(value, 10) || fallback));
-}
-
-function asText(value, fallback = "") {
-  const text = String(value ?? "").trim();
-  return text || fallback;
-}
 
 function detailModel(input) {
   return asText(input.detailAnalysisModel || input.textModel || DEFAULT_DETAIL_ANALYSIS_MODEL, DEFAULT_DETAIL_ANALYSIS_MODEL);
@@ -223,25 +215,6 @@ function buildChatBody(input, files, includeImages, withJsonFormat) {
   return body;
 }
 
-async function readResponse(response) {
-  const text = await response.text();
-  try {
-    return { text, json: JSON.parse(text) };
-  } catch {
-    return { text, json: null };
-  }
-}
-
-function responseContent(payload) {
-  const message = payload?.choices?.[0]?.message;
-  if (!message) return "";
-  if (typeof message.content === "string") return message.content;
-  if (Array.isArray(message.content)) {
-    return message.content.map((part) => part.text || part.content || "").join("\n");
-  }
-  return "";
-}
-
 function extractJsonObject(text) {
   const raw = String(text || "").trim();
   if (!raw) throw new Error("AI 分析模型没有返回内容");
@@ -258,26 +231,6 @@ function extractJsonObject(text) {
     if (start >= 0 && end > start) return JSON.parse(unfenced.slice(start, end + 1));
     throw new Error("AI 分析模型返回的不是有效 JSON");
   }
-}
-
-function shouldRetryWithoutImages(status, text) {
-  const source = `${status} ${text}`.toLowerCase();
-  return status >= 400 && (
-    source.includes("image") ||
-    source.includes("vision") ||
-    source.includes("multimodal") ||
-    source.includes("content part") ||
-    source.includes("image_url")
-  );
-}
-
-function shouldRetryWithoutJsonFormat(status, text) {
-  const source = `${status} ${text}`.toLowerCase();
-  return status >= 400 && (
-    source.includes("response_format") ||
-    source.includes("json_object") ||
-    source.includes("unsupported")
-  );
 }
 
 async function postChatCompletion({ baseUrl, apiKey, input, files, includeImages, withJsonFormat, signal }) {

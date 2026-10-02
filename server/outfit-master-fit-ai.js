@@ -7,15 +7,10 @@ import {
   recognizedFactKeys,
   resolveUpperLayer
 } from "../src/shared/outfit-intent.js";
+import { asText, readResponse, responseContent, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_OUTFIT_MASTER_FIT_MODEL = "gpt-5.4-mini";
 const OUTFIT_MASTER_FIT_TIMEOUT_MS = 60000;
-
-// 中文注释：把任意输入整理成可放进模型请求的短文本，避免 undefined/null 混入提示词。
-function asText(value, fallback = "") {
-  const text = String(value ?? "").trim();
-  return text || fallback;
-}
 
 // 中文注释：压缩模型返回或日志文本，保留有效信息并限制长度，避免提示词过长。
 function compact(value, limit = 1200) {
@@ -30,29 +25,6 @@ function compact(value, limit = 1200) {
 // 中文注释：选择用于图2母版分析的视觉文本模型，默认沿用现有换装智能文本模型。
 function modelName(input) {
   return asText(input.outfitMasterFitModel || input.outfitPoseModel || input.detailAnalysisModel || input.textModel, DEFAULT_OUTFIT_MASTER_FIT_MODEL);
-}
-
-// 中文注释：给上游请求加超时控制，防止分析接口长时间挂起前端。
-// 中文注释：兼容不同中转站的 JSON/纯文本错误返回，便于后续提取错误信息。
-function readResponse(response) {
-  return response.text().then((text) => {
-    try {
-      return { text, json: JSON.parse(text) };
-    } catch {
-      return { text, json: null };
-    }
-  });
-}
-
-// 中文注释：从 chat/completions 响应中提取正文，兼容字符串和多段 content。
-function responseContent(payload) {
-  const message = payload?.choices?.[0]?.message;
-  if (!message) return "";
-  if (typeof message.content === "string") return message.content;
-  if (Array.isArray(message.content)) {
-    return message.content.map((part) => part.text || part.content || "").join("\n");
-  }
-  return "";
 }
 
 // 中文注释：模型有时会包一层 Markdown，这里只抽取 JSON 对象本体。
@@ -72,16 +44,6 @@ function extractJsonObject(text) {
     if (start >= 0 && end > start) return JSON.parse(unfenced.slice(start, end + 1));
     throw new Error("图2母版版型分析模型返回的不是有效 JSON");
   }
-}
-
-// 中文注释：部分中转站不支持 response_format，遇到这类错误后改用普通 JSON 提示重试。
-function shouldRetryWithoutJsonFormat(status, text) {
-  const source = `${status} ${text}`.toLowerCase();
-  return status >= 400 && (
-    source.includes("response_format") ||
-    source.includes("json_object") ||
-    source.includes("unsupported")
-  );
 }
 
 // 中文注释：把上传的图2母版转成 chat/completions 可识别的图片输入。

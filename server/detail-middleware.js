@@ -10,12 +10,9 @@ import {
   getScreenModule,
   uniqueList
 } from "./detail-skills.js";
+import { asText, clamp } from "./core/ai-chat-shared.js";
 
 const DEFAULT_COUNT = BASE_SKILL.screenCountRule.defaultCount;
-
-function clamp(value, min, max, fallback) {
-  return Math.max(min, Math.min(max, Number.parseInt(value, 10) || fallback));
-}
 
 function parseList(value) {
   return String(value || "")
@@ -92,11 +89,6 @@ function aiIndustry(input, productImages, aiPlan) {
   ].join(" ");
   const skill = getIndustrySkillByText(aiText);
   return skill.id !== "generic" ? skill : inferIndustry(input, productImages);
-}
-
-function asText(value, fallback = "") {
-  const text = String(value ?? "").trim();
-  return text || fallback;
 }
 
 function asArray(value) {

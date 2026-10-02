@@ -1,13 +1,9 @@
 import { createAbortSignal } from "./core/http-client.js";
+import { asText, readResponse, responseContent, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_REFERENCE_TEXT_MODEL = "gpt-5.4-mini";
 const REFERENCE_REWRITE_TIMEOUT_MS = 90000;
 const MAX_REFERENCE_AI_IMAGE_COUNT = 8;
-
-function asText(value, fallback = "") {
-  const text = String(value ?? "").trim();
-  return text || fallback;
-}
 
 function clampStrength(value) {
   const parsed = Number.parseInt(value, 10);
@@ -17,26 +13,6 @@ function clampStrength(value) {
 
 function modelName(input) {
   return asText(input.detailAnalysisModel || input.referenceTextModel || input.textModel || DEFAULT_REFERENCE_TEXT_MODEL, DEFAULT_REFERENCE_TEXT_MODEL);
-}
-
-function readResponse(response) {
-  return response.text().then((text) => {
-    try {
-      return { text, json: JSON.parse(text) };
-    } catch {
-      return { text, json: null };
-    }
-  });
-}
-
-function responseContent(payload) {
-  const message = payload?.choices?.[0]?.message;
-  if (!message) return "";
-  if (typeof message.content === "string") return message.content;
-  if (Array.isArray(message.content)) {
-    return message.content.map((part) => part.text || part.content || "").join("\n");
-  }
-  return "";
 }
 
 function extractJsonObject(text) {
@@ -200,26 +176,6 @@ function buildSkillPayload(input, files, includeImages) {
     }
   }
   return content;
-}
-
-function shouldRetryWithoutImages(status, text) {
-  const source = `${status} ${text}`.toLowerCase();
-  return status >= 400 && (
-    source.includes("image") ||
-    source.includes("vision") ||
-    source.includes("multimodal") ||
-    source.includes("content part") ||
-    source.includes("image_url")
-  );
-}
-
-function shouldRetryWithoutJsonFormat(status, text) {
-  const source = `${status} ${text}`.toLowerCase();
-  return status >= 400 && (
-    source.includes("response_format") ||
-    source.includes("json_object") ||
-    source.includes("unsupported")
-  );
 }
 
 function buildChatBody(input, files, includeImages, withJsonFormat) {

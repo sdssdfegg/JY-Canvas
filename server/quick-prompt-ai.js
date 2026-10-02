@@ -1,36 +1,12 @@
 import { createAbortSignal } from "./core/http-client.js";
+import { asText, readResponse, responseContent, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_QUICK_PROMPT_MODEL = "gpt-5.4-mini";
 const QUICK_PROMPT_TIMEOUT_MS = 90000;
 const MAX_QUICK_PROMPT_IMAGE_COUNT = 6;
 
-function asText(value, fallback = "") {
-  const text = String(value ?? "").trim();
-  return text || fallback;
-}
-
 function modelName(input) {
   return asText(input.detailAnalysisModel || input.quickPromptModel || input.textModel || DEFAULT_QUICK_PROMPT_MODEL, DEFAULT_QUICK_PROMPT_MODEL);
-}
-
-function readResponse(response) {
-  return response.text().then((text) => {
-    try {
-      return { text, json: JSON.parse(text) };
-    } catch {
-      return { text, json: null };
-    }
-  });
-}
-
-function responseContent(payload) {
-  const message = payload?.choices?.[0]?.message;
-  if (!message) return "";
-  if (typeof message.content === "string") return message.content;
-  if (Array.isArray(message.content)) {
-    return message.content.map((part) => part.text || part.content || "").join("\n");
-  }
-  return "";
 }
 
 function extractJsonObject(text) {
@@ -186,26 +162,6 @@ function buildSkillPayload(input, files, includeImages) {
     content.push(safeImagePart(file));
   });
   return content;
-}
-
-function shouldRetryWithoutImages(status, text) {
-  const source = `${status} ${text}`.toLowerCase();
-  return status >= 400 && (
-    source.includes("image") ||
-    source.includes("vision") ||
-    source.includes("multimodal") ||
-    source.includes("content part") ||
-    source.includes("image_url")
-  );
-}
-
-function shouldRetryWithoutJsonFormat(status, text) {
-  const source = `${status} ${text}`.toLowerCase();
-  return status >= 400 && (
-    source.includes("response_format") ||
-    source.includes("json_object") ||
-    source.includes("unsupported")
-  );
 }
 
 function buildChatBody(input, files, includeImages, withJsonFormat) {
