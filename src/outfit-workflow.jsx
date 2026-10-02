@@ -40,7 +40,7 @@ import {
 import { canvasToBlob } from "./shared/canvas-blob.js";
 import { fileBaseName } from "./shared/file-name.js";
 import { isVideoTaskCompleted, isVideoTaskFailed, videoResultUrl, videoTaskStatusText } from "./shared/video-task.js";
-import { normalizePromptCategories, normalizePromptCategoryName, normalizePromptPreset } from "./shared/prompt-library.js";
+import { normalizePromptCategories, normalizePromptPreset, usePromptLibrary } from "./shared/prompt-library.js";
 import {
   imageBitmapFromBlob,
   imageBitmapFromFile,
@@ -7221,15 +7221,36 @@ export default function OutfitWorkflow({
     window.setTimeout(() => setApiSaveStatus(""), 1200);
   }
 
-  function applyPromptPreset(preset) {
-    updateSetting("prompt", preset.content);
-    setIsPromptAssistantOpen(false);
-    addEvent("提示词", `已应用「${preset.title}」`);
-  }
-
-  function promptFallbackCategory() {
-    return promptCategories.find((category) => category !== "全部") || "常用";
-  }
+  const {
+    applyPromptPreset,
+    editPromptPreset,
+    addPromptCategory,
+    renamePromptCategory,
+    deletePromptPreset,
+    beginPromptDrag,
+    endPromptDrag,
+    dropPromptOnCategory,
+    dropPromptOnPreset,
+    openNewPromptEditor,
+    updateEditingPrompt,
+    saveEditingPrompt
+  } = usePromptLibrary({
+    categories: promptCategories,
+    setCategories: setPromptCategories,
+    activeCategory: promptCategory,
+    setActiveCategory: setPromptCategory,
+    setPresets: setPromptPresets,
+    editing: editingPrompt,
+    setEditing: setEditingPrompt,
+    draggedId: draggedPromptId,
+    setDraggedId: setDraggedPromptId,
+    setDropCategory: setPromptDropCategory,
+    promptText: settings.prompt.trim(),
+    updateSetting,
+    makePresetId: () => makeId("prompt"),
+    notify: addEvent,
+    onApplyPreset: () => setIsPromptAssistantOpen(false)
+  });
 
   function schedulePromptPresetApply(preset) {
     if (promptClickTimerRef.current) window.clearTimeout(promptClickTimerRef.current);
@@ -7237,50 +7258,6 @@ export default function OutfitWorkflow({
       promptClickTimerRef.current = null;
       applyPromptPreset(preset);
     }, 180);
-  }
-
-  function addPromptCategory() {
-    const input = window.prompt("请输入新分类名称", "");
-    const name = normalizePromptCategoryName(input);
-    if (!name) return;
-    if (name === "全部") {
-      addEvent("提示词分类", "「全部」是系统分类，不能新建同名分类");
-      return;
-    }
-    if (promptCategories.includes(name)) {
-      setPromptCategory(name);
-      addEvent("提示词分类", `「${name}」已存在`);
-      return;
-    }
-    setPromptCategories((current) => normalizePromptCategories([...current, name]));
-    setPromptCategory(name);
-    addEvent("提示词分类", `已新建「${name}」`);
-  }
-
-  function renamePromptCategory(category) {
-    if (!category || category === "全部") return;
-    const input = window.prompt("修改分类名称", category);
-    const nextName = normalizePromptCategoryName(input);
-    if (!nextName || nextName === category) return;
-    if (nextName === "全部") {
-      addEvent("提示词分类", "不能改成系统分类「全部」");
-      return;
-    }
-    if (promptCategories.includes(nextName)) {
-      addEvent("提示词分类", `「${nextName}」已存在`);
-      return;
-    }
-    setPromptCategories((current) => current.map((item) => item === category ? nextName : item));
-    setPromptPresets((current) => current.map((preset) => (
-      preset.category === category ? { ...preset, category: nextName } : preset
-    )));
-    if (promptCategory === category) setPromptCategory(nextName);
-    if (editingPrompt?.category === category) updateEditingPrompt("category", nextName);
-    addEvent("提示词分类", `已改名为「${nextName}」`);
-  }
-
-  function editPromptPreset(preset) {
-    setEditingPrompt({ ...preset });
   }
 
   function renamePromptPresetTitle(preset) {
@@ -7295,104 +7272,6 @@ export default function OutfitWorkflow({
       item.id === preset.id ? { ...item, title } : item
     )));
     addEvent("提示词", `标题已改为「${title}」`);
-  }
-
-  function deletePromptPreset(preset) {
-    setPromptPresets((current) => current.filter((item) => item.id !== preset.id));
-    if (editingPrompt?.id === preset.id) setEditingPrompt(null);
-    addEvent("提示词", "已删除提示词");
-  }
-
-  function beginPromptDrag(event, presetId) {
-    setDraggedPromptId(presetId);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", presetId);
-  }
-
-  function endPromptDrag() {
-    setDraggedPromptId(null);
-    setPromptDropCategory("");
-  }
-
-  function promptIdFromDrag(event) {
-    return draggedPromptId || event.dataTransfer.getData("text/plain");
-  }
-
-  function dropPromptOnCategory(event, category) {
-    const promptId = promptIdFromDrag(event);
-    if (!promptId || category === "全部") return;
-    event.preventDefault();
-    setPromptPresets((current) => current.map((preset) => (
-      preset.id === promptId ? { ...preset, category } : preset
-    )));
-    setPromptDropCategory("");
-    setDraggedPromptId(null);
-    addEvent("提示词", `已移动到「${category}」`);
-  }
-
-  function dropPromptOnPreset(event, targetId) {
-    const promptId = promptIdFromDrag(event);
-    if (!promptId || promptId === targetId) return;
-    event.preventDefault();
-    setPromptPresets((current) => {
-      const next = [...current];
-      const fromIndex = next.findIndex((item) => item.id === promptId);
-      const toIndex = next.findIndex((item) => item.id === targetId);
-      if (fromIndex < 0 || toIndex < 0) return current;
-      const [moved] = next.splice(fromIndex, 1);
-      const adjustedIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
-      next.splice(adjustedIndex, 0, moved);
-      return next;
-    });
-    setDraggedPromptId(null);
-    setPromptDropCategory("");
-    addEvent("提示词", "顺序已更新");
-  }
-
-  function openNewPromptEditor() {
-    const category = promptCategory === "全部" ? promptFallbackCategory() : promptCategory;
-    setEditingPrompt({
-      id: "",
-      title: "",
-      category,
-      content: settings.prompt.trim(),
-      custom: true
-    });
-  }
-
-  function updateEditingPrompt(key, value) {
-    setEditingPrompt((current) => current ? { ...current, [key]: value } : current);
-  }
-
-  function saveEditingPrompt() {
-    if (!editingPrompt) return;
-    const title = editingPrompt.title.trim();
-    const content = editingPrompt.content.trim();
-    const category = promptCategories.includes(editingPrompt.category) && editingPrompt.category !== "全部"
-      ? editingPrompt.category
-      : promptFallbackCategory();
-
-    if (!title || !content) {
-      addEvent("提示词", "分类、标题和内容都需要填写");
-      return;
-    }
-
-    const nextPreset = {
-      id: editingPrompt.id || makeId("prompt"),
-      title,
-      category,
-      content,
-      custom: true
-    };
-    setPromptPresets((current) => {
-      const exists = current.some((item) => item.id === nextPreset.id);
-      return exists
-        ? current.map((item) => item.id === nextPreset.id ? nextPreset : item)
-        : [nextPreset, ...current];
-    });
-    setPromptCategory(category);
-    setEditingPrompt(null);
-    addEvent("提示词", "已保存提示词");
   }
 
   function handlePromptKeyDown(event) {
