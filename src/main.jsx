@@ -100,7 +100,7 @@ import { classifyGenerationError, formatGenerationError } from "./shared/generat
 import { fileSize, formatMs } from "./lib/format/index.js";
 import { canvasToBlob } from "./shared/canvas-blob.js";
 import { fileBaseName } from "./shared/file-name.js";
-import { isVideoTaskCompleted, isVideoTaskFailed, videoResultUrl, videoTaskStatusText } from "./shared/video-task.js";
+import { videoResultUrl } from "./shared/video-task.js";
 import { normalizePromptCategories, normalizePromptPreset, promptFallbackCategory, usePromptLibrary } from "./shared/prompt-library.js";
 import {
   imageBitmapFromBlob,
@@ -136,7 +136,7 @@ import {
   rewriteQuickPrompt,
   rewriteReferencePrompt
 } from "./api/prompts.js";
-import { generateVideo, getVideoStatus } from "./api/videos.js";
+import { generateVideo } from "./api/videos.js";
 import { fetchImageBlob, uploadCanvasAssets } from "./api/assets.js";
 import {
   isAuthErrorMessage,
@@ -165,6 +165,7 @@ import { loadSaveDirectory, openSaveDirectoryModal, commitSaveDirectory, chooseS
 import { incomingCanvasNodes, canvasResultItemsFromNode, canvasPromptForGenerator, canvasImagesForGenerator, canvasImageEntriesForGenerator, splitCanvasBatchEntries, buildCanvasBatchPrompt, screenPointToCanvas, canvasCenterFromRect } from "./features/canvas/canvas-graph.js";
 import { createCanvasActions, createCanvasInteractions } from "./features/canvas/canvas-actions.js";
 import { createQuickResultReplace } from "./features/result-queue/quick-result-replace.js";
+import { createVideoComposer } from "./features/video/video-composer.js";
 
 const STORAGE_PREFIX = import.meta.env.VITE_JINGYIN_STORAGE_PREFIX || "jingyin-internal";
 const STORAGE_KEY = `${STORAGE_PREFIX}-settings-v3`;
@@ -3459,106 +3460,31 @@ function App() {
     });
   }
 
-  function updateVideoSetting(key, value) {
-    setVideoSettings((current) => {
-      if (key === "model") {
-        const model = videoModels.find((item) => item.value === value) || activeVideoModel || videoModels[0] || {};
-        return normalizeVideoSettingValue({ ...current, model: value }, model);
-      }
-      if (key === "duration") {
-        return { ...current, duration: Number.parseInt(value, 10) || videoDefaults.duration };
-      }
-      if (key === "outputAudio") {
-        return { ...current, outputAudio: Boolean(value) };
-      }
-      return { ...current, [key]: value };
-    });
-  }
-
-  function acceptVideoReferenceFile(fileList) {
-    const picked = imageFilesFromList(fileList);
-    if (picked.length === 0) return false;
-    const file = picked[0];
-    if (file.size > VIDEO_REFERENCE_MAX_BYTES) {
-      addEvent("视频参考图", "参考图超过 10MB，请先压缩后再上传");
-      return false;
-    }
-    setVideoReferenceFile(file);
-    addEvent("视频参考图", `已添加 ${file.name}`);
-    return true;
-  }
-
-  function onPickVideoReference(event) {
-    acceptVideoReferenceFile(event.target.files);
-    event.target.value = "";
-  }
-
-  function onVideoComposerDragOver(event) {
-    if (!isReferenceDropData(event.dataTransfer)) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
-    setIsComposerDragging(true);
-  }
-
-  function onVideoComposerDrop(event) {
-    event.preventDefault();
-    setIsComposerDragging(false);
-    void imageFilesFromReferenceDrop(event.dataTransfer)
-      .then((droppedFiles) => acceptVideoReferenceFile(droppedFiles))
-      .catch((err) => addEvent("视频参考图失败", err instanceof Error ? err.message : String(err)));
-  }
-
-  function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  async function videoReferencePayload() {
-    const url = String(videoSettings.imageUrl || "").trim();
-    if (url) return url;
-    if (!videoReferenceFile) return "";
-    return dataUrlFromBlob(videoReferenceFile, "长图编码失败");
-  }
-
-  async function pollVideoUntilFinished(initialTask, requestId, runSettings, apiKey, startedAt) {
-    let task = initialTask || {};
-    for (let attempt = 0; attempt < VIDEO_STATUS_MAX_POLLS; attempt += 1) {
-      if (isVideoTaskCompleted(task)) return task;
-      if (isVideoTaskFailed(task)) {
-        throw new Error(task.error?.message || task.error || "视频生成失败");
-      }
-      setVideoTasks((current) => current.map((item) => (
-        item.id === requestId
-          ? { ...item, statusText: videoTaskStatusText(task), progress: task.progress, upstreamTaskId: task.taskId || item.upstreamTaskId }
-          : item
-      )));
-      await sleep(VIDEO_STATUS_POLL_INTERVAL_MS);
-      const previousTaskId = task.taskId || task.id;
-      const statusPayload = await getVideoStatus({
-        apiKey,
-        taskId: previousTaskId
-      });
-      const nextTask = statusPayload.task || {};
-      task = {
-        ...nextTask,
-        taskId: nextTask.taskId || nextTask.id || previousTaskId,
-        id: nextTask.id || nextTask.taskId || previousTaskId
-      };
-      setVideoTasks((current) => current.map((item) => (
-        item.id === requestId
-          ? {
-              ...item,
-              statusText: videoTaskStatusText(task),
-              progress: task.progress,
-              upstreamTaskId: task.taskId || item.upstreamTaskId,
-              elapsedMs: Date.now() - startedAt,
-              modelLabel: runSettings.modelLabel
-            }
-          : item
-      )));
-    }
-    throw new Error("视频生成等待超时，请稍后到上游任务记录中查看。");
-  }
-
+  const {
+    updateVideoSetting,
+    onPickVideoReference,
+    onVideoComposerDragOver,
+    onVideoComposerDrop,
+    videoReferencePayload,
+    pollVideoUntilFinished
+  } = createVideoComposer({
+    videoSettings,
+    setVideoSettings,
+    videoModels,
+    activeVideoModel,
+    videoDefaults,
+    normalizeVideoSettingValue,
+    VIDEO_REFERENCE_MAX_BYTES,
+    addEvent,
+    videoReferenceFile,
+    setVideoReferenceFile,
+    isReferenceDropData,
+    setIsComposerDragging,
+    imageFilesFromReferenceDrop,
+    setVideoTasks,
+    VIDEO_STATUS_MAX_POLLS,
+    VIDEO_STATUS_POLL_INTERVAL_MS
+  });
   async function generateVideoFromComposer() {
     const model = activeVideoModel || videoModels[0];
     const modelLabel = model?.label || videoSettings.model || "Seedance";
