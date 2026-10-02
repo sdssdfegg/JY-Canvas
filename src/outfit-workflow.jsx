@@ -44,6 +44,7 @@ import { normalizePromptCategories, normalizePromptPreset, usePromptLibrary } fr
 import {
   imageBitmapFromBlob,
   imageBitmapFromFile,
+  imageExtension,
   imageFilesFromClipboard,
   imageFilesFromList,
   isImageFile
@@ -2610,16 +2611,9 @@ function taskReferencePreviewItems(task) {
   ].filter((reference) => reference.name || reference.url || reference.item);
 }
 
-function imageExtensionFromMime(type) {
-  if (type?.includes("jpeg")) return "jpg";
-  if (type?.includes("webp")) return "webp";
-  if (type?.includes("gif")) return "gif";
-  return "png";
-}
-
 function fileFromBlob(blob, name, fallbackMimeType = "image/png") {
   const mimeType = blob?.type || fallbackMimeType;
-  const extension = imageExtensionFromMime(mimeType);
+  const extension = imageExtension(mimeType);
   return new File([blob], `${fileBaseName(name || "image")}.${extension}`, {
     type: mimeType,
     lastModified: Date.now()
@@ -2628,7 +2622,7 @@ function fileFromBlob(blob, name, fallbackMimeType = "image/png") {
 
 async function imageFileFromDropUrl(url, name = `drag-${Date.now()}`) {
   const blob = await fetchImageBlob(url, "图片读取失败");
-  return new File([blob], `${String(name || "drag-image").replace(/\.[^.]+$/, "")}.${imageExtensionFromMime(blob.type)}`, {
+  return new File([blob], `${String(name || "drag-image").replace(/\.[^.]+$/, "")}.${imageExtension(blob.type)}`, {
     type: blob.type || "image/png",
     lastModified: Date.now()
   });
@@ -3041,7 +3035,7 @@ function resizeMimeForFormat(format) {
 }
 
 function fileNameWithImageExtension(name, mimeType) {
-  return `${fileBaseName(name || "image")}.${imageExtensionFromMime(mimeType)}`;
+  return `${fileBaseName(name || "image")}.${imageExtension(mimeType)}`;
 }
 
 async function canvasToFile(canvas, name, type = "image/jpeg", quality = 0.92, dpi = 72) {
@@ -5843,8 +5837,6 @@ function BatchResizePanel({
   );
 }
 
-
-
 const QUICK_VIDEO_DEFAULTS = {
   model: "seedance-2.0",
   prompt: "",
@@ -8539,7 +8531,7 @@ function buildTasks(countOverride = plannedGenerationCount) {
     try {
       const resultBlob = await blobFromOutfitImage(resultImage);
       const resultType = resultBlob.type || resultImage?.mimeType || "image/png";
-      const resultFile = new File([resultBlob], `result_${task.order}.${imageExtensionFromMime(resultType)}`, {
+      const resultFile = new File([resultBlob], `result_${task.order}.${imageExtension(resultType)}`, {
         type: resultType,
         lastModified: Date.now()
       });
