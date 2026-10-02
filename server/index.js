@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 // 图片地址判定与前端共用同一份（发布时 esbuild 会把 src/shared 内联进 server bundle）。
 // 注意：这只管"图片回传"；生图 API 仍然只允许官方中转，见 PRIMARY_CHANNEL_API_BASE_URL。
@@ -31,33 +31,21 @@ import { validateRetouchIntent } from "../src/shared/retouch-intent.js";
 import { createOutfitMasterFitSpec } from "./outfit-master-fit-ai.js";
 import { createOutfitQualityCheck } from "./outfit-quality-ai.js";
 import { createOutfitPoseAnchor } from "./outfit-pose-ai.js";
-import {
-  resultDir,
-  rootDir
-} from "./core/app-paths.js";
-import {
-  getSaveDirectory,
-  setSaveDirectory
-} from "./core/app-settings.js";
+import { rootDir } from "./core/app-paths.js";
+
 import { gatewayCompressionMiddleware } from "./core/http-compression.js";
-import {
-  imageExtensionFromType,
-  mimeTypeFromFile
-} from "./core/file-naming.js";
+
 import {
   downloadExternalImageWithFallback,
   parseProxyTarget,
   streamExternalImageProxy
 } from "./core/image-proxy.js";
 import { createAbortSignal, readTextSafely } from "./core/http-client.js";
-import { streamLocalImageFile } from "./core/local-image-stream.js";
+
 import {
   archiveReferenceAssets,
   buildHistoryItems,
   persistGeneratedItemsInBackground,
-  sanitizeSubfolderName,
-  writeJingyinNumberedImage,
-  writeProcessedImage
 } from "./core/asset-persist.js";
 import {
   imageFailureMessage,
@@ -77,14 +65,9 @@ import {
   publicVideoErrorMessage,
   publicVideoTaskPayload
 } from "./core/video-error-policy.js";
-import {
-  outfitResultPath,
-  outfitResultUrl,
-  scheduleResultCacheCleanup
-} from "./core/result-cache.js";
+
 import { cacheOutfitGeneratedImageForDisplay, archiveOutfitGeneratedImageInBackground } from "./core/outfit-archive.js";
-import { itemWithArchivedImage } from "./core/history-store.js";
-import { imageBufferFromPayload } from "./core/image-payload.js";
+
 import { createAppBootstrap, sendEmbeddedStaticAsset } from "./core/app-bootstrap.js";
 const app = express();
 const { listenOnPort } = createAppBootstrap(app);
@@ -94,15 +77,13 @@ import {
   IMAGE_CONCURRENCY_LIMIT,
   IMAGE_PROXY_TIMEOUT_MS,
   PORT,
-  RESULT_CACHE_CONTROL,
-  RESULT_CACHE_POST_WRITE_CLEANUP_DELAY_MS,
   RESULT_DISPLAY_CACHE_BLOCKING_TIMEOUT_MS,
-  VIDEO_BILLING_GATEWAY_REQUIRED
+  VIDEO_BILLING_GATEWAY_REQUIRED,
 } from "./core/runtime-config.js";
 import { acquireImageSlot, imageSlotWeight, imageQueueSnapshot } from "./core/image-concurrency.js";
 import { generationRequestTraceMiddleware, localUploadParseMs } from "./core/generation-trace.js";
 import { prepareImageBillingForRequest, finalizeBillingInBackground } from "./core/billing-attempts.js";
-import { compactLogMessage, sanitizeFilePart } from "./core/format-utils.js";
+import { compactLogMessage } from "./core/format-utils.js";
 import { logProcessFault, writeAssetLog, writeGenerationLog } from "./core/generation-logger.js";
 import {
   channelBaseCandidates,
@@ -124,15 +105,14 @@ import {
   imageUrlForCandidate,
   imageHeadersForCandidate
 } from "./core/image-route-candidates.js";
-import { openDirectory, pickDirectory } from "./core/directory-picker.js";
+
 import {
   IMAGE_UPLOAD_PARSE_CEILING,
   ensureFileBuffer,
   imageForwardUpload,
-  largeImageUpload,
   removeUploadedFiles,
   upload,
-  wrapOutfitUpload
+  wrapOutfitUpload,
 } from "./core/uploads.js";
 import { outfitUploadFileGroups } from "./core/outfit-upload-groups.js";
 import { registerSystemRoutes } from "./routes/system.routes.js";
@@ -141,14 +121,11 @@ import { registerPromptsRoutes } from "./routes/prompts.routes.js";
 import { registerHistoryRoutes } from "./routes/history.routes.js";
 import { registerStorageRoutes } from "./routes/storage.routes.js";
 import { registerAssetsRoutes } from "./routes/assets.routes.js";
+import { registerSaveRoutes } from "./routes/save.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
 app.use(generationRequestTraceMiddleware);
-
-
-
-
 
 process.on("unhandledRejection", (reason) => {
   logProcessFault("process-unhandled-rejection", reason);
@@ -157,13 +134,6 @@ process.on("unhandledRejection", (reason) => {
 process.on("uncaughtException", (error) => {
   logProcessFault("process-uncaught-exception", error);
 });
-
-
-
-
-
-
-
 
 /**
  * 图片下载/代理允许的目标主机。
@@ -178,9 +148,6 @@ process.on("uncaughtException", (error) => {
  * 现在这里只挡两件事：非 https、以及本地/内网主机（SSRF）。
  * 判定与前端共用同一份实现（src/shared/image-hosts.js），发布时由 esbuild 内联进 bundle。
  */
-
-
-
 
 registerSystemRoutes(app);
 
@@ -582,49 +549,7 @@ registerStorageRoutes(app);
 
 registerAssetsRoutes(app);
 
-app.get("/api/save-directory", async (_req, res) => {
-  const directory = await setSaveDirectory(await getSaveDirectory());
-  res.json({ ok: true, directory });
-});
-
-app.post("/api/save-directory", async (req, res) => {
-  try {
-    const directory = await setSaveDirectory(req.body?.directory);
-    res.json({ ok: true, directory });
-  } catch (error) {
-    res.status(400).json({
-      ok: false,
-      message: error instanceof Error ? error.message : "保存目录设置失败"
-    });
-  }
-});
-
-app.post("/api/pick-directory", async (req, res) => {
-  try {
-    const directory = await pickDirectory(req.body?.directory);
-    if (!directory) {
-      return res.json({ ok: true, cancelled: true, directory: "" });
-    }
-    res.json({ ok: true, cancelled: false, directory });
-  } catch (error) {
-    res.status(400).json({
-      ok: false,
-      message: error instanceof Error ? error.message : "目录选择失败"
-    });
-  }
-});
-
-app.post("/api/open-save-directory", async (req, res) => {
-  try {
-    const directory = await openDirectory(req.body?.directory || await getSaveDirectory());
-    res.json({ ok: true, directory });
-  } catch (error) {
-    res.status(400).json({
-      ok: false,
-      message: error instanceof Error ? error.message : "打开保存目录失败"
-    });
-  }
-});
+registerSaveRoutes(app);
 
 app.post("/api/detail-prompts", upload.fields([
   { name: "productImage", maxCount: 6 },
@@ -697,99 +622,6 @@ app.post("/api/detail-prompts", upload.fields([
       ok: false,
       message: error instanceof Error ? error.message : "详情提示词生成失败"
     });
-  }
-});
-
-app.post("/api/save-image", async (req, res) => {
-  try {
-    const item = await itemWithArchivedImage(req.body?.item || req.body);
-    const directory = await setSaveDirectory(req.body?.directory || await getSaveDirectory());
-    const { buffer, mimeType, sourceUrl } = await imageBufferFromPayload(item.image);
-    const { filename, target } = await writeJingyinNumberedImage(
-      directory,
-      buffer,
-      imageExtensionFromType(mimeType, sourceUrl)
-    );
-    res.json({ ok: true, directory, filename, path: target, bytes: buffer.length });
-  } catch (error) {
-    res.status(400).json({
-      ok: false,
-      message: error instanceof Error ? error.message : "保存图片失败"
-    });
-  }
-});
-
-app.post("/api/save-processed-image", largeImageUpload.single("image"), async (req, res) => {
-  try {
-    if (!req.file?.buffer?.length) {
-      return res.status(400).json({ ok: false, message: "缺少整理后的图片文件" });
-    }
-
-    const directory = await setSaveDirectory(req.body?.directory || await getSaveDirectory());
-    const hasSubfolder = Object.prototype.hasOwnProperty.call(req.body || {}, "subfolder");
-    const subfolder = hasSubfolder ? req.body.subfolder : "裁剪";
-    const { filename, target } = await writeProcessedImage(
-      directory,
-      req.file.buffer,
-      imageExtensionFromType(req.file.mimetype, req.file.originalname),
-      subfolder
-    );
-
-    res.json({
-      ok: true,
-      directory,
-      cropDirectory: String(subfolder ?? "").trim() ? path.join(directory, sanitizeSubfolderName(subfolder)) : directory,
-      filename,
-      path: target,
-      bytes: req.file.size
-    });
-  } catch (error) {
-    res.status(400).json({
-      ok: false,
-      message: error instanceof Error ? error.message : "保存整理后图片失败"
-    });
-  }
-});
-
-app.post("/api/cache-result-image", largeImageUpload.single("image"), async (req, res) => {
-  try {
-    if (!req.file?.buffer?.length) {
-      return res.status(400).json({ ok: false, message: "缺少结果图片文件" });
-    }
-
-    const safeTaskId = sanitizeFilePart(req.body?.taskId || "task");
-    const ext = imageExtensionFromType(req.file.mimetype, req.file.originalname);
-    const filename = `HZ-${new Date().getDate()}-${safeTaskId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
-    const target = outfitResultPath(filename);
-    await mkdir(resultDir, { recursive: true });
-    await writeFile(target, req.file.buffer, { flag: "wx" });
-    scheduleResultCacheCleanup("post-result-write", RESULT_CACHE_POST_WRITE_CLEANUP_DELAY_MS);
-    res.json({
-      ok: true,
-      filename,
-      localUrl: outfitResultUrl(filename),
-      bytes: req.file.size,
-      mimeType: req.file.mimetype || mimeTypeFromFile(filename)
-    });
-  } catch (error) {
-    res.status(400).json({
-      ok: false,
-      message: error instanceof Error ? error.message : "缓存结果图片失败"
-    });
-  }
-});
-
-app.get("/api/result/:filename", async (req, res) => {
-  try {
-    const filename = path.basename(decodeURIComponent(req.params.filename || ""));
-    const file = outfitResultPath(filename);
-    if (!existsSync(file)) return res.status(404).end();
-    await streamLocalImageFile(req, res, file, {
-      contentType: mimeTypeFromFile(filename),
-      cacheControl: RESULT_CACHE_CONTROL
-    });
-  } catch {
-    res.status(404).end();
   }
 });
 
