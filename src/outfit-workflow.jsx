@@ -100,6 +100,7 @@ import {
   endCropDrag,
   moveCropDrag
 } from "./features/local-edit/crop-drag.js";
+import { LocalEditBrushTools } from "./features/local-edit/LocalEditBrushTools.jsx";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
   FACT_UNRECOGNIZED,
@@ -5335,60 +5336,19 @@ function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, on
               </button>
             ))}
           </div>
-          {isMaskMode ? (
-            <div className="quickLocalBrushTools">
-              <button
-                className={maskTool === "brush" ? "active" : ""}
-                type="button"
-                onClick={() => setMaskTool("brush")}
-                title="白笔添加"
-              >
-                <span className="quickLocalBrushSwatch white" />
-                <span>白笔</span>
-              </button>
-              <button
-                className={maskTool === "eraser" ? "active" : ""}
-                type="button"
-                onClick={() => setMaskTool("eraser")}
-                title="黑笔擦除"
-              >
-                <span className="quickLocalBrushSwatch black" />
-                <span>黑笔</span>
-              </button>
-              <label>
-                <span>笔刷 {brushSize}</span>
-                <input
-                  type="range"
-                  min="8"
-                  max="160"
-                  value={brushSize}
-                  onChange={(event) => setBrushSize(clampLocalEditBrushSize(event.target.value))}
-                />
-              </label>
-              <label>
-                <span>透明度 {maskOpacity}%</span>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  value={maskOpacity}
-                  onChange={(event) => setMaskOpacity(clampLocalEditMaskOpacity(event.target.value))}
-                />
-              </label>
-              <button type="button" onClick={clearMask} disabled={!maskPainted}>清空</button>
-            </div>
-          ) : (
-            <label>
-              <span>区域大小</span>
-              <input
-                type="range"
-                min="12"
-                max="100"
-                value={Math.max(12, Math.min(100, cropPercent))}
-                onChange={(event) => changeCropScale(event, cropDragCtx)}
-              />
-            </label>
-          )}
+          <LocalEditBrushTools
+            isMaskMode={isMaskMode}
+            maskTool={maskTool}
+            setMaskTool={setMaskTool}
+            brushSize={brushSize}
+            setBrushSize={setBrushSize}
+            maskOpacity={maskOpacity}
+            setMaskOpacity={setMaskOpacity}
+            clearMask={clearMask}
+            maskPainted={maskPainted}
+            cropPercent={cropPercent}
+            onCropScaleChange={(event) => changeCropScale(event, cropDragCtx)}
+          />
           {cropRect && <small>{isMaskMode ? "上下文 " : ""}{Math.round(cropRect.width)} × {Math.round(cropRect.height)} px</small>}
         </div>
         <footer>
