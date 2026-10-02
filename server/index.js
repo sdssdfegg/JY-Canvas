@@ -86,14 +86,7 @@ import {
 } from "./core/result-cache.js";
 import { cacheOutfitGeneratedImageForDisplay, archiveOutfitGeneratedImageInBackground } from "./core/outfit-archive.js";
 import { canvasAssetPath, historyImagePath, referenceAssetPath } from "./core/asset-urls.js";
-import {
-  annotateHistoryIntegrity,
-  appendHistoryResults,
-  ensureHistoryRepairBackup,
-  itemWithArchivedImage,
-  readHistoryResults,
-  writeHistoryResults
-} from "./core/history-store.js";
+import { itemWithArchivedImage, writeHistoryResults } from "./core/history-store.js";
 import { imageBufferFromPayload } from "./core/image-payload.js";
 import { STORAGE_TARGETS, STORAGE_IMAGE_PATTERN, storageUsageSnapshot } from "./core/storage-usage.js";
 import { createAppBootstrap, sendEmbeddedStaticAsset } from "./core/app-bootstrap.js";
@@ -149,6 +142,7 @@ import { outfitUploadFileGroups } from "./core/outfit-upload-groups.js";
 import { registerSystemRoutes } from "./routes/system.routes.js";
 import { registerDebugRoutes } from "./routes/debug.routes.js";
 import { registerPromptsRoutes } from "./routes/prompts.routes.js";
+import { registerHistoryRoutes } from "./routes/history.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -584,81 +578,7 @@ app.post("/api/videos/status", async (req, res) => {
 
 registerPromptsRoutes(app);
 
-app.get("/api/history", async (_req, res) => {
-  const stored = await readHistoryResults();
-  // P1 缺图自愈：读历史时顺带核对"归档文件是否还在"，把失效条目标记出来并落盘一次。
-  // 只加标记、不删条目；标记过的条目不会重复写盘。
-  const annotated = annotateHistoryIntegrity(stored);
-  if (annotated.changed) {
-    await ensureHistoryRepairBackup();
-    await writeHistoryResults(annotated.items);
-  }
-  res.json({
-    ok: true,
-    results: annotated.items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
-    integrity: {
-      checked: annotated.items.length,
-      missing: annotated.missingIds.length,
-      missingIds: annotated.missingIds
-    }
-  });
-});
-
-/**
- * POST /api/history/repair —— 显式修复失效历史引用。
- *
- * 默认只做"标记"，**不会删除任何记录**（`dropMissing` 必须由用户显式传入 true 才清理）。
- * 第一次修复前会留一份 data/history.pre-repair-backup.json，保证可回退。
- */
-app.post("/api/history/repair", async (req, res) => {
-  const dropMissing = req.body?.dropMissing === true;
-  const stored = await readHistoryResults();
-  const annotated = annotateHistoryIntegrity(stored);
-  const backupFile = annotated.changed || dropMissing ? await ensureHistoryRepairBackup() : "";
-  let kept = annotated.items;
-  let dropped = 0;
-  if (dropMissing && annotated.missingIds.length > 0) {
-    const missingSet = new Set(annotated.missingIds);
-    kept = annotated.items.filter((item) => !missingSet.has(item.id));
-    dropped = annotated.items.length - kept.length;
-  }
-  if (annotated.changed || dropped > 0) {
-    await writeHistoryResults(kept, { replaceBackup: kept.length === 0 });
-  }
-  res.json({
-    ok: true,
-    checked: annotated.items.length,
-    missing: annotated.missingIds.length,
-    missingIds: annotated.missingIds,
-    marked: annotated.changed ? annotated.missingIds.length : 0,
-    dropped,
-    remaining: kept.length,
-    backupFile
-  });
-});
-
-app.post("/api/history", async (req, res) => {
-  const incoming = Array.isArray(req.body?.items) ? req.body.items : [];
-  if (incoming.length === 0) {
-    return res.json({ ok: true, count: 0 });
-  }
-
-  const results = await appendHistoryResults(incoming);
-  res.json({ ok: true, count: incoming.length, total: results.length, results });
-});
-
-app.delete("/api/history", async (req, res) => {
-  const current = await readHistoryResults();
-  if (req.body?.clear) {
-    await writeHistoryResults([], { replaceBackup: true });
-    return res.json({ ok: true, total: 0 });
-  }
-
-  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
-  const results = current.filter((item) => !ids.includes(item.id));
-  await writeHistoryResults(results, { replaceBackup: results.length === 0 });
-  res.json({ ok: true, total: results.length });
-});
+registerHistoryRoutes(app);
 
 app.get("/api/storage/usage", async (_req, res) => {
   try {
