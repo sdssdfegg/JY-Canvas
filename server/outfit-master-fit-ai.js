@@ -1,4 +1,4 @@
-import { createAbortSignal } from "./core/http-client.js";
+import { createAbortSignal, readTextSafely } from "./core/http-client.js";
 import {
   FACT_UNRECOGNIZED,
   OUTFIT_PART_OPTIONS,
@@ -7,7 +7,7 @@ import {
   recognizedFactKeys,
   resolveUpperLayer
 } from "../src/shared/outfit-intent.js";
-import { asText, readResponse, responseContent, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
+import { asText, responseContent, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_OUTFIT_MASTER_FIT_MODEL = "gpt-5.4-mini";
 const OUTFIT_MASTER_FIT_TIMEOUT_MS = 60000;
@@ -313,7 +313,7 @@ async function postChatCompletion({ baseUrl, apiKey, input, clothingFile, withJs
     body: JSON.stringify(buildChatBody(input, clothingFile, withJsonFormat)),
     signal
   });
-  const parsed = await readResponse(response);
+  const parsed = await readTextSafely(response);
   return { response, parsed };
 }
 

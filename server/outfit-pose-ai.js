@@ -1,5 +1,5 @@
-import { createAbortSignal } from "./core/http-client.js";
-import { asText, readResponse, responseContent, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
+import { createAbortSignal, readTextSafely } from "./core/http-client.js";
+import { asText, responseContent, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_OUTFIT_POSE_MODEL = "gpt-5.4-mini";
 const OUTFIT_POSE_TIMEOUT_MS = 45000;
@@ -175,7 +175,7 @@ async function postChatCompletion({ baseUrl, apiKey, input, modelFile, includeIm
     body: JSON.stringify(buildChatBody(input, modelFile, includeImage, withJsonFormat)),
     signal
   });
-  const parsed = await readResponse(response);
+  const parsed = await readTextSafely(response);
   return { response, parsed };
 }
 

@@ -1,4 +1,4 @@
-import { createAbortSignal } from "./core/http-client.js";
+import { createAbortSignal, readTextSafely } from "./core/http-client.js";
 import {
   BASE_SKILL,
   INDUSTRY_SKILLS,
@@ -7,7 +7,7 @@ import {
   getIndustrySkillByText,
   getPlatformSkill
 } from "./detail-skills.js";
-import { asText, clamp, readResponse, responseContent, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
+import { asText, clamp, responseContent, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_DETAIL_ANALYSIS_MODEL = "gpt-5.4-mini";
 const DETAIL_ANALYSIS_TIMEOUT_MS = 120000;
@@ -244,7 +244,7 @@ async function postChatCompletion({ baseUrl, apiKey, input, files, includeImages
     body: JSON.stringify(buildChatBody(input, files, includeImages, withJsonFormat)),
     signal
   });
-  const parsed = await readResponse(response);
+  const parsed = await readTextSafely(response);
   return { url, response, parsed };
 }
 
