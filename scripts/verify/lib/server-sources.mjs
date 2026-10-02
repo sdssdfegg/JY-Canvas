@@ -7,6 +7,14 @@
 //
 // 纳入范围：
 //   - server/index.js
+//   - server/app.js        —— V11-RF-220（2026-10-02）从 index.js 拆出的**装配层**，
+//       是 index.js 的"另一半"，不是新写的模块。补录它的理由必须写清，否则后人会以为是随手加的：
+//       **220 之前，app.js 里的这 552 行代码是包含在 server/index.js 内的，本就在本收集器的扫描范围内；
+//       220 把它们搬进新文件后，若不补录，这 552 行会静默脱离 state-singleton / server-duplication /
+//       routing 等全部门禁**——拆出动作本身反而削弱了护栏，这是 220 引入的真实盲区，故在此补上。
+//       判定口径：凡"从 index.js 搬出去的装配层代码落在哪个文件，哪个文件就要进本清单"。
+//       ⚠️ 未纳入的 server/ 顶层其余 .js（channel-config.js 等历史模块）：它们**从一开始就不在本范围内**，
+//       纳入会改变既有门禁的判定基数（可能新增报红），需要单独评估，本次不做。这里不假装"顶层全纳入"。
 //   - server/core/**/*.js
 //   - server/routes/**/*.js  —— 批次 4（V11-RF-201 起）的新家：从 index.js 抽出的路由模块。
 //       **2026-10-02 前不存在（当时注释写"当前还不存在"），201/202 落地后已存在**，本行随之更新。
@@ -54,6 +62,10 @@ const SERVER_DIR = path.join(ROOT, "server");
 // 排除理由与实测证据见文件头「排除范围」注释块（V11-RF-023）——改这里前先看那段。
 const INCLUDE_DIRS = ["core", "routes", "shared"];
 
+// server/ 顶层的手写入口文件。index.js 与 app.js 是同一份装配层的两半（见头部注释），
+// 两者要么都在、要么都不在；**再拆出新的一半，必须同步加到本数组**，否则那部分代码会脱离门禁。
+const INCLUDE_TOPLEVEL_FILES = ["index.js", "app.js"];
+
 function collectJsIn(dir, out) {
   if (!existsSync(dir)) return; // 目录不存在：安全跳过
   let entries;
@@ -76,8 +88,10 @@ function collectJsIn(dir, out) {
  *  任何纳入目录不存在都安全跳过，不会抛异常。 */
 export function listServerSourceFiles() {
   const out = [];
-  const indexJs = path.join(SERVER_DIR, "index.js");
-  if (existsSync(indexJs)) out.push(indexJs);
+  for (const name of INCLUDE_TOPLEVEL_FILES) {
+    const file = path.join(SERVER_DIR, name);
+    if (existsSync(file)) out.push(file);
+  }
   for (const dir of INCLUDE_DIRS) {
     collectJsIn(path.join(SERVER_DIR, dir), out);
   }
