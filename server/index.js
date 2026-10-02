@@ -33,11 +33,6 @@ import { rootDir } from "./core/app-paths.js";
 
 import { gatewayCompressionMiddleware } from "./core/http-compression.js";
 
-import {
-  downloadExternalImageWithFallback,
-  parseProxyTarget,
-  streamExternalImageProxy
-} from "./core/image-proxy.js";
 import { createAbortSignal, readTextSafely } from "./core/http-client.js";
 
 import {
@@ -72,7 +67,6 @@ const { listenOnPort } = createAppBootstrap(app);
 import {
   IMAGE_CHANNEL_ATTEMPT_TIMEOUT_MS,
   IMAGE_CONCURRENCY_LIMIT,
-  IMAGE_PROXY_TIMEOUT_MS,
   PORT,
   RESULT_DISPLAY_CACHE_BLOCKING_TIMEOUT_MS,
   VIDEO_BILLING_GATEWAY_REQUIRED,
@@ -81,7 +75,7 @@ import { acquireImageSlot, imageSlotWeight, imageQueueSnapshot } from "./core/im
 import { generationRequestTraceMiddleware, localUploadParseMs } from "./core/generation-trace.js";
 import { prepareImageBillingForRequest, finalizeBillingInBackground } from "./core/billing-attempts.js";
 import { compactLogMessage } from "./core/format-utils.js";
-import { logProcessFault, writeAssetLog, writeGenerationLog } from "./core/generation-logger.js";
+import { logProcessFault, writeGenerationLog } from "./core/generation-logger.js";
 import {
   channelBaseCandidates,
   imageChannelBaseCandidates,
@@ -120,6 +114,7 @@ import { registerAssetsRoutes } from "./routes/assets.routes.js";
 import { registerSaveRoutes } from "./routes/save.routes.js";
 import { registerDetailRoutes } from "./routes/detail.routes.js";
 import { registerOutfitAnalysisRoutes } from "./routes/outfit-analysis.routes.js";
+import { registerImageProxyRoutes } from "./routes/image-proxy.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -1205,60 +1200,7 @@ app.post("/api/generate-outfit", wrapOutfitUpload(imageForwardUpload.fields([
 
 registerOutfitAnalysisRoutes(app);
 
-app.get("/api/image-proxy", async (req, res) => {
-  let target;
-  try {
-    target = parseProxyTarget(req.query.url);
-  } catch (error) {
-    // 非白名单主机：直接回 403，**不发起任何上游请求**（避免无意义的 502 与等待）
-    if (error instanceof Error && error.message === "blocked_image_host") {
-      await writeAssetLog({
-        time: new Date().toISOString(),
-        ok: false,
-        stage: "image-proxy-blocked-host",
-        url: String(req.query.url || "").slice(0, 300),
-        error: "blocked_image_host"
-      }).catch(() => {});
-      return res.status(403).json({ ok: false, message: "blocked_image_host" });
-    }
-    return res.status(400).json({ ok: false, message: "图片地址无效" });
-  }
-  void target;
-
-  try {
-    await streamExternalImageProxy(req, res, req.query.url, IMAGE_PROXY_TIMEOUT_MS);
-    return;
-  } catch (streamError) {
-    if (res.headersSent) return;
-    await writeAssetLog({
-      time: new Date().toISOString(),
-      ok: false,
-      stage: "image-proxy-stream",
-      url: String(req.query.url || "").slice(0, 500),
-      error: streamError instanceof Error ? streamError.message : String(streamError || "")
-    }).catch(() => {});
-  }
-
-  const imageDownload = await downloadExternalImageWithFallback(req.query.url, IMAGE_PROXY_TIMEOUT_MS).catch((error) => ({
-    error
-  }));
-  if (res.headersSent) return;
-  if (!imageDownload.error) {
-    res.status(200);
-    res.setHeader("Content-Type", imageDownload.mimeType || "application/octet-stream");
-    res.setHeader("Cache-Control", "private, max-age=300");
-    res.setHeader("Content-Length", String(imageDownload.buffer.length));
-    res.end(imageDownload.buffer);
-    return;
-  }
-
-  return res.status(502).json({
-    ok: false,
-    message: "图片下载失败，请检查结果图源是否可访问",
-    error: imageDownload.error instanceof Error ? imageDownload.error.message : String(imageDownload.error || ""),
-    rangeError: imageDownload.error?.rangeError instanceof Error ? imageDownload.error.rangeError.message : undefined
-  });
-});
+registerImageProxyRoutes(app);
 
 app.post("/api/images", wrapOutfitUpload(imageForwardUpload.array("image", IMAGE_UPLOAD_PARSE_CEILING)), async (req, res) => {
   const receivedAt = Date.now();
