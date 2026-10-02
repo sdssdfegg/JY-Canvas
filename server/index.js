@@ -27,8 +27,7 @@ import {
 import { buildOutfitPrompt, primaryOutfitGenerationError } from "./outfit-skill.js";
 import { validateOutfitIntent } from "../src/shared/outfit-intent.js";
 import { validateRetouchIntent } from "../src/shared/retouch-intent.js";
-import { createOutfitMasterFitSpec } from "./outfit-master-fit-ai.js";
-import { createOutfitQualityCheck } from "./outfit-quality-ai.js";
+
 import { createOutfitPoseAnchor } from "./outfit-pose-ai.js";
 import { rootDir } from "./core/app-paths.js";
 
@@ -109,7 +108,6 @@ import {
   ensureFileBuffer,
   imageForwardUpload,
   removeUploadedFiles,
-  upload,
   wrapOutfitUpload,
 } from "./core/uploads.js";
 import { outfitUploadFileGroups } from "./core/outfit-upload-groups.js";
@@ -121,6 +119,7 @@ import { registerStorageRoutes } from "./routes/storage.routes.js";
 import { registerAssetsRoutes } from "./routes/assets.routes.js";
 import { registerSaveRoutes } from "./routes/save.routes.js";
 import { registerDetailRoutes } from "./routes/detail.routes.js";
+import { registerOutfitAnalysisRoutes } from "./routes/outfit-analysis.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -1204,172 +1203,7 @@ app.post("/api/generate-outfit", wrapOutfitUpload(imageForwardUpload.fields([
   }
 });
 
-// 中文注释：只分析当前图2上身母版一次，返回可编辑的固定版型规格，不参与图片生成。
-app.post("/api/outfit-master-fit-analysis", upload.single("image"), async (req, res) => {
-  let payload = {};
-  try {
-    payload = req.body?.payload ? JSON.parse(req.body.payload) : {};
-  } catch {
-    return res.status(400).json({ ok: false, message: "母版分析参数解析失败" });
-  }
-
-  const apiKey = resolveApiKey(payload.apiKey);
-  if (!apiKey) {
-    return res.status(401).json({ ok: false, message: "请先在设置里填写 API Key" });
-  }
-  if (!req.file?.buffer?.length) {
-    return res.status(400).json({ ok: false, message: "请先选择图2服装母版" });
-  }
-
-  const receivedAt = Date.now();
-  try {
-    const result = await createOutfitMasterFitSpec({
-      input: payload,
-      clothingFile: req.file,
-      apiKey,
-      baseUrls: channelBaseCandidates()
-    });
-    await writeGenerationLog({
-      time: new Date().toISOString(),
-      ok: true,
-      stage: "outfit-master-fit-analysis",
-      model: result.model,
-      usedBaseUrl: result.usedBaseUrl,
-      mode: result.mode,
-      timing: result.timing,
-      attempts: result.attempts,
-      source: result.source
-    });
-    res.json({
-      ok: true,
-      model: result.model,
-      mode: result.mode,
-      timingMs: Date.now() - receivedAt,
-      source: result.source,
-      // 2026-09-26：只返回结构化服装事实。
-      // 原来的 spec / promptBlock（整段母版提示词）已删除 —— 分析结果必须先转结构化数据，
-      // 再由 src/shared/outfit-intent.js 的唯一编译器按选中部位插进最终提示词，
-      // 不允许再把一整段文本直接拼进生图提示词。
-      facts: result.facts
-    });
-  } catch (error) {
-    const rawMessage = error?.name === "AbortError"
-      ? "图2母版版型分析超时，请稍后重试"
-      : error instanceof Error ? error.message : String(error);
-    const publicPayload = publicImageErrorPayload({
-      requestId: `master_fit_${receivedAt}`,
-      status: error?.name === "AbortError" ? 504 : 502,
-      upstreamMessage: rawMessage,
-      attempts: []
-    });
-    await writeGenerationLog({
-      time: new Date().toISOString(),
-      ok: false,
-      stage: "outfit-master-fit-analysis",
-      timing: { totalMs: Date.now() - receivedAt },
-      error: rawMessage,
-      publicError: publicPayload.message
-    });
-    res.status(publicPayload.status).json({
-      ok: false,
-      error: publicPayload.error,
-      message: publicPayload.message
-    });
-  }
-});
-
-// 中文注释：生成后可选 AI 质检，只标记结果和返修建议，不自动返修，方便先测试质检准确性。
-app.post("/api/outfit-quality-check", upload.fields([
-  { name: "image1", maxCount: 1 },
-  { name: "image2", maxCount: 1 },
-  { name: "result", maxCount: 1 },
-  { name: "reference", maxCount: 6 }
-]), async (req, res) => {
-  let payload = {};
-  try {
-    payload = req.body?.payload ? JSON.parse(req.body.payload) : {};
-  } catch {
-    return res.status(400).json({ ok: false, message: "AI质检参数解析失败" });
-  }
-
-  const apiKey = resolveApiKey(payload.apiKey);
-  if (!apiKey) {
-    return res.status(401).json({ ok: false, message: "请先在设置里填写 API Key" });
-  }
-
-  const files = {
-    image1: req.files?.image1?.[0] || null,
-    image2: req.files?.image2?.[0] || null,
-    result: req.files?.result?.[0] || null,
-    reference: req.files?.reference || []
-  };
-  if (!files.image1?.buffer?.length || !files.image2?.buffer?.length || !files.result?.buffer?.length) {
-    return res.status(400).json({ ok: false, message: "AI质检需要图1、图2和生成结果" });
-  }
-
-  const receivedAt = Date.now();
-  try {
-    const result = await createOutfitQualityCheck({
-      input: payload,
-      files,
-      apiKey,
-      baseUrls: channelBaseCandidates()
-    });
-    await writeGenerationLog({
-      time: new Date().toISOString(),
-      ok: true,
-      stage: "outfit-quality-check",
-      workflowMode: payload.workflowMode || null,
-      pageName: payload.pageName || null,
-      pass: result.pass,
-      score: result.score,
-      model: result.model,
-      usedBaseUrl: result.usedBaseUrl,
-      mode: result.mode,
-      timing: result.timing,
-      attempts: result.attempts
-    });
-    res.json({
-      ok: true,
-      pass: result.pass,
-      score: result.score,
-      summary: result.summary,
-      issues: result.issues,
-      repairPrompt: result.repairPrompt,
-      faceQuality: result.faceQuality,
-      poseMatch: result.poseMatch,
-      outfitMatch: result.outfitMatch,
-      model: result.model,
-      mode: result.mode,
-      timingMs: Date.now() - receivedAt
-    });
-  } catch (error) {
-    const rawMessage = error?.name === "AbortError"
-      ? "AI质检超时，请稍后重试"
-      : error instanceof Error ? error.message : String(error);
-    const publicPayload = publicImageErrorPayload({
-      requestId: `quality_${receivedAt}`,
-      status: error?.name === "AbortError" ? 504 : 502,
-      upstreamMessage: rawMessage,
-      attempts: []
-    });
-    await writeGenerationLog({
-      time: new Date().toISOString(),
-      ok: false,
-      stage: "outfit-quality-check",
-      workflowMode: payload.workflowMode || null,
-      pageName: payload.pageName || null,
-      timing: { totalMs: Date.now() - receivedAt },
-      error: compactLogMessage(rawMessage, 600),
-      publicError: publicPayload.message
-    });
-    res.status(publicPayload.status).json({
-      ok: false,
-      error: publicPayload.error,
-      message: publicPayload.message
-    });
-  }
-});
+registerOutfitAnalysisRoutes(app);
 
 app.get("/api/image-proxy", async (req, res) => {
   let target;
