@@ -6,7 +6,7 @@ V11 当前没有做本地账号密码登录；真正的账号、渠道商、余�
 
 | 文件 | 作用 |
 | --- | --- |
-| `api-key.js` | 清洗用户输入的 KEY，识别 401/KEY 无效类错误 |
+| `api-key.js` | 清洗用户输入的 KEY，识别 401/KEY 无效类错误，以及设置弹窗的「连接测试」（`testApiConnection`） |
 | `src/main.jsx` | 主画板设置弹窗，目前仍渲染 KEY 输入和皮肤设置 |
 | `src/outfit-workflow.jsx` | 批量画板独立运行时的设置弹窗；嵌入主画板时用主画板 KEY |
 | `src/shared/ui/README.md` | 后续 `SettingsModal.jsx` 的共享组件规划 |

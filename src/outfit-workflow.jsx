@@ -132,7 +132,10 @@ import { analyzeOutfitMasterFit, checkOutfitQuality, generateOutfit } from "./ap
 import { displayImageRequestUrl, fetchImageBlob } from "./api/assets.js";
 import { emitClientDiagnosticEvent } from "./api/client.js";
 import { generateVideo, getVideoStatus } from "./api/videos.js";
-import { normalizeApiKeyInput } from "./features/auth/api-key.js";
+import {
+  normalizeApiKeyInput,
+  testApiConnection
+} from "./features/auth/api-key.js";
 import {
   RETOUCH_AUTO_PROMPT_CHAR_LIMIT,
   RETOUCH_FIT_OPTIONS,
@@ -7145,29 +7148,18 @@ export default function OutfitWorkflow({
    * 连接测试：对齐 3.0 `/api/providers/test-connection` 的做法 —— 只探测 /v1/models。
    * 不发提示词、不上传图片、不调用生图接口，所以既不会出图也不会扣费。
    */
-  async function runConnectionTest() {
-    setIsConnectionTesting(true);
-    setConnectionState("running");
-    setConnectionStatus("正在探测上游模型清单…");
-    try {
-      const result = await testConnection({
-        baseUrl: settings.baseUrl || config.defaultBaseUrl || "",
-        apiKey: settings.apiKey,
-        model: settings.model,
-        channelId: settings.channelId
-      });
-      setConnectionState(result.ok ? "ok" : "error");
-      setConnectionStatus(formatConnectionResult(result));
-      addEvent(result.ok ? "连接测试" : "连接测试失败", result.message || "");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setConnectionState("error");
-      setConnectionStatus(message || "连接测试失败");
-      addEvent("连接测试失败", message || "请求失败");
-    } finally {
-      setIsConnectionTesting(false);
-    }
-  }
+  // 连通性测试的实现在 src/features/auth/api-key.js（两侧同一份，23 行逐字节一致）。
+  // 这里只保留闭包绑定壳：每次 render 重建，捕获最新的 settings / config 与各 setter。
+  const runConnectionTest = () => testApiConnection({
+    setIsConnectionTesting,
+    setConnectionState,
+    setConnectionStatus,
+    settings,
+    config,
+    testConnection,
+    formatConnectionResult,
+    addEvent
+  });
 
   function openSettings() {
     if (embeddedMode) {
