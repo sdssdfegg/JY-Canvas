@@ -136,6 +136,8 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 | **D** ⏳ | **V11-RF-054** | 🆕 PL / RQ 两簇抽取方案（**只读设计**，为新建文件授权备料） | 🟢 **待派发**（**零冲突，可与 RF-052 并行**） | 中（只读） | 无 |
 | **V** ⏳ | **V11-RF-055** | 🆕 前端「块级克隆」advisory 门禁档（常驻化 D-2 测量，**只碰 `scripts/`**） | 🟢 **待派发**（**与 src/ 窗口零重叠，可并行**） | 中 | 无 |
 | **V** ⏳ | **V11-RF-056** | 🆕 后端 DEF 正则盲区（不认 `export function`）**只读测量**，先测不改判据 | 🟢 **待派发**（**RF-055 之后，同窗口串行**） | 小（只读） | **RF-055 通过** |
+| **D** ⏳ | **V11-RF-058** | 🆕 RQ 最小集 2 块纯函数（预览拖拽，23 行）→ `result-image.js` | 🟢 **待派发** | 小 | **RF-052 通过**（同落点） |
+| **D** ⏳ | **V11-RF-057** | 🆕 PL 簇抽 `usePromptLibrary`（14 块 / 138 行）→ `prompt-library.js`（**0 新文件**） | 🟢 **待派发** | 大 | **RF-058 通过** |
 
 > **派单建议**：**A 批 5 单一次性派给一个执行者**（互不重叠文件，合计上下文远低于 500K）；
 > **B 批两刀串行走**；**C 批两单只读，可与 A/B 交给另一个执行者并行**；D 批等前三个批次收口再开。
@@ -790,7 +792,24 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 - **#35 处置**：先判那 1 行是格式差异还是实质差异 ⇒ 实质差异则**参数化**（两侧各传原值，行为逐字不变）或停手报统筹
 - **验收**：同 RF-052；外加几何数值对照组（越界 / 极小 / 极大 / 非等比）
 
-### 6.9 V11-RF-054 · PL / RQ 两簇抽取方案（**只读设计，为新建文件授权备料**）
+### 6.9 V11-RF-054 · PL / RQ 两簇抽取方案 ✅ **已完成**（只读设计）
+
+**交付结论（统筹采纳）**：两簇**都不需要新建文件** —— PL 落既有 `src/shared/prompt-library.js`（hook 形式），
+RQ 只搬 2 块纯函数落既有 `src/shared/result-image.js` ⇒ **`fileCount` +0，§7.2 的「新建授权」条件自动满足**。
+
+🔴 **统筹口径校准（以本次现场实测为准，旧快照作废）**：
+
+| 簇 | 旧（D-2 `9cfa54b`） | **实测（`e5d003d`，按函数名逐对剥离缩进比对）** | 取哪份 |
+| --- | --- | --- | --- |
+| PL | 9 块 / 160 行 | **14 块 / 138 行**（+2 块顶层改名克隆 ≈ 158 行） | **取实测**（口径更严：行首锚定 + 缩进闭合） |
+| RQ | 14 块 / 218 行 | **12 块 / 149 行**（main 侧）+ 11 对改名克隆 | **取实测** |
+
+> 纪律：**现场实测优先于旧快照**（呼应 §7.2 与缺陷 ⑨e —— 旧快照不可直接排产，这次又应验一次）。
+
+🔴 **统筹纠正一处结论**：交付报告写「PL 与 RF-052/053 零冲突，可并行」——**只对了一半**。
+**落点文件零冲突成立**（`prompt-library.js` vs `result-image.js`），但 PL 要**删改两侧 14 个局部函数定义**
+⇒ **必然碰 `main.jsx` / `outfit-workflow.jsx`** ⇒ 与 RF-052/053 是**同一文件** ⇒ 按 §11.2b 文件锁 **必须串行**。
+⇒ 教训：**判断"能否并行"看的是被编辑的文件，不是落点模块。**
 
 - **任务类型**：【只读设计】｜**标记**：🟢（**与 RF-052 零冲突**：不写任何文件）
 - **背景**：PL 簇 9 块/160 行、RQ 簇 14 块/218 行，全部强闭包依赖（`setPromptPresets` / `setEditingPrompt` /
@@ -830,6 +849,49 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
   ⇒ `server/core/` 里 105 处定义只有 33 处在视野，约 **76% 不在视野**。
 - **动作**：只做只读测量——若把 `export function` 纳入判据，会新增多少命中、分别是哪些族、三类判定是什么。
 - 🔴 **不许改判据、不许动基线**。测量报告交回统筹，由统筹裁决是否另立「扩判据 + 划账」单。
+
+### 6.12 V11-RF-057 · PL 簇抽 `usePromptLibrary`（**授权实施**）
+
+- **任务类型**：【抽 hook】｜**标记**：🔴 串行（碰两巨石，排在 RF-058 之后）
+- **授权**：**不需要 §7.2「新建授权」** —— 0 新文件、`fileCount` +0（落既有 `prompt-library.js`）。
+  但**统筹额外批一条**：允许修改 `src/shared/prompt-library.js` 的头注释
+  （「无 React」→「纯函数 + 1 个无副作用 hook」）——这是该模块纪律的变更，凭本条执行。
+- **形态（统筹采纳交付报告的裁决）**：hook，但**只是返回普通函数的工厂**，
+  🔴 **内部禁止 `useCallback` / `useMemo`** —— 现状这些 handler 每次 render 都重建闭包，
+  返回普通函数才能**行为逐字一致**，同时规避 `exhaustive-deps` 新增 warning（这是 §7.2 条件④「0 warning」的关键）。
+- **导出签名**：见交付报告 `usePromptLibrary({ presets, setPresets, categories, setCategories, activeCategory,
+  setActiveCategory, editing, setEditing, draggedId, setDraggedId, dropCategory, setDropCategory,
+  promptText, makePresetId, notify, onApplyPreset })`，返回 13 个 handler。
+- 🔴 **三条硬要求（违反即改行为）**：
+  1. `makePresetId` **必须注入** —— main `makeResultId()` 产 `result_` 前缀 vs outfit `makeId("prompt")` 产
+     `prompt_` 前缀，**不注入就改了 main 新建预设的 id 前缀**（会污染 localStorage 历史数据）。
+  2. `notify` **必须注入** —— 两侧 `addEvent` 已分叉（`{time,label,detail}` vs `{id,title,detail,time}`），不可共用。
+  3. **main 独有 9 块 / outfit 独有 2 块必须留原地**（main：分类页签拖拽排序 + 删除按钮共 9 个函数；
+     outfit：`renamePromptPresetTitle` / `schedulePromptPresetApply`）
+     ⇒ 塞进 hook 会变成未接线的死代码，**等同给对方补功能**，同 ⑨d `ChannelPicker` 裁决（属业务变更）。
+- ⚠️ **一处放宽需人工确认**：`dropPromptOnPreset` 取 **outfit 版**（多 `setPromptDropCategory("")`）
+  ⇒ main 侧拖放后分类高亮**额外清空**。按 §0.9 原则 1「放宽 > 收窄」认可，但**必须人工冒烟确认无负面体感**。
+- **验收**：ESLint `no-unused-vars` 实测点名清理孤儿 import（每侧少 14 个局部函数定义）；
+  对照组覆盖 13 个 handler；019 `duplicateCount` 0、无 `scopeDrift`；lint 基线不动。
+- **人工冒烟（清单较长，见交付报告）**：main 9 项（含拖分类页签排序、点分类 X 删除、刷新看持久化）；
+  outfit 7 项 × 两处入口（常驻 dock + 弹窗），其中**单击预设约 180ms 后才应用**是 outfit 特有行为，不得被统一。
+
+### 6.13 V11-RF-058 · RQ 簇只搬最小集 2 块纯函数
+
+- **任务类型**：【消重复 —— 字节一致】｜**标记**：🔴 串行（**排在 RF-052 之后**：同落点 `result-image.js`）
+- **范围**：`previewDragStart`（main:5163 ↔ outfit:8689，12 行，剥缩进后仅函数名不同）
+  + `previewPanFromDrag`（`movePreviewDrag`，main:5176 ↔ outfit:8702，11 行**字节一致**）＝ **23 行 ×2 → 1**
+- **落点**：`src/shared/result-image.js`（两侧已 import）⇒ 0 新文件、`fileCount` +0
+- ❌ **RQ 其余 9 块是真分叉，登记不搬**（两侧数据模型 `results[]` vs `tasks[]` + 副作用不同）：
+  `addEvent` / `clearAll` / `deleteSelected` / `openSaveDirectory` / `flashDownloadFeedback`（1300ms 有清理 vs
+  1100ms 无清理）/ `updateSetting` / `openReferenceContextMenu`(190 vs 188) / `deleteResult`↔`deleteResultTask` /
+  `canReplaceQuickResult`↔`canReplaceTaskResult` / 替换拖放 / `shiftPreview`↔`navigatePreview`（边界停住 vs 取模循环）/
+  `handlePreviewWheel`↔`zoomPreviewByWheel`（**缩放上限 4 vs 5**）
+  ⇒ 贪心吞下去会改预览缩放上限、导航循环、下载反馈时长、事件结构，**全部不建议**。
+- **人工冒烟**：打开结果图预览 → 拖动看平移；**拖动后单击不关闭、未拖动的单击应关闭**（`drag.moved` 语义）；
+  滚轮缩放上限两侧分别验（main 4 / outfit 5，**不得被统一**）；outfit 额外验左右箭头首尾循环。
+- ⚠️ **口径澄清（统筹答复）**：`renderResultQueue`（outfit:9830，192 行）**main 无对位**
+  ⇒ **单文件大函数，不是重复债** ⇒ 不派单。
 
 ---
 
