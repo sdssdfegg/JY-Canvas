@@ -1317,12 +1317,39 @@ A 类函数型现在只剩 2 项，**且都是壳**：`refreshSaveDirectory(+4)`
 画布模型层（`createCanvasNode` 等 138 行）引用 app 级 `defaultState`/`clampCount` ⇒ 不是纯领域函数，
 强搬只能靠工厂+模块级求值顺序依赖或复制默认值，两条都不接受 ⇒ **登记不搬**。
 
-#### 下一步（B3-3）
+#### B3-3 / B3-4：转 result 域与 video 域（2026-10-03 完成，main 7866 → 7722，−144）
 
-画布域剩余：`runCanvasImageRequest`(81) + `generateCanvasNode`(110) 两个编排函数横跨几乎所有域
-⇒ 属编排层不搬；`addCanvasFiles`(33) / `sendResultToCanvas`(24) 依赖上传与结果域 ⇒ 需先测耦合。
-下一个候选域按 §6.17 排序：**main 详情页 29 函数/453 行（耦合 1.48）** 或
-**main 参考图 24 函数/411 行** —— 两者耦合都偏高（>1.4），动手前必须先测「跨域引用面」。
+| 单 | 内容 | commit |
+|---|---|---|
+| **RF-068** | 结果卡拖拽替换族 5 函数（65 行）→ `src/features/result-queue/quick-result-replace.js` | `477bdd7` |
+| **RF-069** | 视频生成编排 8 函数（99 行，含 `sleep`）→ `src/features/video/video-composer.js` | `1e6e2ac` |
+
+**选域依据（重跑 `scripts/dev/domain-coupling.mjs`）**：画布域被拆后剩余耦合升至 1.75（剩下的是编排层）
+⇒ 新的最低耦合域是 **main result 0.93**；video 域则是 **main 独有**（outfit 仅 1 个同名函数无对位）。
+
+**不搬**：`generateVideoFromComposer`(107) 是视频编排入口、横跨几乎所有域 ⇒ 编排层。
+
+🔑 **B3 与「搬重复」最大的不同：搬走一个域会连带让上游 import 变孤儿。**
+RF-069 搬走 `pollVideoUntilFinished` 后，main 的 `isVideoTaskCompleted`/`isVideoTaskFailed`/
+`videoTaskStatusText`（103 行，保留 `videoResultUrl`）与 `getVideoStatus`（139 行，保留 `generateVideo`）
+全部成为孤儿 ⇒ 两行 import 需收窄。**只有 ESLint 能可靠点名**（统筹肉眼没看出来）。
+⇒ 纪律：B3 每单打完补丁，**清孤儿 import 是必做项，不是可选项**。
+
+🔑 **工厂返回值 ≠ 调用点解构清单**（连续两单应验）：
+`quickResultDragId`/`canReplaceQuickResult`/`acceptVideoReferenceFile` 只被工厂内部使用，
+main 侧解构出来会被 `no-unused-vars` 点名。工厂仍返回全部（返回对象引用了它们，不算 unused），
+调用点只解构真正有外部调用的那些 —— **以 ESLint 实测为准，不要照单全解构**。
+
+⚠️ **对照组两处环境坑**（首版均踩到）：
+① 旧模块注入的辅助函数必须与新模块 import 的**真实实现**一致 —— 首版 `imageFilesFromList` 用了简化 mock，
+   与真实实现行为不同 ⇒ 产出假差异（误报 Drop 用例）。
+② Node 无 `FileReader` ⇒ `dataUrlFromBlob` 会崩 ⇒ 需打桩。
+⇒ **反证无效时先怀疑 mock 与真实实现的差异，不是怀疑用例设计**（RF-068 已记一条，本单再应验）。
+
+#### 下一步（B3-5）
+
+重跑耦合度后选域。当前候选：**main upload 域 17 函数/196 行（1.18）**、**main prompt 12/193（1.33）**、
+**main detail 29/453（1.48）**。低垂果实（<1.2）已基本摘完，后续每域动手前必须先测跨域引用面。
 
 ---
 
