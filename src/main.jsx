@@ -81,7 +81,7 @@ import DebouncedTextarea from "./shared/DebouncedTextarea.jsx";
 import { ErrorBoundary } from "./shared/error-boundary.jsx";
 import { Modal, ModalHeader } from "./shared/ui/Modal.jsx";
 import ChannelPicker from "./shared/ui/ChannelPicker.jsx";
-import { brokenImageReason, isAllowedReferenceImage, resultImageCardState } from "./shared/result-image.js";
+import { brokenImageReason, diagnosticImageSourceType, isAllowedReferenceImage, resultImageCardState } from "./shared/result-image.js";
 import { classifyGenerationError, formatGenerationError } from "./shared/generation-errors.js";
 import { fileSize, formatMs } from "./lib/format/index.js";
 import { canvasToBlob } from "./shared/canvas-blob.js";
@@ -1117,16 +1117,6 @@ function preloadDisplayImageUrl(url, timeoutMs = 20000) {
       image.decode().then(done, done);
     }
   });
-}
-
-function diagnosticImageSourceType(src) {
-  const text = String(src || "");
-  if (text.startsWith("data:")) return "base64/data";
-  if (text.startsWith("blob:")) return "browser-blob";
-  if (text.startsWith("/api/result/") || text.startsWith("/api/history-image/")) return "local-cache";
-  if (text.startsWith("/api/image-proxy")) return "local-proxy";
-  if (/^https?:\/\//i.test(text)) return "remote-url";
-  return text ? "local-url" : "empty";
 }
 
 function CachedImage({ src, alt = "", className = "", style, draggable = false, role, tabIndex, onDragStart, onClick, onKeyDown, onError, loading, diagnostic }) {

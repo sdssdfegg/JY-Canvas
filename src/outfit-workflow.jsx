@@ -90,7 +90,7 @@ import {
 import { getAppConfig } from "./api/config.js";
 import { formatConnectionResult, testConnection } from "./api/connection.js";
 import { describeEmptyResult, formatGenerationError, sanitizeErrorText } from "./shared/generation-errors.js";
-import { brokenImageReason, resultImageCardState } from "./shared/result-image.js";
+import { brokenImageReason, diagnosticImageSourceType, resultImageCardState } from "./shared/result-image.js";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
   FACT_UNRECOGNIZED,
@@ -2463,16 +2463,6 @@ function imageItemPreviewSource(item) {
 function displayResultImageSource(image) {
   const src = imageSource(image);
   return displayImageRequestUrl(src);
-}
-
-function diagnosticImageSourceType(src) {
-  const text = String(src || "");
-  if (text.startsWith("data:")) return "base64/data";
-  if (text.startsWith("blob:")) return "browser-blob";
-  if (text.startsWith("/api/result/") || text.startsWith("/api/history-image/")) return "local-cache";
-  if (text.startsWith("/api/image-proxy")) return "local-proxy";
-  if (/^https?:\/\//i.test(text)) return "remote-url";
-  return text ? "local-url" : "empty";
 }
 
 function PreparedResultImage({ src, diagnostic, ...props }) {

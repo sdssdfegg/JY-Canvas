@@ -84,6 +84,30 @@ export function isAllowedReferenceImage(reference, sourceFromReference) {
 }
 
 /**
+ * 结果图地址 → 诊断用的「来源类型」标签（V11-RF-041 收口）。
+ *
+ * 只用于**诊断打标**（`client-result-display-ready` 事件里的 `detail.sourceType`），
+ * 与上面的失效判读是两件事：这里不判断地址能不能用，只回答"这张图是从哪儿来的"，
+ * 便于事后定位"显示慢/显示不出来"到底卡在本地缓存、代理还是远程 CDN。
+ *
+ * 收口前在 src/main.jsx（CachedImage）与 src/outfit-workflow.jsx（PreparedResultImage）
+ * 各有一份，**逐字完全一致**（`diff` 为空）⇒ 本次是纯搬运，标签字符串一个字都没改。
+ * 标签一旦两侧不一致，同一张图在两个页面会被记成两种来源，日志没法对账。
+ *
+ * @param {string} src
+ * @returns {"base64/data"|"browser-blob"|"local-cache"|"local-proxy"|"remote-url"|"local-url"|"empty"}
+ */
+export function diagnosticImageSourceType(src) {
+  const text = String(src || "");
+  if (text.startsWith("data:")) return "base64/data";
+  if (text.startsWith("blob:")) return "browser-blob";
+  if (text.startsWith("/api/result/") || text.startsWith("/api/history-image/")) return "local-cache";
+  if (text.startsWith("/api/image-proxy")) return "local-proxy";
+  if (/^https?:\/\//i.test(text)) return "remote-url";
+  return text ? "local-url" : "empty";
+}
+
+/**
  * 图片真的加载失败之后调用：返回要展示的原因。
  * 只用于把"经验性失败"翻译成文案，不改动持久化数据。
  */
