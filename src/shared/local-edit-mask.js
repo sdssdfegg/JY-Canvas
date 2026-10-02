@@ -1,3 +1,5 @@
+import { clamp } from "./numeric.js";
+
 export const LOCAL_EDIT_RECT_MODE = "rect";
 export const LOCAL_EDIT_MASK_MODE = "mask";
 export const LOCAL_EDIT_MASK_COLOR = "rgba(255, 255, 255, 1)";
@@ -12,10 +14,6 @@ export function clampLocalEditBrushSize(value) {
 
 export function clampLocalEditMaskOpacity(value) {
   return Math.round(clamp(Number(value) || LOCAL_EDIT_MASK_OPACITY_DEFAULT, 10, 100));
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
 }
 
 export function maskCanvasHasPaint(canvas, threshold = 10) {

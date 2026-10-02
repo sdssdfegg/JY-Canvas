@@ -15,6 +15,7 @@ import {
   Upload
 } from "lucide-react";
 import { fileSize } from "./lib/format/index.js";
+import { clamp } from "./shared/numeric.js";
 
 const EDITOR_DB_NAME = "jingyin-image-editor-v1";
 const EDITOR_STORE_NAME = "project";
@@ -24,10 +25,6 @@ const EDITOR_HISTORY_LIMIT = 32;
 const EDITOR_BRUSH_DEFAULTS_VERSION = 2;
 const DEFAULT_TRANSFORM = { x: 0, y: 0, scale: 1, rotation: 0 };
 const DEFAULT_BRUSH = { size: 72, hardness: 0, opacity: 100 };
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, Number(value) || 0));
-}
 
 function fileBaseName(name) {
   return String(name || "image").replace(/\.[^.]+$/, "") || "image";

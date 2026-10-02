@@ -56,6 +56,7 @@ import {
   channelsForModel,
   clampPromptForModel,
   convergeSettingsForModel,
+  isBanana2Model,
   isRoutingCatalogReady,
   modelCapabilities,
   routingFields
@@ -1508,9 +1509,7 @@ const constrainCropRect = sharedConstrainCropRect;
 
 // canonical ID 是 banana-2；旧存档 nano-banana2 通过 canonicalModel 映射到同一支，
 // 保证迁移后这两条「香蕉 2 专属」判断不会失配。
-function isBanana2Model(model) {
-  return canonicalModel(model, "") === "banana-2";
-}
+// （阶段 B 刀 2：本函数已收进 src/shared/routing.js，与那里逐字节等价，此处改为 import。）
 
 /**
  * 裁剪选框区域，产出送模型（或作为普通裁剪结果）的局部图。
