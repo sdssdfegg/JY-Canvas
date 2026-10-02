@@ -16,6 +16,8 @@
 // 最终提示词的顺序（与需求一致）：
 //   【用户补充】 → 【本次换装目标】 → 【图2服装事实】 → 【穿法状态】 → 【人物基准】
 
+import { asText, pickEnum } from "./text-normalize.js";
+
 // ---------------------------------------------------------------------------
 // 1. 枚举（服务端校验与前端 UI 共用同一份，禁止在页面里另写一份字符串表）
 // ---------------------------------------------------------------------------
@@ -200,15 +202,6 @@ const WEARING_FIELD_SUPERSEDES_FACT = Object.freeze({
 // ---------------------------------------------------------------------------
 // 2. 归一化（读取旧存档 / 旧请求时也必须安全，绝不抛错、绝不让旧字段覆盖新选择）
 // ---------------------------------------------------------------------------
-
-function asText(value, limit = 240) {
-  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, limit);
-}
-
-function pickEnum(value, allowed, fallback) {
-  const text = String(value ?? "").trim();
-  return allowed.includes(text) ? text : fallback;
-}
 
 /** 更换部位：只保留合法值，去重，保持"上装→下装→鞋子"的固定顺序。 */
 export function normalizeOutfitParts(value) {
