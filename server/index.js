@@ -32,8 +32,6 @@ import { validateRetouchIntent } from "../src/shared/retouch-intent.js";
 import { createOutfitMasterFitSpec } from "./outfit-master-fit-ai.js";
 import { createOutfitQualityCheck } from "./outfit-quality-ai.js";
 import { createOutfitPoseAnchor } from "./outfit-pose-ai.js";
-import { createQuickPromptRewrite, quickPromptFallback } from "./quick-prompt-ai.js";
-import { createReferencePromptRewrite, localReferencePrompt } from "./reference-ai.js";
 import {
   dataDir,
   resultDir,
@@ -150,6 +148,7 @@ import {
 import { outfitUploadFileGroups } from "./core/outfit-upload-groups.js";
 import { registerSystemRoutes } from "./routes/system.routes.js";
 import { registerDebugRoutes } from "./routes/debug.routes.js";
+import { registerPromptsRoutes } from "./routes/prompts.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -583,77 +582,7 @@ app.post("/api/videos/status", async (req, res) => {
   }
 });
 
-app.post("/api/quick-prompt-rewrite", upload.array("image", 6), async (req, res) => {
-  let payload = {};
-  try {
-    payload = req.body?.payload ? JSON.parse(req.body.payload) : (req.body || {});
-  } catch {
-    return res.status(400).json({ ok: false, message: "快捷生成提示词优化参数解析失败" });
-  }
-
-  const apiKey = resolveApiKey(payload.apiKey);
-  if (!apiKey) {
-    return res.status(400).json({ ok: false, error: "missing_api_key", message: "缺少 API Key，无法调用快捷生成文本模型" });
-  }
-
-  const files = (req.files || []).map((file, index) => ({ ...file, quickRole: "reference", quickIndex: index }));
-
-  try {
-    const plan = await createQuickPromptRewrite({
-      input: payload,
-      files,
-      apiKey,
-      baseUrls: channelBaseCandidates(apiKey)
-    });
-    res.json({ ok: true, ...plan });
-  } catch (error) {
-    const fallbackPrompt = quickPromptFallback(payload, files);
-    res.status(502).json({
-      ok: false,
-      message: error instanceof Error ? error.message : "快捷生成文本模型优化失败",
-      fallbackPrompt
-    });
-  }
-});
-
-app.post("/api/reference-prompt-rewrite", upload.fields([
-  { name: "productImage", maxCount: 6 },
-  { name: "referenceImage", maxCount: 6 }
-]), async (req, res) => {
-  let payload = {};
-  try {
-    payload = req.body?.payload ? JSON.parse(req.body.payload) : (req.body || {});
-  } catch {
-    return res.status(400).json({ ok: false, message: "参考生图扩写参数解析失败" });
-  }
-
-  const apiKey = resolveApiKey(payload.apiKey);
-  if (!apiKey) {
-    return res.status(400).json({ ok: false, error: "missing_api_key", message: "缺少 API Key，无法调用参考生图文本模型" });
-  }
-
-  const files = [
-    ...((req.files?.productImage || []).map((file, index) => ({ ...file, referenceRole: "product", referenceIndex: index }))),
-    ...((req.files?.referenceImage || []).map((file, index) => ({ ...file, referenceRole: "reference", referenceIndex: index })))
-  ];
-
-  try {
-    const plan = await createReferencePromptRewrite({
-      input: payload,
-      files,
-      apiKey,
-      baseUrls: channelBaseCandidates(apiKey)
-    });
-    res.json({ ok: true, ...plan });
-  } catch (error) {
-    const fallbackPrompt = localReferencePrompt(payload);
-    res.status(502).json({
-      ok: false,
-      message: error instanceof Error ? error.message : "参考生图文本模型扩写失败",
-      fallbackPrompt
-    });
-  }
-});
+registerPromptsRoutes(app);
 
 app.get("/api/history", async (_req, res) => {
   const stored = await readHistoryResults();
