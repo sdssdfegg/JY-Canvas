@@ -1,40 +1,10 @@
-import { createAbortSignal, readTextSafely } from "./core/http-client.js";
-import { asText, responseContent, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
+import { createAbortSignal } from "./core/http-client.js";
+import { asText, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_QUICK_PROMPT_MODEL = "gpt-5.4-mini";
+const QUICK_MODEL_SPEC = { fields: ["detailAnalysisModel", "quickPromptModel", "textModel"], fallback: DEFAULT_QUICK_PROMPT_MODEL };
 const QUICK_PROMPT_TIMEOUT_MS = 90000;
 const MAX_QUICK_PROMPT_IMAGE_COUNT = 6;
-
-function modelName(input) {
-  return asText(input.detailAnalysisModel || input.quickPromptModel || input.textModel || DEFAULT_QUICK_PROMPT_MODEL, DEFAULT_QUICK_PROMPT_MODEL);
-}
-
-function extractJsonObject(text) {
-  const raw = String(text || "").trim();
-  if (!raw) throw new Error("快捷生成文本模型没有返回内容");
-  const unfenced = raw
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-  try {
-    return JSON.parse(unfenced);
-  } catch {
-    const start = unfenced.indexOf("{");
-    const end = unfenced.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(unfenced.slice(start, end + 1));
-    throw new Error("快捷生成文本模型返回的不是有效 JSON");
-  }
-}
-
-function fileMeta(file, index) {
-  return {
-    index,
-    name: file.originalname || `reference-${index + 1}`,
-    type: file.mimetype || "",
-    size: file.size || file.buffer?.length || 0
-  };
-}
 
 function isQuickOutfitTransfer(input = {}, files = []) {
   if (files.length < 2) return false;
@@ -53,16 +23,6 @@ function isQuickAppearanceTransfer(input = {}, files = []) {
     || /(上衣|外套|风衣|衬衫|T恤|卫衣|毛衣|西装|连衣裙|裙子|半身裙|裤子|牛仔裤|短裤|鞋子|靴子|高跟鞋).{0,8}(换成|改成|替换成|变成)/.test(text)
     || /(换成|改成|替换成|变成).{0,8}(上衣|外套|风衣|衬衫|T恤|卫衣|毛衣|西装|连衣裙|裙子|半身裙|裤子|牛仔裤|短裤|鞋子|靴子|高跟鞋)/.test(text);
   return appearanceIntent && !outfitIntent;
-}
-
-function safeImagePart(file) {
-  return {
-    type: "image_url",
-    image_url: {
-      url: `data:${file.mimetype || "image/png"};base64,${file.buffer.toString("base64")}`,
-      detail: "low"
-    }
-  };
 }
 
 function quickPromptFallback(input = {}, files = []) {
@@ -109,7 +69,7 @@ function buildSkillPayload(input, files, includeImages) {
     images: {
       referenceCount: files.length,
       uploadOrder: "所有图片都是快捷生成参考图，按用户缩略图顺序编号。需要优先理解用户文字中的图1、图2等指代关系。",
-      references: files.map(fileMeta),
+      references: files.map((file, index) => fileMeta(file, { index, fallback: `reference-${index + 1}` })),
       outfitTransferDetected: isQuickOutfitTransfer(input, files),
       appearanceTransferDetected: isQuickAppearanceTransfer(input, files)
     },
@@ -159,14 +119,14 @@ function buildSkillPayload(input, files, includeImages) {
       type: "text",
       text: `参考图 image[${index + 1}]：${file.originalname || `reference-${index + 1}`}`
     });
-    content.push(safeImagePart(file));
+    content.push(safeImagePart(file, "low"));
   });
   return content;
 }
 
 function buildChatBody(input, files, includeImages, withJsonFormat) {
   const body = {
-    model: modelName(input),
+    model: modelName(input, QUICK_MODEL_SPEC),
     temperature: 0.18,
     messages: [
       {
@@ -186,20 +146,6 @@ function buildChatBody(input, files, includeImages, withJsonFormat) {
   };
   if (withJsonFormat) body.response_format = { type: "json_object" };
   return body;
-}
-
-async function postChatCompletion({ baseUrl, apiKey, input, files, includeImages, withJsonFormat, signal }) {
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(buildChatBody(input, files, includeImages, withJsonFormat)),
-    signal
-  });
-  const parsed = await readTextSafely(response);
-  return { response, parsed };
 }
 
 function normalizePlan(plan, input, files) {
@@ -235,10 +181,7 @@ async function createQuickPromptRewrite({ input = {}, files = [], apiKey, baseUr
         const { response, parsed } = await postChatCompletion({
           baseUrl,
           apiKey,
-          input,
-          files,
-          includeImages: mode.includeImages,
-          withJsonFormat: mode.withJsonFormat,
+          body: buildChatBody(input, files, mode.includeImages, mode.withJsonFormat),
           signal: abort.signal
         });
         const message = parsed.json?.error?.message || parsed.text || `HTTP ${response.status}`;
@@ -255,11 +198,11 @@ async function createQuickPromptRewrite({ input = {}, files = [], apiKey, baseUr
         if (!response.ok && mode.includeImages && shouldRetryWithoutImages(response.status, message)) continue;
         if (!response.ok) break;
 
-        const plan = normalizePlan(extractJsonObject(responseContent(parsed.json)), input, files);
+        const plan = normalizePlan(extractJsonObject(responseContent(parsed.json), "快捷生成文本模型"), input, files);
         return {
           ok: true,
           mode: mode.includeImages ? "ai-vision" : "ai-text",
-          model: modelName(input),
+          model: modelName(input, QUICK_MODEL_SPEC),
           usedBaseUrl: baseUrl,
           timing: { totalMs: Date.now() - startedAt },
           attempts,

@@ -1,7 +1,8 @@
-import { createAbortSignal, readTextSafely } from "./core/http-client.js";
-import { asText, responseContent, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
+import { createAbortSignal } from "./core/http-client.js";
+import { asText, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_OUTFIT_QUALITY_MODEL = "gpt-5.4-mini";
+const QUALITY_MODEL_SPEC = { fields: ["outfitQualityModel", "outfitMasterFitModel", "outfitPoseModel", "detailAnalysisModel", "textModel"], fallback: DEFAULT_OUTFIT_QUALITY_MODEL };
 const OUTFIT_QUALITY_TIMEOUT_MS = 75000;
 
 // 中文注释：压缩日志和模型返回文本，防止异常信息撑爆前端提示。
@@ -12,50 +13,6 @@ function compact(value, limit = 1200) {
     .replace(/\n{3,}/g, "\n\n")
     .trim()
     .slice(0, limit);
-}
-
-// 中文注释：选择视觉质检模型，默认沿用当前项目的轻量视觉文本模型。
-function modelName(input) {
-  return asText(input.outfitQualityModel || input.outfitMasterFitModel || input.outfitPoseModel || input.detailAnalysisModel || input.textModel, DEFAULT_OUTFIT_QUALITY_MODEL);
-}
-
-// 中文注释：模型可能包 Markdown 代码块，这里只抽 JSON 对象本体。
-function extractJsonObject(text) {
-  const raw = String(text || "").trim();
-  if (!raw) throw new Error("AI质检没有返回内容");
-  const unfenced = raw
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-  try {
-    return JSON.parse(unfenced);
-  } catch {
-    const start = unfenced.indexOf("{");
-    const end = unfenced.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(unfenced.slice(start, end + 1));
-    throw new Error("AI质检返回的不是有效 JSON");
-  }
-}
-
-// 中文注释：把上传图转成视觉模型可读的 data URL 图片输入。
-function safeImagePart(file) {
-  return {
-    type: "image_url",
-    image_url: {
-      url: `data:${file.mimetype || "image/png"};base64,${file.buffer.toString("base64")}`,
-      detail: "high"
-    }
-  };
-}
-
-// 中文注释：记录文件基础信息用于质检上下文和本地日志，不包含用户 Key。
-function fileMeta(file, fallback = "image") {
-  return {
-    name: file?.originalname || fallback,
-    type: file?.mimetype || "",
-    size: file?.size || file?.buffer?.length || 0
-  };
 }
 
 // 中文注释：统一整理质检布尔开关，前端和服务端都可以传 true/false/中文状态。
@@ -137,10 +94,10 @@ function buildQualityCheckContent(input, files) {
     workflowMode: rules.mode,
     goal: "判断生成结果是否满足当前画板工作流；只做质检标记和修复建议，不自动返修。",
     images: {
-      image1: fileMeta(files.image1, "image1"),
-      image2: fileMeta(files.image2, "image2"),
-      result: fileMeta(files.result, "result"),
-      reference: referenceFiles.map((file, index) => fileMeta(file, `reference-${index + 1}`))
+      image1: fileMeta(files.image1, { fallback: "image1" }),
+      image2: fileMeta(files.image2, { fallback: "image2" }),
+      result: fileMeta(files.result, { fallback: "result" }),
+      reference: referenceFiles.map((file, index) => fileMeta(file, { fallback: `reference-${index + 1}` }))
     },
     input: {
       pageName: asText(input.pageName),
@@ -201,7 +158,7 @@ function buildQualityCheckContent(input, files) {
 // 中文注释：组装 chat/completions 请求体，用低温度保证质检结果稳定。
 function buildChatBody(input, files, withJsonFormat) {
   const body = {
-    model: modelName(input),
+    model: modelName(input, QUALITY_MODEL_SPEC),
     temperature: 0.1,
     messages: [
       {
@@ -220,21 +177,6 @@ function buildChatBody(input, files, withJsonFormat) {
   };
   if (withJsonFormat) body.response_format = { type: "json_object" };
   return body;
-}
-
-// 中文注释：向候选中转站发起质检请求，失败时外层按渠道顺序重试。
-async function postChatCompletion({ baseUrl, apiKey, input, files, withJsonFormat, signal }) {
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(buildChatBody(input, files, withJsonFormat)),
-    signal
-  });
-  const parsed = await readTextSafely(response);
-  return { response, parsed };
 }
 
 // 中文注释：规整模型质检 JSON，保证前端永远拿到稳定字段。
@@ -287,9 +229,7 @@ async function createOutfitQualityCheck({ input = {}, files = {}, apiKey, baseUr
         const { response, parsed } = await postChatCompletion({
           baseUrl,
           apiKey,
-          input,
-          files,
-          withJsonFormat: mode.withJsonFormat,
+          body: buildChatBody(input, files, mode.withJsonFormat),
           signal: abort.signal
         });
         const message = parsed.json?.error?.message || parsed.json?.message || parsed.text || `HTTP ${response.status}`;
@@ -304,10 +244,10 @@ async function createOutfitQualityCheck({ input = {}, files = {}, apiKey, baseUr
         if (!response.ok && mode.withJsonFormat && shouldRetryWithoutJsonFormat(response.status, message)) continue;
         if (!response.ok) break;
 
-        const plan = normalizeQualityPlan(extractJsonObject(responseContent(parsed.json)), input);
+        const plan = normalizeQualityPlan(extractJsonObject(responseContent(parsed.json), "AI质检"), input);
         return {
           ok: true,
-          model: modelName(input),
+          model: modelName(input, QUALITY_MODEL_SPEC),
           usedBaseUrl: baseUrl,
           mode: workflowQualityRules(input).mode,
           timing: { totalMs: Date.now() - startedAt },

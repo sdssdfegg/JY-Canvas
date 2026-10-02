@@ -1,4 +1,4 @@
-import { createAbortSignal, readTextSafely } from "./core/http-client.js";
+import { createAbortSignal } from "./core/http-client.js";
 import {
   BASE_SKILL,
   INDUSTRY_SKILLS,
@@ -7,36 +7,12 @@ import {
   getIndustrySkillByText,
   getPlatformSkill
 } from "./detail-skills.js";
-import { asText, clamp, responseContent, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
+import { clamp, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_DETAIL_ANALYSIS_MODEL = "gpt-5.4-mini";
+const DETAIL_MODEL_SPEC = { fields: ["detailAnalysisModel", "textModel"], fallback: DEFAULT_DETAIL_ANALYSIS_MODEL };
 const DETAIL_ANALYSIS_TIMEOUT_MS = 120000;
 const MAX_AI_IMAGE_COUNT = 10;
-
-function detailModel(input) {
-  return asText(input.detailAnalysisModel || input.textModel || DEFAULT_DETAIL_ANALYSIS_MODEL, DEFAULT_DETAIL_ANALYSIS_MODEL);
-}
-
-function safeImagePart(file) {
-  const mimeType = file.mimetype || "image/png";
-  return {
-    type: "image_url",
-    image_url: {
-      url: `data:${mimeType};base64,${file.buffer.toString("base64")}`,
-      detail: "low"
-    }
-  };
-}
-
-function fileMeta(file, index, role) {
-  return {
-    index,
-    role,
-    name: file.originalname || `${role}-${index + 1}`,
-    type: file.mimetype || "",
-    size: file.size || file.buffer?.length || 0
-  };
-}
 
 function compactSkillPack(input) {
   const platformSkill = getPlatformSkill(input.workflow);
@@ -121,8 +97,8 @@ function buildDetailAnalysisContent(input, files, includeImages) {
       screenCount: count
     },
     images: {
-      productImages: productFiles.map((file, index) => fileMeta(file, index, "product")),
-      referenceImages: referenceFiles.map((file, index) => fileMeta(file, index, "reference"))
+      productImages: productFiles.map((file, index) => fileMeta(file, { index, role: "product" })),
+      referenceImages: referenceFiles.map((file, index) => fileMeta(file, { index, role: "reference" }))
     },
     skillPack: compactSkillPack(input),
     outputSchema: {
@@ -188,7 +164,7 @@ function buildDetailAnalysisContent(input, files, includeImages) {
         type: "text",
         text: `${role === "product" ? "产品图" : "参考图"} ${role}Image[${index}]：${file.originalname || `${role}-${index + 1}`}`
       });
-      content.push(safeImagePart(file));
+      content.push(safeImagePart(file, "low"));
       attachedCount += 1;
     }
   }
@@ -198,7 +174,7 @@ function buildDetailAnalysisContent(input, files, includeImages) {
 
 function buildChatBody(input, files, includeImages, withJsonFormat) {
   const body = {
-    model: detailModel(input),
+    model: modelName(input, DETAIL_MODEL_SPEC),
     temperature: 0.2,
     messages: [
       {
@@ -213,39 +189,6 @@ function buildChatBody(input, files, includeImages, withJsonFormat) {
   };
   if (withJsonFormat) body.response_format = { type: "json_object" };
   return body;
-}
-
-function extractJsonObject(text) {
-  const raw = String(text || "").trim();
-  if (!raw) throw new Error("AI 分析模型没有返回内容");
-  const unfenced = raw
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-  try {
-    return JSON.parse(unfenced);
-  } catch {
-    const start = unfenced.indexOf("{");
-    const end = unfenced.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(unfenced.slice(start, end + 1));
-    throw new Error("AI 分析模型返回的不是有效 JSON");
-  }
-}
-
-async function postChatCompletion({ baseUrl, apiKey, input, files, includeImages, withJsonFormat, signal }) {
-  const url = `${baseUrl}/chat/completions`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(buildChatBody(input, files, includeImages, withJsonFormat)),
-    signal
-  });
-  const parsed = await readTextSafely(response);
-  return { url, response, parsed };
 }
 
 async function createDetailAiPlan({ input = {}, files = [], apiKey, baseUrls = [], timeoutMs = DETAIL_ANALYSIS_TIMEOUT_MS }) {
@@ -268,10 +211,7 @@ async function createDetailAiPlan({ input = {}, files = [], apiKey, baseUrls = [
         const { url, response, parsed } = await postChatCompletion({
           baseUrl,
           apiKey,
-          input,
-          files,
-          includeImages: mode.includeImages,
-          withJsonFormat: mode.withJsonFormat,
+          body: buildChatBody(input, files, mode.includeImages, mode.withJsonFormat),
           signal: abort.signal
         });
         const message = parsed.json?.error?.message || parsed.text || `HTTP ${response.status}`;
@@ -289,10 +229,10 @@ async function createDetailAiPlan({ input = {}, files = [], apiKey, baseUrls = [
         if (!response.ok) break;
 
         const content = responseContent(parsed.json);
-        const plan = extractJsonObject(content);
+        const plan = extractJsonObject(content, "AI 分析模型");
         return {
           ok: true,
-          model: detailModel(input),
+          model: modelName(input, DETAIL_MODEL_SPEC),
           usedBaseUrl: baseUrl,
           mode: mode.includeImages ? "ai-vision" : "ai-text",
           timing: {

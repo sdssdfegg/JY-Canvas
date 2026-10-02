@@ -1,4 +1,4 @@
-import { createAbortSignal, readTextSafely } from "./core/http-client.js";
+import { createAbortSignal } from "./core/http-client.js";
 import {
   FACT_UNRECOGNIZED,
   OUTFIT_PART_OPTIONS,
@@ -7,9 +7,10 @@ import {
   recognizedFactKeys,
   resolveUpperLayer
 } from "../src/shared/outfit-intent.js";
-import { asText, responseContent, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
+import { asText, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_OUTFIT_MASTER_FIT_MODEL = "gpt-5.4-mini";
+const MASTER_FIT_MODEL_SPEC = { fields: ["outfitMasterFitModel", "outfitPoseModel", "detailAnalysisModel", "textModel"], fallback: DEFAULT_OUTFIT_MASTER_FIT_MODEL };
 const OUTFIT_MASTER_FIT_TIMEOUT_MS = 60000;
 
 // 中文注释：压缩模型返回或日志文本，保留有效信息并限制长度，避免提示词过长。
@@ -20,50 +21,6 @@ function compact(value, limit = 1200) {
     .replace(/\n{3,}/g, "\n\n")
     .trim()
     .slice(0, limit);
-}
-
-// 中文注释：选择用于图2母版分析的视觉文本模型，默认沿用现有换装智能文本模型。
-function modelName(input) {
-  return asText(input.outfitMasterFitModel || input.outfitPoseModel || input.detailAnalysisModel || input.textModel, DEFAULT_OUTFIT_MASTER_FIT_MODEL);
-}
-
-// 中文注释：模型有时会包一层 Markdown，这里只抽取 JSON 对象本体。
-function extractJsonObject(text) {
-  const raw = String(text || "").trim();
-  if (!raw) throw new Error("图2母版版型分析模型没有返回内容");
-  const unfenced = raw
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-  try {
-    return JSON.parse(unfenced);
-  } catch {
-    const start = unfenced.indexOf("{");
-    const end = unfenced.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(unfenced.slice(start, end + 1));
-    throw new Error("图2母版版型分析模型返回的不是有效 JSON");
-  }
-}
-
-// 中文注释：把上传的图2母版转成 chat/completions 可识别的图片输入。
-function safeImagePart(file) {
-  return {
-    type: "image_url",
-    image_url: {
-      url: `data:${file.mimetype || "image/png"};base64,${file.buffer.toString("base64")}`,
-      detail: "high"
-    }
-  };
-}
-
-// 中文注释：记录图2文件基础信息，只用于分析上下文和本地日志，不包含用户 Key。
-function fileMeta(file) {
-  return {
-    name: file.originalname || "clothing-master-image",
-    type: file.mimetype || "",
-    size: file.size || file.buffer?.length || 0
-  };
 }
 
 // 中文注释：部位与上装层级都直接用共享模块的枚举，服务端不再维护第二份表。
@@ -209,7 +166,7 @@ function buildMasterFitAnalysisContent(input, clothingFile) {
     goal: `只分析图2这张已经上身的服装母版里【本次勾选迁移范围】对应的可见服装事实：${scope.labels}；图2上装按【${upperLayer.label}】读。把选中范围的类别与内外层、颜色、材质纹理、版型、长度、领口与袖长、袖子状态、扣子或拉链、衣摆扎入、裤型/裙型或鞋型、明显结构提取成结构化字段；不写提示词、不写规则清单、不写人物和背景。`,
     image: {
       role: "图2：服装上身母版图",
-      meta: fileMeta(clothingFile)
+      meta: fileMeta(clothingFile, { fallback: "clothing-master-image" })
     },
     input: {
       targetImageModel,
@@ -281,7 +238,7 @@ function buildMasterFitAnalysisContent(input, clothingFile) {
 // 中文注释：组装 chat/completions 请求体，使用低温度让规格提取尽量稳定。
 function buildChatBody(input, clothingFile, withJsonFormat) {
   const body = {
-    model: modelName(input),
+    model: modelName(input, MASTER_FIT_MODEL_SPEC),
     temperature: 0.1,
     messages: [
       {
@@ -300,21 +257,6 @@ function buildChatBody(input, clothingFile, withJsonFormat) {
   };
   if (withJsonFormat) body.response_format = { type: "json_object" };
   return body;
-}
-
-// 中文注释：向候选中转站发起图2母版分析请求，外层会按渠道顺序重试。
-async function postChatCompletion({ baseUrl, apiKey, input, clothingFile, withJsonFormat, signal }) {
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(buildChatBody(input, clothingFile, withJsonFormat)),
-    signal
-  });
-  const parsed = await readTextSafely(response);
-  return { response, parsed };
 }
 
 // 中文注释：把模型返回的 JSON 规整成结构化服装事实；没有可识别事实时明确报错，
@@ -347,9 +289,7 @@ async function createOutfitMasterFitSpec({ input = {}, clothingFile, apiKey, bas
         const { response, parsed } = await postChatCompletion({
           baseUrl,
           apiKey,
-          input,
-          clothingFile,
-          withJsonFormat: mode.withJsonFormat,
+          body: buildChatBody(input, clothingFile, mode.withJsonFormat),
           signal: abort.signal
         });
         const message = parsed.json?.error?.message || parsed.json?.message || parsed.text || `HTTP ${response.status}`;
@@ -364,15 +304,15 @@ async function createOutfitMasterFitSpec({ input = {}, clothingFile, apiKey, bas
         if (!response.ok && mode.withJsonFormat && shouldRetryWithoutJsonFormat(response.status, message)) continue;
         if (!response.ok) break;
 
-        const plan = normalizeMasterFitPlan(extractJsonObject(responseContent(parsed.json)), input);
+        const plan = normalizeMasterFitPlan(extractJsonObject(responseContent(parsed.json), "图2母版版型分析模型"), input);
         return {
           ok: true,
-          model: modelName(input),
+          model: modelName(input, MASTER_FIT_MODEL_SPEC),
           usedBaseUrl: baseUrl,
           mode: "ai-vision",
           timing: { totalMs: Date.now() - startedAt },
           attempts,
-          source: fileMeta(clothingFile),
+          source: fileMeta(clothingFile, { fallback: "clothing-master-image" }),
           ...plan
         };
       }

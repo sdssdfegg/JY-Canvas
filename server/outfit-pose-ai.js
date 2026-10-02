@@ -1,7 +1,8 @@
-import { createAbortSignal, readTextSafely } from "./core/http-client.js";
-import { asText, responseContent, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
+import { createAbortSignal } from "./core/http-client.js";
+import { asText, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_OUTFIT_POSE_MODEL = "gpt-5.4-mini";
+const POSE_MODEL_SPEC = { fields: ["outfitPoseModel", "detailAnalysisModel", "textModel"], fallback: DEFAULT_OUTFIT_POSE_MODEL };
 const OUTFIT_POSE_TIMEOUT_MS = 45000;
 
 function compact(value, limit = 1200) {
@@ -9,10 +10,6 @@ function compact(value, limit = 1200) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, limit);
-}
-
-function modelName(input) {
-  return asText(input.outfitPoseModel || input.detailAnalysisModel || input.textModel, DEFAULT_OUTFIT_POSE_MODEL);
 }
 
 function isBackgroundChangeInput(input) {
@@ -43,42 +40,6 @@ function isFaceSwapInput(input) {
     || (/目标人物图|人物图|模特图|原图/i.test(modelTitle) && /人脸参考|脸部参考|人脸身份|换脸|脸/i.test(clothingTitle));
 }
 
-function extractJsonObject(text) {
-  const raw = String(text || "").trim();
-  if (!raw) throw new Error("换装姿态分析模型没有返回内容");
-  const unfenced = raw
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-  try {
-    return JSON.parse(unfenced);
-  } catch {
-    const start = unfenced.indexOf("{");
-    const end = unfenced.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(unfenced.slice(start, end + 1));
-    throw new Error("换装姿态分析模型返回的不是有效 JSON");
-  }
-}
-
-function safeImagePart(file) {
-  return {
-    type: "image_url",
-    image_url: {
-      url: `data:${file.mimetype || "image/png"};base64,${file.buffer.toString("base64")}`,
-      detail: "high"
-    }
-  };
-}
-
-function fileMeta(file) {
-  return {
-    name: file.originalname || "model-image",
-    type: file.mimetype || "",
-    size: file.size || file.buffer?.length || 0
-  };
-}
-
 function buildPoseAnalysisContent(input, modelFile, includeImage) {
   const targetImageModel = asText(input.model, "gpt-image");
   const backgroundChange = isBackgroundChangeInput(input);
@@ -92,7 +53,7 @@ function buildPoseAnalysisContent(input, modelFile, includeImage) {
       : "只分析图1目标模特底图，输出给后续生图模型使用的姿态/头部坐标锁定提示词。重点解决换装生成后头部偏移、脸部坐标变化、肩颈重排导致无法后期贴脸的问题。",
     image: {
       role: "图1目标模特底图",
-      meta: fileMeta(modelFile)
+      meta: fileMeta(modelFile, { fallback: "model-image" })
     },
     input: {
       targetImageModel,
@@ -140,7 +101,7 @@ function buildChatBody(input, modelFile, includeImage, withJsonFormat) {
   const backgroundChange = isBackgroundChangeInput(input);
   const faceSwap = isFaceSwapInput(input);
   const body = {
-    model: modelName(input),
+    model: modelName(input, POSE_MODEL_SPEC),
     temperature: 0.1,
     messages: [
       {
@@ -163,20 +124,6 @@ function buildChatBody(input, modelFile, includeImage, withJsonFormat) {
   };
   if (withJsonFormat) body.response_format = { type: "json_object" };
   return body;
-}
-
-async function postChatCompletion({ baseUrl, apiKey, input, modelFile, includeImage, withJsonFormat, signal }) {
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(buildChatBody(input, modelFile, includeImage, withJsonFormat)),
-    signal
-  });
-  const parsed = await readTextSafely(response);
-  return { response, parsed };
 }
 
 function normalizePosePlan(plan, input = {}) {
@@ -238,10 +185,7 @@ async function createOutfitPoseAnchor({ input = {}, modelFile, apiKey, baseUrls 
         const { response, parsed } = await postChatCompletion({
           baseUrl,
           apiKey,
-          input,
-          modelFile,
-          includeImage: mode.includeImage,
-          withJsonFormat: mode.withJsonFormat,
+          body: buildChatBody(input, modelFile, mode.includeImage, mode.withJsonFormat),
           signal: abort.signal
         });
         const message = parsed.json?.error?.message || parsed.text || `HTTP ${response.status}`;
@@ -257,10 +201,10 @@ async function createOutfitPoseAnchor({ input = {}, modelFile, apiKey, baseUrls 
         if (!response.ok && mode.withJsonFormat && shouldRetryWithoutJsonFormat(response.status, message)) continue;
         if (!response.ok) break;
 
-        const plan = normalizePosePlan(extractJsonObject(responseContent(parsed.json)), input);
+        const plan = normalizePosePlan(extractJsonObject(responseContent(parsed.json), "换装姿态分析模型"), input);
         return {
           ok: true,
-          model: modelName(input),
+          model: modelName(input, POSE_MODEL_SPEC),
           usedBaseUrl: baseUrl,
           mode: "ai-vision",
           timing: { totalMs: Date.now() - startedAt },

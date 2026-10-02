@@ -1,7 +1,8 @@
-import { createAbortSignal, readTextSafely } from "./core/http-client.js";
-import { asText, responseContent, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
+import { createAbortSignal } from "./core/http-client.js";
+import { asText, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_REFERENCE_TEXT_MODEL = "gpt-5.4-mini";
+const REFERENCE_MODEL_SPEC = { fields: ["detailAnalysisModel", "referenceTextModel", "textModel"], fallback: DEFAULT_REFERENCE_TEXT_MODEL };
 const REFERENCE_REWRITE_TIMEOUT_MS = 90000;
 const MAX_REFERENCE_AI_IMAGE_COUNT = 8;
 
@@ -9,48 +10,6 @@ function clampStrength(value) {
   const parsed = Number.parseInt(value, 10);
   const rounded = Math.round((Number.isFinite(parsed) ? parsed : 60) / 10) * 10;
   return Math.max(30, Math.min(100, rounded));
-}
-
-function modelName(input) {
-  return asText(input.detailAnalysisModel || input.referenceTextModel || input.textModel || DEFAULT_REFERENCE_TEXT_MODEL, DEFAULT_REFERENCE_TEXT_MODEL);
-}
-
-function extractJsonObject(text) {
-  const raw = String(text || "").trim();
-  if (!raw) throw new Error("参考生图文本模型没有返回内容");
-  const unfenced = raw
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-  try {
-    return JSON.parse(unfenced);
-  } catch {
-    const start = unfenced.indexOf("{");
-    const end = unfenced.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(unfenced.slice(start, end + 1));
-    throw new Error("参考生图文本模型返回的不是有效 JSON");
-  }
-}
-
-function fileMeta(file, index, role) {
-  return {
-    index,
-    role,
-    name: file.originalname || `${role}-${index + 1}`,
-    type: file.mimetype || "",
-    size: file.size || file.buffer?.length || 0
-  };
-}
-
-function safeImagePart(file) {
-  return {
-    type: "image_url",
-    image_url: {
-      url: `data:${file.mimetype || "image/png"};base64,${file.buffer.toString("base64")}`,
-      detail: "low"
-    }
-  };
 }
 
 function referenceStrengthPolicy(value) {
@@ -128,8 +87,8 @@ function buildSkillPayload(input, files, includeImages) {
         `前 ${productFiles.length} 张是产品图，是真实商品事实来源。`,
         `后 ${referenceFiles.length} 张是运营参考图，只能按参考控制项抽取方向。`
       ],
-      productImages: productFiles.map((file, index) => fileMeta(file, index, "product")),
-      referenceImages: referenceFiles.map((file, index) => fileMeta(file, index, "reference"))
+      productImages: productFiles.map((file, index) => fileMeta(file, { index, role: "product" })),
+      referenceImages: referenceFiles.map((file, index) => fileMeta(file, { index, role: "reference" }))
     },
     skill: {
       priority: [
@@ -171,7 +130,7 @@ function buildSkillPayload(input, files, includeImages) {
         type: "text",
         text: `${role === "product" ? "产品图" : "运营参考图"} ${role}[${index}]：${file.originalname || `${role}-${index + 1}`}`
       });
-      content.push(safeImagePart(file));
+      content.push(safeImagePart(file, "low"));
       attachedCount += 1;
     }
   }
@@ -180,7 +139,7 @@ function buildSkillPayload(input, files, includeImages) {
 
 function buildChatBody(input, files, includeImages, withJsonFormat) {
   const body = {
-    model: modelName(input),
+    model: modelName(input, REFERENCE_MODEL_SPEC),
     temperature: 0.15,
     messages: [
       {
@@ -199,20 +158,6 @@ function buildChatBody(input, files, includeImages, withJsonFormat) {
   };
   if (withJsonFormat) body.response_format = { type: "json_object" };
   return body;
-}
-
-async function postChatCompletion({ baseUrl, apiKey, input, files, includeImages, withJsonFormat, signal }) {
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(buildChatBody(input, files, includeImages, withJsonFormat)),
-    signal
-  });
-  const parsed = await readTextSafely(response);
-  return { response, parsed };
 }
 
 function normalizePlan(plan, input) {
@@ -248,10 +193,7 @@ async function createReferencePromptRewrite({ input = {}, files = [], apiKey, ba
         const { response, parsed } = await postChatCompletion({
           baseUrl,
           apiKey,
-          input,
-          files,
-          includeImages: mode.includeImages,
-          withJsonFormat: mode.withJsonFormat,
+          body: buildChatBody(input, files, mode.includeImages, mode.withJsonFormat),
           signal: abort.signal
         });
         const message = parsed.json?.error?.message || parsed.text || `HTTP ${response.status}`;
@@ -268,11 +210,11 @@ async function createReferencePromptRewrite({ input = {}, files = [], apiKey, ba
         if (!response.ok && mode.includeImages && shouldRetryWithoutImages(response.status, message)) continue;
         if (!response.ok) break;
 
-        const plan = normalizePlan(extractJsonObject(responseContent(parsed.json)), input);
+        const plan = normalizePlan(extractJsonObject(responseContent(parsed.json), "参考生图文本模型"), input);
         return {
           ok: true,
           mode: mode.includeImages ? "ai-vision" : "ai-text",
-          model: modelName(input),
+          model: modelName(input, REFERENCE_MODEL_SPEC),
           usedBaseUrl: baseUrl,
           timing: { totalMs: Date.now() - startedAt },
           attempts,
