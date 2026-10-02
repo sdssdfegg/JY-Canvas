@@ -82,7 +82,6 @@ import {
   formatPixelSize,
   localPasteSizeReport,
   resolveLocalEditBaseFile,
-  scaleRectLocked,
   snapSizeToRatio
 } from "./shared/local-edit-geometry.js";
 import { getAppConfig } from "./api/config.js";
@@ -96,10 +95,11 @@ import {
 import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
 import {
-  CROP_MIN_PIXEL_SIZE,
-  resizeCropRectFromCenter,
-  resizeCropRectFromCorner
-} from "./features/local-edit/crop-rect-resize.js";
+  beginCropDrag,
+  changeCropScale,
+  endCropDrag,
+  moveCropDrag
+} from "./features/local-edit/crop-drag.js";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
   FACT_UNRECOGNIZED,
@@ -5039,73 +5039,7 @@ function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, on
     });
   }
 
-  function beginCropDrag(event, mode) {
-    if (!cropRect || !displaySize.width || !imageSize.width) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    const centerResize = event.altKey && event.button === 0;
-    dragRef.current = {
-      mode: centerResize && mode === "move" ? "resize-se" : mode,
-      centerResize,
-      startX: event.clientX,
-      startY: event.clientY,
-      rect: cropRect
-    };
-  }
-
-  function moveCropDrag(event) {
-    const drag = dragRef.current;
-    if (!drag || !cropRect || !displaySize.width || !displaySize.height) return;
-    event.preventDefault();
-    const scaleX = imageSize.width / Math.max(1, displaySize.width);
-    const scaleY = imageSize.height / Math.max(1, displaySize.height);
-    const deltaX = (event.clientX - drag.startX) * scaleX;
-    const deltaY = (event.clientY - drag.startY) * scaleY;
-    if (drag.mode === "move") {
-      updateCropRect({
-        ...drag.rect,
-        x: drag.rect.x + deltaX,
-        y: drag.rect.y + deltaY
-      });
-      return;
-    }
-
-    const handle = drag.mode.startsWith("resize-") ? drag.mode.slice("resize-".length) : "se";
-    updateCropRect((drag.centerResize
-      ? resizeCropRectFromCenter
-      : resizeCropRectFromCorner)(drag.rect, handle, deltaX, deltaY, {
-        ratioLocked: !isMaskMode,
-        activeRatio,
-        imageWidth: imageSize.width,
-        imageHeight: imageSize.height
-      }));
-  }
-
-  function endCropDrag(event) {
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    dragRef.current = null;
-  }
-
-  function changeCropScale(event) {
-    if (!cropRect || !imageSize.width || !imageSize.height) return;
-    const percent = Number(event.target.value) / 100;
-    // 局部回贴：按目标宽度等比缩放，宽高比例不变。
-    if (!isMaskMode) {
-      updateCropRect(scaleRectLocked(cropRect, imageSize.width * percent, activeRatio, imageSize.width, imageSize.height));
-      return;
-    }
-    const nextWidth = Math.max(CROP_MIN_PIXEL_SIZE, imageSize.width * percent);
-    const nextHeight = Math.max(CROP_MIN_PIXEL_SIZE, imageSize.height * percent);
-    const centerX = cropRect.x + cropRect.width / 2;
-    const centerY = cropRect.y + cropRect.height / 2;
-    updateCropRect({
-      x: centerX - nextWidth / 2,
-      y: centerY - nextHeight / 2,
-      width: nextWidth,
-      height: nextHeight
-    });
-  }
+  const cropDragCtx = { dragRef, cropRect, displaySize, imageSize, updateCropRect, activeRatio, ratioLocked: !isMaskMode };
 
   function maskPointerPoint(event) {
     const canvas = maskCanvasRef.current;
@@ -5345,20 +5279,20 @@ function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, on
               <div
                 className="quickLocalCropBox"
                 style={cropStyle}
-                onPointerDown={(event) => beginCropDrag(event, "move")}
-                onPointerMove={moveCropDrag}
-                onPointerUp={endCropDrag}
-                onPointerCancel={endCropDrag}
+                onPointerDown={(event) => beginCropDrag(event, "move", cropDragCtx)}
+                onPointerMove={(event) => moveCropDrag(event, cropDragCtx)}
+                onPointerUp={(event) => endCropDrag(event, cropDragCtx)}
+                onPointerCancel={(event) => endCropDrag(event, cropDragCtx)}
               >
                 <span />
                 {["nw", "ne", "sw", "se"].map((handle) => (
                   <i
                     className={`quickLocalCropHandle quickLocalCropHandle-${handle}`}
                     key={handle}
-                    onPointerDown={(event) => beginCropDrag(event, `resize-${handle}`)}
-                    onPointerMove={moveCropDrag}
-                    onPointerUp={endCropDrag}
-                    onPointerCancel={endCropDrag}
+                    onPointerDown={(event) => beginCropDrag(event, `resize-${handle}`, cropDragCtx)}
+                    onPointerMove={(event) => moveCropDrag(event, cropDragCtx)}
+                    onPointerUp={(event) => endCropDrag(event, cropDragCtx)}
+                    onPointerCancel={(event) => endCropDrag(event, cropDragCtx)}
                   />
                 ))}
               </div>
@@ -5451,7 +5385,7 @@ function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, on
                 min="12"
                 max="100"
                 value={Math.max(12, Math.min(100, cropPercent))}
-                onChange={changeCropScale}
+                onChange={(event) => changeCropScale(event, cropDragCtx)}
               />
             </label>
           )}
