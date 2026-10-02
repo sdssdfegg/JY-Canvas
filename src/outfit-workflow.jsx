@@ -96,6 +96,7 @@ import {
   referenceSource,
   resultImageCardState
 } from "./shared/result-image.js";
+import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
   FACT_UNRECOGNIZED,
@@ -2680,68 +2681,6 @@ function taskReferencePreviewItems(task) {
       url: ""
     }))
   ].filter((reference) => reference.name || reference.url || reference.item);
-}
-
-function ReferenceThumbTray({ references, count = 0, className = "", max = 5, onOpen, onContextMenu, onImageDragStart }) {
-  const items = Array.isArray(references) ? references.filter(Boolean) : [];
-  const imageItems = items.filter((reference) => referenceSource(reference));
-  const visibleItems = imageItems.slice(0, max);
-  const totalCount = Math.max(Number(count) || 0, items.length);
-  if (visibleItems.length === 0 && totalCount > 0) {
-    return (
-      <div className={`referenceThumbTray ${className}`} title="旧记录只保存了参考图数量，没有保存缩略图">
-        <span className="referenceCountPill">{totalCount} 张参考</span>
-      </div>
-    );
-  }
-  if (visibleItems.length === 0) return null;
-  return (
-    <div className={`referenceThumbTray ${className}`} title={`本张图使用了 ${totalCount || imageItems.length} 张参考图`}>
-      {visibleItems.map((reference, index) => {
-        const src = referenceSource(reference);
-        return (
-          <span
-            className="referenceMiniThumb"
-            key={reference.id || `${reference.name || "reference"}-${index}`}
-            title={reference.name || `参考图 ${index + 1}`}
-            onContextMenu={onContextMenu ? (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onContextMenu(event, reference, index, items);
-            } : undefined}
-          >
-            {src && (
-              <img
-                src={src}
-                alt=""
-                loading="lazy"
-                draggable={Boolean(onImageDragStart)}
-                onDragStart={onImageDragStart ? (event) => onImageDragStart(event, reference, index, items) : undefined}
-                role={onOpen ? "button" : undefined}
-                tabIndex={onOpen ? 0 : undefined}
-                onClick={onOpen ? (event) => {
-                  event.stopPropagation();
-                  onOpen(reference, index, items);
-                } : undefined}
-                onKeyDown={onOpen ? (event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onOpen(reference, index, items);
-                  }
-                } : undefined}
-                onError={(event) => {
-                  event.currentTarget.style.display = "none";
-                  event.currentTarget.parentElement?.classList.add("missing");
-                }}
-              />
-            )}
-          </span>
-        );
-      })}
-      {(totalCount || imageItems.length) > max && <span className="referenceMoreThumb">+{(totalCount || imageItems.length) - max}</span>}
-    </div>
-  );
 }
 
 function imageExtensionFromMime(type) {

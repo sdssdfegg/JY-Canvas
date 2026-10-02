@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 44,
+    "fileCount": 45,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -59,13 +59,9 @@
       "src/shared/ui/ChannelPicker.jsx",
       "src/shared/ui/Modal.jsx",
       "src/shared/ui/cached-image.jsx",
+      "src/shared/ui/reference-thumb-tray.jsx",
       "src/shared/video-task.js"
     ]
   },
-  "duplicates": {
-    "ReferenceThumbTray": [
-      "src/main.jsx",
-      "src/outfit-workflow.jsx"
-    ]
-  }
+  "duplicates": {}
 }

@@ -82,9 +82,9 @@ import { ErrorBoundary } from "./shared/error-boundary.jsx";
 import { Modal, ModalHeader } from "./shared/ui/Modal.jsx";
 import ChannelPicker from "./shared/ui/ChannelPicker.jsx";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
+import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
 import {
   brokenImageReason,
-  isAllowedReferenceImage,
   referenceSource,
   resultImageCardState
 } from "./shared/result-image.js";
@@ -1099,79 +1099,6 @@ function referenceMetaFromFiles(files, role = "reference", startIndex = 0) {
   }));
 }
 
-
-function ReferenceThumbTray({ references, count = 0, className = "", max = 5, onOpen, onContextMenu, onImageDragStart }) {
-  const allItems = Array.isArray(references) ? references.filter(Boolean) : [];
-  // P1：统一图片地址校验 + 归档缺失标记。
-  // 归档已丢失（服务端标记 missing），或地址不在白名单（旧中转站/预签名链接等），
-  // 都不再渲染、不再请求，避免每次打开页面 404/502。用数量提示告诉用户当时用了几张参考图。
-  const items = allItems.filter((reference) => (
-    !reference?.missing && isAllowedReferenceImage(reference, referenceSource)
-  ));
-  const missingCount = allItems.length - items.length;
-  const visibleItems = items.slice(0, max);
-  if (visibleItems.length === 0 && (count > 0 || missingCount > 0)) {
-    const total = count || allItems.length;
-    return (
-      <div
-        className={`referenceThumbTray ${className}`}
-        title={missingCount > 0
-          ? `${missingCount} 张参考图缩略图不可用（归档文件不存在或地址不在允许来源），不再重复请求`
-          : "旧记录只保存了参考图数量，没有保存缩略图"}
-      >
-        <span className="referenceCountPill">{total} 张参考</span>
-      </div>
-    );
-  }
-  if (visibleItems.length === 0) return null;
-  return (
-    <div className={`referenceThumbTray ${className}`} title={`本张图使用了 ${items.length} 张参考图`}>
-      {visibleItems.map((reference, index) => {
-        const src = referenceSource(reference);
-        return (
-          <span
-            className="referenceMiniThumb"
-            key={reference.id || `${reference.name}-${index}`}
-            title={reference.name || `参考图 ${index + 1}`}
-            onContextMenu={onContextMenu ? (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onContextMenu(event, reference, index, items);
-            } : undefined}
-          >
-            {src && (
-              <CachedImage
-                src={src}
-                alt=""
-                loading="lazy"
-                draggable={Boolean(onImageDragStart)}
-                role={onOpen ? "button" : undefined}
-                tabIndex={onOpen ? 0 : undefined}
-                onDragStart={onImageDragStart ? (event) => onImageDragStart(event, reference, index, items) : undefined}
-                onClick={onOpen ? (event) => {
-                  event.stopPropagation();
-                  onOpen(items, index);
-                } : undefined}
-                onKeyDown={onOpen ? (event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onOpen(items, index);
-                  }
-                } : undefined}
-                onError={(event) => {
-                  event.currentTarget.style.display = "none";
-                  event.currentTarget.parentElement?.classList.add("missing");
-                }}
-              />
-            )}
-          </span>
-        );
-      })}
-      {items.length > max && <span className="referenceMoreThumb">+{items.length - max}</span>}
-    </div>
-  );
-}
 
 // 2026-09-25 对齐 3.0：删除了"把上传图补白到模型比例"的逻辑。
 // 3.0 的裁剪输出就是选框本身，没有任何 letterbox；用户看到的白边正是这里产生的
@@ -5371,12 +5298,17 @@ function App() {
     setUploadPreview(null);
   }
 
-  function openReferencePreview(references, index = 0) {
-    const items = (Array.isArray(references) ? references : []).filter((reference) => referenceSource(reference));
-    if (items.length === 0) return;
+  // V11-RF-043-2：共享 `ReferenceThumbTray` 的 onOpen 约定统一为 `(reference, index, items)`，
+  // 第一个实参是**被点击的那一张**，不再是整组（旧版是 `onOpen(items, index)`）。
+  // 本页预览要的是整组 ⇒ 取第三个实参 items；items 缺失时退化到被点击的这一张（放宽，不留静默失效）。
+  // 正常路径下 items 就是旧版传进来的那个数组 ⇒ 与改前**行为等价**。
+  function openReferencePreview(reference, index = 0, items = []) {
+    const source = Array.isArray(items) && items.length > 0 ? items : [reference];
+    const previewItems = source.filter((item) => referenceSource(item));
+    if (previewItems.length === 0) return;
     setReferencePreview({
-      items,
-      index: Math.max(0, Math.min(items.length - 1, index))
+      items: previewItems,
+      index: Math.max(0, Math.min(previewItems.length - 1, index))
     });
   }
 
