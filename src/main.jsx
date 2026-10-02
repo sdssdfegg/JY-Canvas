@@ -66,6 +66,7 @@ import {
   promptForQuickGeneration
 } from "./shared/quickgen-prompt-rules.js";
 import {
+  clampCropTransform,
   composeLocalPasteBlob,
   constrainCropRect as sharedConstrainCropRect,
   cropRectToBlob,
@@ -1598,23 +1599,6 @@ function QuickCropViewportModal({ item, ratio, onClose, onApply, onClear }) {
     return Math.max(1, coverScale / containScale);
   }
 
-  function clampTransform(next) {
-    const frame = stageRef.current?.getBoundingClientRect();
-    if (!frame?.width || !frame?.height || !imageSize.width || !imageSize.height) return next;
-    const containScale = Math.min(frame.width / imageSize.width, frame.height / imageSize.height);
-    const minScale = minCropScale();
-    const scale = Math.max(minScale, Math.min(4, Number(next.scale) || minScale));
-    const drawWidth = imageSize.width * containScale * scale;
-    const drawHeight = imageSize.height * containScale * scale;
-    const maxX = Math.max(0, (drawWidth - frame.width) / 2);
-    const maxY = Math.max(0, (drawHeight - frame.height) / 2);
-    return {
-      x: Math.max(-maxX, Math.min(maxX, Number(next.x) || 0)),
-      y: Math.max(-maxY, Math.min(maxY, Number(next.y) || 0)),
-      scale
-    };
-  }
-
   function resetTransform() {
     setTransform({ x: 0, y: 0, scale: minCropScale() });
   }
@@ -1640,10 +1624,14 @@ function QuickCropViewportModal({ item, ratio, onClose, onApply, onClear }) {
     const drag = dragRef.current;
     if (!drag) return;
     event.preventDefault();
-    setTransform(clampTransform({
+    setTransform(clampCropTransform({
       ...drag.start,
       x: drag.start.x + event.clientX - drag.x,
       y: drag.start.y + event.clientY - drag.y
+    }, {
+      frame: stageRef.current?.getBoundingClientRect(),
+      imageSize,
+      minScale: minCropScale()
     }));
   }
 
@@ -1656,9 +1644,13 @@ function QuickCropViewportModal({ item, ratio, onClose, onApply, onClear }) {
     event.preventDefault();
     event.stopPropagation();
     const step = event.deltaY > 0 ? -0.08 : 0.08;
-    setTransform((current) => clampTransform({
+    setTransform((current) => clampCropTransform({
       ...current,
       scale: current.scale + step
+    }, {
+      frame: stageRef.current?.getBoundingClientRect(),
+      imageSize,
+      minScale: minCropScale()
     }));
   }
 

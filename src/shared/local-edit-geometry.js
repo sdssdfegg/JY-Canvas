@@ -372,3 +372,39 @@ export async function composeLocalPasteBlob(baseImage, generatedImage, rect, opt
     releaseCanvas(canvas);
   }
 }
+
+/**
+ * 裁剪舞台的「平移 / 缩放夹取」：把期望变换限制在「图不脱框」的范围内。
+ *
+ * 2026-10-02 V11-RF-053 收口：快捷生成侧（原 `clampTransform`）与批量侧
+ * （原 `clampCropTransform`）各一份，剥离缩进后逐行比对**只差一行守卫** ⇒ 收口到这里。
+ *
+ * ⚠️ 那一行差异已**参数化**，不是擅自统一：
+ *   批量侧原守卫是 `mode !== "crop" || !frame…`，即**非裁剪模式直接原样返回**（不夹取）；
+ *   快捷侧没有 mode 概念，恒夹取。
+ *   ⇒ 用 `options.enabled` 表达：批量侧传 `mode === "crop"`，快捷侧不传（默认 true）
+ *     ⇒ 两侧行为逐字等价。以后要改这段语义，必须先看清另一侧调用点传的是什么。
+ *
+ * @param {{x:number,y:number,scale:number}} next 期望的变换（未夹取）
+ * @param {object} options
+ *   - `frame` 舞台的 getBoundingClientRect() 结果（可为空 ⇒ 直接返回 next）
+ *   - `imageSize` 图的原始像素尺寸 `{width,height}`（**必填**，与抽取前一样不做可选链）
+ *   - `minScale` 最小缩放（调用点各自的 `minCropScale()`，**必填**）
+ *   - `enabled` false 时原样返回 next（默认 true）
+ * @returns {{x:number,y:number,scale:number}|object} 夹取后的变换；尺寸不全 / enabled=false 时返回 next 本身
+ */
+export function clampCropTransform(next, options = {}) {
+  const { frame, imageSize, minScale, enabled = true } = options;
+  if (!enabled || !frame?.width || !frame?.height || !imageSize.width || !imageSize.height) return next;
+  const containScale = Math.min(frame.width / imageSize.width, frame.height / imageSize.height);
+  const scale = Math.max(minScale, Math.min(4, Number(next.scale) || minScale));
+  const drawWidth = imageSize.width * containScale * scale;
+  const drawHeight = imageSize.height * containScale * scale;
+  const maxX = Math.max(0, (drawWidth - frame.width) / 2);
+  const maxY = Math.max(0, (drawHeight - frame.height) / 2);
+  return {
+    x: Math.max(-maxX, Math.min(maxX, Number(next.x) || 0)),
+    y: Math.max(-maxY, Math.min(maxY, Number(next.y) || 0)),
+    scale
+  };
+}

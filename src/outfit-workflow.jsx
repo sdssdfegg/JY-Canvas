@@ -75,6 +75,7 @@ import {
   routingFields
 } from "./shared/routing.js";
 import {
+  clampCropTransform,
   composeLocalPasteBlob,
   constrainCropRect as sharedConstrainCropRect,
   cropRectToBlob,
@@ -4668,23 +4669,6 @@ function CropModal({
     return Math.max(1, coverScale / containScale);
   }
 
-  function clampCropTransform(next) {
-    const frame = stageRef.current?.getBoundingClientRect();
-    if (mode !== "crop" || !frame?.width || !frame?.height || !imageSize.width || !imageSize.height) return next;
-    const containScale = Math.min(frame.width / imageSize.width, frame.height / imageSize.height);
-    const minScale = minCropScale();
-    const scale = Math.max(minScale, Math.min(4, Number(next.scale) || minScale));
-    const drawWidth = imageSize.width * containScale * scale;
-    const drawHeight = imageSize.height * containScale * scale;
-    const maxX = Math.max(0, (drawWidth - frame.width) / 2);
-    const maxY = Math.max(0, (drawHeight - frame.height) / 2);
-    return {
-      x: Math.max(-maxX, Math.min(maxX, Number(next.x) || 0)),
-      y: Math.max(-maxY, Math.min(maxY, Number(next.y) || 0)),
-      scale
-    };
-  }
-
   function resetCropTransform() {
     if (mode !== "crop") return;
     setTransform({ x: 0, y: 0, scale: minCropScale() });
@@ -4720,6 +4704,11 @@ function CropModal({
       ...dragRef.current.start,
       x: dragRef.current.start.x + deltaX,
       y: dragRef.current.start.y + deltaY
+    }, {
+      frame: stageRef.current?.getBoundingClientRect(),
+      imageSize,
+      minScale: minCropScale(),
+      enabled: mode === "crop"
     }));
   }
 
@@ -4729,6 +4718,11 @@ function CropModal({
     setTransform((current) => clampCropTransform({
       ...current,
       scale: Math.max(0.2, Math.min(4, current.scale + (event.deltaY > 0 ? -0.08 : 0.08)))
+    }, {
+      frame: stageRef.current?.getBoundingClientRect(),
+      imageSize,
+      minScale: minCropScale(),
+      enabled: mode === "crop"
     }));
   }
 
