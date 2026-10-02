@@ -9133,7 +9133,15 @@ function buildTasks(countOverride = plannedGenerationCount) {
       displayImage = resultImage;
     } else if (task.cropReturn?.cropRect) {
       updateTaskRuntime(task.id, "裁剪回流合成", "回填到原图裁剪坐标");
-      const originalFile = imageItemUploadFile(task.modelItem);
+
+      // 回流画布的底图必须和 cropRect 同源：cropRect / sourceWidth 是 CropModal
+      // 拿 item.originalFile（原图）算出来的（见 CropModal 的 confirm → processor(item.originalFile, …)），
+      // 而 imageItemUploadFile() 取的是 item.file —— 裁剪后它已经**被裁剪结果替换**，
+      // 拿它当底图会让画布变成裁剪后的尺寸、cropRect 被 constrainLocalEditRect 夹到 (0,0)，
+      // 与「回流到大图」名实不符（V11-RF-047）。
+      // ⇒ 与上方 localEdit 贴回链一致，统一走 resolveLocalEditBaseFile（原图优先，
+      //   没有 originalFile 时兜底回 file，旧草稿不会因此变差）。
+      const originalFile = resolveLocalEditBaseFile(task.modelItem);
       const generatedBlob = await blobFromOutfitImage(payload.image);
       const { blob: cropReturnBlob, diagnostics: cropReturnDiagnostics } = await composeCropReturnBlob(originalFile, generatedBlob, task.cropReturn);
       const dataUrl = await dataUrlFromBlob(cropReturnBlob);
