@@ -37,6 +37,15 @@ import {
   Wand2,
   X
 } from "lucide-react";
+import { canvasToBlob } from "./shared/canvas-blob.js";
+import { fileBaseName } from "./shared/file-name.js";
+import {
+  imageBitmapFromBlob,
+  imageBitmapFromFile,
+  imageFilesFromClipboard,
+  imageFilesFromList,
+  isImageFile
+} from "./shared/image-input.js";
 import {
   LOCAL_EDIT_MASK_COLOR,
   LOCAL_EDIT_MASK_MODE,
@@ -2756,15 +2765,6 @@ function ReferenceThumbTray({ references, count = 0, className = "", max = 5, on
   );
 }
 
-function isImageFile(file) {
-  return String(file?.type || "").startsWith("image/")
-    || /\.(png|jpe?g|webp|gif|bmp|avif)$/i.test(String(file?.name || ""));
-}
-
-function imageFilesFromList(list) {
-  return Array.from(list || []).filter(isImageFile);
-}
-
 function imageExtensionFromMime(type) {
   if (type?.includes("jpeg")) return "jpg";
   if (type?.includes("webp")) return "webp";
@@ -2787,15 +2787,6 @@ async function imageFileFromDropUrl(url, name = `drag-${Date.now()}`) {
     type: blob.type || "image/png",
     lastModified: Date.now()
   });
-}
-
-function imageFilesFromClipboard(clipboardData) {
-  const directFiles = imageFilesFromList(clipboardData?.files);
-  if (directFiles.length > 0) return directFiles;
-  return Array.from(clipboardData?.items || [])
-    .filter((item) => item.kind === "file" && String(item.type || "").startsWith("image/"))
-    .map((item, index) => item.getAsFile() || new File([], `clipboard-${Date.now()}-${index + 1}.png`, { type: item.type || "image/png" }))
-    .filter(Boolean);
 }
 
 function fileFromEntry(entry) {
@@ -3090,19 +3081,6 @@ function loadImageFromUrl(url) {
   });
 }
 
-function fileBaseName(filename) {
-  return String(filename || "image").replace(/\.[^.]+$/, "") || "image";
-}
-
-function canvasToBlob(canvas, type, quality) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("图片压缩失败"));
-    }, type, quality);
-  });
-}
-
 function delay(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, Math.max(0, Number(ms) || 0)));
 }
@@ -3225,54 +3203,6 @@ async function canvasToFile(canvas, name, type = "image/jpeg", quality = 0.92, d
   const blob = await canvasToBlob(canvas, type, quality);
   const outputBlob = type === "image/jpeg" ? await patchJpegDensity(blob, dpi) : blob;
   return new File([outputBlob], fileNameWithImageExtension(name, type), { type, lastModified: Date.now() });
-}
-
-async function imageBitmapFromFile(file) {
-  if (window.createImageBitmap) {
-    try {
-      return await window.createImageBitmap(file, { imageOrientation: "from-image" });
-    } catch {
-      // Fall back to HTMLImageElement for formats the browser bitmap decoder rejects.
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(image);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("无法读取图片"));
-    };
-    image.src = url;
-  });
-}
-
-async function imageBitmapFromBlob(blob) {
-  if (window.createImageBitmap) {
-    try {
-      return await window.createImageBitmap(blob);
-    } catch {
-      // Fall back to HTMLImageElement for formats the browser bitmap decoder rejects.
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(blob);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(image);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("无法读取图片"));
-    };
-    image.src = url;
-  });
 }
 
 // 选框几何统一走 src/shared/local-edit-geometry.js（快捷生成 src/main.jsx 用同一份），

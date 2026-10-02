@@ -17,6 +17,8 @@
 // 这里**不含**任何：补白边、按比例外扩、选区外恢复、自动回盖、蒙版膨胀、
 // 面部/身份/头脸/肩颈保护区、隐藏保护区域。
 
+import { canvasToBlob } from "./canvas-blob.js";
+
 export const LOCAL_EDIT_RECT_MODE = "rect";
 export const LOCAL_EDIT_MASK_MODE = "mask";
 
@@ -243,15 +245,6 @@ export function scaleRectLocked(sourceRect, targetWidth, ratio, imageWidth, imag
     width: size.width,
     height: size.height
   };
-}
-
-function canvasToBlob(canvas, type, quality) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("图片编码失败"));
-    }, type, quality);
-  });
 }
 
 function releaseCanvas(canvas) {

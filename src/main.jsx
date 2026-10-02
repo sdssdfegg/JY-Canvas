@@ -84,6 +84,15 @@ import ChannelPicker from "./shared/ui/ChannelPicker.jsx";
 import { brokenImageReason, isAllowedReferenceImage, resultImageCardState } from "./shared/result-image.js";
 import { classifyGenerationError, formatGenerationError } from "./shared/generation-errors.js";
 import { fileSize, formatMs } from "./lib/format/index.js";
+import { canvasToBlob } from "./shared/canvas-blob.js";
+import { fileBaseName } from "./shared/file-name.js";
+import {
+  imageBitmapFromBlob,
+  imageBitmapFromFile,
+  imageExtension,
+  imageFilesFromClipboard,
+  imageFilesFromList
+} from "./shared/image-input.js";
 import { readJsonStorage, removeStorageItem, writeJsonStorage } from "./lib/storage/json-storage.js";
 import OutfitWorkflow from "./outfit-workflow.jsx";
 import ImageEditorPanel from "./image-editor.jsx";
@@ -987,14 +996,6 @@ function makeResultId() {
   return `result_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function isImageFile(file) {
-  return file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
-}
-
-function imageFilesFromList(fileList) {
-  return Array.from(fileList || []).filter(isImageFile);
-}
-
 function videoResultUrl(task = {}) {
   return String(task.url || task.videoUrl || task.outputUrl || task.output_url || "").trim();
 }
@@ -1060,24 +1061,6 @@ function normalizeVideoSettingValue(current = {}, videoModel = {}) {
     resolution,
     aspectRatio
   };
-}
-
-function imageFilesFromClipboard(clipboardData) {
-  const directFiles = imageFilesFromList(clipboardData?.files);
-  if (directFiles.length > 0) return directFiles;
-
-  return Array.from(clipboardData?.items || [])
-    .filter((item) => item.kind === "file" && item.type?.startsWith("image/"))
-    .map((item, index) => {
-      const file = item.getAsFile();
-      if (!file) return null;
-      if (file.name) return file;
-      return new File([file], `clipboard-${Date.now()}-${index + 1}.${imageExtension(file.type)}`, {
-        type: file.type || "image/png",
-        lastModified: Date.now()
-      });
-    })
-    .filter(Boolean);
 }
 
 function makeQuickReferenceItem(file) {
@@ -1362,43 +1345,6 @@ function ReferenceThumbTray({ references, count = 0, className = "", max = 5, on
   );
 }
 
-function fileBaseName(filename) {
-  return String(filename || "image").replace(/\.[^.]+$/, "") || "image";
-}
-
-function canvasToBlob(canvas, type, quality) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("图片压缩失败"));
-    }, type, quality);
-  });
-}
-
-async function imageBitmapFromFile(file) {
-  if (window.createImageBitmap) {
-    try {
-      return await window.createImageBitmap(file, { imageOrientation: "from-image" });
-    } catch {
-      // Some formats are better handled by HTMLImageElement below.
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("无法读取图片"));
-    };
-    img.src = url;
-  });
-}
-
 // 2026-09-25 对齐 3.0：删除了"把上传图补白到模型比例"的逻辑。
 // 3.0 的裁剪输出就是选框本身，没有任何 letterbox；用户看到的白边正是这里产生的
 // （横图按 3:4 上传时上下各补一条白边）。
@@ -1464,30 +1410,6 @@ function formatStorageSize(bytes) {
     unit += 1;
   }
   return `${size >= 100 || unit === 0 ? Math.round(size) : size.toFixed(1)} ${units[unit]}`;
-}
-
-async function imageBitmapFromBlob(blob) {
-  if (window.createImageBitmap) {
-    try {
-      return await window.createImageBitmap(blob);
-    } catch {
-      // Fall back to HTMLImageElement below.
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("无法读取图片"));
-    };
-    img.src = url;
-  });
 }
 
 function ratioValue(ratio) {
@@ -1704,13 +1626,6 @@ async function prepareImageFilesForChannel(files, options = {}) {
     prepared.push(next.file);
   }
   return { files: prepared, compressedCount, normalizedCount, originalBytes, uploadBytes };
-}
-
-function imageExtension(type) {
-  if (type?.includes("jpeg")) return "jpg";
-  if (type?.includes("webp")) return "webp";
-  if (type?.includes("gif")) return "gif";
-  return "png";
 }
 
 /**

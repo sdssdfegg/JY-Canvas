@@ -16,6 +16,9 @@ import {
 } from "lucide-react";
 import { fileSize } from "./lib/format/index.js";
 import { clamp } from "./shared/numeric.js";
+import { canvasToBlob } from "./shared/canvas-blob.js";
+import { fileBaseName } from "./shared/file-name.js";
+import { imageBitmapFromFile, isImageFile } from "./shared/image-input.js";
 
 const EDITOR_DB_NAME = "jingyin-image-editor-v1";
 const EDITOR_STORE_NAME = "project";
@@ -25,47 +28,6 @@ const EDITOR_HISTORY_LIMIT = 32;
 const EDITOR_BRUSH_DEFAULTS_VERSION = 2;
 const DEFAULT_TRANSFORM = { x: 0, y: 0, scale: 1, rotation: 0 };
 const DEFAULT_BRUSH = { size: 72, hardness: 0, opacity: 100 };
-
-function fileBaseName(name) {
-  return String(name || "image").replace(/\.[^.]+$/, "") || "image";
-}
-
-function isImageFile(file) {
-  return file?.type?.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file?.name || "");
-}
-
-function canvasToBlob(canvas, type = "image/jpeg", quality = 0.94) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("图片导出失败"));
-    }, type, quality);
-  });
-}
-
-async function imageBitmapFromFile(file) {
-  if (window.createImageBitmap) {
-    try {
-      return await window.createImageBitmap(file, { imageOrientation: "from-image" });
-    } catch {
-      // Fall back to HTMLImageElement below.
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(image);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("无法读取图片"));
-    };
-    image.src = url;
-  });
-}
 
 async function imageBitmapFromDataUrl(dataUrl) {
   const response = await fetch(dataUrl);
