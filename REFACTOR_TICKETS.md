@@ -1317,12 +1317,17 @@ A 类函数型现在只剩 2 项，**且都是壳**：`refreshSaveDirectory(+4)`
 画布模型层（`createCanvasNode` 等 138 行）引用 app 级 `defaultState`/`clampCount` ⇒ 不是纯领域函数，
 强搬只能靠工厂+模块级求值顺序依赖或复制默认值，两条都不接受 ⇒ **登记不搬**。
 
-#### B3-3 / B3-4：转 result 域与 video 域（2026-10-03 完成，main 7866 → 7722，−144）
+#### B3-3 / B3-4：转 result 域与 video 域（2026-10-03 完成）
 
-| 单 | 内容 | commit |
-|---|---|---|
-| **RF-068** | 结果卡拖拽替换族 5 函数（65 行）→ `src/features/result-queue/quick-result-replace.js` | `477bdd7` |
-| **RF-069** | 视频生成编排 8 函数（99 行，含 `sleep`）→ `src/features/video/video-composer.js` | `1e6e2ac` |
+| 单 | 内容 | commit | main.jsx |
+|---|---|---|---|
+| **RF-068** | 结果卡拖拽替换族 5 函数（65 行）→ `src/features/result-queue/quick-result-replace.js` | `477bdd7` | 7866 → **7823**（−43） |
+| **RF-069** | 视频生成编排 8 函数（99 行，含 `sleep`）→ `src/features/video/video-composer.js` | `1e6e2ac` | 7823 → **7749**（−74） |
+
+**两单合计 −117 行。**
+⚠️ 口径更正：统筹初版报告写「−144 / −101」是错的 —— 那是**删除行数**，没扣掉新增的工厂调用
+（RF-069 删 102 / 增 28）。**净省一律用 `git show <commit>:src/main.jsx | wc -l` 逐笔核对**，
+不要用 diff 的删除数。
 
 **选域依据（重跑 `scripts/dev/domain-coupling.mjs`）**：画布域被拆后剩余耦合升至 1.75（剩下的是编排层）
 ⇒ 新的最低耦合域是 **main result 0.93**；video 域则是 **main 独有**（outfit 仅 1 个同名函数无对位）。
