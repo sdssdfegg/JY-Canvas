@@ -1,3 +1,5 @@
+import { createAbortSignal } from "./core/http-client.js";
+
 const DEFAULT_OUTFIT_QUALITY_MODEL = "gpt-5.4-mini";
 const OUTFIT_QUALITY_TIMEOUT_MS = 75000;
 
@@ -23,15 +25,6 @@ function modelName(input) {
 }
 
 // 中文注释：给质检请求加超时，避免生成完成后质检长期占用前端状态。
-function createAbortSignal(timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return {
-    signal: controller.signal,
-    dispose: () => clearTimeout(timer)
-  };
-}
-
 // 中文注释：兼容中转站 JSON 或纯文本错误返回，便于统一提取错误信息。
 function readResponse(response) {
   return response.text().then((text) => {

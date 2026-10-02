@@ -1,3 +1,4 @@
+import { createAbortSignal } from "./core/http-client.js";
 import {
   FACT_UNRECOGNIZED,
   OUTFIT_PART_OPTIONS,
@@ -32,15 +33,6 @@ function modelName(input) {
 }
 
 // 中文注释：给上游请求加超时控制，防止分析接口长时间挂起前端。
-function createAbortSignal(timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return {
-    signal: controller.signal,
-    dispose: () => clearTimeout(timer)
-  };
-}
-
 // 中文注释：兼容不同中转站的 JSON/纯文本错误返回，便于后续提取错误信息。
 function readResponse(response) {
   return response.text().then((text) => {

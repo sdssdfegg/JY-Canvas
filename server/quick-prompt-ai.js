@@ -1,3 +1,5 @@
+import { createAbortSignal } from "./core/http-client.js";
+
 const DEFAULT_QUICK_PROMPT_MODEL = "gpt-5.4-mini";
 const QUICK_PROMPT_TIMEOUT_MS = 90000;
 const MAX_QUICK_PROMPT_IMAGE_COUNT = 6;
@@ -9,15 +11,6 @@ function asText(value, fallback = "") {
 
 function modelName(input) {
   return asText(input.detailAnalysisModel || input.quickPromptModel || input.textModel || DEFAULT_QUICK_PROMPT_MODEL, DEFAULT_QUICK_PROMPT_MODEL);
-}
-
-function createAbortSignal(timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return {
-    signal: controller.signal,
-    dispose: () => clearTimeout(timer)
-  };
 }
 
 function readResponse(response) {

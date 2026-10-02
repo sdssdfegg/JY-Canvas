@@ -1,3 +1,5 @@
+import { createAbortSignal } from "./core/http-client.js";
+
 const DEFAULT_REFERENCE_TEXT_MODEL = "gpt-5.4-mini";
 const REFERENCE_REWRITE_TIMEOUT_MS = 90000;
 const MAX_REFERENCE_AI_IMAGE_COUNT = 8;
@@ -15,15 +17,6 @@ function clampStrength(value) {
 
 function modelName(input) {
   return asText(input.detailAnalysisModel || input.referenceTextModel || input.textModel || DEFAULT_REFERENCE_TEXT_MODEL, DEFAULT_REFERENCE_TEXT_MODEL);
-}
-
-function createAbortSignal(timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return {
-    signal: controller.signal,
-    dispose: () => clearTimeout(timer)
-  };
 }
 
 function readResponse(response) {

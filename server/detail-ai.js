@@ -1,3 +1,4 @@
+import { createAbortSignal } from "./core/http-client.js";
 import {
   BASE_SKILL,
   INDUSTRY_SKILLS,
@@ -18,15 +19,6 @@ function clamp(value, min, max, fallback) {
 function asText(value, fallback = "") {
   const text = String(value ?? "").trim();
   return text || fallback;
-}
-
-function createAbortSignal(timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return {
-    signal: controller.signal,
-    dispose: () => clearTimeout(timer)
-  };
 }
 
 function detailModel(input) {

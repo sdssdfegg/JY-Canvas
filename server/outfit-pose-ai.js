@@ -1,3 +1,5 @@
+import { createAbortSignal } from "./core/http-client.js";
+
 const DEFAULT_OUTFIT_POSE_MODEL = "gpt-5.4-mini";
 const OUTFIT_POSE_TIMEOUT_MS = 45000;
 
@@ -43,15 +45,6 @@ function isFaceSwapInput(input) {
     || /批量换脸|换脸|人脸|脸部|face\s*swap/i.test(pageName)
     || /人脸参考|脸部参考|人脸身份|脸部身份/i.test(text)
     || (/目标人物图|人物图|模特图|原图/i.test(modelTitle) && /人脸参考|脸部参考|人脸身份|换脸|脸/i.test(clothingTitle));
-}
-
-function createAbortSignal(timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return {
-    signal: controller.signal,
-    dispose: () => clearTimeout(timer)
-  };
 }
 
 function readResponse(response) {

@@ -1,3 +1,5 @@
+import { createAbortSignal } from "./core/http-client.js";
+
 const textFromCodes = (codes) => String.fromCharCode(...codes);
 
 const DEFAULT_GATEWAY_BASE_URL = textFromCodes([
@@ -147,15 +149,6 @@ export function publicBillingErrorPayload(error, requestId = "") {
     status: status >= 400 && status < 500 ? status : 502,
     error: code,
     message: safeText(error?.message, "计费网关请求失败，请稍后重试。")
-  };
-}
-
-function createAbortSignal(timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return {
-    signal: controller.signal,
-    dispose: () => clearTimeout(timer)
   };
 }
 
