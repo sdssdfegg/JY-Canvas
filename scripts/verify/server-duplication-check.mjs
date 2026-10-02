@@ -27,8 +27,20 @@ const ROOT = process.cwd()
 const BASELINE = path.join(ROOT, "scripts", "verify", "server-duplication-baseline.json")
 const UPDATE = process.argv.includes("--update")
 
-// 只认行首顶层函数声明：`function NAME(` 与 `async function NAME(`
-const DEF = /^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm
+// 只认「行首（列 0）」的函数声明：不扫缩进的内层函数 / 箭头函数（局部同名是正常作用域，全扫会大量误报）。
+//
+// 🔴 V11-RF-026 修正（2026-10-02）：原正则漏掉 `export function`
+//   - 旧：`/^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm`
+//   - 新：`/^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm`
+//   实测（tmp/scan-def-forms.mjs，门禁范围内 50 文件）：行首顶层函数声明**合计 205 个**，
+//   其中 `export function` 118 + `export async function` 41 = **159 个（77.6%）旧判据看不见**，
+//   旧判据只命中 46 个 ⇒ **「门禁全绿」只等于「在旧判据下没有重复」，不等于「没有重复」**（§0.9 第 17 条）。
+//   活证据：`createAbortSignal` 在 `server/core/http-client.js:15` 是 `export function`、
+//   在 `server/billing-gateway.js:153` 是裸 `function` —— 旧判据只点名后者。
+//   本行只修「函数声明族」；箭头函数常量（`const NAME = (`）**仍不收**（服务端该形式极少，
+//   收进来只改变基数），若要收另开工单并在 commit 说明。⚠️ 前端 019 的第一条正则**同病**
+//   （`lib/frontend-sources.mjs` 的 TOP_LEVEL_DEF_RES[0]），是否修正见 RF-026 汇报。
+const DEF = /^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm
 
 const files = listServerSourceFiles().sort()
 const found = new Map() // name -> [{ file, line }]
