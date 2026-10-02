@@ -84,9 +84,11 @@ import { changeCropScale } from "./features/local-edit/crop-drag.js";
 import { LocalEditBrushTools } from "./features/local-edit/LocalEditBrushTools.jsx";
 import { LocalEditCropOverlay } from "./features/local-edit/LocalEditCropOverlay.jsx";
 import {
+  beginImageDownloadDrag,
   brokenImageReason,
-  imageExtensionFromSource,
-  imageMimeFromSource,
+  dataUrlFromBlob,
+  dragDownloadDateStamp,
+  padDragDownloadNumber,
   referenceSource,
   resultImageCardState
 } from "./shared/result-image.js";
@@ -131,7 +133,7 @@ import {
   rewriteReferencePrompt
 } from "./api/prompts.js";
 import { generateVideo, getVideoStatus } from "./api/videos.js";
-import { displayImageRequestUrl, fetchImageBlob, uploadCanvasAssets } from "./api/assets.js";
+import { fetchImageBlob, uploadCanvasAssets } from "./api/assets.js";
 import { isAuthErrorMessage, normalizeApiKeyInput } from "./features/auth/api-key.js";
 import {
   LOCAL_EDIT_MASK_COLOR,
@@ -3824,7 +3826,7 @@ function App() {
     const url = String(videoSettings.imageUrl || "").trim();
     if (url) return url;
     if (!videoReferenceFile) return "";
-    return dataUrlFromBlob(videoReferenceFile);
+    return dataUrlFromBlob(videoReferenceFile, "长图编码失败");
   }
 
   async function pollVideoUntilFinished(initialTask, requestId, runSettings, apiKey, startedAt) {
@@ -4427,15 +4429,6 @@ function App() {
     return fetchImageBlob(src, "图片下载失败");
   }
 
-  function dataUrlFromBlob(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(reader.error || new Error("长图编码失败"));
-      reader.readAsDataURL(blob);
-    });
-  }
-
   function findGeneratedResultById(id) {
     if (!id) return null;
     return results.find((item) => item.id === id)
@@ -4476,34 +4469,6 @@ function App() {
     return [];
   }
 
-  function safeDownloadFileName(name, ext = "png") {
-    const base = fileBaseName(name)
-      .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, "_")
-      .replace(/\s+/g, " ")
-      .trim() || "image";
-    return `${base}.${ext}`;
-  }
-
-  function padDragDownloadNumber(value, length = 2) {
-    return String(Math.max(0, Number.parseInt(value, 10) || 0)).padStart(length, "0");
-  }
-
-  function dragDownloadDateStamp(value) {
-    const timestamp = Number(value);
-    const date = new Date(Number.isFinite(timestamp) && timestamp > 0 ? timestamp : Date.now());
-    const day = [
-      date.getFullYear(),
-      padDragDownloadNumber(date.getMonth() + 1),
-      padDragDownloadNumber(date.getDate())
-    ].join("");
-    const time = [
-      padDragDownloadNumber(date.getHours()),
-      padDragDownloadNumber(date.getMinutes()),
-      padDragDownloadNumber(date.getSeconds())
-    ].join("");
-    return `${day}-${time}`;
-  }
-
   function resultDragDownloadName(item, fallbackIndex = null) {
     const savedName = item?.savedFilename || item?.filename;
     if (savedName) return savedName;
@@ -4513,29 +4478,6 @@ function App() {
       ? fallbackIndex + 1
       : Math.max(1, Math.round(createdAt % 100000));
     return `静音AI绘画-${dragDownloadDateStamp(createdAt)}-${padDragDownloadNumber(sequence, 4)}`;
-  }
-
-  function absoluteDownloadUrl(src) {
-    const requestUrl = displayImageRequestUrl(src);
-    if (!requestUrl || /^(data|blob):/i.test(requestUrl)) return requestUrl || "";
-    try {
-      return new URL(requestUrl, window.location.href).href;
-    } catch {
-      return requestUrl;
-    }
-  }
-
-  function beginImageDownloadDrag(event, src, name = "静音AI绘画", image = null) {
-    if (!src) return;
-    event.stopPropagation?.();
-    const mimeType = imageMimeFromSource(src, image);
-    const filename = safeDownloadFileName(name, imageExtensionFromSource(src, mimeType));
-    const downloadUrl = absoluteDownloadUrl(src);
-    event.dataTransfer.effectAllowed = "copy";
-    event.dataTransfer.setData("DownloadURL", `${mimeType}:${filename}:${downloadUrl}`);
-    event.dataTransfer.setData("application/x-jingyin-download-url", downloadUrl);
-    event.dataTransfer.setData("text/uri-list", src);
-    event.dataTransfer.setData("text/plain", src);
   }
 
   function beginResultImageDrag(event, item, fallbackIndex = null) {
@@ -4619,7 +4561,7 @@ function App() {
     try {
       const directory = saveDirectory || await refreshSaveDirectory();
       const blob = await stitchDetailGroupBlob(group);
-      const dataUrl = await dataUrlFromBlob(blob);
+      const dataUrl = await dataUrlFromBlob(blob, "长图编码失败");
       const response = await fetch("/api/save-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -5835,7 +5777,7 @@ function App() {
         nextResults = await Promise.all(nextResults.map(async (item) => {
           const generatedBlob = await blobFromImageItem(item);
           const composedBlob = await composeQuickLocalEditBlob(originalFile, generatedBlob, localEditForRun.cropRect, localEditForRun, localCompositeOptions);
-          const dataUrl = await dataUrlFromBlob(composedBlob);
+          const dataUrl = await dataUrlFromBlob(composedBlob, "长图编码失败");
           return {
             ...item,
             image: { type: "b64_json", value: dataUrl, mimeType: "image/jpeg" },

@@ -9,9 +9,12 @@
 //   1. 判读服务端标记的"归档文件已丢失"（`image.missing`），命中时**根本不发请求**；
 //   2. 把"加载失败"翻译成人能看懂的原因，让卡片显示原因而不是空白。
 //
-// 注意：本模块只做判读与文案，不发起任何网络请求，也不修改持久化数据。
+// 注意：本模块只做判读与文案，不发起任何网络请求，也不修改持久化数据；
+// V11-RF-052 起另外承载「拖拽下载族」（见文件末尾那段注释），它们会碰 DOM 与 FileReader。
 
 import { IMAGE_SOURCE_REASONS, classifyImageSource } from "./image-hosts.js";
+import { fileBaseName } from "./file-name.js";
+import { displayImageRequestUrl } from "../api/assets.js";
 
 /** 缺图/失效的原因码 → 用户可读文案。 */
 export const RESULT_IMAGE_MISSING_REASONS = Object.freeze({
@@ -188,4 +191,86 @@ export function imageExtensionFromSource(src, mimeType) {
  */
 export function brokenImageReason() {
   return RESULT_IMAGE_MISSING_REASONS.load_failed;
+}
+
+// ---------------------------------------------------------------------------
+// 拖拽下载族（V11-RF-052 收口）
+//
+// 收口前这 6 个函数在 src/main.jsx 与 src/outfit-workflow.jsx 各一份：
+//   · safeDownloadFileName / padDragDownloadNumber / dragDownloadDateStamp /
+//     absoluteDownloadUrl / beginImageDownloadDrag —— 剥离缩进后**逐字节一致**
+//     （脚本 scripts/dev/d2-drag-family-check.mjs 实测，非肉眼）；
+//   · dataUrlFromBlob —— 唯一实质差异是报错文案
+//     （main「长图编码失败」/ outfit「图片编码失败」）。
+//
+// 文案差异按 RF-027-3 的先例走**入参化**，不擅自统一：
+//   dataUrlFromBlob(blob, errorMessage = "图片编码失败")，main 侧 3 个调用点
+//   显式传 "长图编码失败" ⇒ 两侧行为逐字不变。
+//
+// 为什么放在本模块（而不是新建文件）：两侧**本来就 import 了 result-image.js**，
+// 且本族与上面的「结果图地址 → 落盘 MIME / 扩展名」是同一条链路的上下游
+// ⇒ 加进既有模块不新增文件、不触发 019 的 scopeDrift（项目 §2.5：优先复用既有模块）。
+//
+// ⚠️ 本族要用 window / FileReader / dataTransfer ⇒ 只在浏览器里跑，
+//    服务端与 Node 侧脚本不要 import 本模块。
+// ---------------------------------------------------------------------------
+
+export function safeDownloadFileName(name, ext = "png") {
+  const base = fileBaseName(name)
+    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, "_")
+    .replace(/\s+/g, " ")
+    .trim() || "image";
+  return `${base}.${ext}`;
+}
+
+export function padDragDownloadNumber(value, length = 2) {
+  return String(Math.max(0, Number.parseInt(value, 10) || 0)).padStart(length, "0");
+}
+
+export function dragDownloadDateStamp(value) {
+  const timestamp = Number(value);
+  const date = new Date(Number.isFinite(timestamp) && timestamp > 0 ? timestamp : Date.now());
+  const day = [
+    date.getFullYear(),
+    padDragDownloadNumber(date.getMonth() + 1),
+    padDragDownloadNumber(date.getDate())
+  ].join("");
+  const time = [
+    padDragDownloadNumber(date.getHours()),
+    padDragDownloadNumber(date.getMinutes()),
+    padDragDownloadNumber(date.getSeconds())
+  ].join("");
+  return `${day}-${time}`;
+}
+
+export function absoluteDownloadUrl(src) {
+  const requestUrl = displayImageRequestUrl(src);
+  if (!requestUrl || /^(data|blob):/i.test(requestUrl)) return requestUrl || "";
+  try {
+    return new URL(requestUrl, window.location.href).href;
+  } catch {
+    return requestUrl;
+  }
+}
+
+export function beginImageDownloadDrag(event, src, name = "静音AI绘画", image = null) {
+  if (!src) return;
+  event.stopPropagation?.();
+  const mimeType = imageMimeFromSource(src, image);
+  const filename = safeDownloadFileName(name, imageExtensionFromSource(src, mimeType));
+  const downloadUrl = absoluteDownloadUrl(src);
+  event.dataTransfer.effectAllowed = "copy";
+  event.dataTransfer.setData("DownloadURL", `${mimeType}:${filename}:${downloadUrl}`);
+  event.dataTransfer.setData("application/x-jingyin-download-url", downloadUrl);
+  event.dataTransfer.setData("text/uri-list", src);
+  event.dataTransfer.setData("text/plain", src);
+}
+
+export function dataUrlFromBlob(blob, errorMessage = "图片编码失败") {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error(errorMessage));
+    reader.readAsDataURL(blob);
+  });
 }

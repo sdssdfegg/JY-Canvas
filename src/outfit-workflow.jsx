@@ -88,9 +88,11 @@ import { getAppConfig } from "./api/config.js";
 import { formatConnectionResult, testConnection } from "./api/connection.js";
 import { describeEmptyResult, formatGenerationError, sanitizeErrorText } from "./shared/generation-errors.js";
 import {
+  beginImageDownloadDrag,
   brokenImageReason,
-  imageExtensionFromSource,
-  imageMimeFromSource,
+  dataUrlFromBlob,
+  dragDownloadDateStamp,
+  padDragDownloadNumber,
   referenceSource,
   resultImageCardState
 } from "./shared/result-image.js";
@@ -3430,15 +3432,6 @@ async function blobFromOutfitImage(image) {
   const src = imageSource(image);
   if (!src) throw new Error("图片地址无效");
   return fetchImageBlob(src, "图片下载失败");
-}
-
-function dataUrlFromBlob(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(reader.error || new Error("图片编码失败"));
-    reader.readAsDataURL(blob);
-  });
 }
 
 async function imageThumbnailDataUrlFromFile(file, maxSide = 96) {
@@ -8336,34 +8329,6 @@ export default function OutfitWorkflow({
     };
   }
 
-  function safeDownloadFileName(name, ext = "png") {
-    const base = fileBaseName(name)
-      .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, "_")
-      .replace(/\s+/g, " ")
-      .trim() || "image";
-    return `${base}.${ext}`;
-  }
-
-  function padDragDownloadNumber(value, length = 2) {
-    return String(Math.max(0, Number.parseInt(value, 10) || 0)).padStart(length, "0");
-  }
-
-  function dragDownloadDateStamp(value) {
-    const timestamp = Number(value);
-    const date = new Date(Number.isFinite(timestamp) && timestamp > 0 ? timestamp : Date.now());
-    const day = [
-      date.getFullYear(),
-      padDragDownloadNumber(date.getMonth() + 1),
-      padDragDownloadNumber(date.getDate())
-    ].join("");
-    const time = [
-      padDragDownloadNumber(date.getHours()),
-      padDragDownloadNumber(date.getMinutes()),
-      padDragDownloadNumber(date.getSeconds())
-    ].join("");
-    return `${day}-${time}`;
-  }
-
   function taskDragDownloadName(task, fallbackIndex = null) {
     if (task?.savedFilename) return task.savedFilename;
     // 拖拽下载不经过服务端保存目录，使用生成日期时间+任务序号避免模型名反复重名。
@@ -8375,29 +8340,6 @@ export default function OutfitWorkflow({
         ? fallbackIndex + 1
         : Math.max(1, Math.round(createdAt % 100000));
     return `静音AI绘画-${dragDownloadDateStamp(createdAt)}-${padDragDownloadNumber(sequence, 4)}`;
-  }
-
-  function absoluteDownloadUrl(src) {
-    const requestUrl = displayImageRequestUrl(src);
-    if (!requestUrl || /^(data|blob):/i.test(requestUrl)) return requestUrl || "";
-    try {
-      return new URL(requestUrl, window.location.href).href;
-    } catch {
-      return requestUrl;
-    }
-  }
-
-  function beginImageDownloadDrag(event, src, name = "静音AI绘画", image = null) {
-    if (!src) return;
-    event.stopPropagation?.();
-    const mimeType = imageMimeFromSource(src, image);
-    const filename = safeDownloadFileName(name, imageExtensionFromSource(src, mimeType));
-    const downloadUrl = absoluteDownloadUrl(src);
-    event.dataTransfer.effectAllowed = "copy";
-    event.dataTransfer.setData("DownloadURL", `${mimeType}:${filename}:${downloadUrl}`);
-    event.dataTransfer.setData("application/x-jingyin-download-url", downloadUrl);
-    event.dataTransfer.setData("text/uri-list", src);
-    event.dataTransfer.setData("text/plain", src);
   }
 
   function beginTaskImageDrag(event, task, fallbackIndex = null) {
