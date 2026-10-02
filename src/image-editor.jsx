@@ -19,6 +19,10 @@ import { clamp } from "./shared/numeric.js";
 import { canvasToBlob } from "./shared/canvas-blob.js";
 import { fileBaseName } from "./shared/file-name.js";
 import { imageBitmapFromFile, isImageFile } from "./shared/image-input.js";
+// 2026-10-02 · 阶段 B 刀 3 裁决 ④：本文件原有一份私有 `imageBitmapFromDataUrl`（fetch → blob →
+// imageBitmapFromFile），与 shared/local-edit-mask.js 那份是同族重复。统一到 shared 版
+// （main.jsx / outfit-workflow.jsx 早已 import 它）；4 个调用点全部只"画到 canvas"，消费方式不变。
+import { imageBitmapFromDataUrl } from "./shared/local-edit-mask.js";
 
 const EDITOR_DB_NAME = "jingyin-image-editor-v1";
 const EDITOR_STORE_NAME = "project";
@@ -28,12 +32,6 @@ const EDITOR_HISTORY_LIMIT = 32;
 const EDITOR_BRUSH_DEFAULTS_VERSION = 2;
 const DEFAULT_TRANSFORM = { x: 0, y: 0, scale: 1, rotation: 0 };
 const DEFAULT_BRUSH = { size: 72, hardness: 0, opacity: 100 };
-
-async function imageBitmapFromDataUrl(dataUrl) {
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
-  return imageBitmapFromFile(blob);
-}
 
 function openEditorDb() {
   if (!window.indexedDB) return Promise.resolve(null);

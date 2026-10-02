@@ -64,10 +64,6 @@
       "src/main.jsx",
       "src/outfit-workflow.jsx"
     ],
-    "imageBitmapFromDataUrl": [
-      "src/image-editor.jsx",
-      "src/shared/local-edit-mask.js"
-    ],
     "isVideoTaskCompleted": [
       "src/main.jsx",
       "src/outfit-workflow.jsx"

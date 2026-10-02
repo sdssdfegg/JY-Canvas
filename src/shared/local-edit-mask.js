@@ -105,6 +105,22 @@ export function normalizeMaskCanvas(canvas, threshold = 10) {
   ctx.putImageData(imageData, 0, 0);
 }
 
+/**
+ * data URL → 可绘制位图（ImageBitmap 优先，失败退 HTMLImageElement）。
+ *
+ * 2026-10-02 · 阶段 B 刀 3 裁决 ④：**统一到这一份**（`src/image-editor.jsx` 的本地私有版已删）。
+ * 两版的三处差异与定性（详见 tmp/刀3-imageBitmapFromDataUrl-对照表.txt）：
+ *   ① 错误文案：image-editor 版经 `imageBitmapFromFile` 抛出「无法读取图片」，本版原是「无法读取蒙版」
+ *      ⇒ **有意统一成「无法读取图片」**（泛化文案在遮罩语境同样成立，且把用户可见变化降到最小；
+ *        与 canvas-blob.js 的文案裁决同源：统一到最泛化/最准确的那一句）。
+ *      开工前已 grep 全仓取证：`无法读取蒙版` 仅本行 + skill-baselines 快照命中，
+ *      `无法读取图片` 仅 image-input.js 命中 —— **scripts/verify/** 与浏览器探针 0 断言依赖** ⇒ 不会打断断言。
+ *      （按 §0.9「断言优先于多数派」：若将来某处断言了其中一句，应改回被断言的那句。）
+ *   ② 解码参数：本版 `createImageBitmap(blob)` 不带 `{ imageOrientation: "from-image" }`。
+ *      入参是 `canvas.toDataURL()` 导出的 PNG 蒙版，无 EXIF 方向信息 ⇒ 实际无差异。
+ *   ③ 空值守卫：本版 `if (!dataUrl) return null`。4 个调用点全部已在外层判空 ⇒ 该分支走不到。
+ * 返回类型可能是 ImageBitmap 也可能是 HTMLImageElement（只有前者有 close()），调用方一律用 `?.close()`。
+ */
 export async function imageBitmapFromDataUrl(dataUrl) {
   if (!dataUrl) return null;
   const response = await fetch(dataUrl);
@@ -126,7 +142,7 @@ export async function imageBitmapFromDataUrl(dataUrl) {
     };
     image.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error("无法读取蒙版"));
+      reject(new Error("无法读取图片"));
     };
     image.src = url;
   });
