@@ -71,8 +71,6 @@ import {
   cropRectToBlob,
   fitRectToRatioLocked,
   formatPixelSize,
-  resizeRectFromCenterLocked,
-  resizeRectFromCornerLocked,
   resolveLocalEditBaseFile,
   scaleRectLocked,
   snapSizeToRatio
@@ -83,6 +81,11 @@ import { Modal, ModalHeader } from "./shared/ui/Modal.jsx";
 import ChannelPicker from "./shared/ui/ChannelPicker.jsx";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
+import {
+  CROP_MIN_PIXEL_SIZE,
+  resizeCropRectFromCenter,
+  resizeCropRectFromCorner
+} from "./features/local-edit/crop-rect-resize.js";
 import {
   brokenImageReason,
   referenceSource,
@@ -1979,56 +1982,6 @@ function QuickLocalEditModal({ item, ratio, mode = "local", onRatioChange, onClo
     };
   }
 
-  // 2026-09-25 对齐要求（本轮）：「局部回贴选框必须跟随用户选定的比例」。
-  //   - 局部回贴 + 框选区域：角柄缩放 / Alt 中心缩放 / 区域大小滑杆全部锁定 activeRatio，
-  //     宽高始终精确满足比例（整数像素），且不越出原图。
-  //   - 普通裁剪：保持上一轮确定的自由矩形语义（拖多大就是多大）。
-  const CROP_MIN_PIXEL_SIZE = 1;
-
-  function resizeCropRectFromCorner(sourceRect, handle, deltaX, deltaY) {
-    if (ratioLocked) {
-      return resizeRectFromCornerLocked(
-        sourceRect, handle, deltaX, deltaY, activeRatio, imageSize.width, imageSize.height
-      );
-    }
-    const directionX = handle.includes("e") ? 1 : -1;
-    const directionY = handle.includes("s") ? 1 : -1;
-    const anchorX = directionX > 0 ? sourceRect.x : sourceRect.x + sourceRect.width;
-    const anchorY = directionY > 0 ? sourceRect.y : sourceRect.y + sourceRect.height;
-    const maxWidth = Math.max(1, directionX > 0 ? imageSize.width - anchorX : anchorX);
-    const maxHeight = Math.max(1, directionY > 0 ? imageSize.height - anchorY : anchorY);
-    const nextWidth = Math.max(CROP_MIN_PIXEL_SIZE, Math.min(maxWidth, sourceRect.width + deltaX * directionX));
-    const nextHeight = Math.max(CROP_MIN_PIXEL_SIZE, Math.min(maxHeight, sourceRect.height + deltaY * directionY));
-    return {
-      x: directionX > 0 ? anchorX : anchorX - nextWidth,
-      y: directionY > 0 ? anchorY : anchorY - nextHeight,
-      width: nextWidth,
-      height: nextHeight
-    };
-  }
-
-  function resizeCropRectFromCenter(sourceRect, handle, deltaX, deltaY) {
-    if (ratioLocked) {
-      return resizeRectFromCenterLocked(
-        sourceRect, handle, deltaX, deltaY, activeRatio, imageSize.width, imageSize.height
-      );
-    }
-    const directionX = handle.includes("e") ? 1 : -1;
-    const directionY = handle.includes("s") ? 1 : -1;
-    const centerX = sourceRect.x + sourceRect.width / 2;
-    const centerY = sourceRect.y + sourceRect.height / 2;
-    const maxWidth = Math.max(1, Math.min(centerX, imageSize.width - centerX) * 2);
-    const maxHeight = Math.max(1, Math.min(centerY, imageSize.height - centerY) * 2);
-    const nextWidth = Math.max(CROP_MIN_PIXEL_SIZE, Math.min(maxWidth, sourceRect.width + deltaX * directionX * 2));
-    const nextHeight = Math.max(CROP_MIN_PIXEL_SIZE, Math.min(maxHeight, sourceRect.height + deltaY * directionY * 2));
-    return {
-      x: centerX - nextWidth / 2,
-      y: centerY - nextHeight / 2,
-      width: nextWidth,
-      height: nextHeight
-    };
-  }
-
   function moveCropDrag(event) {
     const drag = dragRef.current;
     if (!drag || !cropRect || !displaySize.width || !displaySize.height) return;
@@ -2047,9 +2000,14 @@ function QuickLocalEditModal({ item, ratio, mode = "local", onRatioChange, onClo
     }
 
     const handle = drag.mode.startsWith("resize-") ? drag.mode.slice("resize-".length) : "se";
-    updateCropRect(drag.centerResize
-      ? resizeCropRectFromCenter(drag.rect, handle, deltaX, deltaY)
-      : resizeCropRectFromCorner(drag.rect, handle, deltaX, deltaY));
+    updateCropRect((drag.centerResize
+      ? resizeCropRectFromCenter
+      : resizeCropRectFromCorner)(drag.rect, handle, deltaX, deltaY, {
+        ratioLocked,
+        activeRatio,
+        imageWidth: imageSize.width,
+        imageHeight: imageSize.height
+      }));
   }
 
   function endCropDrag(event) {
