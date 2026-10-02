@@ -8050,47 +8050,25 @@ export default function OutfitWorkflow({
     addEvent("刷新", `已载入 ${history.length} 张历史图片`);
   }
 
-  // 保存目录域：实现在 src/features/savedir/save-directory.js（两侧同一份，语义等价）。
-  // 这里只保留同名薄壳：每次 render 重建，捕获最新的 state / setter / addEvent。
-  async function refreshSaveDirectory() {
-    return loadSaveDirectory({
-      getSaveDirectory,
-      setSaveDirectory,
-      setDirectoryDraft,
-      notify: addEvent
-    });
-  }
-
-  function openDirectoryModal() {
-    openSaveDirectoryModal({
-      saveDirectory,
-      setDirectoryDraft,
-      setIsDirectoryModalOpen
-    });
-  }
-
-  async function confirmSaveDirectory() {
-    return commitSaveDirectory({
-      directoryDraft,
-      setSaveDirectoryRequest,
-      setSaveDirectory,
-      setDirectoryDraft,
-      setIsDirectoryModalOpen,
-      notify: addEvent
-    });
-  }
-
-  async function pickSaveDirectory() {
-    return chooseSaveDirectory({
-      directoryDraft,
-      saveDirectory,
-      isPickingDirectory,
-      pickSaveDirectoryRequest,
-      setDirectoryDraft,
-      setIsPickingDirectory,
-      notify: addEvent
-    });
-  }
+  // 保存目录域：实现在 src/features/savedir/save-directory.js（两侧同一份，语义等价）。
+  // 这里只保留同名薄壳：每次 render 重建 deps，捕获最新的 state / setter / addEvent。
+  const saveDirectoryDeps = {
+    getSaveDirectory,
+    setSaveDirectoryRequest,
+    pickSaveDirectoryRequest,
+    setSaveDirectory,
+    setDirectoryDraft,
+    setIsDirectoryModalOpen,
+    setIsPickingDirectory,
+    saveDirectory,
+    directoryDraft,
+    isPickingDirectory,
+    notify: addEvent
+  };
+  async function refreshSaveDirectory() { return loadSaveDirectory(saveDirectoryDeps); }
+  function openDirectoryModal() { openSaveDirectoryModal(saveDirectoryDeps); }
+  async function confirmSaveDirectory() { return commitSaveDirectory(saveDirectoryDeps); }
+  async function pickSaveDirectory() { return chooseSaveDirectory(saveDirectoryDeps); }
 
   function openSaveDirectory() {
     const directory = saveDirectory || directoryDraft;
