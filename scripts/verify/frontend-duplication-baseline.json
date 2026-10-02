@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 52,
+    "fileCount": 53,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -29,6 +29,7 @@
       "src/api/storage.js",
       "src/api/videos.js",
       "src/features/auth/api-key.js",
+      "src/features/canvas/canvas-actions.js",
       "src/features/canvas/canvas-graph.js",
       "src/features/local-edit/LocalEditBrushTools.jsx",
       "src/features/local-edit/LocalEditCropOverlay.jsx",
