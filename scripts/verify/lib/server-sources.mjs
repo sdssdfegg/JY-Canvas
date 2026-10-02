@@ -62,6 +62,32 @@ const SERVER_DIR = path.join(ROOT, "server");
 // 排除理由与实测证据见文件头「排除范围」注释块（V11-RF-023）——改这里前先看那段。
 const INCLUDE_DIRS = ["core", "routes", "shared"];
 
+// prompts/server/**（V11-RF-024「部分纳」落地，2026-10-02）。
+//
+// 为什么要纳（**纳入也要写理由，与「排除要写理由」同等重要**，§0.9 第 11 条）：
+//   `prompts/server/detail-skills.js` 与 `prompts/server/outfit-skill.js` **正是两个转发壳
+//   （`server/detail-skills.js`、`server/outfit-skill.js`）背后的真实实现**——壳是活壳，
+//   删除会让服务起不来（见 README.md:183）。也就是说：**真实代码落在了门禁扫描范围之外**：
+//     - 它们的相对 import 不受 `import-path-check` 校验（写错路径不会变红）；
+//     - 它们的同名函数不受 `server-duplication-check` 校验（复制漂移不会被点名）。
+//   这与 §0.9 第 16 条（app.js 那次：`真实代码落在扫描范围外`）是同一类洞，只是方向相反：
+//   那次是"拆出去导致脱离"，这次是"从来就没进过"。
+//
+// 纳入前实测（2026-10-02，RF-024 测量报告）：
+//   - 现状：48 文件 / 195 说明符 / duplication 0 新增 / import-path 0 violations；
+//   - **仅纳 prompts/server（模式 B）：50 文件 / 197 说明符 / 0 新增报红 / 0 violations，
+//     且 state-singleton / routing 输出与纳入前逐字节一致** ⇒ **零成本纳入**；
+//   - 若连 server/ 顶层其余 .js 一起纳（模式 A）：63 文件 / 206 说明符 / **16 条新增跨文件同名**，
+//     全部来自顶层 7 个 `*-ai.js` + `detail-middleware.js` + `billing-gateway.js`。
+//
+// 🔴 因此本行**只纳 prompts/server**，顶层其余 .js **暂不纳入**，理由与后续安排：
+//   那 16 条是**真实漂移源**（`asText`×7、`createAbortSignal`×7、`postChatCompletion`×6 …），
+//   正确做法是抽 `server/core/ai-chat-shared.js` 消掉（V11-RF-027），**不是 `--update` 记账**——
+//   「记账是承认债务，不是解决债务」。027 排在前端专项之后，且 **026（修判据）必须先于 027**：
+//   判据不修，就无法证明"消干净了"。
+//   ⚠️ 顶层 .js 仍在门外 ⇒ 改它们时**不要以为"门禁全绿"就等于没问题**（§0.9 第 16/17 条）。
+const INCLUDE_PROMPT_SERVER_DIR = "prompts/server";
+
 // server/ 顶层的手写入口文件。index.js 与 app.js 是同一份装配层的两半（见头部注释），
 // 两者要么都在、要么都不在；**再拆出新的一半，必须同步加到本数组**，否则那部分代码会脱离门禁。
 const INCLUDE_TOPLEVEL_FILES = ["index.js", "app.js"];
@@ -95,6 +121,9 @@ export function listServerSourceFiles() {
   for (const dir of INCLUDE_DIRS) {
     collectJsIn(path.join(SERVER_DIR, dir), out);
   }
+  // prompts/server 不在 server/ 下，按 ROOT 定位（V11-RF-024 部分纳，理由见上方注释块）。
+  // 目录不存在时 collectJsIn 安全跳过，不会抛异常。
+  collectJsIn(path.join(ROOT, INCLUDE_PROMPT_SERVER_DIR), out);
   return out;
 }
 
