@@ -130,6 +130,59 @@ export function diagnosticImageSourceType(src) {
 }
 
 /**
+ * 结果图地址 + 记录 → 落盘用的 MIME（V11-RF-051 收口）。
+ *
+ * 收口前在 src/main.jsx 与 src/outfit-workflow.jsx 各有一份（都在组件内部、缩进定义），
+ * 两份**逐字节一致**（脚本 `tmp/rf051-extract.mjs` 实测：496B / 442B，`Buffer.compare` 为 0）
+ * ⇒ 本次是纯搬运，判定顺序、正则、兜底值一字未改。
+ *
+ * 为什么必须收口：这两条决定**下载文件的 MIME/扩展名**。两侧一旦不一致，
+ * 同一张图在快捷生成下载的是 `a.png`、在批量生成下载的是 `a.webp`，
+ * 而 Windows 按扩展名认类型 ⇒ 用户双击打不开，且现象只在"某一侧某一批"出现，极难归因。
+ *
+ * ⚠️ 与 `src/shared/image-input.js` 里的 `imageExtension`（按 MIME 字符串推）**不是同一族**：
+ *   那一族只看 MIME，且被 `imageFilesFromClipboard` 依赖；本族还要回退到**地址里的扩展名**，
+ *   因为结果图常常只有 URL（本地归档 / CDN 链接），拿不到 MIME。
+ *   （`imageExtension` ↔ `imageExtensionFromMime` 的改名克隆已在 image-input.js 头部登记，属另一张单。）
+ *
+ * @param {string} src 图片地址（`/api/result/...`、CDN URL、`data:` 等）
+ * @param {object|null} image 记录里的 image 对象（优先用服务端记的 MIME）
+ * @returns {string} MIME，兜底 `"image/png"`
+ */
+export function imageMimeFromSource(src, image = null) {
+  const explicit = String(image?.mimeType || image?.archiveMime || "").trim();
+  if (explicit) return explicit;
+  const dataMatch = String(src || "").match(/^data:([^;,]+)/i);
+  if (dataMatch?.[1]) return dataMatch[1];
+  if (/\.jpe?g(?:$|[?#])/i.test(src)) return "image/jpeg";
+  if (/\.webp(?:$|[?#])/i.test(src)) return "image/webp";
+  if (/\.gif(?:$|[?#])/i.test(src)) return "image/gif";
+  return "image/png";
+}
+
+/**
+ * 结果图地址 + MIME → 落盘扩展名（V11-RF-051 收口，配对上面那条）。
+ *
+ * 优先级：**MIME 优先**，MIME 认不出（非 jpg/webp/gif）时回退到**地址里的扩展名**，
+ * 两者都认不出 → `"png"`。只对已知四种格式放行，其余一律兜底 png，避免把 URL 里
+ * 任意查询参数尾部当成扩展名（正则限定 2–5 位字母数字 + 结尾/查询符）。
+ *
+ * @param {string} src
+ * @param {string} mimeType 通常取上面 `imageMimeFromSource` 的结果
+ * @returns {"jpg"|"webp"|"gif"|"png"}
+ */
+export function imageExtensionFromSource(src, mimeType) {
+  if (/jpe?g/i.test(mimeType)) return "jpg";
+  if (/webp/i.test(mimeType)) return "webp";
+  if (/gif/i.test(mimeType)) return "gif";
+  const pathMatch = String(src || "").match(/\.([a-z0-9]{2,5})(?:$|[?#])/i);
+  if (pathMatch && /^(png|jpe?g|webp|gif)$/i.test(pathMatch[1])) {
+    return pathMatch[1].toLowerCase().replace("jpeg", "jpg");
+  }
+  return "png";
+}
+
+/**
  * 图片真的加载失败之后调用：返回要展示的原因。
  * 只用于把"经验性失败"翻译成文案，不改动持久化数据。
  */

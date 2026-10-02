@@ -89,6 +89,8 @@ import { formatConnectionResult, testConnection } from "./api/connection.js";
 import { describeEmptyResult, formatGenerationError, sanitizeErrorText } from "./shared/generation-errors.js";
 import {
   brokenImageReason,
+  imageExtensionFromSource,
+  imageMimeFromSource,
   referenceSource,
   resultImageCardState
 } from "./shared/result-image.js";
@@ -8332,28 +8334,6 @@ export default function OutfitWorkflow({
       aspectRatio: task.aspectRatio || settings.aspectRatio,
       createdAt: task.finishedAt || task.createdAt || Date.now()
     };
-  }
-
-  function imageMimeFromSource(src, image = null) {
-    const explicit = String(image?.mimeType || image?.archiveMime || "").trim();
-    if (explicit) return explicit;
-    const dataMatch = String(src || "").match(/^data:([^;,]+)/i);
-    if (dataMatch?.[1]) return dataMatch[1];
-    if (/\.jpe?g(?:$|[?#])/i.test(src)) return "image/jpeg";
-    if (/\.webp(?:$|[?#])/i.test(src)) return "image/webp";
-    if (/\.gif(?:$|[?#])/i.test(src)) return "image/gif";
-    return "image/png";
-  }
-
-  function imageExtensionFromSource(src, mimeType) {
-    if (/jpe?g/i.test(mimeType)) return "jpg";
-    if (/webp/i.test(mimeType)) return "webp";
-    if (/gif/i.test(mimeType)) return "gif";
-    const pathMatch = String(src || "").match(/\.([a-z0-9]{2,5})(?:$|[?#])/i);
-    if (pathMatch && /^(png|jpe?g|webp|gif)$/i.test(pathMatch[1])) {
-      return pathMatch[1].toLowerCase().replace("jpeg", "jpg");
-    }
-    return "png";
   }
 
   function safeDownloadFileName(name, ext = "png") {
