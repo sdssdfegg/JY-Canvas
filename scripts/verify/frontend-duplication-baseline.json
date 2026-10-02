@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 42,
+    "fileCount": 43,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -50,6 +50,7 @@
       "src/shared/models.js",
       "src/shared/numeric.js",
       "src/shared/outfit-intent.js",
+      "src/shared/prompt-library.js",
       "src/shared/quickgen-prompt-rules.js",
       "src/shared/result-image.js",
       "src/shared/retouch-intent.js",
@@ -70,18 +71,6 @@
       "src/outfit-workflow.jsx"
     ],
     "loadPromptPresets": [
-      "src/main.jsx",
-      "src/outfit-workflow.jsx"
-    ],
-    "normalizePromptCategories": [
-      "src/main.jsx",
-      "src/outfit-workflow.jsx"
-    ],
-    "normalizePromptCategoryName": [
-      "src/main.jsx",
-      "src/outfit-workflow.jsx"
-    ],
-    "normalizePromptPreset": [
       "src/main.jsx",
       "src/outfit-workflow.jsx"
     ],

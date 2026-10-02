@@ -40,6 +40,7 @@ import {
 import { canvasToBlob } from "./shared/canvas-blob.js";
 import { fileBaseName } from "./shared/file-name.js";
 import { isVideoTaskCompleted, isVideoTaskFailed, videoResultUrl, videoTaskStatusText } from "./shared/video-task.js";
+import { normalizePromptCategories, normalizePromptCategoryName, normalizePromptPreset } from "./shared/prompt-library.js";
 import {
   imageBitmapFromBlob,
   imageBitmapFromFile,
@@ -1923,33 +1924,6 @@ function resolveResizeLongEdge(settings) {
   return normalized.resolution === "custom"
     ? clampResizeEdge(normalized.longEdge)
     : RESIZE_RESOLUTION_MAP[normalized.resolution] || normalized.longEdge;
-}
-
-function normalizePromptCategoryName(value) {
-  return String(value || "").replace(/\s+/g, " ").trim().slice(0, 18);
-}
-
-function normalizePromptCategories(values) {
-  const next = ["全部"];
-  for (const value of Array.isArray(values) ? values : []) {
-    const name = normalizePromptCategoryName(value);
-    if (!name || name === "全部" || next.includes(name)) continue;
-    next.push(name);
-  }
-  if (next.length === 1) next.push("常用");
-  return next.slice(0, 24);
-}
-
-function normalizePromptPreset(preset, index = 0) {
-  const rawCategory = normalizePromptCategoryName(preset?.category);
-  const category = rawCategory && rawCategory !== "全部" ? rawCategory : "常用";
-  return {
-    id: String(preset?.id || `prompt_${Date.now()}_${index}`),
-    title: String(preset?.title || "未命名提示词").trim() || "未命名提示词",
-    category,
-    content: String(preset?.content || "").trim(),
-    custom: Boolean(preset?.custom)
-  };
 }
 
 function loadPromptPresets() {
