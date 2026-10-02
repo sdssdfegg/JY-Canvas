@@ -1932,7 +1932,7 @@ function resolveResizeLongEdge(settings) {
     : RESIZE_RESOLUTION_MAP[normalized.resolution] || normalized.longEdge;
 }
 
-// 🔴 与 src/main.jsx:716 的 `loadPromptPresets` **同名不同义**，不是复制、不许合并（V11-RF-040 裁定：改名不合并）。
+// 🔴 与 src/main.jsx 的 `loadPromptPresets` **同名不同义**，不是复制、不许合并（V11-RF-040 裁定：改名不合并）。跨文件引用只写函数名、不写行号（V11-RF-040c 裁决）。
 //    两边差别（改名前逐对 diff 的结论）：
 //      · main 侧是**简单版**：stored 非空就返回 stored（逐条归一化、过滤空内容），否则返回 builtinPrompts；
 //      · 本侧（outfit）是**合并版**：内置库优先覆盖非 custom 项的 title/content，再补回 stored 缺失的内置项；
@@ -1965,7 +1965,7 @@ function loadOutfitPromptPresets() {
   return builtins;
 }
 
-// 🔴 与 src/main.jsx:476 的 `loadPromptCategories` **同名不同义**（V11-RF-040 裁定：改名不合并）。
+// 🔴 与 src/main.jsx 的 `loadPromptCategories` **同名不同义**（V11-RF-040 裁定：改名不合并）。跨文件引用只写函数名、不写行号（V11-RF-040c 裁决）。
 //    函数骨架两边逐字相同，**唯一差别是兜底常量**：
 //      · main 侧用写死的 5 项 `promptCategories` = ["全部","常用","批量复刻","批量sku","局部迁移"]；
 //      · 本侧（outfit）用由 PROMPT_PRESET_GROUPS / PROMPT_BUILTIN_PRESETS **动态聚合**的 `PROMPT_CATEGORIES`。
