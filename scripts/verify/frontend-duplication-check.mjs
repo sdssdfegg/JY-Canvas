@@ -27,6 +27,23 @@
 //   结论：本门禁的「全绿」=「≥4 字符的顶层函数没有新增跨文件同名」，
 //     **不等于「src/ 里没有短名重复」**。若将来要收紧这一条，需单独开工单重测基线。
 //
+// ── 🆕 advisory 档：改名克隆 / 结构克隆（V11-RF-046）─────────────
+//   019 是**按名字比对**的，天然看不见「逻辑相同、名字不同」的克隆（§0.9 第 19 条）；
+//   RF-032 实测 62 组克隆里 53 组是组件内缩进函数 ⇒ 019 一条也看不见。
+//   所以本门禁新增一档 advisory：用「函数体 token 序列 + 两级归一化哈希」把**组件内函数**也纳进来。
+//
+//   🔴 **只报不记账**（硬约束）：
+//     · 不参与 `ok` 判定、不写进 `duplicateCount`、不影响棘轮、不进基线；
+//     · 即使本档扫描本身抛异常，也只降级为 advisory 的 error 字段，**不允许**把 019 判红；
+//     · 判定字段（`ok` / `duplicateCount` / `regressions` / `scopeDrift`）语义一律不变。
+//
+//   🔴 **L1 相同 ≠ 语义等价**（必须写进报告，防止后人拿它当"可合并"依据）：
+//     只比 token 形状，不比标识符指向什么。实证反例：`loadPromptCategories` 两侧 L1 完全相同，
+//     但兜底常量不同源（main 写死 5 项 vs outfit 动态聚合）⇒ 自动合并会在这里翻车。
+//     本档输出**只是线索**，能否合并必须人工判。
+//
+//   判据与已知盲区全文见 scripts/verify/lib/rename-clone.mjs 头注释。
+//
 // ── 🔴 口径自检（本单的关键设计）─────────────────────────────
 //   基线里记着 scanScope（root / extensions / excludes / fileCount / files[]）。
 //   运行时比对 **fileCount 与 excludes**，不一致直接判红并报「扫描范围漂移」。
@@ -47,6 +64,7 @@ import {
   collectTopLevelDefs,
   crossFileDuplicates,
 } from "./lib/frontend-sources.mjs";
+import { scanRenameClones } from "./lib/rename-clone.mjs";
 
 const ROOT = process.cwd();
 const BASELINE = path.join(ROOT, "scripts", "verify", "frontend-duplication-baseline.json");
@@ -64,6 +82,62 @@ console.log(
     `excludes=${FRONTEND_SCAN_SCOPE.excludes.join(",")} ` +
     `fileCount=${files.length}`
 );
+
+// ---------------------------------------------------------------- 🆕 advisory 档：改名/结构克隆（RF-046 · 只报不记账）
+// 失败也不许影响判定：advisory 内部出错只降级成 error 字段，ok/duplicateCount 一律不受影响。
+const ADVISORY_GROUP_LIMIT = 50;
+let renameCloneAdvisory;
+try {
+  const scan = scanRenameClones(files);
+  const l1 = scan.groups.filter((g) => g.level === "L1");
+  const l2 = scan.groups.filter((g) => g.level === "L2");
+  renameCloneAdvisory = {
+    advisoryOnly: true,
+    affectsOk: false,
+    judge:
+      "函数体 token 序列 + 两级归一化哈希（L1 保留字面量 = 逐 token 等价；L2 抹字面量 = 结构等价）" +
+      "，含组件内缩进函数；跨文件才成组，minTokens=" + scan.minTokens,
+    warning:
+      "L1 相同 ≠ 语义等价：只比 token 形状，不比标识符指向什么。实证反例 loadPromptCategories " +
+      "两侧 L1 完全相同但兜底常量不同源（main 写死 5 项 vs outfit 动态聚合）⇒ 自动合并会在这里翻车。" +
+      "本档只是线索，能否合并必须人工判。",
+    scannedFiles: scan.scannedFiles,
+    scannedFunctions: scan.scannedFunctions,
+    minTokens: scan.minTokens,
+    elapsedMs: scan.elapsedMs,
+    l1GroupCount: l1.length,
+    l2GroupCount: l2.length,
+    groupCount: scan.groups.length,
+    renamedGroupCount: scan.groups.filter((g) => g.renamed).length,
+    groups: scan.groups.slice(0, ADVISORY_GROUP_LIMIT),
+    truncated: scan.groups.length > ADVISORY_GROUP_LIMIT,
+    note: "只报不记账：不参与 ok、不写进 duplicateCount、不影响棘轮、不写进基线。",
+  };
+} catch (error) {
+  renameCloneAdvisory = {
+    advisoryOnly: true,
+    affectsOk: false,
+    error: String(error?.message || error),
+    note: "advisory 扫描失败已降级，不影响本门禁的判定字段。",
+  };
+}
+
+// 报告头：基数与判据一眼可见（§0.9 第 13 条：给数字必须同时给判据与扫描范围）
+if (renameCloneAdvisory.error) {
+  console.log(
+    `[rename-clone advisory] 扫描失败，已降级（只报不记账，不影响判定）：${renameCloneAdvisory.error}`
+  );
+} else {
+  console.log(
+    `[rename-clone advisory] 只报不记账 | 扫描文件=${renameCloneAdvisory.scannedFiles} ` +
+      `抽取函数=${renameCloneAdvisory.scannedFunctions}（含组件内） ` +
+      `L1组=${renameCloneAdvisory.l1GroupCount} L2组=${renameCloneAdvisory.l2GroupCount} ` +
+      `合计=${renameCloneAdvisory.groupCount}（改名=${renameCloneAdvisory.renamedGroupCount}） ` +
+      `耗时=${renameCloneAdvisory.elapsedMs}ms`
+  );
+  console.log(`[rename-clone advisory] 判据：${renameCloneAdvisory.judge}`);
+  console.log(`[rename-clone advisory] ⚠️ ${renameCloneAdvisory.warning}`);
+}
 
 function sameList(a, b) {
   return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => v === b[i]);
@@ -192,6 +266,8 @@ console.log(
       improved,
       intraFileDuplicates: intraFile,
       duplicates,
+      // 🆕 只报不记账（RF-046）：不参与 ok、不写进基线、不影响棘轮
+      renameCloneAdvisory,
       baselineGeneratedAt: baseline.generatedAt,
       note: ok
         ? intraFile.length
