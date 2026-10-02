@@ -86,6 +86,7 @@ import { classifyGenerationError, formatGenerationError } from "./shared/generat
 import { fileSize, formatMs } from "./lib/format/index.js";
 import { canvasToBlob } from "./shared/canvas-blob.js";
 import { fileBaseName } from "./shared/file-name.js";
+import { isVideoTaskCompleted, isVideoTaskFailed, videoResultUrl, videoTaskStatusText } from "./shared/video-task.js";
 import {
   imageBitmapFromBlob,
   imageBitmapFromFile,
@@ -994,31 +995,6 @@ function clampReferenceStrength(value) {
 
 function makeResultId() {
   return `result_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function videoResultUrl(task = {}) {
-  return String(task.url || task.videoUrl || task.outputUrl || task.output_url || "").trim();
-}
-
-function isVideoTaskCompleted(task = {}) {
-  const status = String(task.status || "").toLowerCase();
-  return Boolean(videoResultUrl(task)) || /complete|completed|success|succeeded|finished|done/.test(status);
-}
-
-function isVideoTaskFailed(task = {}) {
-  const status = String(task.status || "").toLowerCase();
-  return /fail|failed|error|cancel|cancelled|canceled/.test(status) || Boolean(task.error);
-}
-
-function videoTaskStatusText(task = {}) {
-  if (isVideoTaskCompleted(task)) return "已完成";
-  if (isVideoTaskFailed(task)) return "失败";
-  const progress = Number(task.progress);
-  if (Number.isFinite(progress) && progress > 0) return `生成中 ${Math.round(progress)}%`;
-  const status = String(task.status || "").trim();
-  if (/queue|queued|pending/i.test(status)) return "排队中";
-  if (/progress|running|processing/i.test(status)) return "生成中";
-  return status || "生成中";
 }
 
 function durationOptionsForVideoModel(model = {}) {

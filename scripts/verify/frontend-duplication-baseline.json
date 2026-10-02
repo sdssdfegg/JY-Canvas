@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 41,
+    "fileCount": 42,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -56,19 +56,12 @@
       "src/shared/routing.js",
       "src/shared/text-normalize.js",
       "src/shared/ui/ChannelPicker.jsx",
-      "src/shared/ui/Modal.jsx"
+      "src/shared/ui/Modal.jsx",
+      "src/shared/video-task.js"
     ]
   },
   "duplicates": {
     "diagnosticImageSourceType": [
-      "src/main.jsx",
-      "src/outfit-workflow.jsx"
-    ],
-    "isVideoTaskCompleted": [
-      "src/main.jsx",
-      "src/outfit-workflow.jsx"
-    ],
-    "isVideoTaskFailed": [
       "src/main.jsx",
       "src/outfit-workflow.jsx"
     ],
@@ -97,14 +90,6 @@
       "src/outfit-workflow.jsx"
     ],
     "ReferenceThumbTray": [
-      "src/main.jsx",
-      "src/outfit-workflow.jsx"
-    ],
-    "videoResultUrl": [
-      "src/main.jsx",
-      "src/outfit-workflow.jsx"
-    ],
-    "videoTaskStatusText": [
       "src/main.jsx",
       "src/outfit-workflow.jsx"
     ]
