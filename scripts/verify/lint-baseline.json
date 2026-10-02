@@ -4,12 +4,11 @@
   "eslintVersion": "9.39.4",
   "totals": {
     "errors": 0,
-    "warnings": 20,
-    "total": 20
+    "warnings": 19,
+    "total": 19
   },
   "counts": {
     "server/routes/outfit.routes.js|no-unused-vars": 1,
-    "src/image-editor.jsx|react-hooks/exhaustive-deps": 1,
     "src/main.jsx|react-hooks/exhaustive-deps": 8,
     "src/outfit-workflow.jsx|react-hooks/exhaustive-deps": 10
   }

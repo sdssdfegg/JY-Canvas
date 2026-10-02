@@ -62,22 +62,6 @@
     ]
   },
   "duplicates": {
-    "diagnosticImageSourceType": [
-      "src/main.jsx",
-      "src/outfit-workflow.jsx"
-    ],
-    "loadPromptCategories": [
-      "src/main.jsx",
-      "src/outfit-workflow.jsx"
-    ],
-    "loadPromptPresets": [
-      "src/main.jsx",
-      "src/outfit-workflow.jsx"
-    ],
-    "referenceSource": [
-      "src/main.jsx",
-      "src/outfit-workflow.jsx"
-    ],
     "ReferenceThumbTray": [
       "src/main.jsx",
       "src/outfit-workflow.jsx"
