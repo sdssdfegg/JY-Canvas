@@ -9,7 +9,8 @@
   },
   "counts": {
     "server/routes/outfit.routes.js|no-unused-vars": 1,
-    "src/main.jsx|react-hooks/exhaustive-deps": 8,
-    "src/outfit-workflow.jsx|react-hooks/exhaustive-deps": 10
+    "src/main.jsx|react-hooks/exhaustive-deps": 7,
+    "src/outfit-workflow.jsx|react-hooks/exhaustive-deps": 10,
+    "src/shared/ui/cached-image.jsx|react-hooks/exhaustive-deps": 1
   }
 }

@@ -81,9 +81,9 @@ import DebouncedTextarea from "./shared/DebouncedTextarea.jsx";
 import { ErrorBoundary } from "./shared/error-boundary.jsx";
 import { Modal, ModalHeader } from "./shared/ui/Modal.jsx";
 import ChannelPicker from "./shared/ui/ChannelPicker.jsx";
+import { CachedImage } from "./shared/ui/cached-image.jsx";
 import {
   brokenImageReason,
-  diagnosticImageSourceType,
   isAllowedReferenceImage,
   referenceSource,
   resultImageCardState
@@ -130,7 +130,6 @@ import {
 } from "./api/prompts.js";
 import { generateVideo, getVideoStatus } from "./api/videos.js";
 import { displayImageRequestUrl, fetchImageBlob, uploadCanvasAssets } from "./api/assets.js";
-import { emitClientDiagnosticEvent } from "./api/client.js";
 import { isAuthErrorMessage, normalizeApiKeyInput } from "./features/auth/api-key.js";
 import {
   LOCAL_EDIT_MASK_COLOR,
@@ -194,7 +193,6 @@ const SHOW_INFINITE_CANVAS = false;
 const VIDEO_STATUS_POLL_INTERVAL_MS = 4000;
 const VIDEO_STATUS_MAX_POLLS = 180;
 const VIDEO_REFERENCE_MAX_BYTES = 10 * 1024 * 1024;
-const DISPLAY_IMAGE_CACHE = new Map();
 
 const defaultState = {
   baseUrl: "",
@@ -1101,120 +1099,6 @@ function referenceMetaFromFiles(files, role = "reference", startIndex = 0) {
   }));
 }
 
-function preloadDisplayImageUrl(url, timeoutMs = 20000) {
-  if (!url || typeof Image !== "function") return Promise.resolve();
-  return new Promise((resolve) => {
-    const image = new Image();
-    let settled = false;
-    const done = () => {
-      if (settled) return;
-      settled = true;
-      if (timer) window.clearTimeout(timer);
-      resolve();
-    };
-    const timer = typeof window !== "undefined" ? window.setTimeout(done, timeoutMs) : null;
-    image.onload = done;
-    image.onerror = done;
-    image.decoding = "async";
-    image.src = url;
-    if (typeof image.decode === "function") {
-      image.decode().then(done, done);
-    }
-  });
-}
-
-function CachedImage({ src, alt = "", className = "", style, draggable = false, role, tabIndex, onDragStart, onClick, onKeyDown, onError, loading, diagnostic }) {
-  const [displaySrc, setDisplaySrc] = useState(() => {
-    if (!src || src.startsWith("data:") || src.startsWith("blob:")) return src || "";
-    const cached = DISPLAY_IMAGE_CACHE.get(src);
-    return cached?.url || "";
-  });
-  const displayLogKeyRef = useRef("");
-
-  useEffect(() => {
-    let cancelled = false;
-    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const emitDisplayReady = (shownSrc) => {
-      const requestId = String(diagnostic?.requestId || diagnostic?.taskId || "").trim();
-      if (!requestId) return;
-      const key = `${requestId}|${diagnostic?.placement || ""}|${shownSrc || src || ""}`;
-      if (displayLogKeyRef.current === key) return;
-      displayLogKeyRef.current = key;
-      emitClientDiagnosticEvent({
-        requestId,
-        stage: "client-result-display-ready",
-        endpoint: diagnostic?.endpoint || "",
-        method: "DISPLAY",
-        ok: true,
-        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
-        detail: {
-          taskId: requestId,
-          placement: diagnostic?.placement || "",
-          module: diagnostic?.module || "",
-          sourceType: diagnosticImageSourceType(shownSrc || src),
-          displayMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt)
-        }
-      });
-    };
-    if (!src) {
-      setDisplaySrc("");
-      return undefined;
-    }
-    if (src.startsWith("data:") || src.startsWith("blob:")) {
-      setDisplaySrc(src);
-      emitDisplayReady(src);
-      return undefined;
-    }
-    const requestSrc = displayImageRequestUrl(src);
-    const cached = DISPLAY_IMAGE_CACHE.get(src);
-    if (cached?.url) {
-      setDisplaySrc(cached.url);
-      emitDisplayReady(cached.url);
-      return undefined;
-    }
-    const promise = cached?.promise || preloadDisplayImageUrl(requestSrc)
-      .then(() => {
-        DISPLAY_IMAGE_CACHE.set(src, { url: requestSrc });
-        return requestSrc;
-      });
-    if (!cached?.promise) DISPLAY_IMAGE_CACHE.set(src, { promise });
-    setDisplaySrc("");
-    promise
-      .then((url) => {
-        if (!cancelled) {
-          setDisplaySrc(url);
-          emitDisplayReady(url);
-        }
-      })
-      .catch((error) => {
-        DISPLAY_IMAGE_CACHE.delete(src);
-        if (!cancelled) {
-          setDisplaySrc(src);
-          onError?.(error);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [src]);
-
-  return (
-    <img
-      className={className}
-      src={displaySrc || undefined}
-      alt={alt}
-      style={style}
-      draggable={draggable}
-      role={role}
-      tabIndex={tabIndex}
-      onDragStart={onDragStart}
-      onClick={onClick}
-      onKeyDown={onKeyDown}
-      loading={loading}
-      onError={onError}
-    />
-  );
-}
 
 function ReferenceThumbTray({ references, count = 0, className = "", max = 5, onOpen, onContextMenu, onImageDragStart }) {
   const allItems = Array.isArray(references) ? references.filter(Boolean) : [];

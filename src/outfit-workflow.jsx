@@ -1964,7 +1964,7 @@ function loadOutfitPromptPresets() {
   return builtins;
 }
 
-// 🔴 与 src/main.jsx:471 的 `loadPromptCategories` **同名不同义**（V11-RF-040 裁定：改名不合并）。
+// 🔴 与 src/main.jsx:476 的 `loadPromptCategories` **同名不同义**（V11-RF-040 裁定：改名不合并）。
 //    函数骨架两边逐字相同，**唯一差别是兜底常量**：
 //      · main 侧用写死的 5 项 `promptCategories` = ["全部","常用","批量复刻","批量sku","局部迁移"]；
 //      · 本侧（outfit）用由 PROMPT_PRESET_GROUPS / PROMPT_BUILTIN_PRESETS **动态聚合**的 `PROMPT_CATEGORIES`。

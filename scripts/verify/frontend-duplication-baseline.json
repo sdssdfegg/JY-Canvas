@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 43,
+    "fileCount": 44,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -58,6 +58,7 @@
       "src/shared/text-normalize.js",
       "src/shared/ui/ChannelPicker.jsx",
       "src/shared/ui/Modal.jsx",
+      "src/shared/ui/cached-image.jsx",
       "src/shared/video-task.js"
     ]
   },
