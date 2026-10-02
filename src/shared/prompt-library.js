@@ -14,7 +14,7 @@
 //   - 归一化口径**只此一份**，改这里等于同时改两处（这正是收口的目的）；
 //   - ⚠️ 本次是**纯搬运**：三对均字节一致 ⇒ 行为零变化，未改任何截断长度/默认值/文案。
 //
-// 🔴 同族另两条 **未纳入本刀（已分叉，停手待人类裁决）**：
+// 🔴 同族另两条 **未纳入本刀（已分叉，停手待人类裁决）** —— 状态更新（V11-RF-040，2026-10-02）：
 //   `loadPromptPresets` / `loadPromptCategories` 两处**不是**重复搬运，是实质行为分叉：
 //     · `loadPromptCategories`：兜底常量不同
 //       （main 用 `promptCategories` = ["全部","常用","批量复刻","批量sku","局部迁移"]；
@@ -24,6 +24,10 @@
 //     · 两者读的 localStorage 键也不同
 //       （main：`${STORAGE_PREFIX}-prompt-library-*`；outfit：`jingyin-outfit-workflow-prompt-library-*`）
 //   ⇒ 统一会改变其中一侧「用户看到的提示词列表/分类列表」，属**行为归一决策**，不是搬运。
+//   ⇒ 统筹裁定：**改名不合并、不开豁免口子**。outfit 侧两处已改名为
+//     `loadOutfitPromptPresets` / `loadOutfitPromptCategories`（在 src/outfit-workflow.jsx 内），
+//     main 侧保留原名 `loadPromptPresets` / `loadPromptCategories`。
+//     storage key 是否合一仍是**未决的产品决策**（REFACTOR_TICKETS §8 待决策项 1）。
 
 /** 分类名归一化：折叠空白、去首尾空格、截到 18 字。 */
 export function normalizePromptCategoryName(value) {

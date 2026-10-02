@@ -1926,7 +1926,15 @@ function resolveResizeLongEdge(settings) {
     : RESIZE_RESOLUTION_MAP[normalized.resolution] || normalized.longEdge;
 }
 
-function loadPromptPresets() {
+// 🔴 与 src/main.jsx:716 的 `loadPromptPresets` **同名不同义**，不是复制、不许合并（V11-RF-040 裁定：改名不合并）。
+//    两边差别（改名前逐对 diff 的结论）：
+//      · main 侧是**简单版**：stored 非空就返回 stored（逐条归一化、过滤空内容），否则返回 builtinPrompts；
+//      · 本侧（outfit）是**合并版**：内置库优先覆盖非 custom 项的 title/content，再补回 stored 缺失的内置项；
+//      · 两边读的 localStorage 键也不同 —— main：`${STORAGE_PREFIX}-prompt-library-*`；
+//        outfit：`jingyin-outfit-workflow-prompt-library-*`。
+//    ⇒ 统一任一侧都会改变「用户看到的提示词列表」，属**行为归一决策**（storage key 是否合一 = 产品决策，另立单）。
+//    ⇒ 本单只做**改名**，让名字名实相符；不动任何兜底数据、不动合并策略、不动 storage key。
+function loadOutfitPromptPresets() {
   const builtins = BUILTIN_PROMPT_LIBRARY.map(normalizePromptPreset).filter((preset) => preset.content);
   const stored = readJsonStorage(PROMPT_PRESETS_KEY, null);
   if (Array.isArray(stored) && stored.length > 0) {
@@ -1951,7 +1959,12 @@ function loadPromptPresets() {
   return builtins;
 }
 
-function loadPromptCategories() {
+// 🔴 与 src/main.jsx:471 的 `loadPromptCategories` **同名不同义**（V11-RF-040 裁定：改名不合并）。
+//    函数骨架两边逐字相同，**唯一差别是兜底常量**：
+//      · main 侧用写死的 5 项 `promptCategories` = ["全部","常用","批量复刻","批量sku","局部迁移"]；
+//      · 本侧（outfit）用由 PROMPT_PRESET_GROUPS / PROMPT_BUILTIN_PRESETS **动态聚合**的 `PROMPT_CATEGORIES`。
+//    ⇒ 同理只改名、不合并、不豁免（豁免机制一旦存在，迟早被用来掩盖真重复）。
+function loadOutfitPromptCategories() {
   const storedCategories = readJsonStorage(PROMPT_CATEGORIES_KEY, null);
   const storedPrompts = readJsonStorage(PROMPT_PRESETS_KEY, null) || [];
   const presetCategories = Array.isArray(storedPrompts)
@@ -6652,8 +6665,8 @@ export default function OutfitWorkflow({
   const [connectionStatus, setConnectionStatus] = useState("");
   const [connectionState, setConnectionState] = useState("idle");
   const [isPromptAssistantOpen, setIsPromptAssistantOpen] = useState(false);
-  const [promptPresets, setPromptPresets] = useState(loadPromptPresets);
-  const [promptCategories, setPromptCategories] = useState(loadPromptCategories);
+  const [promptPresets, setPromptPresets] = useState(loadOutfitPromptPresets);
+  const [promptCategories, setPromptCategories] = useState(loadOutfitPromptCategories);
   const [editingPrompt, setEditingPrompt] = useState(null);
   const [promptCategory, setPromptCategory] = useState("全部");
   const [promptSearch, setPromptSearch] = useState("");
