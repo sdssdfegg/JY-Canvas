@@ -164,6 +164,7 @@ import { copyTextToClipboard } from "./shared/dom-actions.js";
 import { loadSaveDirectory, openSaveDirectoryModal, commitSaveDirectory, chooseSaveDirectory } from "./features/savedir/save-directory.js";
 import { incomingCanvasNodes, canvasResultItemsFromNode, canvasPromptForGenerator, canvasImagesForGenerator, canvasImageEntriesForGenerator, splitCanvasBatchEntries, buildCanvasBatchPrompt, screenPointToCanvas, canvasCenterFromRect } from "./features/canvas/canvas-graph.js";
 import { createCanvasActions, createCanvasInteractions } from "./features/canvas/canvas-actions.js";
+import { createQuickResultReplace } from "./features/result-queue/quick-result-replace.js";
 
 const STORAGE_PREFIX = import.meta.env.VITE_JINGYIN_STORAGE_PREFIX || "jingyin-internal";
 const STORAGE_KEY = `${STORAGE_PREFIX}-settings-v3`;
@@ -3862,71 +3863,27 @@ function App() {
     ));
   }
 
-  function quickResultDragId(event) {
-    const fromEvent = event.dataTransfer?.getData?.(QUICK_RESULT_DRAG_TYPE) || "";
-    return fromEvent || quickResultDragIdRef.current || "";
-  }
+  const {
+    clearQuickResultDragState,
+    handleQuickResultReplaceDragOver,
+    handleQuickResultReplaceDrop
+  } = createQuickResultReplace({
+    quickResultDragIdRef,
+    quickResultReplaceTargetId,
+    setQuickResultReplaceTargetId,
+    results,
+    setResults,
+    setSelectedIds,
+    previewResult,
+    setPreviewResult,
+    removeHistoryResults,
+    saveHistoryResults,
+    addEvent,
+    QUICK_RESULT_DRAG_TYPE
+  });
 
-  function canReplaceQuickResult(source, target) {
-    return Boolean(
-      source?.id
-      && target?.id
-      && source.id !== target.id
-      && (!source.source || source.source === "quickgen")
-      && (!target.source || target.source === "quickgen")
-      && imageSourceFromResult(source.image)
-      && imageSourceFromResult(target.image)
-    );
-  }
 
-  function clearQuickResultDragState() {
-    quickResultDragIdRef.current = "";
-    setQuickResultReplaceTargetId("");
-  }
 
-  function handleQuickResultReplaceDragOver(event, target) {
-    const sourceId = quickResultDragId(event);
-    const source = results.find((item) => item.id === sourceId);
-    if (!canReplaceQuickResult(source, target)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.dataTransfer.dropEffect = "move";
-    if (quickResultReplaceTargetId !== target.id) setQuickResultReplaceTargetId(target.id);
-  }
-
-  function handleQuickResultReplaceDrop(event, target) {
-    const sourceId = quickResultDragId(event);
-    if (!sourceId || sourceId === target?.id) {
-      clearQuickResultDragState();
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    clearQuickResultDragState();
-    const source = results.find((item) => item.id === sourceId);
-    const latestTarget = results.find((item) => item.id === target.id);
-    if (!canReplaceQuickResult(source, latestTarget)) return;
-    const nextTarget = {
-      ...source,
-      id: latestTarget.id,
-      replacedFromResultId: source.id,
-      submittedAt: latestTarget.submittedAt ?? latestTarget.createdAt ?? source.submittedAt,
-      createdAt: latestTarget.createdAt ?? source.createdAt
-    };
-    setResults((current) => current
-      .map((item) => item.id === latestTarget.id ? nextTarget : item)
-      .filter((item) => item.id !== source.id));
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      next.delete(source.id);
-      return next;
-    });
-    if (previewResult?.id === source.id || previewResult?.id === latestTarget.id) {
-      setPreviewResult(nextTarget);
-    }
-    void removeHistoryResults([source.id, latestTarget.id]).then(() => saveHistoryResults([nextTarget]));
-    addEvent("结果覆盖", "已用拖拽图片覆盖目标图片，原位置已移除");
-  }
 
   function removeDetailResultIds(ids) {
     setDetailGroups((current) => current.map((group) => ({
