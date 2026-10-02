@@ -281,6 +281,14 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 > **统一方向：以 main 版为基底（真超集 3 处），补 outfit 独有的 key 兜底 ⇒ 对 main 零收窄。**
 > 拆两刀：**RF-043-1 先抽 `CachedImage`**（纯搬运，可独立验证）→ **RF-043-2 再抽 `ReferenceThumbTray`**（需改 outfit 侧 1 个调用点）。
 > ⚠️ 两刀的共享位必须是 `src/shared/ui/**`，**不许 `outfit` 从 `main.jsx` import**（会造出两个巨石互相依赖）。
+>
+> ✅ **RF-043-1 已完成**（逐字一致 27/27、build 通过、ESLint errors=0、state-singleton 无新增报红、真机 7 张图正常渲染）。
+> 🆕 **统筹补充授权（基线例外，就地划账）**：新增共享组件使两条基线机械报红，**实测确认为记账位移、非新增债务**：
+> · 019：`scopeDrift` = 文件数 43 → 44（新增共享组件进视野，与刀 4/刀 5 同款）⇒ `--update` 重建，**`ReferenceThumbTray` 必须保留在基线内**
+> · lint：`src/main.jsx|react-hooks/exhaustive-deps` **8 → 7**，新增 `src/shared/ui/cached-image.jsx|react-hooks/exhaustive-deps` = 1
+>   ⇒ 同一个 warning 换了位置，**totals 19 → 19 不变**
+> 🔴 **硬判据：更新后 lint `totals` 必须仍为 19。若变了 ⇒ 是新引入的问题，停手报告，不许记账。**
+> （043-2 新增 `reference-thumb-tray.jsx` 会触发同样情形，同样适用本条授权与判据。）
 
 - **任务类型**：【先出审计表 → 等裁决 → 再统一】
 - **目标文件**：`src/main.jsx`、`src/outfit-workflow.jsx` 各一份
@@ -375,7 +383,7 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
   5. **真机启动一次**（§0.9 第 9 条：这类错唯一兜底是真机）。
 - **自测校验点**：`node scripts/verify/run-all.mjs`（失败集合与改前**同类别**）+ `node server/index.js` 打印监听地址 + `/api/health` ok。
 
-### V11-RF-027-2 · 第二刀：只抽「零风险 6 族」
+### V11-RF-027-2 · 第二刀：只抽「零风险 6 族」✅ **已完成（4ad6461）**
 
 - **任务类型**：【结构搬运】｜**标记**：🔴 串行
 - **目标文件**：`server/*-ai.js` → 新建 `server/core/ai-chat-shared.js`
@@ -391,6 +399,20 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
   3. 对照组脚本（旧实现抄进 `tmp/` 当基准）+ **mock 上游端到端差分**（见下方裁决 3）
   4. 三类 hunk 齐全（删定义 / 加 import / 清孤儿），孤儿以 ESLint `no-unused-vars` 实测点名为准
 
+### V11-RF-027-2b · 消 `readResponse` ↔ `readTextSafely` 改名克隆（小单）
+
+- **任务类型**：【收口 · 改名克隆】｜**标记**：🔴 串行（紧跟 027-2）
+- **由来**：执行者报备「`ai-chat-shared.js` 的 `readResponse` 与 `http-client.js` 的 `readTextSafely` 逻辑等价」。
+  **统筹实测确认：两者函数体逐字节相同，只有函数名不同**（典型的改名克隆，属门禁盲区，与 RF-032 同族）。
+- **🔑 关键实测**：`readTextSafely` 在 `server/core/http-client.js:24` **已经是 `export`** ⇒ 无需改禁止清单内的 `http-client.js`，**现在就能消**，不必等 RF-027-5。
+- **做法**：删掉 `ai-chat-shared.js` 的 `readResponse`，**6 个** `server/*-ai.js` 改为 `import { readTextSafely }` 并改调用点名。
+  🔴 **不要做转发壳**（`export { readTextSafely as readResponse }`）—— 那是把重复换个形式留着。
+  > ⚠️ 口径修正（执行者实测）：是 **6 个** `* -ai.js`，不是 7 个 —— `detail-middleware.js` 只 import `asText`/`clamp`，从未用 `readResponse`。
+- **禁止修改**：`server/core/http-client.js`（它已是标准实现，且已导出，无需动）
+- **验收**：全仓 `readResponse` 定义 0 处；ESLint `errors=0`；错误路径差分（复用 027-2 的 `rf027-2-errorpath-snapshot.mjs`）复跑结果不变
+- ✅ **已完成** `b5af930`（7 files / +25 −38）：`readResponse` 定义 1→0、调用点 6→0；`readTextSafely` 调用点 4→10；
+  宽口径 `duplicateCount` 仍 9（本族不计入）、`regressions=[]`；错误路径 12 case 字节级一致；真机 `/api/health` ok。**无冒烟豁免**
+
 ### V11-RF-027-3 · 第三刀：参数化抽取 5 族（先出调用点对照表）
 
 - **任务类型**：【结构搬运 · 需先出对照表】｜**标记**：🔴 串行
@@ -401,9 +423,48 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
   - `fileMeta(file, { index, role, fallback })` —— 4 种签名 + 不同默认名；取**超集**（含 quality 版空保护）
   - `modelName(source, paths)` —— 各入口读不同字段链，传路径
   - `postChatCompletion` —— 形参对齐 + 返回取**超集**（`detail-ai` 多返 `url`）
-- **前置依赖**：**V11-RF-027-2 通过**
+- **前置依赖**：**V11-RF-027-2 + 027-2b 通过**
 - **硬要求**：**先交调用点对照表**（每族：调用点数 / 各传入什么 / 参数化后传什么 / 是否改变行为），统筹确认后才动代码
 - **禁止**：改动任何一处现有行为（temperature / detail / 默认名 / 文案 / 返回结构）
+
+#### 🔴 统筹裁决（2026-10-02 · 对照表已交，据此施工）
+
+**① 5 族参数化签名照批，但 `fileMeta` 有 1 处会真改行为，执行者对照表判错了**
+
+`quick-prompt-ai.js:112` 是 `references: files.map(fileMeta)` —— **把函数当回调裸传**。
+`Array.map` 回调的实参是 `(element, index, array)`，所以：
+
+| | 现在 | 改成具名对象 `fileMeta(file, { index, role, fallback })` 后 |
+|---|---|---|
+| 第 2 参收到 | 数字 `index`（quick 版正好用） | **数字 `index`** ⇒ 解构 `{ index }` 得到 `undefined` |
+| 后果 | `reference-${index+1}` 正常 | **`reference-NaN`** ❌ |
+
+⇒ **必须显式改这一处调用点**为 `files.map((file, index) => fileMeta(file, { index }))`。
+这不是"改逻辑"，是**补齐参数**（与 RF-031 的显式补 `"image/png"` 同类）。其余 11 个调用点均显式传参，不受影响。
+
+**② `fileMeta` 的对照组不能只测"不抛错" —— 必须逐点比对 `name` 实际产出字符串**
+
+5 种 `name` 兜底规则各不相同（quick `reference-N` / detail·reference `${role}-N` / quality `fallback` 默认 `"image"` / master-fit `"clothing-master-image"` / pose `"model-image"`）。
+统一后必须**用原来 12 个调用点各自的入参，逐条比对产出对象的每个字段值**（含缺省字段是否被 `JSON.stringify` 省略）。
+⇒ 对照组 ≥ 12 调用点 × 多个入参形态；**只要有一条 `name` 变了就是失败，不许归因为"等价"**。
+
+**③ `postChatCompletion`：批方案 A（body 构造上移到调用点），但【必须连带抽走】**
+
+统筹实测支持方案 A 的三条依据：
+1. `postChatCompletion` 内部**只有 fetch + readTextSafely**，**没有重试逻辑** —— 重试在调用方的 `mode` 四重循环里（见 `quick-prompt-ai.js:229-254`），每次循环本来就重建 body ⇒ **上移不破坏重试路径**
+2. `buildChatBody` 在**每个文件里只有 1 个调用点**（就在 `postChatCompletion` 内）⇒ 上移是 1:1 平移，无遗漏
+3. `url` = `${baseUrl}/chat/completions` 是常量 ⇒ 统一补 `url` 属**补全方向**，不改判断分支
+
+🔴 **但方案 A 的隐藏收益必须兑现**：body 构造上移后，6 份 `postChatCompletion` 函数体**变成字节一致**
+⇒ **必须一并抽到 `server/core/ai-chat-shared.js`（定义 6 → 1）**。
+**只做 A 不抽走 ⇒ `duplicateCount` 不降，等于白做一半。**
+顺带消掉 `includeImage` / `includeImages` 的单复数不一致。
+
+**④ RF-027-4 现在可与 027-3 同窗口串行（方案 A 已解耦），但【不许拆给两个窗口】**
+两者都动 `server/*-ai.js`，同窗口串行即可；跨窗口并发会导致结果不可归因。
+
+**⑤ 踩坑固化**：改**已存在的 CRLF 行**时若脚本保留了 CRLF，会触发 `git diff --check` 的 trailing whitespace 报错。
+⇒ 改动行一律统一为 **LF**；提交前跑一次 `git diff --check`。
 
 ### V11-RF-027-4 · 第四刀：4 族判定「同名不同义」→ 改名不合并
 
@@ -494,13 +555,17 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
   `setState`，**不改变正常路径的任何行为**，属纯补全；反之删掉 main 侧的守卫则是**收窄**，会让
   「卸载后异步回调仍写 state」的风险重新出现（高风险方向）。
 - 要求：commit 必须写明「**有意新增卸载守卫**」；并在两侧各加一行互指注释。
-- 证据位置：`main.jsx:2021-2049`（守卫形态）↔ `outfit-workflow.jsx:5087-5102`（待补）。
+- 证据位置（**统筹按 `bbf4586` 重新实测，旧行号已漂**）：
+  - `src/main.jsx:1836-1856` —— **有** `cancelled` 守卫（含 `maskImage.onload = null` 清理）
+  - `src/outfit-workflow.jsx:5019-5041` —— 同逻辑（`maskInitRef` / `savedEdit?.maskDataUrl` / `maskImage.src`），
+    但该 effect 内 **无 `cancelled`**（全仓 `cancelled` 仅出现在 2478 / 6895 / 6921）⇒ **确认缺守卫**
 
 ### 6.1 四批推进（按执行者建议，统筹采纳）
 
 | 顺序 | 工单 | 内容 | 标记 |
 | --- | --- | --- | --- |
-| D-1 | **V11-RF-050** | 局部编辑 4 块 → `src/features/local-edit/`：选框缩放 130 行 / resize 手柄 40 行 / 蒙版笔刷 JSX 47 行 / 选框光标 JSX 29 行（**边界已实测两处逐行相同**） | 🔴 先做，**含 6.0 裁决的守卫统一** |
+| D-0 🆕 | **V11-RF-048** | 🆕 **`PreparedResultImage`（outfit:2470）↔ `CachedImage`（shared/ui）改名克隆** | 🔴 **最先做** |
+| D-1 | **V11-RF-050** | 局部编辑 4 块 → `src/features/local-edit/`：选框缩放 130 行 / resize 手柄 40 行 / 蒙版笔刷 JSX 47 行 / 选框光标 JSX 29 行（**边界已实测两处逐行相同**） | 🔴 依赖 D-0，**含 6.0 裁决的守卫统一** |
 | D-2 | **V11-RF-051** | 提示词库 + 参考图相关块（**先消化 RF-032 的 11 组「需人工确认」**） | 🔴 依赖 D-1 |
 | D-3 | **V11-RF-052** | 按 12 个工作流切 outfit 的配置与面板 | 🔴 依赖 D-2 |
 | D-4 | **V11-RF-053** | 剩余任务列表 / 上传区（引用面最广，放最后） | 🔴 依赖 D-3 |
@@ -511,6 +576,68 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 
 **顺序铁律**：**先消重复、后搬目录**（反了 = 把重复固化进新目录）。
 
+### 6.2 V11-RF-048 · `PreparedResultImage` ↔ `CachedImage` 改名克隆（D-0，最先做）
+
+- **任务类型**：【消改名克隆 · 中】｜**标记**：🔴
+- **🆕 统筹实测发现（2026-10-02 · `bbf4586`）**：RF-043-1 把 `CachedImage` 抽到 `src/shared/ui/cached-image.jsx` 之后，
+  `outfit-workflow.jsx` 里还留着一份**名字不同、功能同构**的实现：
+
+  | | `cached-image.jsx`（shared） | `outfit-workflow.jsx` |
+  | --- | --- | --- |
+  | 组件 | `CachedImage`（main.jsx 内 9–10 处） | `PreparedResultImage`（**定义 :2470**，使用点 **:10238 / :11252**） |
+  | 预加载 | `preloadDisplayImageUrl(url, timeoutMs = 20000)` | `preloadImageUrl(url, timeoutMs = 8000)`（**:2393**） |
+  | 卸载守卫 | 有 | 有（:2478 / :2521） |
+  | 缓存 | 有（`DISPLAY_IMAGE_CACHE`） | **无** |
+  | 埋点 | 有 | 有（`client-result-display-ready`，`emitDisplayReady`） |
+
+  ⚠️ 默认超时 8000 vs 20000 看似分叉，但 outfit 唯一调用点传的是 `RESULT_IMAGE_PRELOAD_TIMEOUT_MS`（**:241 = 20000**）
+  ⇒ **实际行为一致，不是真分叉**。
+- **裁定**：**先出对照表再定是否统一**（差异是「缓存有无」与「埋点字段」，若统一需取超集，不是纯搬运）。
+  判据同 RF-043：**放宽 > 收窄** —— 若统一，outfit 侧应**获得缓存**（放宽方向）；
+  不得让 main 侧丢缓存或丢埋点。
+- **为什么排 D-0**：它是**重复**。按「先消重复、后搬目录」必须先消，否则 D-1 搬局部编辑时会把这份重复固化进新目录。
+- **交付**：① 两版逐项对照表（props / 缓存 / 埋点字段 / 超时 / 守卫）② 是否可统一的建议 ③ 若可统一则实施（独立 commit）
+
+### 6.3 V11-RF-050 · 局部编辑 4 块边界（**统筹按 `bbf4586` 实测，勿用旧行号**）
+
+| 块 | 长度 | `main.jsx` | `outfit-workflow.jsx` | 内容 |
+| --- | --- | --- | --- | --- |
+| ① 选框缩放 | **130 行** | `:2065~` | `:5212~` | `scaleRectLocked` / `CROP_MIN_PIXEL_SIZE` / 中心缩放 |
+| ② resize 手柄 | **40 行** | `:2012~` | `:5159~` | `resizeRectFromCenterLocked` / `directionX|Y` / `maxWidth|Height` |
+| ③ 蒙版笔刷 JSX | **47 行** | `:2381~` | `:5521~` | `isMaskMode` / `quickLocalBrushTools` / 白笔·黑笔 |
+| ④ 选框光标 JSX | 29 行 | 按块①②邻近自行定位 | 同 | 选框光标样式 |
+
+- 另有 `:4650~ ↔ :8584~` **39 行**块（`imageMimeFromSource`，**组件内缩进函数 —— 019 看不见**）⇒ 建议随本批一并评估。
+- **当前重复总规模（实测）**：src **25167 行**，块级重复约 **2511 行（11.7%）**；
+  两大文件 8627 + 11346 = **19973 行（79.4%）**。
+
+### 6.4 RF-043-2 带来的 outfit 侧 4 处行为变化 —— **统筹裁决：接受**
+
+| # | 变化 | 方向 | 裁决 |
+| --- | --- | --- | --- |
+| 1 | 过滤加严（多 `!missing && isAllowedReferenceImage`） | 收窄 | **接受** —— 这是「以 main 版为基底」裁定的直接后果；反向（删过滤）会把地址缺失项渲染成坏图 |
+| 2 | 数量口径 → `items.length`（原 `Math.max(count, len)`） | 收窄 | **接受** —— `count` 仍驱动空态 / 不可用文案（pill「N 张参考」），不是丢信息 |
+| 3 | 右键菜单 `count` 随之变小 | 收窄 | **接受** —— 该参数只用于张数文案，随 #2 一致 |
+| 4 | 原生 `<img>` → `CachedImage` | **放宽** | ✅ 批量侧缩略图从此带缓存与显示埋点 |
+
+> 🔴 前提：已在 `reference-thumb-tray.jsx` 文件头注释写明这 4 处（执行者已做）。
+> ⚠️ **遗留**：outfit 侧真实托盘**未做真机验证**（本环境批量页无历史任务）⇒ **必须由用户人工复核**。
+
+### 6.5 互指注释锚点 —— **授权修正，并改为「只写函数名、不写行号」**
+
+当前（按 `bbf4586` 实测）4 处锚点有 **3 处已漂**：
+
+| 注释位置 | 写的 | 实际定义行 | 状态 |
+| --- | --- | --- | --- |
+| `outfit:1968` → main | `src/main.jsx:476` | 476 | ✅ 准确 |
+| `outfit:1935` → main | `src/main.jsx:716` | **722** | ❌ 漂 6 行 |
+| `main:475` → outfit | `src/outfit-workflow.jsx:1972` | **1973** | ❌ 漂 1 行 |
+| `main:721` → outfit | `src/outfit-workflow.jsx:1942` | **1943** | ❌ 漂 1 行 |
+
+**统筹裁决**：**跨文件注释一律「只写函数名、不写行号」** —— 行号锚点在并发提交下必然反复漂移
+（本轮已漂 3 次），维护成本高于收益；函数名稳定且可 grep。
+⇒ 授权执行者把上表 4 处改为函数名形式（**纯注释改动，独立小 commit**）。
+
 ---
 
 ## 7. 已知缺陷清单（录入 + 状态）
@@ -518,7 +645,9 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 | ID | 缺陷 | 状态 | 证据 | 归属工单 |
 | --- | --- | --- | --- | --- |
 | ① | `normalizeApiKeyInput` 清洗顺序（带引号整串 → `Bearersk-x`） | ✅ **已修 `7f6845b`** | `knownDefectCount` 1 → **0**（实测） | V11-RF-001 |
-| ② | `ReferenceThumbTray` 两份实现分叉（`main.jsx` / `outfit-workflow.jsx`） | **未裁决**（019 最后 1 条） | 019 在册 | **V11-RF-043**（先出分叉审计表） |
+| ② | `ReferenceThumbTray` 两份实现分叉 | ✅ **已收口 `bbf4586`** | 019 `duplicateCount` **1 → 0**（实测） | V11-RF-043-2 |
+| ②b | RF-043-2 带来的 **outfit 侧 4 处行为变化**（3 收窄 + 1 放宽） | ✅ **裁决接受** | 见 §6.4 | V11-RF-043-2 |
+| ⑧ 🆕 | `PreparedResultImage`（outfit）↔ `CachedImage`（shared）改名克隆 | **未修** | 统筹实测见 §6.2 | **V11-RF-048**（D-0） |
 | ③ | ~~「本地详情未走 `resolveLocalEditBaseFile`」~~ **已证伪 + 改判** | 🔴 **真漏走在裁剪回流链** | RF-044 只读定位：本地详情自身链路 4 个底图点**全部已走**（`:3250/:3267/:5016/:9354`，`outfit:9617` 强制 local-detail 带 `localEdit` 可证）⇒ **在本地详情链路内不成立**；真漏走是 `outfit-workflow.jsx:9466` | **V11-RF-047**（新立） |
 | ④ | 🔴 **undo/redo 陈旧闭包把旧 `tool`/`overlayOpacity` 写回项目存档** | ✅ **已修 + 人工冒烟通过** | `image-editor.jsx:651`；统筹已复核 `scheduleProjectSave:358-375` 写入字段 | **V11-RF-045** ✅ `25ce21c` |
 | ④b | 残留：`restoreSnapshot` 在 `await` 解码后才调 `scheduleProjectSave`，数毫秒窗口内改 `tool` 仍可能写旧值 | ⏸ **暂缓至阶段 D** | 彻底修法需把 5 个 state 镜像成 ref，改动面大；主路径已修 | **V11-RF-045b** |
