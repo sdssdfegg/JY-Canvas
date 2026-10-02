@@ -138,8 +138,7 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 | **V** ✅ | **V11-RF-056** | 后端 DEF 正则盲区只读测量 | ✅ **已完成 `e0159e6`**（🔴 前提已过期：RF-026 早关闭该盲区；剩余盲区 2 个定义、扩判据新增 0 族 ⇒ **不立单**） | 小（只读） | — |
 | **D** ✅ | **V11-RF-058** | RQ 最小集 2 块纯函数（预览拖拽，23 行×2）→ `result-image.js` | ✅ **已完成 `5eb35de`**（12 用例 ×2 组 + 3 反证项全检出） | 小 | — |
 | **D** ✅ | **V11-RF-057** | PL 簇抽 `usePromptLibrary`（14 块 / 138 行×2）→ `prompt-library.js`（**0 新文件**） | ✅ **已完成 `3a7bf77`**（38 用例 ×3 组 + 3 反证项；内部无 React、无 useCallback/useMemo） | 大 | — |
-| **D** ⏳ | **V11-RF-053b** | 🆕 #16 `crop*LocalEditFile` **参数化**收口（22 行×2）→ `local-edit-geometry.js` | 🟢 **待派发** | 小 | 无 |
-| **V** ⏳ | **V11-RF-059** | 🆕 阶段 D 第二批备料（**只读**，跑 RF-055 档重测块级清单） | 🟢 **待派发**（**零冲突，可与任何窗口并行**） | 中（只读） | 无 |
+| **D** ⏳ | **V11-RF-060** | 🆕 **阶段 D 第三批「块级克隆清零」打包长队列单**（RF-053b + A/B 类，含新建 `clipboard.js` 授权） | 🟢 **待派发**（**1M 窗口单路串行**） | 大 | 无 |
 
 > **派单建议**：**A 批 5 单一次性派给一个执行者**（互不重叠文件，合计上下文远低于 500K）；
 > **B 批两刀串行走**；**C 批两单只读，可与 A/B 交给另一个执行者并行**；D 批等前三个批次收口再开。
@@ -987,6 +986,53 @@ RQ 只搬 2 块纯函数落既有 `src/shared/result-image.js` ⇒ **`fileCount`
   3. **风险标注**：纯函数（可直接搬）vs 闭包依赖（需参数化或不可搬）。
 - **必答**：本轮已收口的（RF-051/052/047/053）**是否确实从清单里消失了** —— 这是该档有效性的活样本自校验。
 - **禁止**：改任何文件（含 `.md`）、裁决任何分叉（只标注）。
+
+### 6.15 V11-RF-060 · 阶段 D 第三批「块级克隆清零」**打包长队列单**（1M 上下文专用）
+
+> **本单是「一个窗口吃下一条完整主线」的试点**：不再每单回来问，按下面已裁决的规则自主推进，
+> 只在遇到**真分叉**时停手报统筹。仍然 **一阶段一 commit**，严禁合并。
+
+- **任务类型**：【消重复 —— 打包】｜**标记**：🔴 串行（**整个 src 队列只此一路**）
+- **实测基数（`4f496ab`，统筹亲自跑）**：`block-clone-advisory` 命中 **54 块 / 766 行**（巨石对 29 块 / 442 行）
+  ⇒ **A=5 / B=7 / C=42**。其中 C 类绝大多数是 **L2 脱敏假阳性**（如 `usePromptLibrary` 与一堆不相干函数匹配），
+  **不得据 C 类开单**。本单只处理 **A 类 5 块 + B 类可参数化者**。
+- **阶段 0（测量）**：开工先跑 `node scripts/verify/block-clone-advisory.mjs` 复核清单
+  （并入 RF-059 的职责 ⇒ **RF-059 不再单独派发**）。必答：RF-051/052/047/053/057/058 已收口的是否确实消失。
+
+#### 已裁决（可直接做，不必再问）
+
+| 块 | 行数 | 处置 | 落点 | 新文件 |
+|---|---|---|---|---|
+| `cropQuickLocalEditFile` ↔ `cropOutfitLocalEditFile`（**RF-053b**） | 22 | **参数化**：`{ fallbackToItem = false }`；main 传 `true` | `src/shared/local-edit-geometry.js`（两侧已 import） | 0 |
+| `runConnectionTest` | 23 | 字节一致；注入 `setIsConnectionTesting/setConnectionState/setConnectionStatus/settings/config/testConnection/formatConnectionResult` | `src/features/auth/api-key.js`（main:140 / outfit:135 **已 import**） | 0 |
+| `copyText` | 20 | 字节一致；注入 `addEvent` | 🔴 **授权新建** `src/shared/clipboard.js` | **1** |
+| `openDirectoryModal`(4) + `pickSaveDirectory`(16) 保存目录簇 | 20 | `pickSaveDirectory` 两侧仅 `err`/`error` 命名与消息提取写法不同 ⇒ **语义等价**，取 main 版 | ⏸ **本单不搬**，无既有落点，等 §6.14 领域设计 | 0 |
+
+#### 裁决规则（B 类逐块套用）
+
+1. **先追到被调用函数的实现内部再判分叉** —— 只看首行函数名会两个方向都错（RF-053 #16 教训：
+   `quickReferenceOriginalFile(item)` = `resolveLocalEditBaseFile(item) || item` ⇒ 两侧**同源**，真差异只是兜底策略）。
+2. **放宽 > 收窄**（§0.9 原则 1）。取 outfit 版会让 main 静默失效的，一律不许取。
+3. **差 1–2 行且可用参数化消解** ⇒ 参数化，两侧各传原值 ⇒ 行为逐字不变。
+4. **依赖模块级常量不同的**（如 `#12`）⇒ 不搬，登记。
+5. **`loadPromptCategories` ↔ `loadOutfitPromptCategories`** ⇒ ❌ **不搬**（L1 相同但兜底常量不同源，本档自己都把它写成反例）。
+6. **`imageBitmapFromFile` ↔ `imageBitmapFromDataUrl`**（两个既有 shared 模块之间）⇒ 只报备不搬（同逻辑不同名是门禁盲区，清单内别顺手改）。
+
+#### 🔴 明文授权（G 清单例外，凭本条执行）
+
+- **允许新建 1 个文件**：`src/shared/clipboard.js`（仅放 `copyText`）。
+- **允许 `--update` 改写 `scripts/verify/frontend-duplication-baseline.json`** 做 `fileCount` 划账（49→50），
+  形式必须是「fileCount +1 + 新文件路径入册」，**不得新增任何 duplicate 条目**（RF-050 先例）。
+- commit 必须写明「统筹授权，见 RF-060 §6.15」。
+
+#### 硬约束（不变）
+
+- 🔴 **禁 Edit 类整文件改写工具改两巨石**（CRLF→LF 会让 diff 膨胀到万行级）⇒ node 脚本按内容锚点打补丁，
+  提交前必查 `git diff --stat`。
+- 🔴 **防覆盖三步**（上一轮 src 并行静默覆盖事故）：打完 `grep -c` 自己的锚点 / 盯 HEAD 是否推移 /
+  只 `git apply --cached` 暂存自己那一 hunk，提交后确认他人改动仍在工作区。
+- 每阶段：对照组（旧实现由 `git show` 逐字生成，**禁手抄**）+ **至少 3 个反证项**（两分支输出必须不同，否则无判别力）。
+- **真分叉一律停手报统筹**，不得自行统一。
 
 ---
 
