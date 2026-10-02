@@ -114,6 +114,14 @@ async function attachFrontend() {
   const { createServer } = await import("vite");
   const vite = await createServer({
     root: rootDir,
+    // 缓存目录刻意不用 vite 默认的 `node_modules/.vite`：
+    // 2026-10-02 白屏事故 —— 多个 server 实例（用户正在用的那个，加上 verify 套件起的
+    // 十几个测试实例）同时走 attachFrontend() 拉起各自的 vite dev server，共用同一个
+    // 默认缓存目录互相清空，把正在跑的实例预构建产物踩成 `optimized: {}`，
+    // 页面拿旧 browserHash 去取 react/react-dom ⇒ 504 Outdated Optimize Dep ⇒ 整页白屏。
+    // 挪出 node_modules（那里本就是 npm 的地盘）可用根目录独享一份，
+    // verify 脚本再通过 JINGYIN_VITE_CACHE_DIR 指到自己的沙盒里，两边永不互踩。
+    cacheDir: process.env.JINGYIN_VITE_CACHE_DIR || path.join(rootDir, ".vite-cache"),
     server: { middlewareMode: true },
     appType: "spa"
   });

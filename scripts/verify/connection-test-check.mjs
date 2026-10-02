@@ -110,6 +110,7 @@ try {
     stdio: ["ignore", "ignore", "ignore"],
     env: {
       ...process.env,
+        JINGYIN_VITE_CACHE_DIR: path.join(process.cwd(), "tmp", "vite-cache-verify"),
       PORT: String(APP_PORT),
       JINGYIN_PORT_FALLBACK_LIMIT: "0",
       JINGYIN_GATEWAY_BASE_URL: `http://127.0.0.1:${MOCK_PORT}/v1`,

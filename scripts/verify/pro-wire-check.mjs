@@ -249,6 +249,7 @@ try {
     stdio: ["ignore", "ignore", "ignore"],
     env: {
       ...process.env,
+        JINGYIN_VITE_CACHE_DIR: path.join(process.cwd(), "tmp", "vite-cache-verify"),
       PORT: String(APP_PORT),
       JINGYIN_PORT_FALLBACK_LIMIT: "0",
       IMAGE_CHANNEL_ATTEMPT_TIMEOUT_MS: String(ATTEMPT_TIMEOUT_MS),

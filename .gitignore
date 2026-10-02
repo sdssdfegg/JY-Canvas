@@ -11,6 +11,9 @@ dist/
 build/
 out/
 .vite/
+# vite dev 预构建缓存（2026-10-02 白屏事故后从 node_modules/.vite 挪出来的独享目录，
+# 见 server/app.js attachFrontend() 的 cacheDir 注释；它是本地产物，不要进仓库）
+.vite-cache/
 *.tsbuildinfo
 
 # ---- 临时构建 / 发布中间目录 ----

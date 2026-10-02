@@ -269,7 +269,8 @@ try {
   child = spawn(NODE, [path.join("server", "index.js")], {
     cwd: ROOT,
     stdio: ["ignore", "ignore", "ignore"],
-    env: { ...process.env, PORT: String(APP_PORT), JINGYIN_PORT_FALLBACK_LIMIT: "0", JINGYIN_NO_BROWSER: "1" }
+    env: { ...process.env, PORT: String(APP_PORT), JINGYIN_PORT_FALLBACK_LIMIT: "0", JINGYIN_NO_BROWSER: "1",
+        JINGYIN_VITE_CACHE_DIR: path.join(process.cwd(), "tmp", "vite-cache-verify") }
   });
   installExitCleanup({ getChild: () => child });
   if (!(await waitForHealth(APP_PORT))) throw new Error("V11 测试实例未起来");
