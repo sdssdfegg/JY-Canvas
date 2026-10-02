@@ -18,6 +18,8 @@
 // 面部/身份/头脸/肩颈保护区、隐藏保护区域。
 
 import { canvasToBlob } from "./canvas-blob.js";
+import { imageBitmapFromFile } from "./image-input.js";
+import { fileBaseName } from "./file-name.js";
 
 export const LOCAL_EDIT_RECT_MODE = "rect";
 export const LOCAL_EDIT_MASK_MODE = "mask";
@@ -407,4 +409,55 @@ export function clampCropTransform(next, options = {}) {
     y: Math.max(-maxY, Math.min(maxY, Number(next.y) || 0)),
     scale
   };
+}
+
+/**
+ * 局部裁剪产物的体积上限与 JPEG 质量阶梯。
+ *
+ * 2026-10-03 随 `cropLocalEditFile` 一并搬来（V11-RF-053b）：两侧取值逐字一致
+ * （16 * 1024 * 1024 / [0.98, 0.96, 0.94, 0.92]），搬运前后无任何行为差异。
+ */
+export const LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES = 16 * 1024 * 1024;
+export const LOCAL_EDIT_CROP_JPEG_QUALITIES = [0.98, 0.96, 0.94, 0.92];
+
+/**
+ * 裁剪选框区域，产出送模型（或作为普通裁剪结果）的局部图。
+ *
+ * 2026-09-25 对齐 3.0 新源码：canvas 尺寸严格等于选框尺寸，不补白、不按比例外扩、
+ * 不再返回 `contextRect`（老调用点读到的字段仍在，只是恒为 null）。
+ *
+ * 2026-10-03 收口（V11-RF-053b）：快捷生成侧的 `cropQuickLocalEditFile` 与批量侧的
+ * `cropOutfitLocalEditFile` 剥离缩进后**只差无原图时的兜底策略** —— 两者底图来源其实是
+ * 同一处（`resolveLocalEditBaseFile`），差异仅在快捷侧条目可能就是裸 File ⇒ 允许兜底回 item，
+ * 批量侧必须抛错。差异参数化为 `fallbackToItem`，两侧各传原值 ⇒ 行为逐字不变。
+ */
+export async function cropLocalEditFile(
+  imageItem,
+  cropRect,
+  suffix = "local_edit",
+  { fallbackToItem = false } = {}
+) {
+  const originalFile = resolveLocalEditBaseFile(imageItem) || (fallbackToItem ? imageItem : null);
+  if (!originalFile) throw new Error("缺少原图，无法创建局部回贴区域");
+  const image = await imageBitmapFromFile(originalFile);
+  try {
+    const cropped = await cropRectToBlob(image, cropRect, {
+      targetBytes: LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES,
+      qualities: LOCAL_EDIT_CROP_JPEG_QUALITIES
+    });
+    return {
+      file: new File([cropped.blob], `${fileBaseName(originalFile.name)}_${suffix}.jpg`, {
+        type: "image/jpeg",
+        lastModified: Date.now()
+      }),
+      cropRect: cropped.rect,
+      contextRect: null,
+      sourceWidth: cropped.sourceWidth,
+      sourceHeight: cropped.sourceHeight,
+      cropQuality: cropped.quality,
+      cropBytes: cropped.blob.size
+    };
+  } finally {
+    image.close?.();
+  }
 }

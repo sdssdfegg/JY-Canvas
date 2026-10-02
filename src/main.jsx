@@ -69,7 +69,7 @@ import {
   clampCropTransform,
   composeLocalPasteBlob,
   constrainCropRect as sharedConstrainCropRect,
-  cropRectToBlob,
+  cropLocalEditFile,
   fitRectToRatioLocked,
   formatPixelSize,
   resolveLocalEditBaseFile,
@@ -187,7 +187,6 @@ const CHANNEL_UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024;
 const CHANNEL_UPLOAD_TARGET_BYTES = 3.75 * 1024 * 1024;
 const CHANNEL_UPLOAD_MAX_SIDE = 3072;
 const LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES = 16 * 1024 * 1024;
-const LOCAL_EDIT_CROP_JPEG_QUALITIES = [0.98, 0.96, 0.94, 0.92];
 const LOCAL_EDIT_OUTPUT_TARGET_BYTES = 64 * 1024 * 1024;
 const LOCAL_EDIT_OUTPUT_JPEG_QUALITIES = [0.985, 0.975, 0.965, 0.95, 0.94];
 const CANVAS_NODE_WIDTH = 236;
@@ -1196,44 +1195,6 @@ const constrainCropRect = sharedConstrainCropRect;
 // （阶段 B 刀 2：本函数已收进 src/shared/routing.js，与那里逐字节等价，此处改为 import。）
 
 /**
- * 裁剪选框区域，产出送模型（或作为普通裁剪结果）的局部图。
- *
- * 2026-09-25 对齐 3.0 新源码：
- *   - 3.0 `frontend/ecommerce/src/features/crop/cropImage.ts:150`
- *     把画布尺寸**严格**定为 `sourceRect.width × sourceRect.height`；
- *     没有任何补白、补边、按比例外扩。
- *   - 所以这里也只用 `pasteRect`（= 用户选框，夹进原图范围内）建画布，
- *     输出 Blob 的像素尺寸恒等于选框尺寸。
- *   - 不再有 `contextRect`（"多送一圈上下文"），返回值的 `contextRect` 恒为 null，
- *     老调用点读到的字段仍然存在，只是永远为空。
- */
-async function cropQuickLocalEditFile(referenceItem, cropRect, suffix = "local_edit", _options = {}) {
-  const originalFile = quickReferenceOriginalFile(referenceItem);
-  const image = await imageBitmapFromFile(originalFile);
-  try {
-    // 实际裁剪在 src/shared/local-edit-geometry.js（与批量侧同一份实现）。
-    const cropped = await cropRectToBlob(image, cropRect, {
-      targetBytes: LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES,
-      qualities: LOCAL_EDIT_CROP_JPEG_QUALITIES
-    });
-    return {
-      file: new File([cropped.blob], `${fileBaseName(originalFile.name)}_${suffix}.jpg`, {
-        type: "image/jpeg",
-        lastModified: Date.now()
-      }),
-      cropRect: cropped.rect,
-      contextRect: null,
-      sourceWidth: cropped.sourceWidth,
-      sourceHeight: cropped.sourceHeight,
-      cropQuality: cropped.quality,
-      cropBytes: cropped.blob.size
-    };
-  } finally {
-    image.close?.();
-  }
-}
-
-/**
  * 把模型返回的局部结果**按原图坐标**贴回底图。
  *
  * 2026-09-25 对齐 3.0 新源码（frontend/ecommerce/src/shared/image/localPaste.ts:128-202
@@ -2098,7 +2059,7 @@ function QuickLocalEditModal({ item, ratio, mode = "local", onRatioChange, onClo
         const canvas = maskCanvasRef.current;
         const bounds = maskBoundsFromCanvas(canvas);
         const maskCropRect = expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio) || cropRect;
-        const cropped = await cropQuickLocalEditFile(item, maskCropRect, "mask_edit");
+        const cropped = await cropLocalEditFile(item, maskCropRect, "mask_edit", { fallbackToItem: true });
         onApply(item.id, {
           ...cropped,
           cropRect: maskCropRect,
@@ -2111,7 +2072,7 @@ function QuickLocalEditModal({ item, ratio, mode = "local", onRatioChange, onClo
         });
       } else {
         // 普通裁剪与局部回贴走**同一套**几何：输出尺寸恒等于选框在原图上的像素尺寸。
-        const cropped = await cropQuickLocalEditFile(item, cropRect, isLocalMode ? "local_edit" : "crop");
+        const cropped = await cropLocalEditFile(item, cropRect, isLocalMode ? "local_edit" : "crop", { fallbackToItem: true });
         onApply(item.id, { ...cropped, aspectRatio: activeRatio, editMode: LOCAL_EDIT_RECT_MODE });
       }
     } finally {
@@ -5493,7 +5454,7 @@ function App() {
       && classifyQuickPrimaryLocalIntent(runSettings.prompt) === "outfit";
     // 2026-09-25 对齐 3.0：删除了 shouldUseExactBanana2LocalCrop 的"香蕉2 再精确重裁一次"分支。
     // 它存在的理由是当时只有香蕉2 用精确选框、其它模型用 contextRect 大图；
-    // 现在所有模型上传的都是精确选框（见 cropQuickLocalEditFile），这个特殊分支已经没有意义。
+    // 现在所有模型上传的都是精确选框（见 cropLocalEditFile），这个特殊分支已经没有意义。
     const runFiles = runItems.map((item) => quickReferenceRunUploadFile(item, localEditRunItem)).filter((file) => file instanceof File);
     // 2026-09-26：SKILL 规则已整体删除 —— 发给接口的提示词就是用户输入框里的原文。
     const apiPrompt = promptForQuickGeneration(runSettings.prompt);

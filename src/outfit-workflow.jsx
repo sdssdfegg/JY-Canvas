@@ -78,7 +78,7 @@ import {
   clampCropTransform,
   composeLocalPasteBlob,
   constrainCropRect as sharedConstrainCropRect,
-  cropRectToBlob,
+  cropLocalEditFile,
   fitRectToRatioLocked,
   formatPixelSize,
   localPasteSizeReport,
@@ -435,8 +435,6 @@ const GENERATION_COUNT_OPTIONS = ["auto", ...Array.from({ length: MAX_UPLOAD_IMA
 const CHANNEL_UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024;
 const CHANNEL_UPLOAD_TARGET_BYTES = 3.75 * 1024 * 1024;
 const CHANNEL_UPLOAD_MAX_SIDE = 3072;
-const LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES = 16 * 1024 * 1024;
-const LOCAL_EDIT_CROP_JPEG_QUALITIES = [0.98, 0.96, 0.94, 0.92];
 const LOCAL_EDIT_OUTPUT_TARGET_BYTES = 64 * 1024 * 1024;
 const LOCAL_EDIT_OUTPUT_JPEG_QUALITIES = [0.985, 0.975, 0.965, 0.95, 0.94];
 const DEFAULT_BATCH_CONCURRENCY = 5;
@@ -3119,45 +3117,12 @@ function localEditTaskBindingSnapshot(task, localEdit, taskAspectRatio, uploadFi
   };
 }
 
-/**
- * 裁剪选框区域，产出送模型（或作为普通裁剪结果）的局部图。
- *
- * 2026-09-25 对齐 3.0 新源码：canvas 尺寸严格等于选框尺寸，不补白、不按比例外扩、
- * 不再返回 `contextRect`。见 src/main.jsx 同名函数的说明。
- */
-async function cropOutfitLocalEditFile(imageItem, cropRect, suffix = "local_edit", _options = {}) {
-  const originalFile = resolveLocalEditBaseFile(imageItem);
-  if (!originalFile) throw new Error("缺少原图，无法创建局部回贴区域");
-  const image = await imageBitmapFromFile(originalFile);
-  try {
-    // 实际裁剪在 src/shared/local-edit-geometry.js（与快捷生成侧同一份实现）。
-    const cropped = await cropRectToBlob(image, cropRect, {
-      targetBytes: LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES,
-      qualities: LOCAL_EDIT_CROP_JPEG_QUALITIES
-    });
-    return {
-      file: new File([cropped.blob], `${fileBaseName(originalFile.name)}_${suffix}.jpg`, {
-        type: "image/jpeg",
-        lastModified: Date.now()
-      }),
-      cropRect: cropped.rect,
-      contextRect: null,
-      sourceWidth: cropped.sourceWidth,
-      sourceHeight: cropped.sourceHeight,
-      cropQuality: cropped.quality,
-      cropBytes: cropped.blob.size
-    };
-  } finally {
-    image.close?.();
-  }
-}
-
 async function prepareOutfitTaskLocalEdit(task, localEdit, model, batchMode = "") {
   if (!localEdit?.cropRect || !task?.modelItem) return localEdit || null;
   const editMode = localEdit.editMode || LOCAL_EDIT_RECT_MODE;
   const isMaskEdit = editMode === LOCAL_EDIT_MASK_MODE;
   // 2026-09-25：所有模型都上传精确选框，不再区分"香蕉2 精确 / 其它带上下文"。
-  const cropped = await cropOutfitLocalEditFile(
+  const cropped = await cropLocalEditFile(
     task.modelItem,
     localEdit.cropRect,
     isMaskEdit ? "mask_edit_run" : "local_edit_run"
@@ -5163,7 +5128,7 @@ function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, on
         const canvas = maskCanvasRef.current;
         const bounds = maskBoundsFromCanvas(canvas);
         const maskCropRect = expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio) || cropRect;
-        const cropped = await cropOutfitLocalEditFile(item, maskCropRect, "mask_edit");
+        const cropped = await cropLocalEditFile(item, maskCropRect, "mask_edit");
         onApply(item.id, {
           ...cropped,
           cropRect: maskCropRect,
@@ -5175,7 +5140,7 @@ function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, on
           maskOpacity
         });
       } else {
-        const cropped = await cropOutfitLocalEditFile(item, cropRect, "local_edit");
+        const cropped = await cropLocalEditFile(item, cropRect, "local_edit");
         onApply(item.id, { ...cropped, aspectRatio: activeRatio, editMode: LOCAL_EDIT_RECT_MODE });
       }
     } finally {
