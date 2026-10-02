@@ -138,7 +138,7 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 | **V** ✅ | **V11-RF-056** | 后端 DEF 正则盲区只读测量 | ✅ **已完成 `e0159e6`**（🔴 前提已过期：RF-026 早关闭该盲区；剩余盲区 2 个定义、扩判据新增 0 族 ⇒ **不立单**） | 小（只读） | — |
 | **D** ✅ | **V11-RF-058** | RQ 最小集 2 块纯函数（预览拖拽，23 行×2）→ `result-image.js` | ✅ **已完成 `5eb35de`**（12 用例 ×2 组 + 3 反证项全检出） | 小 | — |
 | **D** ✅ | **V11-RF-057** | PL 簇抽 `usePromptLibrary`（14 块 / 138 行×2）→ `prompt-library.js`（**0 新文件**） | ✅ **已完成 `3a7bf77`**（38 用例 ×3 组 + 3 反证项；内部无 React、无 useCallback/useMemo） | 大 | — |
-| **D** ⏳ | **V11-RF-060** | 🆕 **阶段 D 第三批「块级克隆清零」打包长队列单**（RF-053b + A/B 类，含新建 `clipboard.js` 授权） | 🟢 **待派发**（**1M 窗口单路串行**） | 大 | 无 |
+| **D** 🔵 | **V11-RF-060** | **阶段 D 第三批「块级克隆清零」打包长队列单** | 🔵 **进行中**（阶段 0–3 已完成，见 §6.16） | 大 | 无 |
 
 > **派单建议**：**A 批 5 单一次性派给一个执行者**（互不重叠文件，合计上下文远低于 500K）；
 > **B 批两刀串行走**；**C 批两单只读，可与 A/B 交给另一个执行者并行**；D 批等前三个批次收口再开。
@@ -1005,7 +1005,8 @@ RQ 只搬 2 块纯函数落既有 `src/shared/result-image.js` ⇒ **`fileCount`
 |---|---|---|---|---|
 | `cropQuickLocalEditFile` ↔ `cropOutfitLocalEditFile`（**RF-053b**） | 22 | **参数化**：`{ fallbackToItem = false }`；main 传 `true` | `src/shared/local-edit-geometry.js`（两侧已 import） | 0 |
 | `runConnectionTest` | 23 | 字节一致；注入 `setIsConnectionTesting/setConnectionState/setConnectionStatus/settings/config/testConnection/formatConnectionResult` | `src/features/auth/api-key.js`（main:140 / outfit:135 **已 import**） | 0 |
-| `copyText` | 20 | 字节一致；注入 `addEvent` | 🔴 **授权新建** `src/shared/clipboard.js` | **1** |
+| `copyText` | 20 | 字节一致；注入 `addEvent`（`notify` **不给默认值**：忘传立刻报错，好过静默丢提示） | 🔴 **授权新建** `src/shared/dom-actions.js` | **1** |
+| `preventFileDropNavigation` 🆕 | 5 | 字节一致（image-editor ↔ outfit，修复盲区后才看见） | 同上（与 `copyText` 同文件，都是 DOM 动作） | 0 |
 | `openDirectoryModal`(4) + `pickSaveDirectory`(16) 保存目录簇 | 20 | `pickSaveDirectory` 两侧仅 `err`/`error` 命名与消息提取写法不同 ⇒ **语义等价**，取 main 版 | ⏸ **本单不搬**，无既有落点，等 §6.14 领域设计 | 0 |
 
 #### 裁决规则（B 类逐块套用）
@@ -1020,7 +1021,9 @@ RQ 只搬 2 块纯函数落既有 `src/shared/result-image.js` ⇒ **`fileCount`
 
 #### 🔴 明文授权（G 清单例外，凭本条执行）
 
-- **允许新建 1 个文件**：`src/shared/clipboard.js`（仅放 `copyText`）。
+- **允许新建 1 个文件**：`src/shared/dom-actions.js`（放 `copyTextToClipboard` + `preventFileDropNavigation`）。
+  ⚠️ 原写 `clipboard.js`，实际落地改名 `dom-actions.js` —— 它同时容纳剪贴板与拖拽拦截两件 DOM 动作，
+  一个文件装下同类比拆两个更省 `fileCount`。**以本条为准。**
 - **允许 `--update` 改写 `scripts/verify/frontend-duplication-baseline.json`** 做 `fileCount` 划账（49→50），
   形式必须是「fileCount +1 + 新文件路径入册」，**不得新增任何 duplicate 条目**（RF-050 先例）。
 - commit 必须写明「统筹授权，见 RF-060 §6.15」。
@@ -1033,6 +1036,32 @@ RQ 只搬 2 块纯函数落既有 `src/shared/result-image.js` ⇒ **`fileCount`
   只 `git apply --cached` 暂存自己那一 hunk，提交后确认他人改动仍在工作区。
 - 每阶段：对照组（旧实现由 `git show` 逐字生成，**禁手抄**）+ **至少 3 个反证项**（两分支输出必须不同，否则无判别力）。
 - **真分叉一律停手报统筹**，不得自行统一。
+
+### 6.16 V11-RF-060 执行进度（**统筹自执行**，2026-10-03）
+
+> 用户授权统筹直接执行（不再转达窗口）。每阶段一 commit，验证口径与派单要求完全一致。
+
+| 阶段 | 内容 | commit | 净行数 |
+|---|---|---|---|
+| 0 | 修 `block-clone` 档 `image/*` 吞行缺陷（有效行 14812→21561，盲区 30%） | `8c913b4` | — |
+| 1 | RF-053b `crop*LocalEditFile` 参数化 `{ fallbackToItem }` | `291f8cc` | 61 / −82 |
+| 2 | `runConnectionTest` 23 行 → `features/auth/api-key.js` | `755c3a8` | 80 / −49 |
+| 3 | `copyText` + `preventFileDropNavigation` → 新建 `shared/dom-actions.js` | `6953bb4` | 65 / −53 |
+
+**体量**：两巨石 8235+10890 = **19001 行**（本轮 −124）。
+
+**重测后剩余（`6953bb4`，有效行 21526）**：101 块 / 1784 行，**A=9 B=16 C=76**。
+搬走的 4 块已确认从清单消失（该档的活样本自校验通过）。
+
+- **A 类剩余 9 块中，函数型只剩 2 块**：`openDirectoryModal`(14) + `pickSaveDirectory`(11) —— 保存目录簇，
+  **无既有落点**（无 settings/savedir 类模块），按 §7.2 不新建 ⇒ 待领域切分时一并解决。
+  ⚠️ `pickSaveDirectory` 两侧仅 `err`/`error` 命名与消息提取写法不同 ⇒ **语义等价**，可直接取一侧。
+- **其余 A 类是 JSX 块**（32 / 18 / 13 / 12 行）：`))}`、`<span>{theme.label}</span>`、`<LocalEditBrushTools`、`<canvas`
+  ⇒ 抽组件才能消，需新建文件或扩既有组件 props，**本批不做**。
+- **C 类 76 块**：绝大多数是 L2 脱敏假阳性，**不得据此开单**（§7.2）。
+- **B 类 16 块**：逐块判，能参数化的参数化，真分叉登记。已确认不搬的：
+  `loadPromptCategories ↔ loadOutfitPromptCategories`（兜底常量不同源，本档自列反例）、
+  `imageBitmapFromFile ↔ imageBitmapFromDataUrl`（两个既有 shared 模块之间，只报备）。
 
 ---
 
