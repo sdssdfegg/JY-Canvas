@@ -132,12 +132,13 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 | **D** ✅ | **V11-RF-040d** | 4 条跨文件行号注释 → 只写函数名 | ✅ **已完成 `4837d49`，已合回主线 `9cfa54b`**（worktree 分支 `rf-040d`，零重叠合并） | 极小 | 无 |
 | **D** ✅ | **V11-RF-052** | **拖拽下载族 6 函数**两侧各一份（46 行字节一致 + 文案入参化）→ `src/shared/result-image.js` | ✅ **已完成 `b934ec6`** | 中 | — |
 | **D** ✅ | **V11-RF-047** | 🔴 裁剪回流底图漏走 `resolveLocalEditBaseFile`（**清单上唯一剩下的真 bug**） | ✅ **已完成 `66056fa`**（1 文件 +9/−1；🔴 **真机冒烟未豁免**，改前 bbox 被夹到原点 vs 改后吻合） | 中 | — |
-| **D** ⏳ | **V11-RF-053** | LE 几何 2 块（#16 字节一致 / #35 差 1 行）→ `src/shared/local-edit-geometry.js` | 🟢 **待派发**（**下一单**） | 小 | **RF-052 通过** |
+| **D** 🟡 | **V11-RF-053** | LE 几何 2 块 → `src/shared/local-edit-geometry.js` | 🟡 **部分完成 `927166c`**（#35 ✅ 已参数化收口；**#16 执行者停手 → 统筹纠正，转 RF-053b**） | 小 | — |
 | **D** ✅ | **V11-RF-054** | PL / RQ 两簇抽取方案（**只读设计**） | ✅ **已完成**（两簇**都不需新建文件**，`fileCount` +0） | 中（只读） | — |
 | **V** ✅ | **V11-RF-055** | 前端「块级克隆」advisory 门禁档（常驻化 D-2 测量） | ✅ **已完成 `87f38d2` → 合回 `6923595`**（54 块/845 行；活样本自校验 2/2） | 中 | — |
 | **V** ✅ | **V11-RF-056** | 后端 DEF 正则盲区只读测量 | ✅ **已完成 `e0159e6`**（🔴 前提已过期：RF-026 早关闭该盲区；剩余盲区 2 个定义、扩判据新增 0 族 ⇒ **不立单**） | 小（只读） | — |
-| **D** ⏳ | **V11-RF-058** | 🆕 RQ 最小集 2 块纯函数（预览拖拽，23 行）→ `result-image.js` | 🟢 **待派发** | 小 | **RF-052 通过**（同落点） |
-| **D** ⏳ | **V11-RF-057** | 🆕 PL 簇抽 `usePromptLibrary`（14 块 / 138 行）→ `prompt-library.js`（**0 新文件**） | 🟢 **待派发** | 大 | **RF-058 通过** |
+| **D** ✅ | **V11-RF-058** | RQ 最小集 2 块纯函数（预览拖拽，23 行×2）→ `result-image.js` | ✅ **已完成 `5eb35de`**（12 用例 ×2 组 + 3 反证项全检出） | 小 | — |
+| **D** ✅ | **V11-RF-057** | PL 簇抽 `usePromptLibrary`（14 块 / 138 行×2）→ `prompt-library.js`（**0 新文件**） | ✅ **已完成 `3a7bf77`**（38 用例 ×3 组 + 3 反证项；内部无 React、无 useCallback/useMemo） | 大 | — |
+| **D** ⏳ | **V11-RF-053b** | 🆕 #16 `crop*LocalEditFile` **参数化**收口（22 行×2）→ `local-edit-geometry.js` | 🟢 **待派发** | 小 | 无 |
 | **V** ⏳ | **V11-RF-059** | 🆕 阶段 D 第二批备料（**只读**，跑 RF-055 档重测块级清单） | 🟢 **待派发**（**零冲突，可与任何窗口并行**） | 中（只读） | 无 |
 
 > **派单建议**：**A 批 5 单一次性派给一个执行者**（互不重叠文件，合计上下文远低于 500K）；
@@ -804,6 +805,47 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
   ⇒ 必须先实测两侧取值一致。§0.9 原则 7：**字节一致 ≠ 可搬**。
 - **#35 处置**：先判那 1 行是格式差异还是实质差异 ⇒ 实质差异则**参数化**（两侧各传原值，行为逐字不变）或停手报统筹
 - **验收**：同 RF-052；外加几何数值对照组（越界 / 极小 / 极大 / 非等比）
+
+---
+
+### 6.8b V11-RF-053b · #16 `crop*LocalEditFile` 参数化收口（**统筹纠正执行者误判**）
+
+**背景**：RF-053 执行者以「#16 是真分叉」为由停手。**停手的谨慎是对的，但依据错了**，统筹实测纠正：
+
+| 执行者的判断 | 统筹实测 |
+| --- | --- |
+| 「差异在**底图来源**：一侧取参考图原图，一侧取本地编辑底图」 | ❌ **两侧底图同源**。`quickReferenceOriginalFile`（main:1055）= `resolveLocalEditBaseFile(item) \|\| item`，**本身就是同一份规则**；outfit 侧直接 `resolveLocalEditBaseFile(imageItem)` |
+| 「统一它 = 行为变更 ⇒ 不搬」 | ⚠️ 方向对，但处置应是**参数化**（同 #35），不是不搬 |
+
+**真正的差异只有一处 —— 兜底策略**（22 行里其余逐字一致）：
+
+- main：`resolveLocalEditBaseFile(item) || item` —— **允许裸 File 兜底**
+  （原注释明写：`这里保留 || item 兜底，因为快捷侧的条目可能就是裸 File`）
+- outfit：`resolveLocalEditBaseFile(imageItem)` + `if (!originalFile) throw new Error("缺少原图，无法创建局部回贴区域")`
+
+⇒ **严禁统一成其中一侧**：取 outfit 版会让 main 的裸 File 条目**静默失效**（收窄，违反 §0.9 原则 1）；
+取 main 版会让 outfit 丢掉明确报错、退化成 `imageBitmapFromFile(非 File)` 的更难懂错误。
+
+**裁决：参数化搬运**（与 #35 同一手法）：
+
+```
+export async function cropLocalEditFile(imageItem, cropRect, suffix = "local_edit", { fallbackToItem = false } = {}) {
+  const originalFile = resolveLocalEditBaseFile(imageItem) || (fallbackToItem ? imageItem : null);
+  if (!originalFile) throw new Error("缺少原图，无法创建局部回贴区域");
+  …（其余 20 行原样搬）
+}
+```
+
+- main 调用点传 `{ fallbackToItem: true }` ⇒ 行为**逐字不变**
+- outfit 调用点走默认 ⇒ 行为**逐字不变**（仍抛同一句）
+
+- **落点**：`src/shared/local-edit-geometry.js`（两侧 `:76` / `:86` 已 import，不新建文件）
+- **验收**：两侧各传原值 ⇒ 对照组必须覆盖「裸 File 入参」与「无原图入参」两组反证项；
+  `LOCAL_EDIT_CROP_*` 两个常量由 shared 模块内引用，两侧模块级常量成为孤儿 ⇒ **必须实测清掉**
+  （ESLint `no-unused-vars` 点名）
+- 🔑 **教训（写进 §12）**：**"看着像分叉"不等于"分叉"** —— 判分叉前必须**追到被调用的解析函数内部**，
+  不能只看首行函数名不同就下结论（本次 `quickReferenceOriginalFile` vs `resolveLocalEditBaseFile`
+  名字不同、语义相同）。
 
 ### 6.9 V11-RF-054 · PL / RQ 两簇抽取方案 ✅ **已完成**（只读设计）
 
