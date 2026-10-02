@@ -1,6 +1,6 @@
 {
   "note": "前端跨文件同名顶层函数基线：记录当前已存在的跨文件同名顶层函数，只用来拦「新增」。注意本基线按「行首顶层」判据生成（缩进的内层函数不纳入），与评估报告初版那 104 条（未锚定行首、混入内层函数）不是同一口径。抽到 src/shared/ 消掉后跑一次 --update 把它从账单里划掉。",
-  "generatedAt": "2026-10-01",
+  "generatedAt": "2026-10-02",
   "scanScope": {
     "root": "src/",
     "extensions": [
@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 36,
+    "fileCount": 37,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -50,15 +50,12 @@
       "src/shared/result-image.js",
       "src/shared/retouch-intent.js",
       "src/shared/routing.js",
+      "src/shared/text-normalize.js",
       "src/shared/ui/ChannelPicker.jsx",
       "src/shared/ui/Modal.jsx"
     ]
   },
   "duplicates": {
-    "asText": [
-      "src/shared/outfit-intent.js",
-      "src/shared/retouch-intent.js"
-    ],
     "canvasToBlob": [
       "src/image-editor.jsx",
       "src/main.jsx",
@@ -82,6 +79,10 @@
       "src/main.jsx",
       "src/outfit-workflow.jsx"
     ],
+    "imageBitmapFromDataUrl": [
+      "src/image-editor.jsx",
+      "src/shared/local-edit-mask.js"
+    ],
     "imageBitmapFromFile": [
       "src/image-editor.jsx",
       "src/main.jsx",
@@ -94,6 +95,10 @@
     "imageFilesFromList": [
       "src/main.jsx",
       "src/outfit-workflow.jsx"
+    ],
+    "isBanana2Model": [
+      "src/main.jsx",
+      "src/shared/routing.js"
     ],
     "isImageFile": [
       "src/image-editor.jsx",
@@ -127,10 +132,6 @@
     "normalizePromptPreset": [
       "src/main.jsx",
       "src/outfit-workflow.jsx"
-    ],
-    "pickEnum": [
-      "src/shared/outfit-intent.js",
-      "src/shared/retouch-intent.js"
     ],
     "referenceSource": [
       "src/main.jsx",

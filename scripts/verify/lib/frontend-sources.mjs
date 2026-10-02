@@ -23,6 +23,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { MIN_NAME_LENGTH, TOP_LEVEL_DEF_RES } from "./def-patterns.mjs";
 
 /** 扫描口径。门禁会把运行时口径与本对象比对，不一致即判「范围漂移」。 */
 export const FRONTEND_SCAN_SCOPE = {
@@ -32,17 +33,18 @@ export const FRONTEND_SCAN_SCOPE = {
 };
 
 /**
- * 唯一一份「顶层函数定义」正则。
- * 门禁、审计脚本、任何工具都必须 import 本常量，禁止再抄一份（抄了就会漂移）。
- * 两个捕获组：1 = function 形式，2 = const 箭头函数形式。
+ * 「顶层函数定义」正则 —— 现在只有一份，在 lib/def-patterns.mjs，
+ * 与服务端 server-duplication-check.mjs 共用（V11-RF-019 前置 P1，2026-10-02）。
+ *
+ * 为什么搬走：本文件原持有一份 `^(?:async\s+)?function\s+...`，服务端持有同族另一份，
+ * 两份**都不认 `export function`** ⇒ 前端 22 条基线是低估值（修正后 24 条），
+ * 服务端 77.6% 的顶层函数根本不在视野内（§0.9 第 17 条）。
+ * 共用一份后，改正则只需改一处，不会再漂。
+ *
+ * 这里 re-export 是为了让既有的 import 路径（frontend-duplication-check.mjs、
+ * scripts/dev/frontend-duplication-audit.mjs）不用改，同时不留下第二份定义。
  */
-export const TOP_LEVEL_DEF_RES = [
-  /^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm,
-  /^(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\(/gm,
-];
-
-/** 计入的最短函数名（短于此值忽略，避免 done/map 之类噪声） */
-export const MIN_NAME_LENGTH = 4;
+export { MIN_NAME_LENGTH, TOP_LEVEL_DEF_RES } from "./def-patterns.mjs";
 
 /** 返回前端源码文件的相对路径列表（posix 风格，已排序）。目录不存在时安全返回空数组。 */
 export function listFrontendSourceFiles() {
