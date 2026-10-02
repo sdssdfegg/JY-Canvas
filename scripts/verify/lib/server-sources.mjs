@@ -6,6 +6,14 @@
 // 后续搬家脚本只需 import 本模块，不用逐个改。
 //
 // 纳入范围：
+//   - server/*.js（**顶层全部手写 .js**）—— V11-RF-027-5（2026-10-02）从「只点名
+//       index.js / app.js」改为「顶层全纳」。此前顶层 13 个 .js（7 个 *-ai.js、
+//       detail-middleware.js、billing-gateway.js、channel.js、channel-config.js、
+//       video-config.js、detail-skills.js、outfit-skill.js）**从来没进过本收集器**，
+//       它们的 import 路径不受 import-path-check 校验、同名函数不受 server-duplication-check
+//       校验——与 §0.9 第 16 条（真实代码落在扫描范围外）是同一类洞，方向是"从来没进过"。
+//       纳入时机：V11-RF-027-1~027-4b 已把这些文件里的跨文件同名函数消到 0
+//       （实测 64 文件 duplicateCount=0），此刻纳视野**零新增报红**。
 //   - server/index.js
 //   - server/app.js        —— V11-RF-220（2026-10-02）从 index.js 拆出的**装配层**，
 //       是 index.js 的"另一半"，不是新写的模块。补录它的理由必须写清，否则后人会以为是随手加的：
@@ -13,8 +21,11 @@
 //       220 把它们搬进新文件后，若不补录，这 552 行会静默脱离 state-singleton / server-duplication /
 //       routing 等全部门禁**——拆出动作本身反而削弱了护栏，这是 220 引入的真实盲区，故在此补上。
 //       判定口径：凡"从 index.js 搬出去的装配层代码落在哪个文件，哪个文件就要进本清单"。
-//       ⚠️ 未纳入的 server/ 顶层其余 .js（channel-config.js 等历史模块）：它们**从一开始就不在本范围内**，
-//       纳入会改变既有门禁的判定基数（可能新增报红），需要单独评估，本次不做。这里不假装"顶层全纳入"。
+//       ⚠️ 【本段已过时，2026-10-02 RF-027-5 推翻】此处原文写"顶层其余 .js 暂不纳入、
+//       纳入会改变判定基数，本次不做"。该判断的问题在于：**不纳入本身就是洞**——
+//       顶层 .js 的 import 路径与同名函数双双脱离门禁，而"改变判定基数"恰恰是应该暴露
+//       而不是回避的。027-1~027-4b 已把那批重复消到 0，现在纳视野零新增报红，故已全纳。
+//       保留这段原文是为了让后人知道**这里曾经有过一个相反的决定**，以及它是怎么被推翻的。
 //   - server/core/**/*.js
 //   - server/routes/**/*.js  —— 批次 4（V11-RF-201 起）的新家：从 index.js 抽出的路由模块。
 //       **2026-10-02 前不存在（当时注释写"当前还不存在"），201/202 落地后已存在**，本行随之更新。
@@ -45,7 +56,8 @@
 //
 //   - server/static-assets.generated.js —— **生成物**，由 scripts/generate-static-assets.mjs 产出，非手写源码。
 //
-// 实现上只遍历上面点名的三个子目录 + index.js，因此上述排除项天然不会被纳入。
+// 实现上遍历上面点名的三个子目录 + server/ 顶层手写 .js + prompts/server，
+// 因此上述排除项（features / skill-baselines / 生成物）天然不会被纳入。
 //
 // 关键契约：任何目录不存在都安全跳过（返回空数组 / 跳过该文件），绝不抛异常。
 // 否则 routing-check 直接读文件会在 routes/shared 尚不存在时崩溃。
@@ -80,17 +92,27 @@ const INCLUDE_DIRS = ["core", "routes", "shared"];
 //   - 若连 server/ 顶层其余 .js 一起纳（模式 A）：63 文件 / 206 说明符 / **16 条新增跨文件同名**，
 //     全部来自顶层 7 个 `*-ai.js` + `detail-middleware.js` + `billing-gateway.js`。
 //
-// 🔴 因此本行**只纳 prompts/server**，顶层其余 .js **暂不纳入**，理由与后续安排：
-//   那 16 条是**真实漂移源**（`asText`×7、`createAbortSignal`×7、`postChatCompletion`×6 …），
-//   正确做法是抽 `server/core/ai-chat-shared.js` 消掉（V11-RF-027），**不是 `--update` 记账**——
-//   「记账是承认债务，不是解决债务」。027 排在前端专项之后，且 **026（修判据）必须先于 027**：
-//   判据不修，就无法证明"消干净了"。
-//   ⚠️ 顶层 .js 仍在门外 ⇒ 改它们时**不要以为"门禁全绿"就等于没问题**（§0.9 第 16/17 条）。
+// 🔴 【本段已过时，2026-10-02 RF-027-5 落地】此处原文写"只纳 prompts/server，顶层其余 .js
+//   暂不纳入"。现在顶层已全纳（见文件头「纳入范围」第 1 条与下方 INCLUDE_TOPLEVEL_FILES）。
+//   那条路线是对的：那 16 条确实没有用 `--update` 记账，而是由 V11-RF-027-1~027-4b 逐个
+//   真抽走（`createAbortSignal` 8→1；`ai-chat-shared.js` 收 11 族；`compactPreserveNewlines`
+//   2→1），实测 64 文件 duplicateCount=0。保留原文以留下"为什么当时不纳"的证据链。
 const INCLUDE_PROMPT_SERVER_DIR = "prompts/server";
 
-// server/ 顶层的手写入口文件。index.js 与 app.js 是同一份装配层的两半（见头部注释），
-// 两者要么都在、要么都不在；**再拆出新的一半，必须同步加到本数组**，否则那部分代码会脱离门禁。
-const INCLUDE_TOPLEVEL_FILES = ["index.js", "app.js"];
+// server/ 顶层手写 .js —— V11-RF-027-5（2026-10-02）从「点名制」改为「目录扫描制」。
+//
+// 为什么改：点名制（`["index.js","app.js"]`）的失败模式已经发生过两次——
+//   · 220 拆出 app.js 时忘了补 ⇒ 552 行静默脱离门禁（文件头有记录）；
+//   · 顶层 13 个 .js 从建库起就没进过 ⇒ 7 个 *-ai.js 的同名函数长期不受约束。
+// 每次"新拆出一个文件"都要记得改这个数组，本身就是腐烂点。改成扫描整个顶层目录后，
+// 新文件自动进视野，不需要任何人记得。
+//
+// 排除（**排除必须有理由**，§0.9 第 11 条）：
+//   static-assets.generated.js —— 生成物，由 scripts/generate-static-assets.mjs 产出，非手写源码。
+//
+// index.js 与 app.js 是同一份装配层的两半（见头部注释），目录扫描会自然包含它们，
+// 不需要再点名；**若将来把装配层再拆出第三个文件，无需改本文件**。
+const EXCLUDE_TOPLEVEL_FILES = ["static-assets.generated.js"];
 
 function collectJsIn(dir, out) {
   if (!existsSync(dir)) return; // 目录不存在：安全跳过
@@ -110,13 +132,23 @@ function collectJsIn(dir, out) {
   }
 }
 
-/** 返回服务端源码文件的绝对路径列表（index.js + core/routes/shared 下所有 .js）。
+/** 返回服务端源码文件的绝对路径列表：
+ *  server/*.js（顶层手写，排除生成物）+ server/core/** + server/routes/**
+ *  + server/shared/** + prompts/server/**。
  *  任何纳入目录不存在都安全跳过，不会抛异常。 */
 export function listServerSourceFiles() {
   const out = [];
-  for (const name of INCLUDE_TOPLEVEL_FILES) {
-    const file = path.join(SERVER_DIR, name);
-    if (existsSync(file)) out.push(file);
+  // server/ 顶层：目录扫描制（V11-RF-027-5），新文件自动进视野，无需手工补名单。
+  let topEntries = [];
+  try {
+    topEntries = readdirSync(SERVER_DIR, { withFileTypes: true });
+  } catch {
+    topEntries = []; // 目录不存在：安全跳过
+  }
+  for (const entry of topEntries) {
+    if (!entry.isFile() || !entry.name.endsWith(".js")) continue;
+    if (EXCLUDE_TOPLEVEL_FILES.includes(entry.name)) continue;
+    out.push(path.join(SERVER_DIR, entry.name));
   }
   for (const dir of INCLUDE_DIRS) {
     collectJsIn(path.join(SERVER_DIR, dir), out);
