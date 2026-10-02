@@ -474,6 +474,7 @@ function runPublicReleaseStorageReset() {
 
 const publicReleaseStorageResetPromise = runPublicReleaseStorageReset();
 
+// 🔴 与 src/outfit-workflow.jsx:1972 的 `loadOutfitPromptCategories` **同名不同义**（V11-RF-040 裁定：改名不合并，勿合并）。
 function loadPromptCategories() {
   const storedCategories = readJsonStorage(PROMPT_CATEGORIES_KEY, null);
   const storedPrompts = readJsonStorage(PROMPT_PRESETS_KEY, null) || [];
@@ -719,6 +720,7 @@ function buildSmartReferencePrompt(settings) {
   ].join("\n");
 }
 
+// 🔴 与 src/outfit-workflow.jsx:1942 的 `loadOutfitPromptPresets` **同名不同义**（V11-RF-040 裁定：改名不合并，勿合并）。
 function loadPromptPresets() {
   const stored = readJsonStorage(PROMPT_PRESETS_KEY, null);
   if (Array.isArray(stored) && stored.length > 0) {
