@@ -262,6 +262,12 @@ export default function ImageEditorPanel({
   const saveTimerRef = useRef(0);
   const undoRef = useRef([]);
   const redoRef = useRef([]);
+  // RF-045：键盘监听用的「最新 undo/redo」转发 ref（与上面的历史栈 ref 同族不同义，勿混用）。
+  // 键盘监听器只注册一次（依赖里没有 tool/overlayOpacity 这类高频 state），若直接在监听器里闭包引用
+  // undo/redo，切换工具后监听器里仍是旧版 undo ⇒ 旧版 undo 会走旧版 scheduleProjectSave，
+  // 把切换工具之前的 tool / overlayOpacity / brush / zoom / differenceMode 写回项目存档。
+  const undoActionRef = useRef(null);
+  const redoActionRef = useRef(null);
   const [baseFile, setBaseFile] = useState(null);
   const [overlayFile, setOverlayFile] = useState(null);
   const [baseMeta, setBaseMeta] = useState(null);
@@ -424,6 +430,13 @@ export default function ImageEditorPanel({
     void restoreSnapshot(next);
   }
 
+  // RF-045：每渲染把最新的 undo/redo 转发给键盘监听器（JSX 按钮 onClick={undo} 走的是当次渲染的
+  // JSX，天然是最新版，不受影响；只有 window 监听器会滞留旧闭包）。
+  useEffect(() => {
+    undoActionRef.current = undo;
+    redoActionRef.current = redo;
+  });
+
   async function loadBaseFile(file, options = {}) {
     if (!isImageFile(file)) return;
     setStatus("loading");
@@ -583,13 +596,13 @@ export default function ImageEditorPanel({
       }
       if ((event.ctrlKey || event.metaKey) && key === "z") {
         event.preventDefault();
-        if (event.shiftKey) redo();
-        else undo();
+        if (event.shiftKey) redoActionRef.current?.();
+        else undoActionRef.current?.();
         return;
       }
       if ((event.ctrlKey || event.metaKey) && key === "y") {
         event.preventDefault();
-        redo();
+        redoActionRef.current?.();
         return;
       }
       if (event.key === "[") {
