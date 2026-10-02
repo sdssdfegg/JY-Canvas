@@ -23,8 +23,7 @@ import {
   prepareVideoBillingTask,
   publicBillingErrorPayload
 } from "./billing-gateway.js";
-import { createDetailAiPlan } from "./detail-ai.js";
-import { buildDetailPromptGroup as buildDetailPromptGroupV2 } from "./detail-middleware.js";
+
 import { buildOutfitPrompt, primaryOutfitGenerationError } from "./outfit-skill.js";
 import { validateOutfitIntent } from "../src/shared/outfit-intent.js";
 import { validateRetouchIntent } from "../src/shared/retouch-intent.js";
@@ -48,7 +47,6 @@ import {
   persistGeneratedItemsInBackground,
 } from "./core/asset-persist.js";
 import {
-  imageFailureMessage,
   imagePromptLogFields,
   isImageAuthError,
   isSmartOutfitInterventionEnabled,
@@ -58,7 +56,7 @@ import {
   shouldTreatPrivateChannelAuthAsChannelFault,
   shouldTryNextChannel,
   shouldTryNextImageVariant,
-  upstreamErrorMessage
+  upstreamErrorMessage,
 } from "./core/image-error-policy.js";
 import {
   publicVideoErrorCode,
@@ -122,6 +120,7 @@ import { registerHistoryRoutes } from "./routes/history.routes.js";
 import { registerStorageRoutes } from "./routes/storage.routes.js";
 import { registerAssetsRoutes } from "./routes/assets.routes.js";
 import { registerSaveRoutes } from "./routes/save.routes.js";
+import { registerDetailRoutes } from "./routes/detail.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -551,79 +550,7 @@ registerAssetsRoutes(app);
 
 registerSaveRoutes(app);
 
-app.post("/api/detail-prompts", upload.fields([
-  { name: "productImage", maxCount: 6 },
-  { name: "referenceImage", maxCount: 6 }
-]), async (req, res) => {
-  try {
-    const payload = req.body?.payload
-      ? JSON.parse(req.body.payload)
-      : (req.body || {});
-    const files = [
-      ...((req.files?.productImage || []).map((file, index) => ({ ...file, detailRole: "product", detailIndex: index }))),
-      ...((req.files?.referenceImage || []).map((file, index) => ({ ...file, detailRole: "reference", detailIndex: index })))
-    ];
-    const apiKey = resolveApiKey(payload.apiKey);
-    let aiPlan = null;
-    let aiError = "";
-
-    if (String(payload.analysisMode || "ai") === "ai" && apiKey) {
-      try {
-        aiPlan = await createDetailAiPlan({
-          input: payload,
-          files,
-          apiKey,
-          baseUrls: channelBaseCandidates()
-        });
-        await writeGenerationLog({
-          time: new Date().toISOString(),
-          ok: true,
-          stage: "detail-ai-plan",
-          model: aiPlan.model,
-          usedBaseUrl: aiPlan.usedBaseUrl,
-          mode: aiPlan.mode,
-          timing: aiPlan.timing,
-          attempts: aiPlan.attempts
-        });
-      } catch (error) {
-        const rawAiError = error?.name === "AbortError"
-          ? "详情 AI 分析超时"
-          : error instanceof Error ? error.message : String(error);
-        aiError = imageFailureMessage(error?.name === "AbortError" ? 504 : 502, rawAiError, payload, []);
-        await writeGenerationLog({
-          time: new Date().toISOString(),
-          ok: false,
-          stage: "detail-ai-plan",
-          error: rawAiError,
-          publicError: aiError
-        });
-      }
-    }
-
-    const group = await buildDetailPromptGroupV2(
-      {
-        ...payload,
-        analysisMode: aiPlan?.ok ? "ai" : "local"
-      },
-      files,
-      {
-        aiPlan: aiPlan?.plan || null,
-        aiMeta: aiPlan ? {
-          model: aiPlan.model,
-          mode: aiPlan.mode,
-          timing: aiPlan.timing
-        } : null,
-        aiError
-      }
-    );
-    res.json({ ok: true, group });
-  } catch (error) {
-    res.status(400).json({
-      ok: false,
-      message: error instanceof Error ? error.message : "详情提示词生成失败"
-    });
-  }
-});
+registerDetailRoutes(app);
 
 app.post("/api/generate-outfit", wrapOutfitUpload(imageForwardUpload.fields([
   { name: "image", maxCount: IMAGE_UPLOAD_PARSE_CEILING },
