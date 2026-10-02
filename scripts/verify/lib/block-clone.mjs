@@ -74,6 +74,47 @@ const P = 31;
 
 // ---------------------------------------------------------------- 有效行
 /**
+ * 字符串/模板字面量感知的块注释剥离。
+ *
+ * ⚠️ 这里不能图省事用 `indexOf("/*")` 直接找：那样会命中字符串里的 `/*`，
+ *    例如 `accept="image/*"` —— 旧实现正是这么写的，于是从该行起被当成块注释起始，
+ *    整段吞到下一个 `*/`。实测全库盲区约 7503 / 25141 行（30%）：
+ *    main.jsx 1479→4166、outfit-workflow.jsx 4621→7187、image-editor.jsx 尾部 216→1075，
+ *    直接导致 RF-053 的 #35 两侧双双落在盲区内 ⇒ 「清单说没有、源码里还在」。
+ *
+ * 逐字符状态机：只有处于「代码态」（不在引号 / 模板串内）才认块注释的起止标记。
+ * ⚠️ 本文档注释里不要写字面量形式的起止标记，否则会提前闭合本注释块。
+ * 引号状态**不跨行延续** —— JSX 文本里的单引号（it's 之类）一旦跨行延续会吞掉大片代码，
+ * 风险远大于「跨行模板串里恰好出现 `/*`」的收益。
+ */
+function stripBlockComments(text, inBlock) {
+  let out = "";
+  let quote = null;
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (inBlock) {
+      if (ch === "*" && next === "/") { inBlock = false; i += 2; continue; }
+      i += 1;
+      continue;
+    }
+    if (quote) {
+      if (ch === "\\") { out += ch + (next ?? ""); i += 2; continue; }
+      if (ch === quote) quote = null;
+      out += ch;
+      i += 1;
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === "`") { quote = ch; out += ch; i += 1; continue; }
+    if (ch === "/" && next === "*") { inBlock = true; i += 2; continue; }
+    out += ch;
+    i += 1;
+  }
+  return { code: out, inBlock };
+}
+
+/**
  * 剔除空行 / 注释行 / import 块，剩下的有效行。
  * @returns {Array<{ln:number,indent:number,l1:string,l2:string}>}
  *   ln = 原始文件行号（1 基）；indent = 原始行前导空白长度；l1/l2 = 两级归一化键。
@@ -87,25 +128,9 @@ export function extractEffectiveLines(source) {
   for (let i = 0; i < raw.length; i += 1) {
     let text = raw[i];
 
-    // 跨行块注释的续行
-    if (inBlockComment) {
-      const end = text.indexOf("*/");
-      if (end < 0) continue;
-      inBlockComment = false;
-      text = text.slice(end + 2);
-    }
-    // 行内块注释（可能未闭合 ⇒ 进入跨行状态）
-    for (;;) {
-      const open = text.indexOf("/*");
-      if (open < 0) break;
-      const close = text.indexOf("*/", open + 2);
-      if (close < 0) {
-        inBlockComment = true;
-        text = text.slice(0, open);
-        break;
-      }
-      text = text.slice(0, open) + text.slice(close + 2);
-    }
+    const stripped = stripBlockComments(text, inBlockComment);
+    text = stripped.code;
+    inBlockComment = stripped.inBlock;
 
     const trimmed = text.trim();
     if (!trimmed) continue;                 // 空行
