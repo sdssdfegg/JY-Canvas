@@ -130,6 +130,10 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 | **D** ✅ | V11-RF-050 | 局部编辑 4 块 → `src/features/local-edit/`（含 §6.0 守卫统一） | ✅ **已全部完成**：`0a5ca4c` 守卫 / `01b2325` 块② / `250aa8d` 块① / `eb0a4be` 块③ / `26baf43` 块④；🟢 **人工冒烟通过（拖选框 + 拉滑杆，2026-10-02）** | 大 | **RF-048 完成** |
 | **D** ✅ | **V11-RF-051** | `imageMimeFromSource` / `imageExtensionFromSource` 两对改名克隆 → `src/shared/result-image.js` | ✅ **已完成 `34a376f`**（1560 条断言 0 失败 + 7/7 反证项；headless Edge 动态 import 9 组全对） | 小 | **RF-050 完成** |
 | **D** ✅ | **V11-RF-040d** | 4 条跨文件行号注释 → 只写函数名 | ✅ **已完成 `4837d49`，已合回主线 `9cfa54b`**（worktree 分支 `rf-040d`，零重叠合并） | 极小 | 无 |
+| **D** ⏳ | **V11-RF-052** | 🆕 **拖拽下载族 6 函数**两侧各一份（46 行字节一致 + 文案入参化）→ `src/shared/result-image.js` | 🟢 **待派发** | 中 | 无（**但要与 RF-047 串行**） |
+| **D** ⏳ | **V11-RF-053** | 🆕 LE 几何 2 块（#16 字节一致 / #35 差 1 行）→ `src/shared/local-edit-geometry.js` | 🟢 **待派发** | 小 | **RF-052 通过** |
+| **D** ⏳ | **V11-RF-047** | 🔴 裁剪回流底图漏走 `resolveLocalEditBaseFile`（**清单上唯一剩下的真 bug**） | 🟢 **待派发** | 中 | **RF-052 通过**（同碰 `outfit-workflow.jsx`） |
+| **D** ⏳ | **V11-RF-054** | 🆕 PL / RQ 两簇抽取方案（**只读设计**，为新建文件授权备料） | 🟢 **待派发**（**零冲突，可与 RF-052 并行**） | 中（只读） | 无 |
 
 > **派单建议**：**A 批 5 单一次性派给一个执行者**（互不重叠文件，合计上下文远低于 500K）；
 > **B 批两刀串行走**；**C 批两单只读，可与 A/B 交给另一个执行者并行**；D 批等前三个批次收口再开。
@@ -736,6 +740,66 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
   本单只碰 `prompt-library.js` / `video-task.js`）⇒ **两单可并行**，
   但**第二窗口必须在 worktree 里做**（§11.1 第 1 条：同目录不允许两个 AI 同时写代码）
 
+### 6.7 V11-RF-052 · 拖拽下载族 6 函数两侧各一份（D-2 第一批）
+
+- **任务类型**：【消重复 —— 字节一致】｜**标记**：🔴 串行（碰两个巨石）
+- **统筹实测**（`f1200c6`，脚本 `tmp/d2-drag-family-check.mjs`，剥离缩进后逐字节比对，非肉眼）：
+
+  | 函数 | main.jsx | outfit-workflow.jsx | 行数 | 判定 |
+  | --- | --- | --- | --- | --- |
+  | `safeDownloadFileName` | 4479 | 8339 | 7 | ✅ 字节一致 |
+  | `padDragDownloadNumber` | 4487 | 8347 | 3 | ✅ 字节一致 |
+  | `dragDownloadDateStamp` | 4491 | 8351 | 15 | ✅ 字节一致 |
+  | `absoluteDownloadUrl` | 4518 | 8380 | 9 | ✅ 字节一致 |
+  | `beginImageDownloadDrag` | 4528 | 8390 | 12 | ✅ 字节一致 |
+  | `dataUrlFromBlob` | 4430 | 3435 | 8 | ⚠️ **唯一实质差异 = 报错文案** |
+
+  ⇒ 前 5 个合计 **46 行 ×2 → 1**；全部纯函数，仅依赖 `displayImageRequestUrl` 与已收口的
+  `imageMimeFromSource` / `imageExtensionFromSource`。
+- **落点**：`src/shared/result-image.js`（`main.jsx:88-89` 与 `outfit-workflow.jsx:92-93` **已 import**）
+  ⇒ 只在既有 import 行加项，**不新建文件、不触发 `scopeDrift`**
+- 🔴 **统筹裁决 · `dataUrlFromBlob` 的文案走「入参化」**：
+  `dataUrlFromBlob(blob, errorMessage = "图片编码失败")`，main 调用点显式传 `"长图编码失败"`
+  ⇒ **零行为变化**，两侧文案各自保留。前例：RF-027-3 的 6 句抛错文案即由调用点传原文案。
+- **必验（以实测为准，别用统筹的推断）**：`result-image.js` 新增
+  `import { displayImageRequestUrl } from "../api/assets.js"` 后跑 `import-path-check` + 循环依赖检查。
+  统筹已查 `src/api/assets.js` 只 import `./client.js` ⇒ **预期无环**，但仍须实测确认。
+- ❌ **不在本单（已裁决不搬，别顺手动）**：
+  - #11 的 `resultDragDownloadName` ↔ `taskDragDownloadName` ⇒ **真分叉**（字段优先级 `createdAt/submittedAt` vs
+    `finishedAt/createdAt/startedAt`；序号规则 `fallbackIndex` vs `task.order`）⇒ 登记，不合并
+  - `imageSource`（outfit:2215）↔ `imageSourceFromResult`（`shared/models.js:53`）⇒ **真分叉**（缺陷 ⑨c）
+  - `blobFromImageItem` ↔ `blobFromOutfitImage` ⇒ 本体差异就是上面那对分叉 helper，随之不搬
+- **硬约束**：禁 Edit 改两巨石（§9.3）；提交前必查 `git diff --stat`
+- **验收**：ESLint `no-unused-vars` 反证无孤儿；`vite build` 通过；对照组覆盖
+  `data:` / `blob:` / 相对 / 绝对 / 超长文件名 / 非法字符 / 序号边界；019 `duplicateCount` 保持 0、无 `scopeDrift`；lint 基线不动
+- **需人工冒烟**：**把结果图拖到桌面**，确认落盘文件名（含日期序号）与扩展名
+  ⇒ 🔴 该链路**没有点击下载入口**，只能拖（继承 RF-051 的 ⑧e 冒烟方式）
+
+### 6.8 V11-RF-053 · LE 几何 2 块（#16 / #35）
+
+- **任务类型**：【消重复 —— 字节一致 + 1 处待判】｜**标记**：🔴 串行（**排在 RF-052 之后**，同碰两巨石）
+- **目标块**（`9cfa54b` 快照行号，开工前**必须重新 grep 实测**）：
+  - #16 `cropQuickLocalEditFile`（main:1205）↔ `cropOutfitLocalEditFile`（outfit:3124）—— 22 行，判定 A（字节一致）
+  - #35 `clampTransform`（main:1600）↔ `clampCropTransform`（outfit:4679）—— 14 行，判定 B（差 1 行）
+- **落点**：`src/shared/local-edit-geometry.js`（374 行，已有 `cropRectToBlob` / `constrainCropRect`）
+- 🔴 **先决核验（先验后搬，不符即停手报统筹）**：
+  #16 连带依赖 `LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES` / `LOCAL_EDIT_CROP_JPEG_QUALITIES` 两个**模块级常量**
+  ⇒ 必须先实测两侧取值一致。§0.9 原则 7：**字节一致 ≠ 可搬**。
+- **#35 处置**：先判那 1 行是格式差异还是实质差异 ⇒ 实质差异则**参数化**（两侧各传原值，行为逐字不变）或停手报统筹
+- **验收**：同 RF-052；外加几何数值对照组（越界 / 极小 / 极大 / 非等比）
+
+### 6.9 V11-RF-054 · PL / RQ 两簇抽取方案（**只读设计，为新建文件授权备料**）
+
+- **任务类型**：【只读设计】｜**标记**：🟢（**与 RF-052 零冲突**：不写任何文件）
+- **背景**：PL 簇 9 块/160 行、RQ 簇 14 块/218 行，全部强闭包依赖（`setPromptPresets` / `setEditingPrompt` /
+  结果队列 handler 等）⇒ 在当前「禁止新建文件」约束下**无解**，必须落成 hook 或组件
+- **产出（只出方案，不动手）**，每簇必须回答 5 问：
+  ① 抽成 hook 还是组件，为什么　② 新建**几个**文件、放哪个目录、叫什么
+  ③ 每个新文件的导出签名与 props　④ 019 的 `fileCount` 会 +几（划账量）
+  ⑤ 对应的人工冒烟清单
+- 🔴 **约束**：优先复用既有模块；**一个簇集中新建，不许每块新建**（§7.2 新建文件条件 ②）
+- **交回后**由统筹按 §7.2「新建文件四项条件」**逐簇裁决授权**，授权前不得动手
+
 ---
 
 ## 7. 已知缺陷清单（录入 + 状态）
@@ -750,7 +814,7 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 | ⑧b 🆕 | RF-050 四块的交互层（拖选框 / 拉滑杆 / 白笔黑笔） | ✅ **人工冒烟通过（2026-10-02）** | 自动化侧 11.6 万条断言 + 浏览器 DOM 对照；本环境历史数据被并发清空致弹窗打不开，交互改由人工补验 | V11-RF-050 ✅ |
 | ⑧c | `imageMimeFromSource` / `imageExtensionFromSource` 两对克隆（019 看不见：组件内缩进函数） | ✅ **已修 `34a376f`** | `Buffer.compare` 实测两份定义差异为 0（496B / 442B）；1560 条断言 0 失败 | **V11-RF-051** ✅ |
 | ⑧d 🆕 | lint 棘轮基线 **多记 1 条**（outfit `exhaustive-deps` 记 10 / 实测 9） | ✅ **已修 `ea64c48`**（收紧方向） | 4 条基线**逐条实测**，只此一条不符；修正后全仓实测 `errors 0 / warnings 18 / total 18` 与基线逐项吻合 | 统筹处置 |
-| ⑧e 🆕 | 🔴 **待人工冒烟**：拖拽落盘的扩展名 | ⏸ **待用户执行**（本环境无出图额度） | 两函数唯一消费者是 `beginImageDownloadDrag` 的 `dataTransfer.setData("DownloadURL", …)`，**该链路没有点击下载按钮** ⇒ 必须**把结果图拖到桌面/文件夹**验证 | — |
+| ⑧e | 拖拽落盘的扩展名（`imageMimeFromSource` / `imageExtensionFromSource` 的真实链路） | ✅ **人工冒烟通过（2026-10-02）** | 用户实测：结果图拖到桌面，png / jpg / webp 落盘扩展名均正确 | — 注销 |
 | ③ | ~~「本地详情未走 `resolveLocalEditBaseFile`」~~ **已证伪 + 改判** | 🔴 **真漏走在裁剪回流链** | RF-044 只读定位：本地详情自身链路 4 个底图点**全部已走**（`:3250/:3267/:5016/:9354`，`outfit:9617` 强制 local-detail 带 `localEdit` 可证）⇒ **在本地详情链路内不成立**；真漏走是 `outfit-workflow.jsx:9466` | **V11-RF-047**（新立） |
 | ④ | 🔴 **undo/redo 陈旧闭包把旧 `tool`/`overlayOpacity` 写回项目存档** | ✅ **已修 + 人工冒烟通过** | `image-editor.jsx:651`；统筹已复核 `scheduleProjectSave:358-375` 写入字段 | **V11-RF-045** ✅ `25ce21c` |
 | ④b | 残留：`restoreSnapshot` 在 `await` 解码后才调 `scheduleProjectSave`，数毫秒窗口内改 `tool` 仍可能写旧值 | ⏸ **暂缓至阶段 D** | 彻底修法需把 5 个 state 镜像成 ref，改动面大；主路径已修 | **V11-RF-045b** |
@@ -758,7 +822,26 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 | ⑥ | 后端 16 条 AI 调用族重复（`createAbortSignal` ×8） | ✅ **已清零（后端主线闭环）** | `f394716` 纳视野后实测：64 文件 · 368 函数 · **`duplicateCount` 0** · `regressions []`。🔴 **反证**：`git worktree` 检出 027-1 之前的 `25ce21c` + 纳视野收集器 ⇒ **16 条报红、退出码 1** ⇒ 0 是真抽走，**不是被基线记账掩盖**；基线 git 历史仅 2 次提交，本次 diff 只 1 行 `generatedAt`，`duplicates` 自创建起始终 `{}` | V11-RF-027-1/-2/-2b/-3/-4/-4b/-5 ✅ |
 | ⑥b 🆕 | `detailModel`（detail-ai.js）是 `modelName` 的**改名克隆** | ✅ **已收口 `84ae66c`** | `grep -rn "detailModel" server/` = 0；新发现克隆，已登记存量清单 | V11-RF-027-3 |
 | ⑥c 🆕 | `pose` 的 `mode.includeImage`（单数）与 detail 的 `includeImages`（复数） | ✅ **有意保留**（不得消） | 实测 `outfit-pose-ai.js:196` 在 `attempts.push({…})` 内 ⇒ 流进 API 响应体，改名破坏字节一致；且是**字段名**非顶层函数 ⇒ 门禁永远看不见 | — 登记备查 |
-| ⑦ | 块级克隆 **2570 行 / 56 块**；改名/结构克隆 **62 组**（51 等价 / **11 需人工确认**） | ✅ **已测量** | 其中 **53 组是组件内函数**，019 完全看不见 | RF-032 ✅ → 归入 D-2 |
+| ⑦ | 块级克隆 **2570 行 / 56 块**；改名/结构克隆 **62 组**（51 等价 / **11 需人工确认**） | 🔵 **口径已锁定（D-2 审计）** | 见 §7.2 排产口径 | RF-032 ✅ → 归入 D-2 |
+| ⑨ 🆕 | **拖拽下载族 5 函数两侧各一份**（`safeDownloadFileName` / `padDragDownloadNumber` / `dragDownloadDateStamp` / `absoluteDownloadUrl` / `beginImageDownloadDrag`） | 🔴 **未修** | 统筹实测 `f1200c6`：去重缩进后**逐字节一致**（7+3+15+9+12 = **46 行 ×2**）；纯函数、仅依赖 `displayImageRequestUrl` 与已收口的 `imageMime/ExtensionFromSource` | **V11-RF-052**（§6.6） |
+| ⑨b 🆕 | `dataUrlFromBlob` 两侧差 1 行报错文案（「长图编码失败」vs「图片编码失败」） | 🔴 **未修**（已裁决：文案入参化） | 统筹实测：去缩进后**唯一实质差异**即该文案 | **V11-RF-052**（§6.6） |
+| ⑨c 🆕 | `imageSource`（outfit:2215）↔ `imageSourceFromResult`（`shared/models.js:53`）**是真分叉，不是改名克隆** | ⏸ **不搬（登记）** | outfit 版多 `image.cachedUrl` 优先、取值顺序也不同（cachedUrl→localUrl→b64→url vs localUrl→url→b64）⇒ 统一会改行为 | — 登记备查 |
+| ⑨d 🆕 | `ChannelPicker` 在 `main.jsx` 出现 5 次、`outfit-workflow.jsx` 出现 **0 次** | ⏸ **不派单（非重构债）** | 给批量页补这个组件 = **业务变更**，违反「只搬运/抽模块/修 bug、不改业务」 | — 转产品需求 |
+| ⑨e 🆕 | D-2 审计基于 `9cfa54b`，其中 **#1 `imageMimeFromSource`（46 行）已被 RF-051 收口** | ✅ **过期债，已剔除** | 排产前必须重新测量，旧快照清单不可直接排产 | — 口径校准 |
+
+### 7.2 D-2 排产口径（统筹裁决，2026-10-02）
+
+| 项 | 裁决 | 理由 |
+| --- | --- | --- |
+| **阈值** | 主表取 **≥10 行**（75 块 / 1388 行，剔 import 后 **69 块 / 1297 行**）；≥5 的 2138 行只作**观察池，不排产** | 搬一块的固定成本（一单 commit + 对照组 + 人工冒烟 + 门禁复核）**与块大小无关**，5 行块净收益为负；75 块已足够排到阶段 D 结束 |
+| **扣减** | 剔除 #1（RF-051 已收口 46 行）⇒ **实际剩余 74 块 / 1342 行** | 见缺陷 ⑨e |
+| **不搬（登记）** | DATA 簇 9 块/133 行（`rawSame=0`，疑似两页产品口径不同）、IMPORT 簇 6 块/91 行（非债务）、`#12`（依赖模块级常量不同）、`#11` 的 `resultDragDownloadName`↔`taskDragDownloadName` | `#12` 依 §0.9 原则 7：**字节一致 ≠ 可搬**，还要查引用的模块级常量；`#11` 字段优先级与序号规则是**真分叉** |
+| **行号写法** | 报告一律写「**函数名 + 行号 + 快照 hash**」，**每次排产前重新测量** | 行号会漂（RF-040c/040d 已因此立过两单） |
+| **新建文件** | **一簇一审，不 blanket 授权**。允许新建，但必须同时满足 ①②③④ | ① 工单明文授权；② 一个批次**集中**新建、不许每块新建；③ 019 划账（`fileCount` +N）在 commit 写明；④ 新文件**必须 0 warning**（否则要动 lint 基线，属禁止区） |
+
+> 🔴 **最重要的口径修正**：用仓库既有判据（行首顶层函数、名长 ≥4）实测，两巨石之间的**同名顶层定义 = 0**。
+> ⇒ 剩余债务 **100% 是 019 看不见的三类**（匿名块复制 / 改名克隆 / 缩进内层函数）。
+> ⇒ **阶段 D 继续用「同名函数」清单开会开不出单，必须换成块级清单。**
 
 ### 7.1 人工复核记录（2026-10-02 · 用户实测）
 
@@ -784,6 +867,14 @@ A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）�
 5. **`exhaustive-deps` 是否从 `warn` 升 `error`**：**现在具备升级条件了** —— 19 条已判完（1 真 bug → RF-045；12 条有意 → 加豁免注释；6 条随阶段 D 解决）。
    ⇒ **待 RF-045 完成 + 12 条豁免注释补齐后，由统筹另立「升级」单**。在此之前**不要擅自改 `eslint.config.mjs:88`**。
 6. 🆕 **12 条「有意空依赖」是否逐条加豁免注释**：建议**加**（否则它们永远以 warning 形式污染报告）。可与 RF-045 同批做，但**必须分 commit**。
+7. ✅ **D-2 排产阈值取 5 行还是 10 行** → **已裁定：取 ≥10 行**（75 块 / 1388 行，剔 import 后 69 块 / 1297 行；
+   剔除 RF-051 已收口的 46 行后为 74 块 / 1342 行）。≥5 的 2138 行只作**观察池，不排产**。
+   理由：搬一块的固定成本（一单 commit + 对照组 + 人工冒烟 + 门禁复核）**与块大小无关**，5 行块净收益为负。
+8. ✅ **是否 blanket 授权新建文件（PL / RQ 两簇无既有落点）** → **已裁定：一簇一审，不 blanket 授权**。
+   先派 **RF-054 只读出方案**，统筹据 §7.2 的四项条件**逐簇裁决**。
+   允许新建，但同时必须满足：① 工单明文授权 ② 一个批次集中新建 ③ `fileCount` 划账写进 commit ④ 新文件 0 warning。
+9. ⏸ **`ChannelPicker` 在批量页完全没用上**（main 5 次 / outfit 0 次）→ **不派单**。
+   给 outfit 补这个组件属**业务变更**，违反「只搬运/抽模块/修 bug、不改业务」⇒ 转产品需求，由用户决定。
 
 ---
 
