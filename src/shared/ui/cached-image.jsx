@@ -13,6 +13,13 @@
 //     `client-result-display-ready` 埋点的全部字段（stage/endpoint/method/detail.*）都保持原样。
 //   - 不做：不合并 outfit 侧的原生 `<img>`（那属于 RF-043-2 的分叉裁决范围）。
 //
+// V11-RF-048：并入 outfit 侧的改名克隆 `PreparedResultImage`（原 src/outfit-workflow.jsx:2470）。
+//   两版逐项对照的裁决是「可统一，取超集」——outfit 侧从此**获得缓存**（放宽），
+//   main 侧不丢缓存、不丢埋点。对 main 侧而言唯一变化是 detail 多一个 `workflowMode` 字段
+//   （main 调用点不传 ⇒ 空串），以及 `<img>` 多一层 `{...rest}` 透传（main 调用点没有额外属性）。
+//   被删掉的 outfit 侧私有件：`preloadImageUrl`（8000ms 默认值，唯一调用点固定传 20000 ⇒ 非真分叉）
+//   与 `RESULT_IMAGE_PRELOAD_TIMEOUT_MS`（=20000，与共享版默认超时同值）。
+//
 // ⚠️ `DISPLAY_IMAGE_CACHE` 是**模块级可变 Map**：搬到本文件后仍是整个应用共享一份缓存。
 //    它是「前端模块单例」，不是进程级单例 ⇒ **不在 `state-singleton-check` 的监视范围**
 //    （该门禁复用 `listServerSourceFiles()`，只扫 `server/`）。本文件保持它有且仅有一处定义点。
@@ -46,7 +53,12 @@ function preloadDisplayImageUrl(url, timeoutMs = 20000) {
   });
 }
 
-export function CachedImage({ src, alt = "", className = "", style, draggable = false, role, tabIndex, onDragStart, onClick, onKeyDown, onError, loading, diagnostic }) {
+// `...rest` 会原样透传给底层 `<img>`（V11-RF-048 放宽）。
+// 原因：outfit 侧的改名克隆 `PreparedResultImage` 用的是 `{...props}` 整体透传，
+// 调用点会传 `decoding` / `fetchPriority` / `onDragOver` / `onDrop` / `onDragEnd` 等本组件
+// 没有显式声明的属性。若统一后只保留显式清单，批量侧会**丢掉拖拽替换与加载优先级**（收窄）；
+// 按 RF-043 定下的「放宽 > 收窄」判据，这里必须整体透传。
+export function CachedImage({ src, alt = "", className = "", style, draggable = false, role, tabIndex, onDragStart, onClick, onKeyDown, onError, loading, diagnostic, ...rest }) {
   const [displaySrc, setDisplaySrc] = useState(() => {
     if (!src || src.startsWith("data:") || src.startsWith("blob:")) return src || "";
     const cached = DISPLAY_IMAGE_CACHE.get(src);
@@ -74,6 +86,10 @@ export function CachedImage({ src, alt = "", className = "", style, draggable = 
           taskId: requestId,
           placement: diagnostic?.placement || "",
           module: diagnostic?.module || "",
+          // V11-RF-048：outfit 侧克隆版多带一个 `workflowMode`。
+          // 它只补数据、不参与任何判断分支 ⇒ 按「多出字段直接取超集」的判据并入。
+          // main 侧调用点不传该字段 ⇒ 落空串，埋点输出与改前逐字一致。
+          workflowMode: diagnostic?.workflowMode || "",
           sourceType: diagnosticImageSourceType(shownSrc || src),
           displayMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt)
         }
@@ -135,6 +151,7 @@ export function CachedImage({ src, alt = "", className = "", style, draggable = 
       onKeyDown={onKeyDown}
       loading={loading}
       onError={onError}
+      {...rest}
     />
   );
 }

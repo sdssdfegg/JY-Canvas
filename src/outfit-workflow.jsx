@@ -92,10 +92,10 @@ import { formatConnectionResult, testConnection } from "./api/connection.js";
 import { describeEmptyResult, formatGenerationError, sanitizeErrorText } from "./shared/generation-errors.js";
 import {
   brokenImageReason,
-  diagnosticImageSourceType,
   referenceSource,
   resultImageCardState
 } from "./shared/result-image.js";
+import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
@@ -238,7 +238,6 @@ function outfitLiveRunsForPage(pageName) {
   if (!pageName) return list;
   return list.filter((task) => !task.pageName || task.pageName === pageName);
 }
-const RESULT_IMAGE_PRELOAD_TIMEOUT_MS = 20000;
 const VIDEO_STATUS_POLL_INTERVAL_MS = 4000;
 const VIDEO_STATUS_MAX_POLLS = 180;
 const VIDEO_REFERENCE_MAX_BYTES = 10 * 1024 * 1024;
@@ -2390,31 +2389,6 @@ function fetchBlobWithTimeout(url, timeoutMs = 45000) {
   });
 }
 
-function preloadImageUrl(url, timeoutMs = 8000) {
-  if (!url || typeof Image !== "function") return Promise.resolve();
-  return new Promise((resolve) => {
-    const image = new Image();
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      resolve();
-    };
-    const timer = window.setTimeout(finish, timeoutMs);
-    const done = () => {
-      window.clearTimeout(timer);
-      finish();
-    };
-    image.onload = done;
-    image.onerror = done;
-    image.decoding = "async";
-    image.src = url;
-    if (typeof image.decode === "function") {
-      image.decode().then(done, done);
-    }
-  });
-}
-
 async function cacheResultImageBlob(image) {
   const source = cacheableResultImageSource(image);
   const key = resultImageCacheKey(image);
@@ -2465,64 +2439,6 @@ function imageItemPreviewSource(item) {
 function displayResultImageSource(image) {
   const src = imageSource(image);
   return displayImageRequestUrl(src);
-}
-
-function PreparedResultImage({ src, diagnostic, ...props }) {
-  const [displaySrc, setDisplaySrc] = useState(() => {
-    if (!src || src.startsWith("data:") || src.startsWith("blob:")) return src || "";
-    return "";
-  });
-  const displayLogKeyRef = useRef("");
-
-  useEffect(() => {
-    let cancelled = false;
-    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const emitDisplayReady = (shownSrc) => {
-      const requestId = String(diagnostic?.requestId || diagnostic?.taskId || "").trim();
-      if (!requestId) return;
-      const key = `${requestId}|${diagnostic?.placement || ""}|${shownSrc || src || ""}`;
-      if (displayLogKeyRef.current === key) return;
-      displayLogKeyRef.current = key;
-      const displayMs = Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt);
-      emitClientDiagnosticEvent({
-        requestId,
-        stage: "client-result-display-ready",
-        endpoint: diagnostic?.endpoint || "/api/generate-outfit",
-        method: "DISPLAY",
-        ok: true,
-        durationMs: displayMs,
-        detail: {
-          taskId: requestId,
-          placement: diagnostic?.placement || "",
-          module: diagnostic?.module || "",
-          workflowMode: diagnostic?.workflowMode || "",
-          sourceType: diagnosticImageSourceType(shownSrc || src),
-          displayMs
-        }
-      });
-    };
-    if (!src) {
-      setDisplaySrc("");
-      return undefined;
-    }
-    if (src.startsWith("data:") || src.startsWith("blob:")) {
-      setDisplaySrc(src);
-      emitDisplayReady(src);
-      return undefined;
-    }
-    setDisplaySrc("");
-    preloadImageUrl(src, RESULT_IMAGE_PRELOAD_TIMEOUT_MS).then(() => {
-      if (!cancelled) {
-        setDisplaySrc(src);
-        emitDisplayReady(src);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [src]);
-
-  return <img {...props} src={displaySrc || undefined} />;
 }
 
 function imageItemPreviewFile(item) {
@@ -10235,7 +10151,7 @@ function buildTasks(countOverride = plannedGenerationCount) {
                     <em>可点右上角删除按钮清理这条记录</em>
                   </div>
                 ) : (
-                  <PreparedResultImage
+                  <CachedImage
                     src={src}
                     alt={`AI换装结果 ${task.order || ""}`}
                     decoding="async"
@@ -11249,7 +11165,7 @@ function buildTasks(countOverride = plannedGenerationCount) {
                   ‹
                 </button>
               )}
-              <PreparedResultImage
+              <CachedImage
                 src={displayResultImageSource(preview.result)}
                 alt=""
                 draggable
