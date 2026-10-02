@@ -76,6 +76,28 @@ export function resultImageCardState(image, sourceFromImage) {
   return { src, missing: false, reason: "" };
 }
 
+/**
+ * 参考图对象 → 可显示的地址（V11-RF-042 收口）。
+ *
+ * 收口前两侧**是超集关系，不是分叉**：
+ *   src/main.jsx（改前 :1096）        `localUrl || url || value`
+ *   src/outfit-workflow.jsx（改前 :2455）`localUrl || previewUrl || url || value`
+ *   —— 后者只多取一个 `previewUrl`，且夹在 `localUrl` 之后、`url` 之前，其余字段与顺序完全一致。
+ * 按 RF-042 的预授权规则「**超集 ⇒ 统一到超集**」，取 outfit 那版。
+ *
+ * 为什么对 main 侧是零变化（不是"大概没事"，是逐条查过）：
+ *   `previewUrl` 这个字段在 **src/main.jsx 全文件 0 命中** —— main 只读 localUrl/url/value，
+ *   也从不为参考图对象写这个字段（参考图对象是 main 自己构造的，字段见 :740-744 与 :3728）。
+ *   ⇒ 新增的 `previewUrl` 分支在 main 侧**永不触发**，取值结果与改前逐条相同。
+ *   反过来若取 main 那版（收窄），outfit 侧会丢掉"本地编辑/原图预览地址"这一层 ⇒ 属于收窄，不取。
+ *
+ * @param {object} reference
+ * @returns {string}
+ */
+export function referenceSource(reference) {
+  return reference?.localUrl || reference?.previewUrl || reference?.url || reference?.value || "";
+}
+
 /** 参考图缩略图是否允许加载（同一套白名单校验）。 */
 export function isAllowedReferenceImage(reference, sourceFromReference) {
   const src = typeof sourceFromReference === "function" ? sourceFromReference(reference) : "";

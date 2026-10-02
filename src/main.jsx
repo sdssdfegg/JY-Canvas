@@ -81,7 +81,13 @@ import DebouncedTextarea from "./shared/DebouncedTextarea.jsx";
 import { ErrorBoundary } from "./shared/error-boundary.jsx";
 import { Modal, ModalHeader } from "./shared/ui/Modal.jsx";
 import ChannelPicker from "./shared/ui/ChannelPicker.jsx";
-import { brokenImageReason, diagnosticImageSourceType, isAllowedReferenceImage, resultImageCardState } from "./shared/result-image.js";
+import {
+  brokenImageReason,
+  diagnosticImageSourceType,
+  isAllowedReferenceImage,
+  referenceSource,
+  resultImageCardState
+} from "./shared/result-image.js";
 import { classifyGenerationError, formatGenerationError } from "./shared/generation-errors.js";
 import { fileSize, formatMs } from "./lib/format/index.js";
 import { canvasToBlob } from "./shared/canvas-blob.js";
@@ -1091,10 +1097,6 @@ function referenceMetaFromFiles(files, role = "reference", startIndex = 0) {
     type: file.type || "",
     lastModified: file.lastModified || 0
   }));
-}
-
-function referenceSource(reference) {
-  return reference?.localUrl || reference?.url || reference?.value || "";
 }
 
 function preloadDisplayImageUrl(url, timeoutMs = 20000) {
