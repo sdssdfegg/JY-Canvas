@@ -161,6 +161,7 @@ import {
 import "./styles.css";
 import { copyTextToClipboard } from "./shared/dom-actions.js";
 import { loadSaveDirectory, openSaveDirectoryModal, commitSaveDirectory, chooseSaveDirectory } from "./features/savedir/save-directory.js";
+import { incomingCanvasNodes, canvasResultItemsFromNode, canvasPromptForGenerator, canvasImagesForGenerator, canvasImageEntriesForGenerator, splitCanvasBatchEntries, buildCanvasBatchPrompt, screenPointToCanvas, canvasCenterFromRect } from "./features/canvas/canvas-graph.js";
 
 const STORAGE_PREFIX = import.meta.env.VITE_JINGYIN_STORAGE_PREFIX || "jingyin-internal";
 const STORAGE_KEY = `${STORAGE_PREFIX}-settings-v3`;
@@ -3074,21 +3075,11 @@ function App() {
   }
 
   function screenToCanvasPoint(clientX, clientY) {
-    const rect = canvasStageRef.current?.getBoundingClientRect();
-    if (!rect) return { x: 120, y: 120 };
-    return {
-      x: (clientX - rect.left - canvasViewport.x) / canvasViewport.scale,
-      y: (clientY - rect.top - canvasViewport.y) / canvasViewport.scale
-    };
+    return screenPointToCanvas(canvasStageRef.current?.getBoundingClientRect(), canvasViewport, clientX, clientY);
   }
 
   function canvasCenterPoint(offsetX = 0, offsetY = 0) {
-    const rect = canvasStageRef.current?.getBoundingClientRect();
-    if (!rect) return { x: 120 + offsetX, y: 120 + offsetY };
-    return {
-      x: (rect.width / 2 - canvasViewport.x) / canvasViewport.scale + offsetX,
-      y: (rect.height / 2 - canvasViewport.y) / canvasViewport.scale + offsetY
-    };
+    return canvasCenterFromRect(canvasStageRef.current?.getBoundingClientRect(), canvasViewport, offsetX, offsetY);
   }
 
   function addCanvasNode(type, patch = {}) {
@@ -3231,82 +3222,6 @@ function App() {
     patchActiveCanvas((canvas) => ({
       connections: canvas.connections.filter((connection) => connection.id !== connectionId)
     }));
-  }
-
-  function incomingCanvasNodes(canvas, nodeId) {
-    if (!canvas) return [];
-    return canvas.connections
-      .filter((connection) => connection.toNodeId === nodeId)
-      .map((connection) => canvas.nodes.find((node) => node.id === connection.fromNodeId))
-      .filter(Boolean);
-  }
-
-  function canvasResultItemsFromNode(node) {
-    if (!node) return [];
-    if (node.type === "image" && node.result) return [node.result];
-    if (node.type === "output" && Array.isArray(node.results)) return node.results;
-    return [];
-  }
-
-  function canvasPromptForGenerator(canvas, node) {
-    const incoming = incomingCanvasNodes(canvas, node.id);
-    const promptParts = incoming.flatMap((sourceNode) => {
-      if (sourceNode.type === "prompt") return [sourceNode.text || ""];
-      if (sourceNode.type === "image") return [sourceNode.prompt || sourceNode.result?.prompt || ""];
-      if (sourceNode.type === "output") return [sourceNode.prompt || ""];
-      return [];
-    });
-    promptParts.push(node.prompt || "");
-    return promptParts.map((part) => part.trim()).filter(Boolean).join("\n\n");
-  }
-
-  function canvasImagesForGenerator(canvas, node) {
-    return incomingCanvasNodes(canvas, node.id).flatMap(canvasResultItemsFromNode);
-  }
-
-  function canvasImageEntriesForGenerator(canvas, node) {
-    return incomingCanvasNodes(canvas, node.id).flatMap((sourceNode) => (
-      canvasResultItemsFromNode(sourceNode).map((result, index) => ({
-        result,
-        sourceNode,
-        role: sourceNode.role || (sourceNode.type === "output" ? "reference" : "auto"),
-        label: sourceNode.title || `图片 ${index + 1}`
-      }))
-    ));
-  }
-
-  function splitCanvasBatchEntries(entries) {
-    const explicitModels = entries.filter((entry) => entry.role === "model");
-    if (explicitModels.length > 0) {
-      return {
-        modelEntries: explicitModels,
-        fixedEntries: entries.filter((entry) => entry.role !== "model")
-      };
-    }
-
-    const fixedEntries = entries.filter((entry) => entry.role === "fixed" || entry.role === "reference");
-    const autoEntries = entries.filter((entry) => entry.role === "auto");
-    if (fixedEntries.length > 0) {
-      return { modelEntries: autoEntries, fixedEntries };
-    }
-    if (autoEntries.length > 1) {
-      return {
-        modelEntries: autoEntries.slice(0, -1),
-        fixedEntries: autoEntries.slice(-1)
-      };
-    }
-    return { modelEntries: autoEntries, fixedEntries };
-  }
-
-  function buildCanvasBatchPrompt(basePrompt, modelIndex, modelTotal, fixedCount) {
-    return [
-      `批量换装任务 ${modelIndex + 1}/${modelTotal}：图1是当前模特图，只处理当前这一位模特。`,
-      fixedCount > 0
-        ? "图2开始是固定服装/产品参考图，必须让图1人物穿着固定服装图里的衣服，服装款式、版型、颜色、面料纹理、袖口、纽扣、拼接结构等关键细节保持一致。"
-        : "没有标记固定服装图时，请按提示词完成当前模特的单独出图。",
-      "保持当前模特的脸部身份、体型比例和自然姿态，不要融合其它模特，不要把多位模特放进同一张图。",
-      basePrompt
-    ].filter(Boolean).join("\n");
   }
 
   async function canvasFileFromResult(item, index) {
