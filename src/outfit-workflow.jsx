@@ -90,6 +90,7 @@ import { getAppConfig } from "./api/config.js";
 import { formatConnectionResult, testConnection } from "./api/connection.js";
 import { describeEmptyResult, formatGenerationError, sanitizeErrorText } from "./shared/generation-errors.js";
 import {
+  imageFileFromUrl,
   beginImageDownloadDrag,
   brokenImageReason,
   dataUrlFromBlob,
@@ -2620,13 +2621,6 @@ function fileFromBlob(blob, name, fallbackMimeType = "image/png") {
   });
 }
 
-async function imageFileFromDropUrl(url, name = `drag-${Date.now()}`) {
-  const blob = await fetchImageBlob(url, "图片读取失败");
-  return new File([blob], `${String(name || "drag-image").replace(/\.[^.]+$/, "")}.${imageExtension(blob.type)}`, {
-    type: blob.type || "image/png",
-    lastModified: Date.now()
-  });
-}
 
 function fileFromEntry(entry) {
   return new Promise((resolve, reject) => {
@@ -2685,7 +2679,7 @@ async function imageFilesFromDataTransfer(dataTransfer) {
     .split(/\r?\n/)
     .find((line) => line && !line.startsWith("#"));
   if (uri && (/^https?:\/\//i.test(uri) || uri.startsWith("/") || uri.startsWith("data:"))) {
-    return [await imageFileFromDropUrl(uri, "drag-image")];
+    return [await imageFileFromUrl(uri, "drag-image")];
   }
   return [];
 }
@@ -7617,7 +7611,7 @@ export default function OutfitWorkflow({
       return;
     }
     try {
-      const file = await imageFileFromDropUrl(src, reference?.name || reference?.label || "reference");
+      const file = await imageFileFromUrl(src, reference?.name || reference?.label || "reference");
       await addImages("model", [file]);
       addEvent("参考图", "已发送到图1上传区");
     } catch (error) {

@@ -85,6 +85,7 @@ import { changeCropScale } from "./features/local-edit/crop-drag.js";
 import { LocalEditBrushTools } from "./features/local-edit/LocalEditBrushTools.jsx";
 import { LocalEditCropOverlay } from "./features/local-edit/LocalEditCropOverlay.jsx";
 import {
+  imageFileFromUrl,
   beginImageDownloadDrag,
   brokenImageReason,
   dataUrlFromBlob,
@@ -4268,13 +4269,6 @@ function App() {
       || null;
   }
 
-  async function fileFromImageUrl(url, name = `drag-${Date.now()}`) {
-    const blob = await fetchImageBlob(url, "图片读取失败");
-    return new File([blob], `${fileBaseName(name)}.${imageExtension(blob.type)}`, {
-      type: blob.type || "image/png",
-      lastModified: Date.now()
-    });
-  }
 
   async function imageFilesFromReferenceDrop(dataTransfer) {
     const resultId = dataTransfer?.getData?.("application/x-jingyin-result-id") || "";
@@ -4296,7 +4290,7 @@ function App() {
       .split(/\r?\n/)
       .find((line) => line && !line.startsWith("#"));
     if (uri && (/^https?:\/\//i.test(uri) || uri.startsWith("/") || uri.startsWith("data:"))) {
-      return [await fileFromImageUrl(uri, "drag-image")];
+      return [await imageFileFromUrl(uri, "drag-image")];
     }
     return [];
   }
@@ -4851,7 +4845,7 @@ function App() {
       return;
     }
     try {
-      const file = await fileFromImageUrl(src, reference?.name || reference?.label || "reference");
+      const file = await imageFileFromUrl(src, reference?.name || reference?.label || "reference");
       appendReferenceFiles([file], {
         eventLabel: "参考图",
         actionText: "已发送到图片上传区"

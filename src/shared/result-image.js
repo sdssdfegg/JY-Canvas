@@ -14,7 +14,8 @@
 
 import { IMAGE_SOURCE_REASONS, classifyImageSource } from "./image-hosts.js";
 import { fileBaseName } from "./file-name.js";
-import { displayImageRequestUrl } from "../api/assets.js";
+import { imageExtension } from "./image-input.js";
+import { displayImageRequestUrl, fetchImageBlob } from "../api/assets.js";
 
 /** 缺图/失效的原因码 → 用户可读文案。 */
 export const RESULT_IMAGE_MISSING_REASONS = Object.freeze({
@@ -323,4 +324,11 @@ export function previewPanFromDrag(drag, event) {
     pan: { x: drag.startPan.x + deltaX, y: drag.startPan.y + deltaY },
     moved: Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3
   };
+}
+export async function imageFileFromUrl(url, name = `drag-${Date.now()}`) {
+  const blob = await fetchImageBlob(url, "图片读取失败");
+  return new File([blob], `${fileBaseName(name)}.${imageExtension(blob.type)}`, {
+    type: blob.type || "image/png",
+    lastModified: Date.now()
+  });
 }
