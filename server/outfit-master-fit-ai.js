@@ -7,21 +7,11 @@ import {
   recognizedFactKeys,
   resolveUpperLayer
 } from "../src/shared/outfit-intent.js";
-import { asText, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
+import { asText, compactPreserveNewlines, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_OUTFIT_MASTER_FIT_MODEL = "gpt-5.4-mini";
 const MASTER_FIT_MODEL_SPEC = { fields: ["outfitMasterFitModel", "outfitPoseModel", "detailAnalysisModel", "textModel"], fallback: DEFAULT_OUTFIT_MASTER_FIT_MODEL };
 const OUTFIT_MASTER_FIT_TIMEOUT_MS = 60000;
-
-// 中文注释：压缩模型返回或日志文本，保留有效信息并限制长度，避免提示词过长。
-function compactPreserveNewlines(value, limit = 1200) {
-  return String(value || "")
-    .replace(/\r\n?/g, "\n")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-    .slice(0, limit);
-}
 
 // 中文注释：部位与上装层级都直接用共享模块的枚举，服务端不再维护第二份表。
 // 分析请求带的是结构化换装意图（`outfitIntent`），与最终提示词编译器读的是同一份数据。

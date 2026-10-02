@@ -135,6 +135,19 @@ export function modelName(input, { fields = [], fallback }) {
 
 // 只负责「发一次 chat/completions 请求并读回响应」，重试与降级由调用方的 mode 循环决定。
 // 请求体由调用点组装好再传进来，本函数不认识任何业务字段。
+// 压缩模型返回 / 日志文本，保留换行语义并限长（默认 1200）。
+// V11-RF-027-4b：outfit-master-fit-ai.js 与 outfit-quality-ai.js 的两份实现
+// **逐字节一致**（连默认 limit=1200 都一样），原样搬来，无行为变化。
+// pose 的 compactSingleLine 是另一种实现（压成单行），与此不同名也不同义，不合并。
+export function compactPreserveNewlines(value, limit = 1200) {
+  return String(value || "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, limit);
+}
+
 export async function postChatCompletion({ baseUrl, apiKey, body, signal }) {
   const url = `${baseUrl}/chat/completions`;
   const response = await fetch(url, {

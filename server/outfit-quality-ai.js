@@ -1,19 +1,9 @@
 import { createAbortSignal } from "./core/http-client.js";
-import { asText, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
+import { asText, compactPreserveNewlines, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_OUTFIT_QUALITY_MODEL = "gpt-5.4-mini";
 const QUALITY_MODEL_SPEC = { fields: ["outfitQualityModel", "outfitMasterFitModel", "outfitPoseModel", "detailAnalysisModel", "textModel"], fallback: DEFAULT_OUTFIT_QUALITY_MODEL };
 const OUTFIT_QUALITY_TIMEOUT_MS = 75000;
-
-// 中文注释：压缩日志和模型返回文本，防止异常信息撑爆前端提示。
-function compactPreserveNewlines(value, limit = 1200) {
-  return String(value || "")
-    .replace(/\r\n?/g, "\n")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-    .slice(0, limit);
-}
 
 // 中文注释：统一整理质检布尔开关，前端和服务端都可以传 true/false/中文状态。
 function isPoseRemixWorkflow(input) {
