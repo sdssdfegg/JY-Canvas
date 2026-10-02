@@ -4940,8 +4940,12 @@ function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, on
     maskInitRef.current = initKey;
 
     if (savedEdit?.editMode === LOCAL_EDIT_MASK_MODE && savedEdit?.maskDataUrl) {
+      // 卸载/切图后 onload 仍可能触发，对已卸载组件 setState 会报警告并留下悬挂引用。
+      // 这里用 cancelled 标记把迟到的回调直接丢掉（V11-RF-050 §6.0：与 src/main.jsx 统一到带守卫版）。
+      let cancelled = false;
       const maskImage = new Image();
       maskImage.onload = () => {
+        if (cancelled) return;
         const nextCtx = canvas.getContext("2d");
         if (!nextCtx) return;
         nextCtx.clearRect(0, 0, canvas.width, canvas.height);
@@ -4955,6 +4959,10 @@ function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, on
         setMaskRevision((current) => current + 1);
       };
       maskImage.src = savedEdit.maskDataUrl;
+      return () => {
+        cancelled = true;
+        maskImage.onload = null;
+      };
     } else {
       setMaskPainted(false);
       setMaskRevision((current) => current + 1);
