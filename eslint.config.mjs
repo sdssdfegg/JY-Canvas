@@ -25,6 +25,10 @@ import reactHooks from "eslint-plugin-react-hooks";
 const IGNORES = [
   "node_modules/**",
   "dist/**",
+  // vite dev 预构建缓存。2026-10-02 白屏事故后从 node_modules/.vite 挪到项目根
+  // （见 server/app.js attachFrontend() 的 cacheDir），**因此它不再被 node_modules/** 覆盖**，
+  // 必须显式忽略：里面是 vite 生成的第三方依赖副本，lint 它会凭空多出几百条 no-undef。
+  ".vite-cache/**",
   "runtime/**",
   "baselines/**",
   ".codex-artifacts/**",
