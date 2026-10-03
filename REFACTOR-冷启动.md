@@ -92,9 +92,19 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 | ~~1~~ | ~~**RF-077 · 合并两个局部编辑弹窗组件**~~ | 实测净省 **−239 行** | ✅ **已完成**：`3f85621`(main 侧接入) → `6a54062`(outfit 侧接入) → `af49552`(收尾)。
 **实测**（统筹复测）：main 7178→**6841**、outfit 10574→**10293**、新增 `LocalEditModal.jsx` **379**；
 六道门禁全绿；对照组 22/22；**019 基线已由统筹划账 57→58**。详见 §3.6 验收 |
-| **1** | 🔴 **RF-078 · 提示词预设面板 + 编辑弹窗**（只读设计单） `main.jsx:6459-6549` ↔ `outfit-workflow.jsx:9335-9366 + 10054-10111` | **32 行（逐字相同）+ 58 行（差 1 行）= 约 90 行** | **本轮派单（只读，不写 src）**。三处契约文档 **grep 零命中 ⇒ 从未被裁决过**的真新债。
-⚠️ 这是**组件级抽取**（要带走 `promptSearch`/`editingPrompt`/`filteredPromptPresets`/`draggedPromptId`/`promptCategories` 等 state 与回调），
-props 接线成本可能吃掉净省 ⇒ **先出设计，由统筹裁决是否值得做**。见 §3.7 对照表 |
+| ~~1~~ | ~~**RF-078 · 提示词预设面板 + 编辑弹窗**~~ | **关单：不抽组件** | ✅ **只读设计单已交付 `802f50b`（167 行，零 src 改动）**，结论 **维持既有裁决「不抽组件」**。
+🔴 **裁决源头不在契约文档，而在 `src/shared/prompt-library.js` 文件头**（V11-RF-057，2026-10-02）：
+① **不能抽组件** —— 两侧提示词编辑弹窗 JSX 是**真分叉**（main 有删除按钮、outfit 无；main chip 点击立即 `applyPromptPreset`、
+outfit 用 `schedulePromptPresetApply` 防抖；main 富 tab 带拖拽排序 vs outfit 简 tab）⇒ 参数化一堆 props 就等于改视觉；
+② **单侧独有的块不许塞进来**（main 独有分类页签拖拽排序、outfit 独有 `renamePromptPresetTitle`/`schedulePromptPresetApply`）。
+执行者复核另纠正三处统筹误判：「13+ state 要带走」是**高估**（9 个 handler 已由 `usePromptLibrary` 共享，两侧均 import 并调用）；
+advisory 的「32 行逐字 + 58 行差 1 行」是**过期快照**（当前是真分叉，唯一差 1 行只是 `aria-label` 假分叉）；
+标识符计数不等的根因是 **outfit 面板渲染了两次**（9311 停靠 + 9992 模态）。
+若强行抽：必新建 `src/features/prompt/*.jsx` ⇒ `fileCount` 58→59 需划账、props ≥14、**净省仅 ≈+96 行**（远小于 RF-076 −176 / RF-077 −239）⇒ **收益/风险比低，不做**。见 §3.7 |
+| **1** | 🔴 **RF-078-b · outfit 内部提示词面板 A/B 去重**（`src/` 路） `outfit-workflow.jsx:9311-9387` ↔ `9992-10068` | **2 × 76 行，diff **0 hunk**（去掉容器行后逐字相同）** | **本轮派单**。🔑 **与 RF-078 性质完全不同**：这是**同一组件内的两处渲染**（同属 `OutfitWorkflow`，5727 起），
+共享同一套 state ⇒ **props 两侧传完全相同的值 ⇒ 零分叉、行为零变化**。落点用**同文件内模块顶层局部组件**（不新建文件 ⇒ 019 不划账）。
+自由标识符约 19 个，其中 9 个可整包传 `lib={promptLib}`（`usePromptLibrary` 的返回值）压到 ~11 个 props。
+**净省保守估 30–50 行**（实测 ≤20 行则报不做）。见 §3.9 |
 | **2** | 🔴 **RF-075 · 断言失配修复**（`scripts/` 路，可与 src/ 路并行） | **5 条断言** | 🔴 **比登记时严重**：RF-077 删掉 `OutfitLocalEditModal`/`QuickLocalEditModal` 后，
 `local-edit-base-file-check` 从「1 条僵尸」变成 **5 条失配**（4 条是组件搬到 `LocalEditModal.jsx` 后的**断言失配**，1 条是 `cropOutfitLocalEditFile` 真僵尸）。
 **修法是「重定位」不是「删除」** —— 被验证的接线都还在，只是换了文件。见 §3.8 |
@@ -278,6 +288,38 @@ ESLint 全仓 **errors=0 / warnings=18**（基线）；`vite build` ✓ **8.53s*
 ⇒ 修完必须做**负向对照**：把组件内 `resolveBaseFile(item)` 临时改成 `item?.file`（＝事故成因「上传副本优先」），
 相关断言**必须转 FAIL**；改回后 PASS。**做不到这一点就是恒真断言，验收打回**（§0.9 第 12 条）。
 
+### 3.9 RF-078-b 派单前对照表（统筹 2026-10-03 实测，快照 `af49552`）
+
+🔑 **这块与 RF-078 是两回事，别混**：RF-078 是 **main ↔ outfit 跨文件**（真分叉、已裁决不抽）；
+RF-078-b 是 **outfit 自己文件内部的两处渲染**（逐字相同、零分叉）。
+
+| 项 | 面板 A（停靠） | 面板 B（模态） |
+|---|---|---|
+| 行范围 | `outfit-workflow.jsx:9311-9387` | `outfit-workflow.jsx:9992-10068` |
+| 容器 | `<div className="promptAssistantDock">` | `<div className="promptAssistantBody">` |
+| 外层 | `<section className="viewPanel …">` + `LegacyModulePanel` | `{isPromptAssistantOpen && (<div className="modalLayer promptLayer">` |
+| 去掉容器首尾行后的内容 | **76 行** | **76 行** |
+| `diff --unified=0` | — | **0 hunk，逐字相同** |
+
+**为什么是零分叉**：两处都写在 `OutfitWorkflow`（`5727 export default function OutfitWorkflow`）**同一个组件的 render 内**，
+引用的 `promptCategories`/`promptSearch`/`filteredPromptPresets`… **就是同一批变量** ⇒ 抽出的组件两侧 props 传**完全相同的值**。
+
+**自由标识符（需提升为 props）约 19 个**：
+
+| 类别 | 标识符 | 处置 |
+|---|---|---|
+| `usePromptLibrary` 返回的 handler（9） | `applyPromptPreset` `editPromptPreset` `deletePromptPreset` `addPromptCategory` `openNewPromptEditor` `beginPromptDrag` `endPromptDrag` `dropPromptOnPreset` `updateEditingPrompt` | 🔑 **整包传 `lib={promptLib}`**（`outfit:6671` 已解构出该对象）⇒ 9 个压成 1 个 |
+| 组件内 state + setter（7） | `promptCategories` `promptCategory` `setPromptCategory` `promptDropCategory` `setPromptDropCategory` `promptSearch` `setPromptSearch` | 逐个传 |
+| 派生/其它（3） | `filteredPromptPresets` `draggedPromptId` `dropPromptOnCategory` `renamePromptCategory` `schedulePromptPresetApply` | 逐个传 |
+
+⇒ 压包后 props ≈ **11–13 个**。
+
+**净省估算（保守）**：现状 `2 × 76 = 152` 行 ⇒ 抽出后 `组件体 76 + 解构/签名 ~15 + 2 调用点 × ~11 = ~113` 行
+⇒ **净省 ≈ 30–50 行**。⚠️ 若实测 **≤20 行则报「不做」**（搬一块的固定成本与块大小无关，§5.2）。
+
+🔴 **落点硬裁决**：定义在 **`src/outfit-workflow.jsx` 模块顶层**（`function` 声明有提升，位置不限），
+**不新建文件** ⇒ `fileCount` 仍 58 ⇒ **019 不划账**。这是本单相对 RF-078 的最大优势。
+
 ---
 
 ## 4. 开工前必跑（4 条，缺一不可）
@@ -291,6 +333,25 @@ node tmp/lint.mjs                            # ④ 取 ESLint 当前基线（**�
 
 收工前必跑：`frontend-duplication-check`（019）→ `import-path-check` → `lint-diff.mjs HEAD`
 （改前改后**逐条**比对）→ `node --check` → `npx vite build`。
+
+### 4.1 🔴 「是否已被裁决过」的检测法（2026-10-03 修正，旧法有漏洞）
+
+🔴 **旧判据作废**：「候选名去 `REFACTOR_TICKETS.md` / `REFACTOR-冷启动.md` / `MEMORY.md` 三处 grep，零命中 ⇒ 从未被裁决」
+—— **这条是错的**。RF-078 派单时按旧法判「零命中 ⇒ 真新债」，实际**早在 V11-RF-057（2026-10-02）就被裁决过「不抽组件」**，
+而裁决**写在 `src/shared/prompt-library.js` 文件头注释里**，不在任何契约文档中。
+
+✅ **修正后的四处 grep**（候选名 + 区域代表性函数名都要扫）：
+
+```bash
+grep -rn "<候选名>" REFACTOR_TICKETS.md REFACTOR-冷启动.md .workbuddy/memory/*.md
+grep -rn "<候选名>\|不能抽\|不许塞进来\|已分叉，停手\|待人类裁决" src/shared/**/*.js   # 🔴 新增：文件头裁决注释
+```
+
+**为什么必须扫 `src/shared/*.js` 文件头**：本项目的既有裁决有一批是以「为什么要有这个文件 / 三条硬要求」的形式
+写在被抽出的共享模块文件头（见 `src/shared/prompt-library.js:16-52`，含 `usePromptLibrary` 的三条判据 + 三条硬要求 +
+两处「已分叉，停手待人类裁决」）。**它们是权威裁决，但其存在对契约文档不可见。**
+
+⇒ 派单前若漏扫这一处，会把已裁决的债当成新债重开一单（RF-078 就是这么浪费掉一整单只读工时的）。
 
 ---
 

@@ -1494,12 +1494,31 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 修完必须做**负向对照**：把组件内 `resolveBaseFile(item)` 改成 `item?.file`，相关断言必须转 FAIL，否则打回。
 对照表见 `REFACTOR-冷启动.md` §3.8。
 
-#### RF-078 · 提示词预设面板 + 编辑弹窗（🔵 已派**只读设计单** `V4.0-执行单-V17-RF-078.md`）
+#### RF-078 · 提示词预设面板 + 编辑弹窗（✅ **已关单 `802f50b`：维持既有裁决「不抽组件」**）
 
-- `main.jsx:6459-6549` ↔ `outfit-workflow.jsx:9335-9366 + 10054-10111`：32 行**逐字相同** + 58 行**差 1 行**（`aria-label`），约 90 行。
-- 三处契约文档 grep `promptPreset|editingPrompt|PromptEditor` **零命中** ⇒ **从未被裁决过**的真新债。
-- ⚠️ **组件级抽取**（要带走 13+ 个 state/回调），且两侧标识符计数不同（`promptSearch` 5/7、`promptCategories` 12/8 …）
-  ⇒ 净省可能不成立；**估不出正净省就报「不做」，这是可接受的结论**。对照表见 `REFACTOR-冷启动.md` §3.7。
+- 只读设计单已交付（167 行，零 src 改动）。**停手条件 #1 触发**：这块**早就裁决过了**。
+- 🔴 **裁决不在契约文档，而在 `src/shared/prompt-library.js` 文件头**（V11-RF-057，2026-10-02）：
+  ① **不能抽组件** —— 两侧编辑弹窗 JSX 是真分叉（main 有删除按钮、outfit 无；main chip 点击立即 `applyPromptPreset`
+  vs outfit `schedulePromptPresetApply` 防抖；main 富 tab 带拖拽排序 vs outfit 简 tab）⇒ 参数化 props 等于改视觉；
+  ② **单侧独有的块不许塞进来**（main 独有分类页签拖拽排序、outfit 独有 `renamePromptPresetTitle`/`schedulePromptPresetApply`）。
+- 执行者复核纠正统筹三处误判：
+  ① 「13+ state 要带走」**高估** —— 9 个 handler 已由 `usePromptLibrary` 共享（`main:3534` / `outfit:6671` 均调用），最贵的部分早已做完；
+  ② advisory 的「32 行逐字 + 58 行差 1 行」是**过期快照**，当前块是真分叉，唯一差 1 行只是 `aria-label`（假分叉）；
+  ③ 标识符计数不等的根因是 **outfit 面板渲染了两次**（9311 停靠 + 9992 模态）。
+- 若强行抽：必新建 `src/features/prompt/*.jsx` ⇒ `fileCount` 58→59 需划账、props ≥14、**净省仅 ≈+96 行**
+  ⇒ **收益/风险比低，不做**。对照表见 `REFACTOR-冷启动.md` §3.7。
+- 🔴 **方法论修正**（已写进冷启动 §4.1）：**「三处契约文档 grep 零命中 ⇒ 从未被裁决」这条判据作废** ——
+  裁决可能写在 `src/shared/**/*.js` **文件头注释**里。**派单前必须四处 grep**（含 `src/shared/`），否则会把已裁决的债当新债重开一单。
+
+#### RF-078-b · outfit 内部提示词面板 A/B 去重（🔵 **本轮派单**）
+
+- `outfit-workflow.jsx:9311-9387`（`promptAssistantDock`）↔ `9992-10068`（`promptAssistantBody`），
+  去掉容器行后 **2 × 76 行，`diff` 0 hunk、逐字相同**。
+- 🔑 与 RF-078 **性质完全不同**：两处同属 `OutfitWorkflow`（5727 起）**同一组件的 render**，共享同一套 state
+  ⇒ **props 两侧传完全相同的值 ⇒ 零分叉、行为零变化**。
+- 🔴 **落点：定义在 `src/outfit-workflow.jsx` 模块顶层，不新建文件** ⇒ `fileCount` 仍 58 ⇒ **019 不划账**。
+- props ≈ 11–13 个（9 个 handler 整包传 `lib={promptLib}`）。**净省保守估 30–50 行，实测 ≤20 行则报「不做」**。
+  对照表见 `REFACTOR-冷启动.md` §3.9。
 
 #### 下一步（B3-7 起）
 
