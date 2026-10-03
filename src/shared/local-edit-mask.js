@@ -192,3 +192,173 @@ export function createLocalEditAlphaMask(maskImage, cropRect, feather = 18) {
   mergedCtx.globalCompositeOperation = "source-over";
   return mergedCanvas;
 }
+
+// RF-076 · 局部编辑交互层 B3 工厂（阶段 A：12 个无分叉纯函数 + effect#3/#5 体）
+// 函数体从 src/main.jsx / src/outfit-workflow.jsx 逐字抽取，仅顶部加 deps 解构。
+// 后续阶段 B/C 在此文件内追加参数化函数（同域第二批，不新增 fileCount）。
+export function createLocalEditInteraction(deps) {
+  const {
+    imageRef, setDisplaySize, maskCanvasRef, displaySize, imageSize, brushSize, maskTool,
+    paintRef, isMaskMode, working, brushResizeRef, setBrushCursor, setMaskPainted, setCropRect,
+    setMaskRevision, activeRatio, setBrushSize
+  } = deps;
+  function measureImage() {
+    const image = imageRef.current;
+    if (!image) return;
+    setDisplaySize({
+      width: image.clientWidth || 0,
+      height: image.clientHeight || 0
+    });
+  }
+  function maskPointerPoint(event) {
+    const canvas = maskCanvasRef.current;
+    if (!canvas || !displaySize.width || !displaySize.height || !imageSize.width || !imageSize.height) return null;
+    const box = canvas.getBoundingClientRect();
+    const x = Math.max(0, Math.min(imageSize.width, ((event.clientX - box.left) / Math.max(1, box.width)) * imageSize.width));
+    const y = Math.max(0, Math.min(imageSize.height, ((event.clientY - box.top) / Math.max(1, box.height)) * imageSize.height));
+    return { x, y };
+  }
+  function maskPointerDisplayPoint(event) {
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return null;
+    const box = canvas.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(box.width, event.clientX - box.left)),
+      y: Math.max(0, Math.min(box.height, event.clientY - box.top))
+    };
+  }
+  function updateBrushCursor(event, visible = true) {
+    const point = maskPointerDisplayPoint(event);
+    if (!point) return;
+    setBrushCursor({ ...point, visible });
+  }
+  function sourceBrushSize() {
+    if (!displaySize.width || !displaySize.height) return brushSize;
+    const scaleX = imageSize.width / Math.max(1, displaySize.width);
+    const scaleY = imageSize.height / Math.max(1, displaySize.height);
+    return Math.max(4, brushSize * Math.max(scaleX, scaleY));
+  }
+  function paintMask(event, fresh = false) {
+    const canvas = maskCanvasRef.current;
+    const point = maskPointerPoint(event);
+    if (!canvas || !point) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const size = sourceBrushSize();
+    const previous = fresh ? null : paintRef.current?.last || null;
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = size;
+    ctx.globalCompositeOperation = maskTool === "eraser" ? "destination-out" : "source-over";
+    ctx.strokeStyle = LOCAL_EDIT_MASK_COLOR;
+    ctx.fillStyle = LOCAL_EDIT_MASK_COLOR;
+    ctx.beginPath();
+    if (previous) {
+      ctx.moveTo(previous.x, previous.y);
+      ctx.lineTo(point.x, point.y);
+      ctx.stroke();
+    } else {
+      ctx.arc(point.x, point.y, size / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    paintRef.current = { painting: true, last: point };
+  }
+  function refreshMaskState() {
+    const canvas = maskCanvasRef.current;
+    const bounds = maskBoundsFromCanvas(canvas);
+    setMaskPainted(Boolean(bounds));
+    if (bounds) {
+      setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio));
+    }
+    setMaskRevision((current) => current + 1);
+  }
+  function beginMaskPaint(event) {
+    if (!isMaskMode || working) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    updateBrushCursor(event);
+    if (event.button === 2) {
+      brushResizeRef.current = {
+        startX: event.clientX,
+        startSize: brushSize
+      };
+      return;
+    }
+    paintMask(event, true);
+  }
+  function moveMaskPaint(event) {
+    if (!isMaskMode) return;
+    updateBrushCursor(event);
+    if (brushResizeRef.current) {
+      event.preventDefault();
+      const delta = event.clientX - brushResizeRef.current.startX;
+      setBrushSize(clampLocalEditBrushSize(brushResizeRef.current.startSize + delta * 0.5));
+      return;
+    }
+    if (!paintRef.current?.painting) return;
+    event.preventDefault();
+    paintMask(event);
+  }
+  function endMaskPaint(event) {
+    event.preventDefault();
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (brushResizeRef.current) {
+      brushResizeRef.current = null;
+      return;
+    }
+    if (!paintRef.current?.painting) return;
+    paintRef.current = null;
+    refreshMaskState();
+  }
+  function leaveMaskPaint() {
+    setBrushCursor((current) => ({ ...current, visible: false }));
+  }
+  function clearMask() {
+    const canvas = maskCanvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setMaskPainted(false);
+    setMaskRevision((current) => current + 1);
+  }
+    function changeBrushByKeyboard(event) {
+      const target = event.target;
+      const isTyping = target?.tagName === "INPUT"
+        || target?.tagName === "TEXTAREA"
+        || target?.tagName === "SELECT"
+        || target?.isContentEditable;
+      if (isTyping) return;
+      const isDecrease = event.key === "[" || event.code === "BracketLeft";
+      const isIncrease = event.key === "]" || event.code === "BracketRight";
+      if (!isDecrease && !isIncrease) return;
+      event.preventDefault();
+      const step = event.shiftKey ? 12 : 4;
+      setBrushSize((current) => clampLocalEditBrushSize(current + (isIncrease ? step : -step)));
+    }
+function syncCropRectFromMask() {
+    if (!isMaskMode || !imageSize.width || !imageSize.height) return;
+    const bounds = maskBoundsFromCanvas(maskCanvasRef.current);
+    if (!bounds) return;
+    const nextRect = expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio);
+    if (nextRect) setCropRect(nextRect);
+}
+  return {
+    measureImage,
+    maskPointerPoint,
+    maskPointerDisplayPoint,
+    updateBrushCursor,
+    sourceBrushSize,
+    paintMask,
+    refreshMaskState,
+    beginMaskPaint,
+    moveMaskPaint,
+    endMaskPaint,
+    leaveMaskPaint,
+    clearMask,
+    changeBrushByKeyboard,
+    syncCropRectFromMask
+  };
+}
