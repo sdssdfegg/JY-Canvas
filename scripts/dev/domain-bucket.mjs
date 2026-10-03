@@ -55,7 +55,7 @@ for (const t of targets) {
   console.log(`\n══════ ${t.file} :: ${t.comp}  ${t.start}-${t.end} (${t.end - t.start} 行)`);
   console.log(`主组件内 handler/常量函数 ${inRange.length} 个，合计 ${inRange.reduce((a, b) => a + b.len, 0)} 行`);
   const bucket = {};
-  for (const [k, re] of Object.entries(AREAS)) bucket[k] = [];
+  for (const k of Object.keys(AREAS)) bucket[k] = [];
   const rest = [];
   for (const f of inRange) {
     let hit = false;

@@ -65,7 +65,7 @@ function run(file, start, end) {
 
   // 4) 按域汇总：本域行数 / 平均引用域数 / 纯本域函数数
   const byArea = {};
-  for (const [name, info] of own) {
+  for (const info of own.values()) {
     const a = info.area;
     byArea[a] = byArea[a] || { n: 0, len: 0, refSum: 0, pure: 0, pureLen: 0 };
     byArea[a].n += 1; byArea[a].len += info.len; byArea[a].refSum += info.refs.size;
