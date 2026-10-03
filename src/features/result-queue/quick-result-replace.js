@@ -21,6 +21,7 @@
 import { imageSourceFromResult } from "../../shared/models.js";
 import {
   beginImageDownloadDrag,
+  brokenImageReason,
   dragDownloadDateStamp,
   padDragDownloadNumber,
   referenceSource
@@ -278,5 +279,119 @@ export function createResultDownload(deps) {
     flashDownloadFeedback,
     downloadSelected,
     downloadAll
+  };
+}
+// === RF-074 阶段 2 · result/history 域（main.jsx 单侧抽出的 B3 工厂）===
+// 七个函数体（含 markResultImageBroken 的 JSDoc）从 src/main.jsx 逐字搬来，一字未改；
+// removeDetailResultIds 只被 deleteSelected / deleteResult 互调 ⇒ 内部函数，不导出、不进 deps。
+export function createResultActions(deps) {
+  const {
+    setSelectedIds,
+    selectedIds,
+    activeView,
+    quickResults,
+    setResults,
+    setBrokenResultImages,
+    detailInfoSelection,
+    setDetailInfoSelection,
+    setDetailGroups,
+    removeHistoryResults,
+    loadHistoryResults,
+    hydrateDetailGroupsWithHistory,
+    addEvent
+  } = deps;
+
+  function toggleSelected(id) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  function deleteSelected() {
+    if (selectedIds.size === 0) return;
+    const ids = activeView === "quickgen"
+      ? quickResults.filter((item) => selectedIds.has(item.id)).map((item) => item.id)
+      : Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setResults((current) => current.filter((item) => !ids.includes(item.id)));
+    removeDetailResultIds(ids);
+    void removeHistoryResults(ids);
+    clearSelection();
+    addEvent("删除", `已删除 ${ids.length} 张图片`);
+  }
+
+  function deleteResult(id) {
+    setResults((current) => current.filter((item) => item.id !== id));
+    removeDetailResultIds([id]);
+    void removeHistoryResults([id]);
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+    setBrokenResultImages((current) => {
+      if (!current[id]) return current;
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    if (detailInfoSelection?.resultId === id) setDetailInfoSelection(null);
+    addEvent("删除", "已删除当前图片");
+  }
+
+  /**
+   * P1 缺图自愈：图片真的加载失败时记下来，卡片改为显示可读原因，
+   * 并且不再对同一个地址重复请求（避免每次打开页面都刷 404/502）。
+   * 记录里带上失败时的地址，重刷换图后自动失效。
+   */
+  function markResultImageBroken(item) {
+    const src = imageSourceFromResult(item?.image);
+    if (!item?.id || !src) return;
+    setBrokenResultImages((current) => (
+      current[item.id]?.src === src
+        ? current
+        : { ...current, [item.id]: { src, reason: brokenImageReason() } }
+    ));
+  }
+
+  function removeDetailResultIds(ids) {
+    setDetailGroups((current) => current.map((group) => ({
+      ...group,
+      prompts: group.prompts.map((prompt) => ({
+        ...prompt,
+        results: (prompt.results || []).filter((result) => !ids.includes(result.id))
+      }))
+    })));
+  }
+
+  async function refreshHistory() {
+    const storedResults = await loadHistoryResults();
+    setResults(storedResults);
+    setDetailGroups((current) => hydrateDetailGroupsWithHistory(current, storedResults));
+    clearSelection();
+    addEvent("刷新", `已载入 ${storedResults.length} 张历史图片`);
+  }
+
+  async function syncHistoryFromServer() {
+    const storedResults = await loadHistoryResults();
+    setResults(storedResults);
+    setDetailGroups((current) => hydrateDetailGroupsWithHistory(current, storedResults));
+  }
+
+  return {
+    toggleSelected,
+    clearSelection,
+    deleteSelected,
+    deleteResult,
+    markResultImageBroken,
+    refreshHistory,
+    syncHistoryFromServer
   };
 }

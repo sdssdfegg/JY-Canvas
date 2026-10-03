@@ -83,7 +83,6 @@ import { LocalEditModal, ratioValue } from "./features/local-edit/LocalEditModal
 import {
   imageFileFromUrl,
   beginImageDownloadDrag,
-  brokenImageReason,
   dataUrlFromBlob,
   dragDownloadDateStamp,
   previewDragStart,
@@ -151,7 +150,7 @@ import { copyTextToClipboard } from "./shared/dom-actions.js";
 import { loadSaveDirectory, openSaveDirectoryModal, commitSaveDirectory, chooseSaveDirectory } from "./features/savedir/save-directory.js";
 import { incomingCanvasNodes, canvasResultItemsFromNode, canvasPromptForGenerator, canvasImagesForGenerator, canvasImageEntriesForGenerator, splitCanvasBatchEntries, buildCanvasBatchPrompt, screenPointToCanvas, canvasCenterFromRect } from "./features/canvas/canvas-graph.js";
 import { createCanvasActions, createCanvasInteractions } from "./features/canvas/canvas-actions.js";
-import { createQuickResultReplace, createResultDownload } from "./features/result-queue/quick-result-replace.js";
+import { createQuickResultReplace, createResultDownload, createResultActions } from "./features/result-queue/quick-result-replace.js";
 import { createVideoComposer } from "./features/video/video-composer.js";
 
 const STORAGE_PREFIX = import.meta.env.VITE_JINGYIN_STORAGE_PREFIX || "jingyin-internal";
@@ -3040,65 +3039,8 @@ function App() {
     addEvent("局部编辑", "已取消局部裁剪");
   }
 
-  function toggleSelected(id) {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function clearSelection() {
-    setSelectedIds(new Set());
-  }
-
-  function deleteSelected() {
-    if (selectedIds.size === 0) return;
-    const ids = activeView === "quickgen"
-      ? quickResults.filter((item) => selectedIds.has(item.id)).map((item) => item.id)
-      : Array.from(selectedIds);
-    if (ids.length === 0) return;
-    setResults((current) => current.filter((item) => !ids.includes(item.id)));
-    removeDetailResultIds(ids);
-    void removeHistoryResults(ids);
-    clearSelection();
-    addEvent("删除", `已删除 ${ids.length} 张图片`);
-  }
-
-  function deleteResult(id) {
-    setResults((current) => current.filter((item) => item.id !== id));
-    removeDetailResultIds([id]);
-    void removeHistoryResults([id]);
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      next.delete(id);
-      return next;
-    });
-    setBrokenResultImages((current) => {
-      if (!current[id]) return current;
-      const next = { ...current };
-      delete next[id];
-      return next;
-    });
-    if (detailInfoSelection?.resultId === id) setDetailInfoSelection(null);
-    addEvent("删除", "已删除当前图片");
-  }
-
-  /**
-   * P1 缺图自愈：图片真的加载失败时记下来，卡片改为显示可读原因，
-   * 并且不再对同一个地址重复请求（避免每次打开页面都刷 404/502）。
-   * 记录里带上失败时的地址，重刷换图后自动失效。
-   */
-  function markResultImageBroken(item) {
-    const src = imageSourceFromResult(item?.image);
-    if (!item?.id || !src) return;
-    setBrokenResultImages((current) => (
-      current[item.id]?.src === src
-        ? current
-        : { ...current, [item.id]: { src, reason: brokenImageReason() } }
-    ));
-  }
+  const resultActionsDeps = { setSelectedIds, selectedIds, activeView, quickResults, setResults, setBrokenResultImages, detailInfoSelection, setDetailInfoSelection, setDetailGroups, removeHistoryResults, loadHistoryResults, hydrateDetailGroupsWithHistory, addEvent };
+  const { toggleSelected, deleteSelected, deleteResult, markResultImageBroken, refreshHistory, syncHistoryFromServer } = createResultActions(resultActionsDeps);
 
   const {
     clearQuickResultDragState,
@@ -3121,16 +3063,6 @@ function App() {
 
 
 
-
-  function removeDetailResultIds(ids) {
-    setDetailGroups((current) => current.map((group) => ({
-      ...group,
-      prompts: group.prompts.map((prompt) => ({
-        ...prompt,
-        results: (prompt.results || []).filter((result) => !ids.includes(result.id))
-      }))
-    })));
-  }
 
   function clearAll() {
     const targetResults = activeView === "reference-remix" ? referenceResults : quickResults;
@@ -3160,20 +3092,6 @@ function App() {
     }
     setEvents([]);
     void removeHistoryResults(ids);
-  }
-
-  async function refreshHistory() {
-    const storedResults = await loadHistoryResults();
-    setResults(storedResults);
-    setDetailGroups((current) => hydrateDetailGroupsWithHistory(current, storedResults));
-    clearSelection();
-    addEvent("刷新", `已载入 ${storedResults.length} 张历史图片`);
-  }
-
-  async function syncHistoryFromServer() {
-    const storedResults = await loadHistoryResults();
-    setResults(storedResults);
-    setDetailGroups((current) => hydrateDetailGroupsWithHistory(current, storedResults));
   }
 
   // 保存目录域：实现在 src/features/savedir/save-directory.js（两侧同一份，语义等价）。
