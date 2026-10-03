@@ -1463,6 +1463,23 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 
 每阶段后跑对照组 + 六道门禁，通过才 commit 下一阶段。落点仍是追加既有 `src/shared/local-edit-mask.js`（零新建文件）。
 
+✅ **已完成**：`73753f8`(A −100) → `ee30034`(B −51) → `d1996a3`(C −25) ⇒ **累计净省 −176 行**
+（main 7402→7178、outfit 10789→10574、`shared/local-edit-mask.js` 194→457，统筹逐 commit 实测）。
+六道门禁全绿；三份对照组 `scripts/dev/rf076*.mjs` ALL PASS；用户已人工冒烟通过。
+🔑 执行者对设计单的**第三处纠偏**：`onImageLoad` 的 `lockRatioForLoad` outfit 侧应传 `true`（不是设计推测的 `!isMaskMode`）——
+`defaultLocalEditCrop` 就是 `fitRectToRatioLocked(null, …)` 的一行包装，两侧本就等价。
+🔑 另一处关键坑：**ESLint 不校验 import 名**，`sharedConstrainCropRect` 不是真实导出名（真名 `constrainCropRect`）
+⇒ 照抄别名时 ESLint 全绿、**只有 vite build 会拦**（阶段 B 首次跑即 build 失败）。
+
+#### RF-077 · 合并两个局部编辑弹窗组件（🔵 已派单 `V4.0-执行单-V15-RF-077.md`）
+
+`QuickLocalEditModal`（main 1695-2090，396 行）↔ `OutfitLocalEditModal`（outfit 4792-5155，369 行），
+整段 diff **26 hunk / +159 −186**。交互层已由 RF-076 收口 ⇒ 剩的是**组件壳**重复，是 main↔outfit 当前最大剩余块。
+差异已由统筹做成对照表（`REFACTOR-冷启动.md` §3.5），大多可提升为 props。
+🔴 **唯一授权新建** `src/features/local-edit/LocalEditModal.jsx` ⇒ `fileCount` 57→58 ⇒ 019 会报扫描范围漂移，
+**由统筹在验收时划账更新基线**（执行者禁止改 baseline、禁止 `--update` 自愈）。
+预估净省 **≈250–320 行**。停手条件 #5：JSX 结构差异 >10 处 ⇒ 降级只做 main 侧接入。
+
 #### 下一步（B3-7 起）
 
 **已建立冷启动入口 `REFACTOR-冷启动.md`** —— 新会话只读它 + `MEMORY.md` 即可恢复，不依赖聊天记录。

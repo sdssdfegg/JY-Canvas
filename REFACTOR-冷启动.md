@@ -21,16 +21,16 @@
 
 | 项 | 值 |
 |---|---|
-| `src/main.jsx` | **7402** 行（RF-073 −16） |
-| `src/outfit-workflow.jsx` | **10789** 行 |
-| 两巨石合计 | **18191** 行 / 占比 **71.0%**（起点 18867 / 74.6%） |
-| `src/shared/` | 4082 行 |
+| `src/main.jsx` | **7178** 行（RF-073 −16 → RF-076 **−224**） |
+| `src/outfit-workflow.jsx` | **10574** 行（RF-076 **−215**） |
+| 两巨石合计 | **17752** 行 / 占比 **69.8%**（起点 18867 / 74.6%） |
+| `src/shared/` | 4345 行（RF-076 工厂 +263） |
 | `src/features/` | 1639 行（js）+ 546 行 css |
-| js/jsx 文件数 | 57 / 总 25623 行 |
+| js/jsx 文件数 | 57 / 总 25447 行 |
 | 019 基线 `fileCount` | **57** |
 | ESLint 全仓 | errors=0 / **warnings=18**（src 17 + `server/routes/outfit.routes.js` 1） |
 
-> 快照 `7d7f264`（RF-073 后）。⚠️ 全仓 warnings 是 **18**（含 server 1 条）；**src 单独是 17**，两个口径别混用。
+> 快照 **`d1996a3`**（RF-076 全量完成后）。⚠️ 全仓 warnings 是 **18**（含 server 1 条）；**src 单独是 17**，两个口径别混用。
 
 已抽出的 `src/features/` 模块（12 个）：
 `auth/api-key`(67) `canvas/canvas-actions`(313) `canvas/canvas-graph`(102) `detail/detail-group`(272)
@@ -84,10 +84,13 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 |---|---|---|---|
 | ~~0~~ | ~~**RF-072 · 修 3 个浏览器探针脚本**~~ | 各 +2 行 | ✅ **已完成 `9b223ca`**（2026-10-03） |
 | ~~1~~ | ~~**RF-073 · 参数化收口** `addReferenceRewriteFiles` ↔ `addDetailFiles`~~ | 实测 **−7 行** | ✅ **已完成 `7d7f264`**（2026-10-03，对照表见 §3.1）。advisory **171/2731 → 170/2712**；人工冒烟（上传/删除）已通过 |
-| **1** | 🔴 **RF-076 · 局部编辑交互层** `main.jsx:1739-2089` ↔ `outfit-workflow.jsx:4831-5152` | 实测 **351 / 322 行**：18 个具名函数 + 5 个 `useEffect` + 1 渲染对象 | ✅ **只读设计单已交付 `65037d5`**（`V4.0-设计-RF-076-局部编辑交互层.md`，220 行，零 src 改动）。结论：**能搬**，预估净省 **≈180–195 行**。
-🔴 **2026-10-03 排产变更（用户拍板）**：不拆多张施工单（交接易出错）⇒ 改为**一张全量单** `V4.0-执行单-V14-RF-076-全量.md`，
-**内部分 3 次阶段 commit（A 无分叉纯函数 / B 参数化 / C applyLocalEdit+接线）保留回滚点**；
-`V4.0-执行单-V13-RF-076-A.md` **作废**。详见下方 §3.3 裁决 |
+| ~~1~~ | ~~**RF-076 · 局部编辑交互层**~~ | 实测净省 **−176 行** | ✅ **已完成**：`73753f8`(A −100) → `ee30034`(B −51) → `d1996a3`(C −25)。
+**实测**（统筹复测）：main 7402→**7178**、outfit 10789→**10574**、shared/local-edit-mask.js 194→**457**；
+六道门禁全绿；三份对照组 ALL PASS；人工冒烟三条链路已通过。advisory **main↔outfit 这对 1236 → 1035 行（−201）**
+（整体 170/2712 → 182/2701 块数上升只是工厂文件让跨文件近克隆显形，**不是新增债**）。详见 §3.4 验收 |
+| **1** | 🔴 **RF-077 · 合并两个局部编辑弹窗组件** `QuickLocalEditModal`(main 1695-2090) ↔ `OutfitLocalEditModal`(outfit 4792-5155) | **396 / 369 行**，整段 diff **26 个 hunk（+159/−186）** | **本轮派单**。交互层已收口 ⇒ 剩的是**组件壳**重复，是 main↔outfit 当前最大剩余块。
+差异**已识别且大部分可参数化**（见 §3.5 对照表）。需新建 `src/features/local-edit/LocalEditModal.jsx`
+⇒ **`fileCount` 57→58，由统筹划账**（执行者不得改 baseline）。预估净省 **≈250–320 行** |
 | 2 | **RF-074 · main.result 域** | 10 fn / 123 行，耦合 **0.90**（全场最低可搬量级） | ⚠️ 只碰本域仅 5/10（50%）⇒ 需注入跨域参数（`selectedIds`/`setActiveView`/`saveDirectory`/`setDetailInfoSelection` 等 8+ 项）。其中 `downloadItem` 实为 **directory 域**（误归类）。开工前必须重测 |
 | 3 | **RF-075 · 僵尸断言清理** | 1 条断言 | `scripts/` 路（可与 src/ 路并行）：`local-edit-base-file-check` 里 `cropOutfitLocalEditFile` 全 src 已不存在 ⇒ **恒失败**。⚠️ 注意该文件里**已有一处同类僵尸断言被标注移除**，本次是第二处 |
 | 4 | **main.prompt 域** | 11 fn / 190 行，耦合 **1.36** | 中等 |
@@ -166,6 +169,54 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 ⚠️ **留给施工单的一条硬约束**：`ratioLocked` 必须以 `lockRatio` 入参由**两侧各传原值**
 （main 传 `isLocalMode && !isMaskMode`，outfit 传 `!isMaskMode`）。
 **严禁统一成 `!isMaskMode`** —— 那会让 main 的**普通裁剪**也开始吸附比例，**静默改行为**（§6 原则 1：放宽 > 收窄）。
+
+### 3.4 RF-076 验收（统筹 2026-10-03 复测，快照 `d1996a3`）
+
+**净省逐 commit 实测**（`git show <c>:<f> | wc -l`）：
+
+| commit | main | outfit | shared/local-edit-mask.js | 小计 |
+|---|---|---|---|---|
+| `73753f8` A | −135 | −135 | +170 | **−100** |
+| `ee30034` B | −59 | −51 | +59 | **−51** |
+| `d1996a3` C | −30 | −29 | +34 | **−25** |
+| 合计 | **−224** | **−215** | **+263** | **−176** |
+
+**参数化各传原值**（统筹核对薄壳，全仓 grep `countMode` 命中 0）：
+`enabled`: main `isLocalMode` / outfit `true`；`ratios`: `QUICK_` / `BATCH_`；
+`lockRatioForUpdate`: main `ratioLocked` / outfit `!isMaskMode`；
+`defaultCropRect`: `defaultQuickLocalEditCrop` / `defaultLocalEditCrop`；
+`fallbackToItem`: `true` / **显式 `false`**；`rectModeTag`: 三元 / `"local_edit"`。
+
+🔴 **执行者对设计单的第三处纠偏（统筹已复核，`lockRatioForLoad` 不是 `!isMaskMode`）**：
+设计 §5 写「outfit 传 `!isMaskMode`」是**推测，实测不成立** —— BASE `outfit onImageLoad` 两个分支**都无条件**锁比例，
+且 `defaultLocalEditCrop(w,h,r)` 就是 `fitRectToRatioLocked(null, r, w, h)` 的一行包装（outfit:4788-4792）
+⇒ 工厂在 `lockRatioForLoad=true` 时与之**逐字等价** ⇒ **outfit 传 `true` 正确**。
+
+**门禁**（提交后复测全绿）：019 `ok/dup=0/scannedFiles=57/regressions=[]`；import-path `ok/[]/220`；
+ESLint 全仓 **errors=0 / warnings=18**（基线）；`vite build` ✓ **8.53s**；`check-syntax` **201/201**；
+对照组三份 `scripts/dev/rf076*.mjs` **ALL PASS**（含 5 条反证 + 负向对照）。
+行尾：两巨石 **纯 LF 行数 delta=0**（main 116 / outfit 144 是本就存在的 mixed 行尾，执行者逐行保留了）⇒ 未触发行尾膨胀。
+`src/local-edit-mask.js` 46 字节转发壳仍在；`fileCount` 仍 **57**（零新建）。
+
+### 3.5 RF-077 派单前对照表（统筹 2026-10-03 实测，快照 `d1996a3`）
+
+整段 `diff -u`（main 1695-2090 ↔ outfit 4792-5155）⇒ **26 个 hunk / +159 −186**。已识别差异：
+
+| # | 差异点 | main | outfit | 判定与参数化 |
+|---|---|---|---|---|
+| 1 | 组件签名 | `QuickLocalEditModal({item, ratio, mode="local", …})` | `OutfitLocalEditModal({item, ratio, …})` | 保留 `mode` props：main 传原值、outfit 恒传 `"local"`；`isLocalMode = mode === "local"` |
+| 2 | 原图解析 | `quickReferenceOriginalFile(item)` | `resolveLocalEditBaseFile(item)` | 入参 `resolveBaseFile`，各传原值（两函数不同源，**不得统一**） |
+| 3 | `savedEdit` | `isLocalMode ? item?.localEdit : item?.cropEdit` | `item?.localEdit \|\| null` | 由 `mode` 派生，组件内三元即可（outfit `mode` 恒 local ⇒ 等价） |
+| 4 | `activeRatio` | 三元：`QUICK_` 表命中 ? ratio : (`savedEdit.aspectRatio \|\| ratio \|\| "1:1"`) | 三段：`BATCH_` 表命中 ratio → 命中 savedEdit → 表首项 | 🔴 **真分叉**（兜底顺序不同）⇒ 入参 `resolveActiveRatio(ratio, savedEdit)`，各传原值 |
+| 5 | `modalTitle` / `modalDescription` | 「局部回贴」/「普通裁剪」两套文案 | 单套 | 入参或由 `mode` 派生（**不得删 main 的普通裁剪文案**） |
+| 6 | effect#2 deps | `[item?.id, isLocalMode]` | `[item?.id]` | 组件内用 `isLocalMode` 变量写 deps ⇒ 两侧自然不同（组件里可以有 hook） |
+| 7 | effect#4 守卫 | `!canvas \|\| !isLocalMode \|\| …` | `!canvas \|\| …` | 同上，由 `isLocalMode` 派生 |
+| 8 | mask 初始化收尾 | `if{…return}` + 穿透 | `if{…} else {}` | ✅ **假分叉**（§3.2④ 已结算）⇒ 统一为任一写法 |
+| 9 | `fitRectToRatio` | 33 行含 ~25 行**自由矩形**（普通裁剪） | 5 行委托 `fitRectToRatioLocked` | 已在 deps 里作为 `fitRectToRatio` 入参 ⇒ 各传原函数 |
+| 10 | 交互层 deps 其余项 | 见 §3.4 表 | 见 §3.4 表 | **已参数化完成**，直接沿用 |
+
+⚠️ 未逐一穷举的 hunk（约 16 个，多为渲染片段）**由执行者先复核再动手**；
+若发现 **JSX 结构差异 >10 处** ⇒ 按执行单降级路径处理（只做非 JSX 部分并报告），**别硬合并**。
 
 ---
 
