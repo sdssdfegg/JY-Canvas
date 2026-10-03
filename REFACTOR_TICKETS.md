@@ -1351,10 +1351,54 @@ main 侧解构出来会被 `no-unused-vars` 点名。工厂仍返回全部（返
 ② Node 无 `FileReader` ⇒ `dataUrlFromBlob` 会崩 ⇒ 需打桩。
 ⇒ **反证无效时先怀疑 mock 与真实实现的差异，不是怀疑用例设计**（RF-068 已记一条，本单再应验）。
 
-#### 下一步（B3-5）
+#### B3-5 / B3-6：转 upload 域与 detail 域（2026-10-03 完成）
 
-重跑耦合度后选域。当前候选：**main upload 域 17 函数/196 行（1.18）**、**main prompt 12/193（1.33）**、
-**main detail 29/453（1.48）**。低垂果实（<1.2）已基本摘完，后续每域动手前必须先测跨域引用面。
+| 单 | 内容 | commit | main.jsx |
+|---|---|---|---|
+| **RF-070** | 参考图上传域 16 函数（172 行）→ `src/features/upload/reference-upload.js` | `f2a9b28` | 7750 → **7600**（−149） |
+| **RF-071** | 详情页分组/拼图域 19 函数（204 行）→ `src/features/detail/detail-group.js` | `8fc0f14` | 7600 → **7418**（−182） |
+
+**两单合计 −331 行**（B3 全段累计 8063 → 7418 = **−645**）。
+
+- RF-070 搬出：`makeQuickReferenceItem`（模块级纯件，反向 import 回 main）、`MAX_REFERENCE_REWRITE_FILES`、
+  参考生图文件族、参考图上传族、拖拽族 10 个、`imageFilesFromReferenceDrop` + 其唯一调用方 `findGeneratedResultById`。
+  deps 12 项。`createVideoComposer`（RF-069）所需的 `isReferenceDropData`/`imageFilesFromReferenceDrop`
+  改由本工厂返回（同名 ⇒ 该调用点零改动）。
+- RF-071 搬出：`bitmapFromBlob` + `stitchDetailGroupBlob`、分屏顺序 6 个、拼图预览 6 个、
+  提示词编辑 2 个、预设 3 个。deps 19 项。`detailResultItemsForGroup` 在 main 仍有 2 处调用 ⇒ 由工厂返回并解构；
+  `bitmapFromBlob`/`orderedPromptsForGroup` 只在工厂内部被调用 ⇒ 不进返回值。
+- 验证：RF-070 逐字节 16/16 + 行为 40/40 + 反证 12/12；RF-071 逐字节 19/19 + 行为 36/36 + 反证 14/14
+  （RF-071 用最小 DOM 桩：`document.createElement`/`window.createImageBitmap`/`canvas.toBlob`，跑通含"超高触发缩放到 720 宽"分支）。
+- 019 划账 `fileCount` 55 → 56 → 57。
+
+🔴🔴 **本段新增的三条硬教训（已并入 `REFACTOR-冷启动.md` §5）**：
+
+1. **写回时 `\r` 被重复添加** —— `items` 存了含 `\r` 的 `t`，写回又 `t+"\r"` ⇒ 全文件 `^M^M`，只能 `git checkout` 回滚重做。
+   正解：存行时剥 `\r`、`cr` 单独记、写回再补。**干跑必须加 `CRCR=0` 自检**（改后 CRLF 数正常但 CRCR>0 就是这个错）。
+2. **插入锚点所在的那段本身也要进 drop 集合** —— RF-071 的 `bitmapFromBlob` 是工厂调用的插入锚点，
+   漏加进 drop ⇒ 旧定义残留 1 个 ⇒ `no-unused-vars` 立刻点名。
+3. **对照组脚手架禁止「先建两个 env 再跑」** —— 模块级采集缓冲会被第二个 env 重置
+   ⇒ 旧侧采到空、新侧采到两份（RF-071 J1/J2 假差异）；且 INIT 用 `name === "A3"` 全串比对永不命中
+   （case 名是 `"A3 参考生图-超限"`）⇒ 反证静默假通过。改为**建一个跑一个** + `startsWith`。
+
+🔑 **基线校正**：ESLint 全仓 warnings 实测基线是 **17，不是旧笔记的 18**（改前改后逐条零差异已复核）。
+
+🔑 **搬进新文件会让以前看不见的跨文件近克隆显形**（advisory 只做跨文件比对，同文件内不报）
+⇒ 抽完一个域后 advisory 命中数上升是**正常的债务显形**，不是新增重复。
+RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetailFiles`（main.jsx）同构近克隆（差 42%）。
+
+#### 下一步（B3-7 起）
+
+**已建立冷启动入口 `REFACTOR-冷启动.md`** —— 新会话只读它 + `MEMORY.md` 即可恢复，不依赖聊天记录。
+
+当前候选（2026-10-03 重测耦合度后）：
+1. **参数化收口** `addReferenceRewriteFiles` ↔ `addDetailFiles`（连同各自 remove 版本，约 −35 行）—— 小且确定，建议先做。
+2. **main.result 域** 10 fn / 123 行，耦合 **0.90**（当前最低）。
+3. **main.prompt 域** 11 fn / 190 行，耦合 1.36。
+4. **outfit 侧完全未动**：misc 53 fn/942 行(1.23)、result 26 fn/940 行(1.15) —— 需先出只读领域设计。
+
+⚠️ main 侧 `misc` 24 fn/546 行耦合已升至 **1.50**、`detail` 残余 12 fn/288 行升至 **2.08**、
+`canvas` 残余 8 fn/257 行 1.63 ⇒ **这三簇属编排层，不要按域抽**。
 
 ---
 
