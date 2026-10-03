@@ -1510,6 +1510,20 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 - 🔴 **方法论修正**（已写进冷启动 §4.1）：**「三处契约文档 grep 零命中 ⇒ 从未被裁决」这条判据作废** ——
   裁决可能写在 `src/shared/**/*.js` **文件头注释**里。**派单前必须四处 grep**（含 `src/shared/`），否则会把已裁决的债当新债重开一单。
 
+#### RF-074 · main.result/download 域（🔵 **本轮派只读领域设计单** `V4.0-执行单-V19-RF-074.md`）
+
+- `src/main.jsx:3036-3459`，**21 函数 / 371 行**（统筹实测，逐函数行数见冷启动 §3.10）。
+  ⚠️ 修订旧登记：此前记为「10 fn / 123 行、耦合 0.90」是**旧快照且域划小了**。
+- 🔑 **选它与 RF-078-b 并行的理由**：对象是 `main.jsx`，而 RF-078-b 改的是 `outfit-workflow.jsx`
+  ⇒ **零抢文件、行号不漂移**。单里因此写死：**禁止读/改 `outfit-workflow.jsx`**（此刻是中间态）。
+- 🔴 **收益口径澄清**（写进冷启动 §3.10）：本单是**单侧拆分单**，不是消重单 ⇒
+  判据是 **「main.jsx 能减多少行」（A）**，**不是「总行数净省 > 0」**（B 本就预期为负/净增）。
+  佐证：`V11-RF-070` main −172 / 总行数 +31；§6.18 曾更正过 B3-3/B3-4 净省口径，就是栽在这个混淆上。
+  ⇒ 判据：**A ≥ 100 行 且 可搬函数 ≥ 2/3 ⇒ 值得做**。
+- 落点优先追加既有 `src/features/result-queue/quick-result-replace.js`（103 行，`V11-RF-068` 已从这个域搬过 5 个函数）。
+- ⚠️ 域归属需执行者重判：`removeDetailResultIds` 可能属 detail 域、`beginReferenceImageDrag`(45 行) 可能属 upload 域、
+  `refreshHistory`/`syncHistoryFromServer` 可能属 history 域 ⇒ **不许为凑数把异域函数塞进同一工厂**。
+
 #### RF-078-b · outfit 内部提示词面板 A/B 去重（🔵 **本轮派单**）
 
 - `outfit-workflow.jsx:9311-9387`（`promptAssistantDock`）↔ `9992-10068`（`promptAssistantBody`），
@@ -1526,8 +1540,9 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 
 当前候选（2026-10-03 RF-077 验收后）：
 
-1. 🔴 **RF-075**（`scripts/` 路，已派单）+ **RF-078**（只读设计单，已派单）—— **两路并行不冲突**（scripts/ vs 只读）。
-2. **RF-074 · main.result 域** 10 fn / 123 行，耦合 **0.90**（⚠️ 只碰本域仅 5/10，需注入 8+ 跨域项）。
+1. 🔴 **RF-078-b**（`src/outfit-workflow.jsx`，施工中）+ **RF-074**（只读设计单，对象 `src/main.jsx`）
+   —— **两路并行不冲突**（改 outfit vs 只读 main）。
+2. ~~**RF-074 · main.result 域** 10 fn / 123 行~~ ⇒ **见下条**（已升级为 21 fn / 371 行的只读领域设计单）。
 3. **main.prompt 域** 11 fn / 190 行，耦合 1.36。
 4. **outfit 侧完全未动**：misc 53 fn/942 行(1.23)、result 26 fn/940 行(1.15) —— 需先出只读领域设计。
 5. **RF-076-D**（effect#2/#4 体抽助手，已裁决暂缓，可选 ~14 行）。

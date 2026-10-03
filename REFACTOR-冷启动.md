@@ -108,7 +108,8 @@ advisory 的「32 行逐字 + 58 行差 1 行」是**过期快照**（当前是�
 | **2** | 🔴 **RF-075 · 断言失配修复**（`scripts/` 路，可与 src/ 路并行） | **5 条断言** | 🔴 **比登记时严重**：RF-077 删掉 `OutfitLocalEditModal`/`QuickLocalEditModal` 后，
 `local-edit-base-file-check` 从「1 条僵尸」变成 **5 条失配**（4 条是组件搬到 `LocalEditModal.jsx` 后的**断言失配**，1 条是 `cropOutfitLocalEditFile` 真僵尸）。
 **修法是「重定位」不是「删除」** —— 被验证的接线都还在，只是换了文件。见 §3.8 |
-| 3 | **RF-074 · main.result 域** | 10 fn / 123 行，耦合 **0.90**（全场最低可搬量级） | ⚠️ 只碰本域仅 5/10（50%）⇒ 需注入跨域参数（`selectedIds`/`setActiveView`/`saveDirectory`/`setDetailInfoSelection` 等 8+ 项）。其中 `downloadItem` 实为 **directory 域**（误归类）。开工前必须重测 |
+| **2** | 🔴 **RF-074 · main.result/download 域只读领域设计单** | **21 函数 / 371 行**（`main.jsx:3036-3459`） | **本轮派单（只读，不写 src）**。这是 **main 侧最大的未被搬函数群**。
+🔑 选它并行的理由：对象是 **main.jsx**，而 RF-078-b 改的是 `outfit-workflow.jsx` ⇒ **零抢文件、行号不漂移**。见 §3.10 |
 | 4 | **main.prompt 域** | 11 fn / 190 行，耦合 **1.36** | 中等 |
 | 5 | **outfit.preview 域** | 9 fn / 259 行，耦合 **0.89**，只碰本域 7/9 | ✅ 判据合格、体量最大的**未动**域。⚠️ 其中 235 行是 outfit 独有的诊断面板**渲染函数**（返回 JSX）⇒ 落点须是 `.jsx`，开工前先确认这一点 |
 | 6 | **outfit 其余（完全未动）** | misc 53 fn/942 行(1.23)、result 26 fn/940 行(1.15) | 需先出只读领域设计 |
@@ -319,6 +320,44 @@ RF-078-b 是 **outfit 自己文件内部的两处渲染**（逐字相同、零�
 
 🔴 **落点硬裁决**：定义在 **`src/outfit-workflow.jsx` 模块顶层**（`function` 声明有提升，位置不限），
 **不新建文件** ⇒ `fileCount` 仍 58 ⇒ **019 不划账**。这是本单相对 RF-078 的最大优势。
+
+### 3.10 RF-074 派单前对照表 + 🔴 收益口径澄清（统筹 2026-10-03，快照 `af49552`）
+
+🔴 **先厘清口径，否则这单会被误杀**：
+
+| 单的类型 | 收益来源 | 正确判据 | 错误判据 |
+|---|---|---|---|
+| **消重单**（RF-073/076/077/078-b） | 消灭两侧重复的一份 | **总行数净省 > 0** | — |
+| **单侧拆分单**（RF-066/068/069/070/071，**RF-074 属此类**） | 巨石瘦身 | **巨石减少行数 ≥ 阈值** | ❌ 「总行数净省 > 0」—— **必然为负** |
+
+实测佐证：`V11-RF-070` 参考图上传域 16 函数（**172 行**）→ `src/features/upload/reference-upload.js`（现 **203 行**）
+⇒ **main −172**（收益），但**总行数净变化 = −172 + 203 = +31**（净增，这是代价，不是失败）。
+§6.18 曾专门更正过 B3-3/B3-4 的净省口径（−144 → −117），就是栽在这个混淆上。
+
+⇒ **RF-074 的判据是「main.jsx 能减多少行」，不是「总行数是否减少」。**
+
+**本单对象：`src/main.jsx:3036-3459`，21 个函数 / 371 行**（统筹实测，逐函数行数见下）。
+
+| 行范围 | 行数 | 函数 | | 行范围 | 行数 | 函数 |
+|---|---|---|---|---|---|---|
+| 3036-3044 | 9 | `toggleSelected` | | 3330-3360 | 31 | `downloadStitchPreview` |
+| 3045-3048 | 4 | `clearSelection` | | 3361-3375 | 15 | `copyImage` |
+| 3049-3061 | 13 | `deleteSelected` | | 3376-3398 | 23 | `downloadItem` |
+| 3062-3085 | 24 | `deleteResult` | | 3399-3425 | 27 | `autoSaveGeneratedItems` |
+| 3086-3117 | 32 | `markResultImageBroken` | | 3426-3445 | 20 | `flashDownloadFeedback` |
+| 3118-3127 | 10 | `removeDetailResultIds` | | 3446-3454 | 9 | `downloadSelected` |
+| 3128-3157 | 30 | `clearAll` | | 3455-3459 | 5 | `downloadAll` |
+| 3158-3165 | 8 | `refreshHistory` | | 3258-3263 | 6 | `blobFromImageItem` |
+| 3166-3186 | 21 | `syncHistoryFromServer` | | 3264-3274 | 11 | `resultDragDownloadName` |
+| 3216-3233 | 18 | `saveProcessedImageFile` | | 3275-3284 | 10 | `beginResultImageDrag` |
+| 3285-3329 | 45 | `beginReferenceImageDrag` | | | | |
+
+⚠️ **域归属需执行者重判**（统筹粗判可能有误）：`removeDetailResultIds` 可能属 **detail 域**、
+`beginReferenceImageDrag`（45 行，最大）可能属 **upload 域**、`refreshHistory`/`syncHistoryFromServer` 可能属 **history 域**。
+⇒ **不要为凑数硬把异域函数塞进同一工厂**（§6 原则 3：单侧独有块不许塞进来）。
+
+⚠️ **该域已部分搬过**：`V11-RF-068` 已搬走「结果卡拖拽替换族 5 函数」⇒ `src/features/result-queue/quick-result-replace.js`（103 行）已存在。
+**落点优先追加既有 features 模块**（零 `fileCount` 划账）；确需新建才新建，但必须写明并计入代价。
 
 ---
 
