@@ -21,21 +21,22 @@
 
 | 项 | 值 |
 |---|---|
-| `src/main.jsx` | **7178** 行（RF-073 −16 → RF-076 **−224**） |
-| `src/outfit-workflow.jsx` | **10574** 行（RF-076 **−215**） |
-| 两巨石合计 | **17752** 行 / 占比 **69.8%**（起点 18867 / 74.6%） |
+| `src/main.jsx` | **6841** 行（RF-073 −16 → RF-076 **−224** → RF-077 **−337**） |
+| `src/outfit-workflow.jsx` | **10293** 行（RF-076 **−215** → RF-077 **−281**） |
+| 两巨石合计 | **17134** 行 / 占比 **68.0%**（起点 18867 / 74.6%） |
 | `src/shared/` | 4345 行（RF-076 工厂 +263） |
-| `src/features/` | 1639 行（js）+ 546 行 css |
-| js/jsx 文件数 | 57 / 总 25447 行 |
-| 019 基线 `fileCount` | **57** |
-| ESLint 全仓 | errors=0 / **warnings=18**（src 17 + `server/routes/outfit.routes.js` 1） |
+| `src/features/` | 2018 行（js+jsx，RF-077 新增 `local-edit/LocalEditModal.jsx` 379）+ 546 行 css |
+| js/jsx 文件数 | **58** / 总 25208 行 |
+| 019 基线 `fileCount` | **58**（RF-077 已由统筹划账：57→58） |
+| ESLint 全仓 | errors=0 / **warnings=17**（src 16 + `server/routes/outfit.routes.js` 1） |
 
-> 快照 **`d1996a3`**（RF-076 全量完成后）。⚠️ 全仓 warnings 是 **18**（含 server 1 条）；**src 单独是 17**，两个口径别混用。
+> 快照 **`af49552`**（RF-077 全量完成后）。⚠️ 全仓 warnings 是 **17**（含 server 1 条）；**src 单独是 16**，
+> 两个口径别混用。RF-077 后 warnings 由 18→17（少 1 条 `react-hooks/exhaustive-deps`，属改善）。
 
-已抽出的 `src/features/` 模块（12 个）：
+已抽出的 `src/features/` 模块（13 个）：
 `auth/api-key`(67) `canvas/canvas-actions`(313) `canvas/canvas-graph`(102) `detail/detail-group`(272)
-`local-edit/*`(342,含 2 个 jsx) `result-queue/quick-result-replace`(103) `savedir/save-directory`(91)
-`upload/reference-upload`(**203**，RF-073 −16) `video/video-composer`(146)
+`local-edit/*`(721,含 3 个 jsx，**RF-077 新增 `LocalEditModal.jsx` 379**) `result-queue/quick-result-replace`(103)
+`savedir/save-directory`(91) `upload/reference-upload`(**203**，RF-073 −16) `video/video-composer`(146)
 
 **刷新命令**（一条）：
 ```bash
@@ -88,11 +89,16 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 **实测**（统筹复测）：main 7402→**7178**、outfit 10789→**10574**、shared/local-edit-mask.js 194→**457**；
 六道门禁全绿；三份对照组 ALL PASS；人工冒烟三条链路已通过。advisory **main↔outfit 这对 1236 → 1035 行（−201）**
 （整体 170/2712 → 182/2701 块数上升只是工厂文件让跨文件近克隆显形，**不是新增债**）。详见 §3.4 验收 |
-| **1** | 🔴 **RF-077 · 合并两个局部编辑弹窗组件** `QuickLocalEditModal`(main 1695-2090) ↔ `OutfitLocalEditModal`(outfit 4792-5155) | **396 / 369 行**，整段 diff **26 个 hunk（+159/−186）** | **本轮派单**。交互层已收口 ⇒ 剩的是**组件壳**重复，是 main↔outfit 当前最大剩余块。
-差异**已识别且大部分可参数化**（见 §3.5 对照表）。需新建 `src/features/local-edit/LocalEditModal.jsx`
-⇒ **`fileCount` 57→58，由统筹划账**（执行者不得改 baseline）。预估净省 **≈250–320 行** |
-| 2 | **RF-074 · main.result 域** | 10 fn / 123 行，耦合 **0.90**（全场最低可搬量级） | ⚠️ 只碰本域仅 5/10（50%）⇒ 需注入跨域参数（`selectedIds`/`setActiveView`/`saveDirectory`/`setDetailInfoSelection` 等 8+ 项）。其中 `downloadItem` 实为 **directory 域**（误归类）。开工前必须重测 |
-| 3 | **RF-075 · 僵尸断言清理** | 1 条断言 | `scripts/` 路（可与 src/ 路并行）：`local-edit-base-file-check` 里 `cropOutfitLocalEditFile` 全 src 已不存在 ⇒ **恒失败**。⚠️ 注意该文件里**已有一处同类僵尸断言被标注移除**，本次是第二处 |
+| ~~1~~ | ~~**RF-077 · 合并两个局部编辑弹窗组件**~~ | 实测净省 **−239 行** | ✅ **已完成**：`3f85621`(main 侧接入) → `6a54062`(outfit 侧接入) → `af49552`(收尾)。
+**实测**（统筹复测）：main 7178→**6841**、outfit 10574→**10293**、新增 `LocalEditModal.jsx` **379**；
+六道门禁全绿；对照组 22/22；**019 基线已由统筹划账 57→58**。详见 §3.6 验收 |
+| **1** | 🔴 **RF-078 · 提示词预设面板 + 编辑弹窗**（只读设计单） `main.jsx:6459-6549` ↔ `outfit-workflow.jsx:9335-9366 + 10054-10111` | **32 行（逐字相同）+ 58 行（差 1 行）= 约 90 行** | **本轮派单（只读，不写 src）**。三处契约文档 **grep 零命中 ⇒ 从未被裁决过**的真新债。
+⚠️ 这是**组件级抽取**（要带走 `promptSearch`/`editingPrompt`/`filteredPromptPresets`/`draggedPromptId`/`promptCategories` 等 state 与回调），
+props 接线成本可能吃掉净省 ⇒ **先出设计，由统筹裁决是否值得做**。见 §3.7 对照表 |
+| **2** | 🔴 **RF-075 · 断言失配修复**（`scripts/` 路，可与 src/ 路并行） | **5 条断言** | 🔴 **比登记时严重**：RF-077 删掉 `OutfitLocalEditModal`/`QuickLocalEditModal` 后，
+`local-edit-base-file-check` 从「1 条僵尸」变成 **5 条失配**（4 条是组件搬到 `LocalEditModal.jsx` 后的**断言失配**，1 条是 `cropOutfitLocalEditFile` 真僵尸）。
+**修法是「重定位」不是「删除」** —— 被验证的接线都还在，只是换了文件。见 §3.8 |
+| 3 | **RF-074 · main.result 域** | 10 fn / 123 行，耦合 **0.90**（全场最低可搬量级） | ⚠️ 只碰本域仅 5/10（50%）⇒ 需注入跨域参数（`selectedIds`/`setActiveView`/`saveDirectory`/`setDetailInfoSelection` 等 8+ 项）。其中 `downloadItem` 实为 **directory 域**（误归类）。开工前必须重测 |
 | 4 | **main.prompt 域** | 11 fn / 190 行，耦合 **1.36** | 中等 |
 | 5 | **outfit.preview 域** | 9 fn / 259 行，耦合 **0.89**，只碰本域 7/9 | ✅ 判据合格、体量最大的**未动**域。⚠️ 其中 235 行是 outfit 独有的诊断面板**渲染函数**（返回 JSX）⇒ 落点须是 `.jsx`，开工前先确认这一点 |
 | 6 | **outfit 其余（完全未动）** | misc 53 fn/942 行(1.23)、result 26 fn/940 行(1.15) | 需先出只读领域设计 |
@@ -217,6 +223,60 @@ ESLint 全仓 **errors=0 / warnings=18**（基线）；`vite build` ✓ **8.53s*
 
 ⚠️ 未逐一穷举的 hunk（约 16 个，多为渲染片段）**由执行者先复核再动手**；
 若发现 **JSX 结构差异 >10 处** ⇒ 按执行单降级路径处理（只做非 JSX 部分并报告），**别硬合并**。
+
+### 3.6 RF-077 验收（统筹 2026-10-03 复测，快照 `af49552`）
+
+| 项 | 汇报 | 统筹复测 | 结论 |
+|---|---|---|---|
+| 净省 | −239 | main 7178→**6841**、outfit 10574→**10293**、新组件 **379** ⇒ **−239** | ✅ |
+| props 各传原值 | 是 | main 传 `mode="local"`/`QUICK_`/`defaultQuickLocalEditCrop`/`fallbackToItem`；outfit 传 `BATCH_`/`resolveActiveRatio` 三段/`defaultLocalEditCrop`/`fallbackToItem={false}`/`lockRatioForLoad={true}`/5 项文案 | ✅ |
+| 019 | `ok:false(scopeDrift)` | 划账前 `scopeDrift{57→58}`、**划账后 `ok=true/dup=0/scannedFiles=58/regressions=[]`** | ✅ 已划账 |
+| ESLint | 0 / 18→17 | **errors=0 / warnings=17**（src 16 + server 1） | ✅ 改善 |
+| build | ✓9.55s | ✓ **6.06s** | ✅ |
+| check-syntax | 203/203 | **203/203** | ✅ |
+| 对照组 | 22/22 | **22/22 PASS**（4 条反证全过） | ✅ |
+| 行尾 | — | 两巨石 CRCR=0；纯 LF 行 delta −22/−50（**删掉的是本来就存在的 mixed 行**）；新文件 379 行全 CRLF | ✅ |
+
+🔑 **统筹补验的一处关键点**（汇报未提）：main 侧 `crop`（普通裁剪）路径由**独立的 `QuickCropViewportModal`**
+（main.jsx:1519，仍在）承载；BASE 的 `QuickLocalEditModal` 虽带 `mode` prop，但 main 唯一调用点**从未传 `mode="crop"`**
+⇒ 那些 `isLocalMode ?` 的 crop 分支在 main 侧**本来就是死代码**。新组件保留它们无害，main 显式传 `"local"` 与 BASE 等价。
+
+🔑 **执行者对 §3.5 第 9 项的实现说明成立**：`fitRectToRatio` 未独立成 prop，而是作为组件内局部函数 +
+`lockRatioForLoad` 回退 `ratioLocked` —— main 不传 ⇒ 回退 `isLocalMode && !isMaskMode`，outfit 传 `true`
+⇒ 与两侧原实现逐字等价（已核 `defaultLocalEditCrop` 就是 `fitRectToRatioLocked(null,…)` 的一行包装）。
+
+### 3.7 RF-078 派单前对照表（统筹 2026-10-03 实测，快照 `af49552`）
+
+目标：**提示词预设面板 + 提示词编辑弹窗**（advisory main↔outfit 首条 + 第二条）。
+
+| 块 | main | outfit | 差异 |
+|---|---|---|---|
+| ① | `6459-6490`（32 行） | `9335-9366` | **逐字相同**（A 类） |
+| ② | `6492-6549`（58 行） | `10054-10111` | **仅差 1 行**：main 关闭按钮多 `aria-label="关闭"`（B 类 2%） |
+
+- 合计 **约 90 行重复**。三处契约文档（`TICKETS`/`冷启动`/`MEMORY`）grep `promptPreset|editingPrompt|PromptEditor` **零命中** ⇒ **从未被裁决过**的真新债。
+- ⚠️ **这是组件级抽取，不是纯函数抽取**：要把 `promptSearch`/`editingPrompt`/`filteredPromptPresets`/`draggedPromptId`/
+  `promptCategories` 等 state 与 `beginPromptDrag`/`applyPromptPreset`/`editPromptPreset`/`updateEditingPrompt` 等回调一起带走。
+- ⚠️ **统筹已发现两侧标识符计数不同**（`promptSearch` main=5/outfit=7、`filteredPromptPresets` 3/5、`editingPrompt` 8/6、
+  `promptCategories` 12/8、`addPromptCategory` 2/3）⇒ **两侧可能存在额外差异**（例如 outfit 有额外的预设来源/分类处理）。
+  ⇒ 只读单必须先把**两侧完整对照**做出来，别只看那 90 行。
+- 🔴 **净省可能不成立**：组件壳 + 十几条 props 接线成本可能吃掉 90 行的收益。**估不出正净省就报"不做"**，这是完全可被接受的结论。
+
+### 3.8 RF-075 断言失配表（统筹 2026-10-03 实测，快照 `af49552`）
+
+`scripts/verify/local-edit-base-file-check.mjs` 现状 **31/36，5 条失败**（登记时是 1 条）。
+
+| # | 脚本行 | 断言名 | 失效原因 | 裁决修法 |
+|---|---|---|---|---|
+| 1 | 111-113 | 批量：选框裁剪用 `resolveLocalEditBaseFile(imageItem)` | `cropOutfitLocalEditFile` **全 src 已消失**（仅 `local-edit-geometry.js:430` 注释 + `dev/d2-a-class-check.mjs` 残留） | 🔴 **真僵尸** ⇒ 改断言当前接线：组件内 `resolveBaseFile(item)` + outfit 传 `resolveBaseFile={resolveLocalEditBaseFile}` |
+| 2 | 114-116 | 批量：弹窗预览用 `resolveLocalEditBaseFile(item)` | 组件搬进 `LocalEditModal.jsx` | **重定位** ⇒ 读新文件（现为 `LocalEditModal.jsx:85 const originalFile = resolveBaseFile(item);`） |
+| 3 | 164-166 | 弹窗标题显示底图尺寸与「输出同尺寸」 | 组件搬走；outfit 改为传 prop `modalDescription` | **重定位+拆分** ⇒ ①组件 `subtitle` 含 `底图 ${baseSizeText}`；②outfit 调用点传该文案 |
+| 4 | 167-169 | 选框与底图尺寸不一致时偏移警告（`staleRect`） | 组件搬走 | **重定位** ⇒ `LocalEditModal.jsx:245 const staleRect` + `:266 className="quickLocalEditWarning"` |
+| 5 | 175-179 | 快捷：弹窗同样显示底图尺寸与偏移警告 | `QuickLocalEditModal` 已删，main 也用新组件 | **与 3/4 同源** ⇒ 不再分批量/快捷重复断言；改为断言 main 调用点接线仍在 |
+
+🔴 **总裁决：重定位，不删除。** 这些是 2026-09-26「批量局部回贴 5 张全错」事故的防回归断言，价值极高，删了等于拆护栏。
+⇒ 修完必须做**负向对照**：把组件内 `resolveBaseFile(item)` 临时改成 `item?.file`（＝事故成因「上传副本优先」），
+相关断言**必须转 FAIL**；改回后 PASS。**做不到这一点就是恒真断言，验收打回**（§0.9 第 12 条）。
 
 ---
 

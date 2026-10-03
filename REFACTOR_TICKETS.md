@@ -1471,28 +1471,47 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 🔑 另一处关键坑：**ESLint 不校验 import 名**，`sharedConstrainCropRect` 不是真实导出名（真名 `constrainCropRect`）
 ⇒ 照抄别名时 ESLint 全绿、**只有 vite build 会拦**（阶段 B 首次跑即 build 失败）。
 
-#### RF-077 · 合并两个局部编辑弹窗组件（🔵 已派单 `V4.0-执行单-V15-RF-077.md`）
+#### RF-077 · 合并两个局部编辑弹窗组件（✅ 已完成 `3f85621`→`6a54062`→`af49552`，2026-10-03 验收）
 
-`QuickLocalEditModal`（main 1695-2090，396 行）↔ `OutfitLocalEditModal`（outfit 4792-5155，369 行），
-整段 diff **26 hunk / +159 −186**。交互层已由 RF-076 收口 ⇒ 剩的是**组件壳**重复，是 main↔outfit 当前最大剩余块。
-差异已由统筹做成对照表（`REFACTOR-冷启动.md` §3.5），大多可提升为 props。
-🔴 **唯一授权新建** `src/features/local-edit/LocalEditModal.jsx` ⇒ `fileCount` 57→58 ⇒ 019 会报扫描范围漂移，
-**由统筹在验收时划账更新基线**（执行者禁止改 baseline、禁止 `--update` 自愈）。
-预估净省 **≈250–320 行**。停手条件 #5：JSX 结构差异 >10 处 ⇒ 降级只做 main 侧接入。
+- 三次阶段 commit：`3f85621`(main 侧接入) `6a54062`(outfit 侧接入) `af49552`(收尾+对照组)。
+- **净省 −239**（统筹逐 commit 实测）：main 7178→**6841**、outfit 10574→**10293**、新增 `LocalEditModal.jsx` **379**
+  （落预估 250–320 低区）。两巨石占比 **69.8% → 68.0%**。
+- 门禁：019 划账后 `ok=true/dup=0/58/[]`、import-path `ok/[]/220`、ESLint **0/17**（比基线 18 少 1）
+  、`vite build` ✓6.06s、check-syntax **203/203**、对照组 `scripts/dev/rf077-control.mjs` **22/22 PASS**。
+- 🔴 **019 基线已由统筹划账**：`frontend-duplication-baseline.json` 的 `scanScope.fileCount` 57→58
+  + `files[]` 加入新组件。执行者全程未改 baseline、未用 `--update`（合规）。
+- 🔑 统筹补验：main 的 `crop`（普通裁剪）由**独立组件 `QuickCropViewportModal`** 承载；
+  BASE 的 `QuickLocalEditModal` 从未被传 `mode="crop"` ⇒ 其 crop 分支本就是死代码，新组件保留无害。
+- 🔑 执行者补正：§3.5 第 9 项 `fitRectToRatio` 未独立成 prop（改为组件内局部函数 + `lockRatioForLoad` 回退），
+  统筹复核**与两侧原实现逐字等价**，成立。
+- ⚠️ **副产物**：该单删掉 `OutfitLocalEditModal`/`QuickLocalEditModal` 后，`local-edit-base-file-check`
+  由 1 条僵尸断言恶化为 **5 条失配** ⇒ **RF-075 已升优先级**（见下）。
+
+#### RF-075 · `local-edit-base-file-check` 断言失配修复（🔵 已派单 `V4.0-执行单-V16-RF-075.md`，`scripts/` 路）
+
+🔴 **从「1 条僵尸」升级为「5 条失配」**：4 条是 RF-077 把组件搬进 `LocalEditModal.jsx` 后**断言目标文件失效**，
+1 条是 `cropOutfitLocalEditFile` 真僵尸。**总裁决：重定位，不删除**（这些是 2026-09-26 事故的防回归护栏）。
+修完必须做**负向对照**：把组件内 `resolveBaseFile(item)` 改成 `item?.file`，相关断言必须转 FAIL，否则打回。
+对照表见 `REFACTOR-冷启动.md` §3.8。
+
+#### RF-078 · 提示词预设面板 + 编辑弹窗（🔵 已派**只读设计单** `V4.0-执行单-V17-RF-078.md`）
+
+- `main.jsx:6459-6549` ↔ `outfit-workflow.jsx:9335-9366 + 10054-10111`：32 行**逐字相同** + 58 行**差 1 行**（`aria-label`），约 90 行。
+- 三处契约文档 grep `promptPreset|editingPrompt|PromptEditor` **零命中** ⇒ **从未被裁决过**的真新债。
+- ⚠️ **组件级抽取**（要带走 13+ 个 state/回调），且两侧标识符计数不同（`promptSearch` 5/7、`promptCategories` 12/8 …）
+  ⇒ 净省可能不成立；**估不出正净省就报「不做」，这是可接受的结论**。对照表见 `REFACTOR-冷启动.md` §3.7。
 
 #### 下一步（B3-7 起）
 
 **已建立冷启动入口 `REFACTOR-冷启动.md`** —— 新会话只读它 + `MEMORY.md` 即可恢复，不依赖聊天记录。
 
-当前候选（2026-10-03 RF-076 设计交付后）：
+当前候选（2026-10-03 RF-077 验收后）：
 
-1. 🔴 **RF-076 · 局部编辑交互层全量施工单**（已派单 `V4.0-执行单-V14-RF-076-全量.md`，单内 3 次阶段 commit）
-   —— A 无分叉 12 函数 + effect#3/#5 体 → B 4 个参数化函数 → C `applyLocalEdit`+接线；合计预估净省 ≈180–195 行。
-   后续：**RF-076-D**（effect#2/#4 体抽助手，已裁决暂缓，可选 ~14 行）。
+1. 🔴 **RF-075**（`scripts/` 路，已派单）+ **RF-078**（只读设计单，已派单）—— **两路并行不冲突**（scripts/ vs 只读）。
 2. **RF-074 · main.result 域** 10 fn / 123 行，耦合 **0.90**（⚠️ 只碰本域仅 5/10，需注入 8+ 跨域项）。
-3. **RF-075 · 僵尸断言清理**（`scripts/` 路，可与 src/ 路并行）：`cropOutfitLocalEditFile` 全 src 已消失。
-4. **main.prompt 域** 11 fn / 190 行，耦合 1.36。
-5. **outfit 侧完全未动**：misc 53 fn/942 行(1.23)、result 26 fn/940 行(1.15) —— 需先出只读领域设计。
+3. **main.prompt 域** 11 fn / 190 行，耦合 1.36。
+4. **outfit 侧完全未动**：misc 53 fn/942 行(1.23)、result 26 fn/940 行(1.15) —— 需先出只读领域设计。
+5. **RF-076-D**（effect#2/#4 体抽助手，已裁决暂缓，可选 ~14 行）。
 
 ⚠️ main 侧 `misc` 24 fn/546 行耦合已升至 **1.50**、`detail` 残余 12 fn/288 行升至 **2.08**、
 `canvas` 残余 8 fn/257 行 1.63 ⇒ **这三簇属编排层，不要按域抽**。
