@@ -863,8 +863,13 @@ cd "D:\源码开发\静音AI画板v4.0源码"
 > 注册顺序即中间件生效顺序，**不得重排**。每个路由单都必须先跑一次全套验证建立改前基线。
 >
 > **🔴 依赖注入契约（评审 D4 —— 对批次 4 每一张单都是硬性验收项，各单不再重复罗列）**
-> 1. 路由注册函数的入参**必须显式**：第一个参数是 `app` 实例，第二个参数是一个**外部依赖对象**
->    （叫 `deps` 或别的名字都行，但必须是一个显式形参）。**不允许**只传 `app`，然后靠模块作用域去拿别的东西。
+> 1. ✅ **路由注册函数签名（2026-10-02 修订，取代原"必须有第二个参数"）**：
+>    - **默认 `registerXxxRoutes(app)`**；
+>    - **只有当确实存在"无法 import、只能在 `index.js` 作用域构造"的依赖时**，才写 `(app, deps)`，
+>      并在**文件头逐项列出 `deps` 每个来源**。
+>    **修订理由（实测）**：`V11-RF-201` 的模块有 **18 个外部符号、全部可 import**，硬塞未使用的 `deps` 形参
+>    会让 ESLint `no-unused-vars` 直接判红 —— 那是让签名"挂空壳"。
+>    🔴 **契约精神未变**：**依赖必须显式、不得隐式抓 `index.js` 作用域**（自检句见第 3 条）。
 > 2. **不允许路由模块内部重新实例化任何共享件。** 本仓库的对应物，照此逐条核对：
 >    - **multer / 上传中间件**：`upload`、`imageForwardUpload`、`largeImageUpload`、`wrapOutfitUpload`、`IMAGE_UPLOAD_PARSE_CEILING`
 >      —— **只能**来自 `server/core/uploads.js`（import 或经 `deps` 注入）；**禁止**在路由模块里再写一次 `multer(...)`。
@@ -875,6 +880,14 @@ cd "D:\源码开发\静音AI画板v4.0源码"
 >    （局部 `const`、循环变量、注册用的包装对象）一律不得被路由模块依赖 —— 路由模块只能依赖「它自己 import 的」和「`deps` 里显式给的」。
 >    **自检办法**：把 `server/routes/<新文件>.js` 单独拿出来看，能否不打开 `server/index.js` 就讲清每个自由标识符的来处；讲不清即违反契约。
 > 4. **禁止为了"省事"引入 `express.Router()` 或第二次 `express()`**（本轮明确不引入 Router，见 §4 D-3）。
+> 5. **注册顺序的精确口径（2026-10-02 新增 —— 因为各单路由在 `index.js` 里互相穿插）**：
+>    实测各单路由并非连续（例如 **208 的 8 条被 209 的 `/api/detail-prompts` 夹在中间**）。因此"顺序不得重排"具体化为：
+>    (a) **同一模块内部**路由的**相对顺序逐字保持**；
+>    (b) 所有路由仍必须在**全部 `app.use` 中间件之后**；
+>    (c) **不得跨越任何通配 / 兜底路由**（如 `app.get("*")`、SPA 回落）；
+>    (d) 若某单路由被别的路由夹住 ⇒ **在该单"第一条路由"的位置插入注册调用**即可，
+>        但**必须在 commit message 里列出「旧顺序 vs 新顺序」的差异点**，并说明"**路径不同、无通配重叠、故功能等价**"。
+>    **只允许这种"证明过等价"的位移**；任何**跨中间件、跨通配路由**的位移一律禁止。
 >
 > **留证要求**：批次 4 每张单的 commit message 必须附一张**依赖注入表**（两列即可）：
 > 左列 = 该路由模块用到的每个外部符号；右列 = 它的来源（`import server/core/xxx.js` / `deps` 注入 / `app` 形参）。
@@ -925,9 +938,31 @@ cd "D:\源码开发\静音AI画板v4.0源码"
 #### V11-RF-203 · `routes/videos.routes.js`（视频生成与状态）
 
 - **任务类型**：【结构搬运重构】
-- **目标操作文件**：新建 `server/routes/videos.routes.js`；改 `server/index.js`（`1565 POST /api/videos/generations`、`1832 POST /api/videos/status`）
-- **前置依赖任务ID**：V11-RF-112、V11-RF-113
-- **标记**：🔴 串行
+- **目标操作文件**：新建 `server/routes/videos.routes.js`；改 **`server/app.js`**
+  （🔴 **2026-10-02 更正**：220 之后路由已不在 `index.js`（现仅 **9 行**）—— 两条视频路由的**内联 handler 现在住在 `server/app.js` 的 `110`–`496`**，
+  由 `108 registerDebugRoutes(app)` 与 `498 registerPromptsRoutes(app)` 夹在中间）
+- **前置依赖任务ID**：V11-RF-112、V11-RF-113（**均已完成**）
+- **标记**：🟢 **可开工**（原按 D-7 暂缓，2026-10-02 修订为"做"：它是**纯搬运**，**不需要视频功能可用**，沙盒 mock 即可验证）
+- **为什么仍要做**：不做则视频代码**长期住在装配层 `app.js` 里** ⇒ 日后开发视频功能会往装配层加代码，**违反刚建立的分区**。
+- **禁止修改文件清单**：G 全部；额外禁止：`server/core/video-error-policy.js`、`server/core/video-route-session.js`、
+  `server/video-config.js`、`server/billing-gateway.js`、`server/core/route-helpers.js`；**不得改**任何视频中文文案 / 错误码 / 超时数字；
+  **不得改** `VIDEO_BILLING_GATEWAY_REQUIRED` 的判定语义。
+- **验收条件**：
+  1. **AB-1 `run-all.mjs` 全部通过**（**38 项**；该端点**无专用脚本** ⇒ 沙盒差分必须逐字节）。
+  2. **AB-2 lint 棘轮基线不能新增问题**（`regressions` 为空数组）。
+  3. **依赖注入契约（批次 4 统一契约 D4）**：导出 `registerVideosRoutes(app)`（默认单参，见 D4 第 1 条修订）；
+     新模块**不得** `new Map()` 自建会话状态（`videoRouteSessions` 在 `core/video-route-session.js`，**只能 import**）；
+     commit message 必附**依赖注入表**。
+  4. **注册位置 = 原位置**：在 `app.js` 的 `108 registerDebugRoutes(app)` 与 `498 registerPromptsRoutes(app)` **之间**插入 `registerVideosRoutes(app);`，**顺序不动**。
+  5. 逐字保留：两端点响应结构、112 的四处错误/文案函数调用点、`writeGenerationLog` 的 stage 名（如 `video-generate`）、
+     113 的会话写入与**取用即删**语义、`JINGYIN_VIDEO_GATEWAY_CHANNEL_ID` 的用法。
+  6. `app.js` 里因本单而变成孤儿的 import **必须清理**（机械核查：`VIDEO_BILLING_GATEWAY_REQUIRED`、`compactLogMessage`、
+     `writeGenerationLog`、`finalizeBillingInBackground`、`createVideoRouteFromBillingTask` / `rememberVideoRouteSession` / `videoRouteForStatus` 逐个回搜）。
+- **自测校验点**：
+  - AB-4 沙盒差分：`generations`（正常 / 上游错误 / 缺 KEY / 禁用网关）+ `status`（有会话 / **无会话走兜底** / 上游错误），比对响应 JSON 与生成日志文本
+  - `.\runtime\node\node.exe scripts\verify\run-all.mjs --only routing` / `--only http-mock` / `--only generation-failure-path`
+  - **真机启动**：`node server/index.js` 能监听（018 门禁兜路径错，兜不住"漏搬函数"）
+- **真机冒烟**：**不需要**（视频功能未启用；**组 C 继续豁免**，见 §3 与 D-7）—— 但**真机启动 + 全套 38/38 必做**。
 - **禁止修改文件清单**：G 全部；额外禁止：`server/video-config.js`、`server/billing-gateway.js`
 - **验收条件**：
   1. **AB-1 `run-all.mjs` 全部通过**（注意：**该端点无专用脚本**，AB 通过不足以证明正确 → 真机冒烟不可替代）。
