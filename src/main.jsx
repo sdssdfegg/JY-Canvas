@@ -79,7 +79,7 @@ import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
 import { createDetailGroup } from "./features/detail/detail-group.js";
 import { createReferenceUpload, MAX_REFERENCE_REWRITE_FILES, makeQuickReferenceItem } from "./features/upload/reference-upload.js";
-import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
+import { LocalEditModal, ratioValue } from "./features/local-edit/LocalEditModal.jsx";
 import {
   imageFileFromUrl,
   beginImageDownloadDrag,
@@ -1160,12 +1160,6 @@ function formatStorageSize(bytes) {
   return `${size >= 100 || unit === 0 ? Math.round(size) : size.toFixed(1)} ${units[unit]}`;
 }
 
-function ratioValue(ratio) {
-  const [rawW, rawH] = String(ratio || "1:1").split(":").map((part) => Number(part));
-  const w = Number.isFinite(rawW) && rawW > 0 ? rawW : 1;
-  const h = Number.isFinite(rawH) && rawH > 0 ? rawH : 1;
-  return w / h;
-}
 
 // 选框几何统一走 src/shared/local-edit-geometry.js（批量侧 outfit-workflow.jsx 用同一份），
 // 这里保留同名局部引用，调用点不用改。

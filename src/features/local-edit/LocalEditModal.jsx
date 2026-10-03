@@ -32,7 +32,7 @@ import { LocalEditBrushTools } from "./LocalEditBrushTools.jsx";
 import { LocalEditCropOverlay } from "./LocalEditCropOverlay.jsx";
 
 // 与 src/main.jsx 同源的纯函数（仅普通裁剪自由矩形分支使用）。
-function ratioValue(ratio) {
+export function ratioValue(ratio) {
   const [rawW, rawH] = String(ratio || "1:1").split(":").map((part) => Number(part));
   const w = Number.isFinite(rawW) && rawW > 0 ? rawW : 1;
   const h = Number.isFinite(rawH) && rawH > 0 ? rawH : 1;

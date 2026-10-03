@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
-  Brush,
   Check,
   CheckSquare,
   ChevronDown,
@@ -54,15 +53,8 @@ import {
   LOCAL_EDIT_BRUSH_DEFAULT,
   LOCAL_EDIT_MASK_OPACITY_DEFAULT,
   LOCAL_EDIT_RECT_MODE,
-  canvasToPngDataUrl,
-  clampLocalEditBrushSize,
-  clampLocalEditMaskOpacity,
   createLocalEditAlphaMask,
-  expandMaskBoundsToCropRect,
   imageBitmapFromDataUrl,
-  maskBoundsFromCanvas,
-  normalizeMaskCanvas,
-  createLocalEditInteraction
 } from "./shared/local-edit-mask.js";
 import DebouncedTextarea from "./shared/DebouncedTextarea.jsx";
 import { Modal, ModalHeader } from "./shared/ui/Modal.jsx";
@@ -101,9 +93,7 @@ import {
 } from "./shared/result-image.js";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
-import { changeCropScale } from "./features/local-edit/crop-drag.js";
-import { LocalEditBrushTools } from "./features/local-edit/LocalEditBrushTools.jsx";
-import { LocalEditCropOverlay } from "./features/local-edit/LocalEditCropOverlay.jsx";
+import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
   FACT_UNRECOGNIZED,
@@ -4789,289 +4779,6 @@ function defaultLocalEditCrop(width, height, ratio) {
   // 2026-09-25：默认选框就是上次/当前选定的比例（居中、约占 62%），
   // 因为局部回贴选框必须"始终"等于所选比例。
   return fitRectToRatioLocked(null, ratio, width, height);
-}
-
-function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, onClear }) {
-  const imageRef = useRef(null);
-  const maskCanvasRef = useRef(null);
-  const dragRef = useRef(null);
-  const paintRef = useRef(null);
-  const brushResizeRef = useRef(null);
-  const maskInitRef = useRef("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
-  const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
-  const [cropRect, setCropRect] = useState(null);
-  const [editMode, setEditMode] = useState(LOCAL_EDIT_RECT_MODE);
-  const [maskTool, setMaskTool] = useState("brush");
-  const [brushSize, setBrushSize] = useState(LOCAL_EDIT_BRUSH_DEFAULT);
-  const [maskOpacity, setMaskOpacity] = useState(LOCAL_EDIT_MASK_OPACITY_DEFAULT);
-  const [brushCursor, setBrushCursor] = useState({ x: 0, y: 0, visible: false });
-  const [maskPainted, setMaskPainted] = useState(false);
-  const [maskRevision, setMaskRevision] = useState(0);
-  const [working, setWorking] = useState(false);
-  const originalFile = resolveLocalEditBaseFile(item);
-  const savedEdit = item?.localEdit || null;
-  const isMaskMode = editMode === LOCAL_EDIT_MASK_MODE;
-  const activeRatio = BATCH_LOCAL_EDIT_RATIOS.includes(ratio)
-    ? ratio
-    : BATCH_LOCAL_EDIT_RATIOS.includes(savedEdit?.aspectRatio)
-      ? savedEdit.aspectRatio
-      : BATCH_LOCAL_EDIT_RATIOS[0];
-
-  useEffect(() => {
-    if (!originalFile) return undefined;
-    const nextUrl = URL.createObjectURL(originalFile);
-    setImageUrl(nextUrl);
-    return () => URL.revokeObjectURL(nextUrl);
-  }, [originalFile]);
-
-  const localEditInteractionDeps = {
-    imageRef, setDisplaySize, maskCanvasRef, displaySize, imageSize, brushSize, maskTool, paintRef, isMaskMode, working, brushResizeRef, setBrushCursor, setMaskPainted, setCropRect, setMaskRevision, activeRatio, setBrushSize,
-    setImageSize, savedEdit, onRatioChange, enabled: true, ratios: BATCH_LOCAL_EDIT_RATIOS, editMode, setEditMode, cropRect, fitRectToRatio, lockRatioForLoad: true, lockRatioForUpdate: !isMaskMode, defaultCropRect: defaultLocalEditCrop,
-    item, cropLocalEditFile, onApply, canvasToPngDataUrl, maskOpacity, setWorking, fallbackToItem: false, rectModeTag: "local_edit"
-  };
-  const { measureImage, updateBrushCursor, beginMaskPaint, moveMaskPaint, endMaskPaint, leaveMaskPaint, clearMask, changeBrushByKeyboard, syncCropRectFromMask, chooseRatio, chooseEditMode, updateCropRect, onImageLoad, applyLocalEdit } = createLocalEditInteraction(localEditInteractionDeps);
-
-  useEffect(() => {
-    window.addEventListener("resize", measureImage);
-    return () => window.removeEventListener("resize", measureImage);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    setEditMode(savedEdit?.editMode === LOCAL_EDIT_MASK_MODE ? LOCAL_EDIT_MASK_MODE : LOCAL_EDIT_RECT_MODE);
-    setMaskPainted(Boolean(savedEdit?.editMode === LOCAL_EDIT_MASK_MODE && savedEdit?.maskDataUrl));
-    setMaskTool("brush");
-    setBrushSize(clampLocalEditBrushSize(savedEdit?.brushSize || LOCAL_EDIT_BRUSH_DEFAULT));
-    setMaskOpacity(clampLocalEditMaskOpacity(savedEdit?.maskOpacity || LOCAL_EDIT_MASK_OPACITY_DEFAULT));
-    setBrushCursor({ x: 0, y: 0, visible: false });
-    maskInitRef.current = "";
-  }, [item?.id]);
-
-  useEffect(() => {
-    if (!isMaskMode) return undefined;
-    window.addEventListener("keydown", changeBrushByKeyboard);
-    return () => window.removeEventListener("keydown", changeBrushByKeyboard);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMaskMode]);
-
-  useEffect(() => {
-    const canvas = maskCanvasRef.current;
-    if (!canvas || !imageSize.width || !imageSize.height) return;
-    const initKey = `${item?.id || "item"}:${imageSize.width}x${imageSize.height}`;
-    if (maskInitRef.current === initKey && canvas.width === imageSize.width && canvas.height === imageSize.height) return;
-    canvas.width = imageSize.width;
-    canvas.height = imageSize.height;
-    const ctx = canvas.getContext("2d");
-    ctx?.clearRect(0, 0, canvas.width, canvas.height);
-    maskInitRef.current = initKey;
-
-    if (savedEdit?.editMode === LOCAL_EDIT_MASK_MODE && savedEdit?.maskDataUrl) {
-      // 卸载/切图后 onload 仍可能触发，对已卸载组件 setState 会报警告并留下悬挂引用。
-      // 这里用 cancelled 标记把迟到的回调直接丢掉（V11-RF-050 §6.0：与 src/main.jsx 统一到带守卫版）。
-      let cancelled = false;
-      const maskImage = new Image();
-      maskImage.onload = () => {
-        if (cancelled) return;
-        const nextCtx = canvas.getContext("2d");
-        if (!nextCtx) return;
-        nextCtx.clearRect(0, 0, canvas.width, canvas.height);
-        nextCtx.drawImage(maskImage, 0, 0, canvas.width, canvas.height);
-        normalizeMaskCanvas(canvas);
-        const bounds = maskBoundsFromCanvas(canvas);
-        setMaskPainted(Boolean(bounds));
-        if (bounds) {
-          setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio) || savedEdit.cropRect || null);
-        }
-        setMaskRevision((current) => current + 1);
-      };
-      maskImage.src = savedEdit.maskDataUrl;
-      return () => {
-        cancelled = true;
-        maskImage.onload = null;
-      };
-    } else {
-      setMaskPainted(false);
-      setMaskRevision((current) => current + 1);
-    }
-  }, [activeRatio, imageSize.height, imageSize.width, item?.id, savedEdit?.editMode, savedEdit?.maskDataUrl]);
-
-  useEffect(() => {
-    syncCropRectFromMask();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRatio, imageSize.height, imageSize.width, isMaskMode, maskRevision]);
-
-  function fitRectToRatio(rect, nextRatio) {
-    if (!imageSize.width || !imageSize.height) return rect;
-    // 局部回贴：锁定比例，围绕原选框中心整形，且留在原图范围内。
-    return fitRectToRatioLocked(rect, nextRatio, imageSize.width, imageSize.height);
-  }
-
-  const cropDragCtx = { dragRef, cropRect, displaySize, imageSize, updateCropRect, activeRatio, ratioLocked: !isMaskMode };
-
-
-
-
-
-
-
-
-
-
-
-
-  const scale = imageSize.width && displaySize.width ? displaySize.width / imageSize.width : 1;
-  const cropStyle = cropRect ? {
-    left: `${cropRect.x * scale}px`,
-    top: `${cropRect.y * scale}px`,
-    width: `${cropRect.width * scale}px`,
-    height: `${cropRect.height * scale}px`
-  } : {};
-  const cropPercent = cropRect && imageSize.width ? Math.round((cropRect.width / imageSize.width) * 100) : 62;
-  const maskCanvasStyle = displaySize.width && displaySize.height ? {
-    width: `${displaySize.width}px`,
-    height: `${displaySize.height}px`,
-    opacity: isMaskMode ? maskOpacity / 100 : 0
-  } : {};
-  const brushCursorStyle = {
-    left: `${brushCursor.x}px`,
-    top: `${brushCursor.y}px`,
-    width: `${brushSize}px`,
-    height: `${brushSize}px`
-  };
-  const applyDisabled = working || !cropRect || (isMaskMode && !maskPainted);
-
-  // 尺寸口径：底图 = 用户放进图1的那张文件（= 贴回底图），输出与它同尺寸。
-  // 图片还没 onLoad 时先用上次选框记录的 sourceWidth/Height，避免标题一闪是空的。
-  const baseSizeText = formatPixelSize(imageSize.width, imageSize.height)
-    || formatPixelSize(savedEdit?.sourceWidth, savedEdit?.sourceHeight);
-  // 选框是在另一张不同尺寸的图上框的 → 坐标会错位，必须提醒重新框选（"不能出现偏移"）。
-  const staleRect = Boolean(
-    savedEdit?.sourceWidth
-    && imageSize.width
-    && (Math.round(savedEdit.sourceWidth) !== Math.round(imageSize.width)
-      || Math.round(savedEdit.sourceHeight || 0) !== Math.round(imageSize.height))
-  );
-
-  return (
-    <Modal
-      layerClassName="modalLayer previewLayer"
-      panelClassName="quickLocalEditModal"
-      onClose={onClose}
-    >
-      <ModalHeader
-        title="局部回贴"
-        subtitle={<>{originalFile?.name || "上传图片"} · 底图 {baseSizeText || "读取中…"} · 生成后贴回同一坐标，输出同尺寸 · {activeRatio}</>}
-        onClose={onClose}
-        closeLabel="关闭"
-      />
-      {staleRect && (
-        <p className="quickLocalEditWarning" role="alert">
-          已保存的选框是在 {formatPixelSize(savedEdit?.sourceWidth, savedEdit?.sourceHeight)} 的图上框的，
-          当前底图是 {baseSizeText}：坐标对不上，请重新框选后再应用（否则会贴偏移）。
-        </p>
-      )}
-        <div className="quickLocalEditStage">
-          <div className="quickLocalEditImageWrap">
-            {imageUrl && (
-              <img
-                ref={imageRef}
-                src={imageUrl}
-                alt=""
-                draggable={false}
-                onLoad={onImageLoad}
-              />
-            )}
-            <canvas
-              ref={maskCanvasRef}
-              className={`quickLocalMaskCanvas ${isMaskMode ? "active" : ""}`}
-              style={maskCanvasStyle}
-              onPointerDown={beginMaskPaint}
-              onPointerMove={moveMaskPaint}
-              onPointerUp={endMaskPaint}
-              onPointerCancel={endMaskPaint}
-              onPointerEnter={(event) => updateBrushCursor(event)}
-              onPointerLeave={leaveMaskPaint}
-              onContextMenu={(event) => event.preventDefault()}
-            />
-            <LocalEditCropOverlay
-              isMaskMode={isMaskMode}
-              brushCursor={brushCursor}
-              maskTool={maskTool}
-              brushCursorStyle={brushCursorStyle}
-              cropRect={cropRect}
-              displaySize={displaySize}
-              cropStyle={cropStyle}
-              maskPainted={maskPainted}
-              cropDragCtx={cropDragCtx}
-            />
-          </div>
-        </div>
-        <div className="quickLocalEditControls">
-          <div className="quickLocalModeGroup" role="group" aria-label="局部编辑模式">
-            <button
-              className={editMode === LOCAL_EDIT_RECT_MODE ? "active" : ""}
-              type="button"
-              onClick={() => chooseEditMode(LOCAL_EDIT_RECT_MODE)}
-            >
-              <Crop size={14} />
-              <span>框选区域</span>
-            </button>
-            <button
-              className={editMode === LOCAL_EDIT_MASK_MODE ? "active" : ""}
-              type="button"
-              onClick={() => chooseEditMode(LOCAL_EDIT_MASK_MODE)}
-            >
-              <Brush size={14} />
-              <span>涂抹蒙版</span>
-            </button>
-          </div>
-          <div className="quickLocalRatioGroup" role="group" aria-label="局部区域比例">
-            {BATCH_LOCAL_EDIT_RATIOS.map((itemRatio) => (
-              <button
-                key={itemRatio}
-                className={activeRatio === itemRatio ? "active" : ""}
-                type="button"
-                onClick={() => chooseRatio(itemRatio)}
-              >
-                {itemRatio}
-              </button>
-            ))}
-          </div>
-          <LocalEditBrushTools
-            isMaskMode={isMaskMode}
-            maskTool={maskTool}
-            setMaskTool={setMaskTool}
-            brushSize={brushSize}
-            setBrushSize={setBrushSize}
-            maskOpacity={maskOpacity}
-            setMaskOpacity={setMaskOpacity}
-            clearMask={clearMask}
-            maskPainted={maskPainted}
-            cropPercent={cropPercent}
-            onCropScaleChange={(event) => changeCropScale(event, cropDragCtx)}
-          />
-          {cropRect && <small>{isMaskMode ? "上下文 " : ""}{Math.round(cropRect.width)} × {Math.round(cropRect.height)} px</small>}
-        </div>
-        <footer>
-          <span>{isMaskMode ? "涂抹需要 AI 修改的区域，生成后只把涂抹部分羽化贴回原图。" : "拖动选区调整位置，生成后会用羽化边缘贴回原图。"}</span>
-          <div>
-            {savedEdit && (
-              <button className="smallButton" type="button" onClick={isMaskMode ? clearMask : () => onClear(item.id)}>
-                {isMaskMode ? <Brush size={15} /> : <RefreshCw size={15} />}
-                <span>{isMaskMode ? "清除涂抹" : "取消局部回贴"}</span>
-              </button>
-            )}
-            <button className="smallButton" type="button" onClick={onClose}>取消</button>
-            <button className="generateButton quickLocalApplyButton" type="button" onClick={applyLocalEdit} disabled={applyDisabled}>
-              {working ? <Loader2 size={16} className="spin" /> : isMaskMode ? <Brush size={16} /> : <Scissors size={16} />}
-              <span>{isMaskMode ? "应用蒙版回贴" : "应用局部回贴"}</span>
-            </button>
-          </div>
-        </footer>
-    </Modal>
-  );
 }
 
 function resizeSettingsFingerprint(settings, cropSignature = "") {
@@ -10427,13 +10134,25 @@ function buildTasks(countOverride = plannedGenerationCount) {
       )}
 
       {localEditTarget && (
-        <OutfitLocalEditModal
+        <LocalEditModal
           item={localEditTarget.item}
           ratio={settings.aspectRatio}
           onRatioChange={(ratio) => updateSetting("aspectRatio", ratio)}
           onClose={() => setLocalEditTarget(null)}
           onApply={(itemId, cropped) => applyLocalEditItem(localEditTarget.group, itemId, cropped)}
           onClear={(itemId) => clearLocalEditItem(localEditTarget.group, itemId)}
+          mode="local"
+          resolveBaseFile={resolveLocalEditBaseFile}
+          ratios={BATCH_LOCAL_EDIT_RATIOS}
+          resolveActiveRatio={(r, se) => BATCH_LOCAL_EDIT_RATIOS.includes(r) ? r : BATCH_LOCAL_EDIT_RATIOS.includes(se?.aspectRatio) ? se.aspectRatio : BATCH_LOCAL_EDIT_RATIOS[0]}
+          defaultCropRect={defaultLocalEditCrop}
+          fallbackToItem={false}
+          lockRatioForLoad={true}
+          modalDescription="生成后贴回同一坐标，输出同尺寸"
+          maskHint="涂抹需要 AI 修改的区域，生成后只把涂抹部分羽化贴回原图。"
+          rectHint="拖动选区调整位置，生成后会用羽化边缘贴回原图。"
+          baseSizePlaceholder="读取中…"
+          clearIconName="RefreshCw"
         />
       )}
 
