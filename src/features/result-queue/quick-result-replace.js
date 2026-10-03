@@ -9,8 +9,23 @@
 //
 // ⚠️ 跨文件引用只写函数名、不写行号：行号随任意一侧的编辑就会漂移，
 //    后人按图索骥只会被引到错处，刻意不补。
+//
+// 🔴 本文件的函数是 main.jsx 单侧实现。outfit 侧存在同名/对位函数
+//    （clearAll / deleteSelected / deleteResult ↔ deleteResultTask /
+//     flashDownloadFeedback（1300ms 有清理 vs 1100ms 无清理）/
+//     resultDragDownloadName ↔ taskDragDownloadName（字段优先级与序号规则不同）/
+//     blobFromImageItem ↔ blobFromOutfitImage），
+//     已在 V11-RF-058 / RF-052 判为【真分叉，登记不搬】。
+//     ⇒ 严禁与 outfit 侧统一；本文件不向 outfit 侧共享。
 
 import { imageSourceFromResult } from "../../shared/models.js";
+import {
+  beginImageDownloadDrag,
+  dragDownloadDateStamp,
+  padDragDownloadNumber,
+  referenceSource
+} from "../../shared/result-image.js";
+import { fetchImageBlob } from "../../api/assets.js";
 
 export function createQuickResultReplace(deps) {
   const {
@@ -99,5 +114,169 @@ export function createQuickResultReplace(deps) {
     clearQuickResultDragState,
     handleQuickResultReplaceDragOver,
     handleQuickResultReplaceDrop
+  };
+}
+
+// === RF-074 阶段 1 · result/download 域（main.jsx 单侧抽出的 B3 工厂）===
+// 十个函数体从 src/main.jsx 逐字搬来，一字未改；依赖全部经 deps 注入，
+// 解构保持同名 ⇒ main.jsx 里 20 余处调用点零改动。
+export function createResultDownload(deps) {
+  const {
+    quickResults,
+    selectedIds,
+    addEvent,
+    quickResultDragIdRef,
+    QUICK_RESULT_DRAG_TYPE,
+    copyText,
+    saveDirectory,
+    refreshSaveDirectory,
+    setSaveDirectory,
+    setDirectoryDraft,
+    setDownloadFeedbackIds,
+    downloadFeedbackTimersRef
+  } = deps;
+
+  async function blobFromImageItem(item) {
+    const src = imageSourceFromResult(item?.image);
+    if (!src) throw new Error("图片地址无效");
+    return fetchImageBlob(src, "图片下载失败");
+  }
+
+  function resultDragDownloadName(item, fallbackIndex = null) {
+    const savedName = item?.savedFilename || item?.filename;
+    if (savedName) return savedName;
+    // 拖拽下载无法读取目标文件夹序号，使用生成日期时间+列表序号避免模型名反复重名。
+    const createdAt = Number(item?.createdAt || item?.submittedAt || Date.now());
+    const sequence = Number.isFinite(fallbackIndex)
+      ? fallbackIndex + 1
+      : Math.max(1, Math.round(createdAt % 100000));
+    return `静音AI绘画-${dragDownloadDateStamp(createdAt)}-${padDragDownloadNumber(sequence, 4)}`;
+  }
+
+  function beginResultImageDrag(event, item, fallbackIndex = null) {
+    const src = imageSourceFromResult(item?.image);
+    if (!src) return;
+    beginImageDownloadDrag(event, src, resultDragDownloadName(item, fallbackIndex), item?.image);
+    event.dataTransfer.setData("application/x-jingyin-result-id", item.id || "");
+    event.dataTransfer.setData(QUICK_RESULT_DRAG_TYPE, item.id || "");
+    event.dataTransfer.effectAllowed = "copyMove";
+    quickResultDragIdRef.current = item.id || "";
+  }
+
+  function beginReferenceImageDrag(event, reference, index = 0) {
+    const src = referenceSource(reference);
+    beginImageDownloadDrag(event, src, reference?.name || reference?.label || `参考图-${index + 1}`);
+  }
+
+  async function copyImage(item) {
+    const src = imageSourceFromResult(item?.image);
+    try {
+      const blob = await blobFromImageItem(item);
+      if (navigator.clipboard?.write && window.ClipboardItem) {
+        await navigator.clipboard.write([new window.ClipboardItem({ [blob.type || "image/png"]: blob })]);
+        addEvent("复制", "图片已复制到剪贴板");
+        return;
+      }
+      await copyText(src, "图片地址已复制");
+    } catch {
+      await copyText(src, "图片地址已复制");
+    }
+  }
+
+  async function downloadItem(item, _index = 0) {
+    try {
+      const directory = saveDirectory || await refreshSaveDirectory();
+      const response = await fetch("/api/save-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          directory,
+          item
+        })
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload?.ok) throw new Error(payload?.message || "保存图片失败");
+      setSaveDirectory(payload.directory);
+      setDirectoryDraft(payload.directory);
+      flashDownloadFeedback(item.id);
+      addEvent("下载", `已保存到 ${payload.filename}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      addEvent("下载失败", message);
+    }
+  }
+
+  async function autoSaveGeneratedItems(items) {
+    if (!items?.length) return 0;
+    let savedCount = 0;
+    try {
+      const directory = saveDirectory || await refreshSaveDirectory();
+      for (const item of items) {
+        const response = await fetch("/api/save-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            directory,
+            item
+          })
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.ok) throw new Error(payload?.message || "保存图片失败");
+        setSaveDirectory(payload.directory);
+        setDirectoryDraft(payload.directory);
+        savedCount += 1;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      addEvent("自动保存失败", message);
+    }
+    return savedCount;
+  }
+
+  function flashDownloadFeedback(id) {
+    if (!id) return;
+    setDownloadFeedbackIds((current) => {
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
+    const previousTimer = downloadFeedbackTimersRef.current.get(id);
+    if (previousTimer) window.clearTimeout(previousTimer);
+    const timer = window.setTimeout(() => {
+      setDownloadFeedbackIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+      downloadFeedbackTimersRef.current.delete(id);
+    }, 1300);
+    downloadFeedbackTimersRef.current.set(id, timer);
+  }
+
+  async function downloadSelected() {
+    let saved = 0;
+    for (const [index, item] of quickResults.entries()) {
+      if (selectedIds.has(item.id)) void downloadItem(item, index);
+      if (selectedIds.has(item.id)) saved += 1;
+    }
+    if (saved > 0) addEvent("下载选中", `已提交 ${saved} 张保存任务`);
+  }
+
+  async function downloadAll() {
+    quickResults.forEach((item, index) => void downloadItem(item, index));
+    if (quickResults.length > 0) addEvent("下载全部", `已提交 ${quickResults.length} 张保存任务`);
+  }
+
+  return {
+    blobFromImageItem,
+    resultDragDownloadName,
+    beginResultImageDrag,
+    beginReferenceImageDrag,
+    copyImage,
+    downloadItem,
+    autoSaveGeneratedItems,
+    flashDownloadFeedback,
+    downloadSelected,
+    downloadAll
   };
 }
