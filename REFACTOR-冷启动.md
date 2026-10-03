@@ -84,7 +84,7 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 |---|---|---|---|
 | ~~0~~ | ~~**RF-072 · 修 3 个浏览器探针脚本**~~ | 各 +2 行 | ✅ **已完成 `9b223ca`**（2026-10-03） |
 | ~~1~~ | ~~**RF-073 · 参数化收口** `addReferenceRewriteFiles` ↔ `addDetailFiles`~~ | 实测 **−7 行** | ✅ **已完成 `7d7f264`**（2026-10-03，对照表见 §3.1）。advisory **171/2731 → 170/2712**；人工冒烟（上传/删除）已通过 |
-| **1** | 🔴 **RF-076 · 局部编辑交互层** `main.jsx:1739-2089` ↔ `outfit-workflow.jsx:4831-5152` | **352 / 322 行，约 20 个函数** | **本轮派单（§3.2，只读领域设计单，不写 src 代码）**。全场**体量最大**的单块重复。统筹已实测整段 diff：**8 处差异、≥5 处真业务分叉**，且**含 5 个 `useEffect`（deps 数组两侧不同）** ⇒ **B3 工厂吃不下**（工厂不得含 hook）⇒ 先出设计，再由统筹拆成若干施工单 |
+| **1** | 🔴 **RF-076 · 局部编辑交互层** `main.jsx:1739-2089` ↔ `outfit-workflow.jsx:4831-5152` | 实测 **351 / 322 行**：18 个具名函数 + 5 个 `useEffect` + 1 渲染对象 | ✅ **只读设计单已交付 `65037d5`**（`V4.0-设计-RF-076-局部编辑交互层.md`，220 行，零 src 改动）。结论：**能搬**，预估净省 **≈180–195 行**，拆 3 单；**施工单 A 本轮已派** `V4.0-执行单-V13-RF-076-A.md`。详见下方 §3.3 裁决 |
 | 2 | **RF-074 · main.result 域** | 10 fn / 123 行，耦合 **0.90**（全场最低可搬量级） | ⚠️ 只碰本域仅 5/10（50%）⇒ 需注入跨域参数（`selectedIds`/`setActiveView`/`saveDirectory`/`setDetailInfoSelection` 等 8+ 项）。其中 `downloadItem` 实为 **directory 域**（误归类）。开工前必须重测 |
 | 3 | **RF-075 · 僵尸断言清理** | 1 条断言 | `scripts/` 路（可与 src/ 路并行）：`local-edit-base-file-check` 里 `cropOutfitLocalEditFile` 全 src 已不存在 ⇒ **恒失败**。⚠️ 注意该文件里**已有一处同类僵尸断言被标注移除**，本次是第二处 |
 | 4 | **main.prompt 域** | 11 fn / 190 行，耦合 **1.36** | 中等 |
@@ -129,12 +129,13 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 | 1 | 「编辑模式」初始化 `useEffect` | `isLocalMode && savedEdit?...`；deps `[item?.id, isLocalMode]` | 无 `isLocalMode`；deps `[item?.id]` | 🔴 **真分叉**：main 组件**兼管普通裁剪 + 局部编辑**，outfit 侧**只做局部编辑** |
 | 2 | mask canvas 初始化 `useEffect` 守卫 | `!canvas \|\| !isLocalMode \|\| ...` | 无 `!isLocalMode` | 🔴 真分叉（同 #1） |
 | 3 | 注释文字 | 「见资源生命周期要求」 | 「V11-RF-050 §6.0：与 src/main.jsx 统一到带守卫版」 | ⚪ 假分叉（注释） |
-| 4 | mask 初始化收尾 | **无条件** `setMaskPainted(false)` + `setMaskRevision+1` | **只在 `else` 分支**才做 | 🔴🔴 **真分叉（行为差异）**，不是写法差异 ⇒ 参数化必须能表达"是否无条件重置" |
+| 4 | mask 初始化收尾 | `if(savedMaskData){…return}` + 后续**穿透** `setMaskPainted(false)` | `if{…return} else {同一逻辑}` | ✅ **已结算：假分叉**（统筹原判「🔴🔴真分叉/行为差异」**判错**，RF-076 执行者纠正、统筹已复核）：main `1819` 的 `setMaskPainted(false)` 在 savedMask 为真时被 `1814` 的 `return` 挡住**不可达**；outfit `4910 else` 同样只在无已存蒙版时触发 ⇒ **两侧行为完全等价**，纯 `穿透` vs `else` 写法差异 ⇒ **无需参数化** |
 | 5 | `onImageLoad` 初始选框 | 三元 `ratioLocked ? fitRectToRatioLocked : constrainCropRect`；默认 `defaultQuickLocalEditCrop` | 恒 `fitRectToRatioLocked`；默认 `defaultLocalEditCrop` | 🔴 真分叉（main 保留**普通裁剪自由矩形**语义）+ 常量不同源 |
 | 6 | `fitRectToRatio` | `ratioLocked` 分支 + **~30 行自由矩形算法** | 只一行 `fitRectToRatioLocked` | 🔴 真分叉，**行数差最大处**（diff hunk 57→21） |
 | 7 | `chooseLocalRatio` / `chooseRatio` | `!isLocalMode \|\| QUICK_LOCAL_EDIT_RATIOS.includes` | `BATCH_LOCAL_EDIT_RATIOS.includes` | 🔴 真分叉（守卫 + 比例常量表） |
 | 8 | `chooseEditMode` | `!isLocalMode \|\| nextMode === editMode` | 无 `isLocalMode` | 🔴 真分叉（同 #1） |
-| 9 | `updateCropRect` | 判据 `ratioLocked`；`constrainCropRect` | 判据 `!isMaskMode`；`constrainLocalEditRect` | 🔴🔴 **真分叉（判据语义不同，不是同一变量的两个名字）** + 约束函数不同源 |
+| 9 | `updateCropRect` | 判据 `ratioLocked`（`= isLocalMode && !isMaskMode`，1725）；`constrainCropRect` | 判据 `!isMaskMode`；`constrainLocalEditRect` | 🔴🔴 **判据是真分叉**（不是同一变量换名字）⇒ 参数化 `lockRatio`，各传原值（见下方核验）。✅ **但"约束函数不同源"是错的**（统筹原判，RF-076 执行者纠正）：`main.jsx:1186 const constrainCropRect = sharedConstrainCropRect` / `outfit-workflow.jsx:3043 const constrainLocalEditRect = sharedConstrainCropRect` ⇒ **同一个函数的两个别名**，工厂直接调 `sharedConstrainCropRect`，**不计入差异** |
+| 11 | `applyLocalEdit` 第四参 | `cropLocalEditFile(..., isLocalMode ? "local_edit" : "crop", { fallbackToItem: true })` | `cropLocalEditFile(..., "local_edit")`（**无第四参**） | 🔴 真分叉（`fallbackToItem`）——🔑 **统筹已实测定案**：`local-edit-geometry.js:438` 的默认解构是 `{ fallbackToItem = false } = {}` ⇒ **省略 ≠ true，等于 false**。⇒ outfit 侧**必须显式传 `false`**（与省略等价），main 传 `true`。两侧语义是**「无原图时抛错」 vs 「兜底回 item」**，按 §6.10 #16 参数化、**严禁统一**；对照组**必须有一条反证**（无原图：main 仍成功 / outfit 仍抛「缺少原图」） |
 | 10 | `cropDragCtx` | `ratioLocked` | `ratioLocked: !isMaskMode` | 🔴 同 #9 |
 | 11 | `applyLocalEdit` | `cropLocalEditFile(..., isLocalMode ? "local_edit" : "crop", { fallbackToItem: true })` | `cropLocalEditFile(..., "local_edit")`（**无第四参**） | 🔴 真分叉（`fallbackToItem`，§6.10 已记：#16 用**参数化**处置、两侧各传原值，**不得统一**） |
 | 12 | 区域尾部 | — | 多出 `cropPercent` / `maskCanvasStyle` / `brushCursorStyle` | 🔴 **渲染期变量**（在组件体里算 style）⇒ **不能进工厂**，必须留在两侧 |
@@ -143,8 +144,25 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 （`[item?.id, isLocalMode]` vs `[item?.id]` 等）。B3 定型形态是**普通工厂**（不 import React、无 `useState/useCallback/useMemo`）
 ⇒ **`useEffect` 一律进不了工厂** ⇒ 这块**不可能整体搬**，只能是「纯函数/事件处理器进工厂 + effect 与渲染变量留在组件」。
 
-⇒ 因此本单派的是**只读领域设计单**（不写 src 代码），让执行者把上面的预判逐条复核并给出可施工的拆分方案，
-再由统筹裁决后拆成若干施工单。**不要在没出设计前直接开施工**。
+⇒ 因此本单先派了**只读领域设计单**（已交付 `65037d5`）。设计复核结论：
+12 项差异中 **10 项与统筹一致，2 项执行者纠偏（④⑨，统筹已复核确认错误）**：
+④ mask 初始化收尾**实为假分叉**（main `1814 return` ⇒ `1819` 不可达 ≡ outfit `4910 else`）；
+⑨ `constrainCropRect` 与 `constrainLocalEditRect` **同为 `sharedConstrainCropRect` 别名**（非不同源）。
+
+### 3.3 RF-076 设计交付后的统筹裁决（2026-10-03，快照 `65037d5`）
+
+> 对应设计文档 §8.3 的三个待裁决项，**逐条定案**：
+
+| 待裁决项 | 裁决 | 依据 |
+|---|---|---|
+| ① 落点：追加既有 `src/shared/local-edit-mask.js` vs 新建 `interaction.js` | ✅ **追加既有 `local-edit-mask.js`** | 零新建文件 ⇒ `fileCount` 不变 ⇒ **不触发 019 扫描漂移、不需划账**（§7「同域第二批一律追加进既有文件」）。文件名虽偏 mask，但已是本域共享枢纽。🔴 注意 **`src/local-edit-mask.js`（46 字节转发壳）不许删**（§9 四个一行转发壳之一），它与 `src/shared/local-edit-mask.js` 是两个文件，别混 |
+| ② `applyLocalEdit` 省略第四参是否等价 `true` | ❌ **不等价，等于 `false`** | 统筹实测 `src/shared/local-edit-geometry.js:438`：`{ fallbackToItem = false } = {}` ⇒ 省略默认 **false**。两侧语义 = 「outfit 无原图**抛错**」vs「main 兜底回 item」⇒ **参数化 `fallbackToItem`**：main 传 `true`，outfit **显式传 `false`**（与省略等价但更明确）。**严禁统一任一侧**；对照组必须有一条反证 |
+| ③ effect#2/#4 体是否抽 `initLocalEditBaseline` / `loadMaskIntoCanvas` 助手 | ⏸ **暂不做**，登记为 **RF-076-D 候选** | 可选收益仅 ~14 行，但 effect#2/#4 属 ③ 真分叉区（deps 两侧不同），动它需额外对照成本，**风险收益比不划算**。等 A/B/C 三单落地后再评估 |
+| 附带：`fitRectToRatio` 是否搬 | ❌ **不搬** | 采纳设计结论：outfit 侧已是 shared 薄壳 ⇒ **非重复**（mermaid 式"看着像重复其实不是"，§7「'字节一致'≠'可搬'」的反面教材） |
+
+⚠️ **留给施工单的一条硬约束**：`ratioLocked` 必须以 `lockRatio` 入参由**两侧各传原值**
+（main 传 `isLocalMode && !isMaskMode`，outfit 传 `!isMaskMode`）。
+**严禁统一成 `!isMaskMode`** —— 那会让 main 的**普通裁剪**也开始吸附比例，**静默改行为**（§6 原则 1：放宽 > 收窄）。
 
 ---
 

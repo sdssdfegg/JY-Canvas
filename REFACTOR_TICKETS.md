@@ -1430,14 +1430,45 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 ⚠️ 归档缺口：对照组脚本落在 `tmp/rf073-control.mjs`（`tmp/` 被 gitignore）⇒ **未随 commit 留存**。
 ⇒ 固化要求：**后续各单的对照组脚本一律落 `scripts/dev/`**（可留存、可复跑），不得再用 `tmp/`。
 
+#### RF-076 · 局部编辑交互层 只读领域设计单（✅ 已交付 `65037d5`，220 行，零 src 改动）
+
+产出 `V4.0-设计-RF-076-局部编辑交互层.md`。区域：`src/main.jsx:1739-2089`（**351** 行）↔
+`src/outfit-workflow.jsx:4831-5152`（**322** 行）= **18 个具名函数 + 5 个 `useEffect` + 1 个渲染对象**。
+
+- **判定**：可搬(**无分叉**) 12 个 + 可搬(**参数化**) 5 个；不可搬整体 2 个 ——
+  `fitRectToRatio`（outfit 侧已是 shared 薄壳 ⇒ **非重复**）、`cropDragCtx`（渲染对象）。
+- **useEffect 边界**：① 整体留组件 ×1 / ② effect 留组件但体抽进工厂 ×2 / ③ 真分叉留组件 ×2。
+  **无任何"把 useEffect 搬进工厂"的方案**（工厂不得含 hook）。
+- **预估净省 ≈180–195 行**，拆 3 单；落点追加既有 `src/shared/local-edit-mask.js`（零新建文件）。
+- 执行者**纠偏统筹 §3.2 两处**，统筹已复核确认**是我判错**：
+  - ④ mask 初始化收尾 ⇒ **实为假分叉**：main `1814 return` ⇒ `1819 setMaskPainted(false)` **不可达**，
+    与 outfit `4910 else` 行为**完全等价**（非"行为差异"）。
+  - ⑨ `constrainCropRect`(main 1186) 与 `constrainLocalEditRect`(outfit 3043) ⇒
+    **同为 `sharedConstrainCropRect` 的别名**，非"不同源"。
+
+🔑 **统筹裁决**（写进冷启动 §3.3）：
+1. 落点 = 追加既有 `src/shared/local-edit-mask.js`（🔴 与 46 字节转发壳 `src/local-edit-mask.js` **是两个文件**，后者不许删）。
+2. `fallbackToItem` **省略 ≠ true** —— 统筹实测 `shared/local-edit-geometry.js:438` `{ fallbackToItem = false } = {}`
+   ⇒ main 传 `true`、outfit **显式传 `false`**；两侧是「兜底回 item」vs「抛『缺少原图』」，**严禁统一**，对照组须有反证。
+3. effect#2/#4 体抽助手 ⇒ **暂缓**，登记 **RF-076-D**（收益 ~14 行 vs 额外对照成本，不划算）。
+4. `fitRectToRatio` **不搬**（非重复）。
+
+#### RF-076-A · 施工单（`V4.0-执行单-V13-RF-076-A.md`，🔵 已派单）
+
+范围：12 个无分叉纯函数 + effect#3/#5 体。选它做第一单的理由：这 14 个成员**全部落在 `diff -u` 无 hunk 的区间内**
+⇒ 两侧逐字相同 ⇒ **零参数化、零行为变化**，是整块里唯一能"闭眼验收"的一批。
+
 #### 下一步（B3-7 起）
 
 **已建立冷启动入口 `REFACTOR-冷启动.md`** —— 新会话只读它 + `MEMORY.md` 即可恢复，不依赖聊天记录。
 
-当前候选（2026-10-03 RF-073 后重测）：
-1. 🔴 **RF-076 · 局部编辑交互层**（`main.jsx:1739-2089` ↔ `outfit-workflow.jsx:4831-5152`，**352/322 行、约 20 个函数**）
-   —— 全场体量最大的单块重复。统筹已出整段 diff 对照表（`REFACTOR-冷启动.md` §3.2）：**8 处差异 / ≥5 处真业务分叉**，
-   且**含 5 个 `useEffect`（deps 数组两侧不同）** ⇒ B3 工厂吃不下 ⇒ **先派只读领域设计单**，裁决后再拆施工单。
+当前候选（2026-10-03 RF-076 设计交付后）：
+
+1. 🔴 **RF-076-A · 局部编辑交互层施工单**（已派单 `V4.0-执行单-V13-RF-076-A.md`）
+   —— 12 个无分叉纯函数 + effect#3/#5 体，**零参数化、零行为变化**，12/18 成员、预估净省 ≈125 行。
+   后续：**RF-076-B**（4 个参数化函数 `enabled`/`ratios`/`lockRatio`/`defaultCropRect`）
+   → **RF-076-C**（`applyLocalEdit` + 接线）→ **RF-076-D**（effect#2/#4 体抽助手，可选，已裁决暂缓）。
+   🔴 **B/C/D 必须在 A 单验收通过后再派**，不要一次做完。
 2. **RF-074 · main.result 域** 10 fn / 123 行，耦合 **0.90**（⚠️ 只碰本域仅 5/10，需注入 8+ 跨域项）。
 3. **RF-075 · 僵尸断言清理**（`scripts/` 路，可与 src/ 路并行）：`cropOutfitLocalEditFile` 全 src 已消失。
 4. **main.prompt 域** 11 fn / 190 行，耦合 1.36。
