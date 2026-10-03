@@ -39,6 +39,7 @@ const APP_PORT = 8812;
 const GEOMETRY_FILE = path.join(ROOT, "src", "shared", "local-edit-geometry.js");
 const OUTFIT_FILE = path.join(ROOT, "src", "outfit-workflow.jsx");
 const MAIN_FILE = path.join(ROOT, "src", "main.jsx");
+const MODAL_FILE = path.join(ROOT, "src", "features", "local-edit", "LocalEditModal.jsx");
 // 后端源码真相源（index.js + core/routes/shared 下所有模块）统一由共享模块收集，
 // 后续 Phase 拆分（搬到 routes/shared）后脚本无需逐个改：见 ./lib/server-sources.mjs。
 const SERVER_SOURCES = listServerSourceFiles();
@@ -103,17 +104,19 @@ function check(name, pass, detail = "") {
 const geometrySrc = readFileSync(GEOMETRY_FILE, "utf8");
 const outfitSrc = readFileSync(OUTFIT_FILE, "utf8");
 const mainSrc = readFileSync(MAIN_FILE, "utf8");
+const modalSrc = readFileSync(MODAL_FILE, "utf8");
 
 check("共享模块导出 resolveLocalEditBaseFile 且规则是「原图优先」",
   /export function resolveLocalEditBaseFile\(item\)\s*\{[\s\S]{0,400}?return item\.originalFile \|\| item\.file \|\| null;/.test(geometrySrc),
   "src/shared/local-edit-geometry.js");
 
-check("批量：选框裁剪用 resolveLocalEditBaseFile(imageItem)",
-  /const originalFile = resolveLocalEditBaseFile\(imageItem\);/.test(outfitSrc),
-  "cropOutfitLocalEditFile");
-check("批量：局部回贴弹窗预览用 resolveLocalEditBaseFile(item)",
-  /const originalFile = resolveLocalEditBaseFile\(item\);/.test(outfitSrc),
-  "OutfitLocalEditModal");
+check("批量：选框裁剪底图走 resolveBaseFile(item)，且 outfit 注入 resolveLocalEditBaseFile",
+  /const originalFile = resolveBaseFile\(item\);/.test(modalSrc)
+    && /resolveBaseFile=\{resolveLocalEditBaseFile\}/.test(outfitSrc),
+  "LocalEditModal + outfit 调用点");
+check("快捷：局部回贴弹窗同样注入原图优先的 resolveBaseFile",
+  /resolveBaseFile=\{quickReferenceOriginalFile\}/.test(mainSrc),
+  "main 调用点");
 check("批量：诊断快照用 resolveLocalEditBaseFile(task?.modelItem)",
   /localEditFileSnapshot\(resolveLocalEditBaseFile\(task\?\.modelItem\)\)/.test(outfitSrc),
   "localEditTaskBindingSnapshot");
@@ -162,21 +165,20 @@ check("批量：贴回尺寸异常时会明确报事件（而不是静默）",
   /if \(!localPasteSizes\.matches\) \{[\s\S]{0,200}?addEvent\("贴回尺寸异常"/.test(outfitSrc),
   "matches=false 分支");
 check("批量：局部回贴弹窗标题显示底图尺寸与「输出同尺寸」",
-  /底图 \{baseSizeText \|\| "读取中…"\} · 生成后贴回同一坐标，输出同尺寸/.test(outfitSrc),
-  "OutfitLocalEditModal");
+  /底图 \$\{baseSizeText\}/.test(modalSrc)
+    && /modalDescription="生成后贴回同一坐标，输出同尺寸"/.test(outfitSrc),
+  "LocalEditModal subtitle + outfit modalDescription");
 check("批量：选框与当前底图尺寸不一致时给出偏移警告",
-  /const staleRect = Boolean\(/.test(outfitSrc) && /className="quickLocalEditWarning" role="alert"/.test(outfitSrc),
+  /const staleRect = Boolean\(/.test(modalSrc) && /className="quickLocalEditWarning" role="alert"/.test(modalSrc),
   "staleRect");
 check("批量：图1缩略图同时显示局部选框尺寸与局部回贴底图尺寸",
   /thumbSizeRef\.current\.get\(item\.id\)/.test(outfitSrc)
     && /局部 \$\{formatPixelSize\(item\.localEdit\.cropRect\.width, item\.localEdit\.cropRect\.height\)\} · 底图 \$\{formatPixelSize\(item\.localEdit\.sourceWidth, item\.localEdit\.sourceHeight\)\}/.test(outfitSrc)
     && /上传 \$\{formatPixelSize\(thumbSizeRef\.current\.get\(item\.id\)\.width/.test(outfitSrc),
   "UploadZone thumbMeta");
-check("快捷：局部回贴弹窗同样显示底图尺寸与偏移警告",
-  /const baseSizeText = formatPixelSize\(imageSize\.width, imageSize\.height\)/.test(mainSrc)
-    && /className="quickLocalEditWarning" role="alert"/.test(mainSrc)
-    && /const staleRect = Boolean\(/.test(mainSrc),
-  "QuickLocalEditModal");
+check("快捷：局部回贴弹窗接线仍在（main 侧同样接入共享组件）",
+  /<LocalEditModal/.test(mainSrc) && /item=\{quickLocalEditTarget\}/.test(mainSrc),
+  "main 调用点");
 check("服务端：把该事件写进任务日志（标题 + 底图/输出尺寸 + 一致性）",
   /"client-generation-local-paste-composed": "局部回贴贴回合成完成"/.test(serverSrc)
     && /贴回底图尺寸：\$\{localPaste\.base\}/.test(serverSrc)
