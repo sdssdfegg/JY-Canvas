@@ -1510,7 +1510,7 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 - 🔴 **方法论修正**（已写进冷启动 §4.1）：**「三处契约文档 grep 零命中 ⇒ 从未被裁决」这条判据作废** ——
   裁决可能写在 `src/shared/**/*.js` **文件头注释**里。**派单前必须四处 grep**（含 `src/shared/`），否则会把已裁决的债当新债重开一单。
 
-#### RF-074 · main.result/download 域（✅ 设计 `ec66dc9` 已完 ｜ 🔵 **施工单已派 `V4.0-执行单-V20-RF-074-施工.md`**）
+#### RF-074 · main.result/download 域（✅ 设计 `ec66dc9` ｜ ✅ **施工已完成 `9d45283`+`a5f07d0`+`33a4527`**）
 
 > 📌 **施工单要点**（单里已写全，此处留索引）：stage 1 `createResultDownload`（download 族 10 fn ≈121 行）
 > → stage 2 `createResultActions`（result/history 族 7 fn + 内部 `removeDetailResultIds`，≈76 行）；
@@ -1541,7 +1541,7 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 - ⚠️ 域归属需执行者重判：`removeDetailResultIds` 可能属 detail 域、`beginReferenceImageDrag`(45 行) 可能属 upload 域、
   `refreshHistory`/`syncHistoryFromServer` 可能属 history 域 ⇒ **不许为凑数把异域函数塞进同一工厂**。
 
-#### RF-079 · outfit.result/task 域（🔵 **本轮派只读领域设计单 `V4.0-执行单-V21-RF-079.md`**）
+#### RF-079 · outfit.result/task 域（✅ **只读设计已完成 `c1616a5`，结论：做，A≈976**）
 
 - 对象 `src/outfit-workflow.jsx` 的 result/task 域：**统筹配平法实测 83 函数 / 1919 行**
   （`fn-extent.mjs` + 域名正则粗筛，域归属待执行者重判）。
@@ -1582,24 +1582,25 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 
 **已建立冷启动入口 `REFACTOR-冷启动.md`** —— 新会话只读它 + `MEMORY.md` 即可恢复，不依赖聊天记录。
 
-当前状态（**2026-10-03 派 V20/V21，快照 `5635b04`**）：
+当前状态（**2026-10-03 V20/V21 双单完成、统筹实测复核，快照 `33a4527`**）：
 
 > 🔑 **阶段已切换：转入功能开发，重构降为低优先的慢车道。**
 > 依据 = 冷启动 §1.6 的六道门禁全绿（019 dup0/fileCount58、check-syntax 全过、
-> ESLint 16 ≤ 基线、vite build ✓、run-all 全套浏览器探针）。
+> ESLint 16 ≤ 基线、vite build ✓、run-all 全套浏览器探针）；**V20/V21 收工后统筹重跑六道门禁仍全绿**
+> （含 vite build 重验、字节卫生 dirtyFiles=0、RF-074 两份对照组共 **120 项 ALL PASS**）。
 > 下面是**有空再做**的存量，**不再是阻塞项**。
 
-**🚧 在跑（两条并行，零抢文件）**
+**✅ 已完成（两条并行，零抢文件，均过统筹实测复核）**
 
-| 单 | 对象 | 性质 | 预期收益 |
+| 单 | 对象 | 性质 | 实测收益 |
 |---|---|---|---|
-| **V20 · RF-074 施工** | `src/main.jsx` + 追加既有 `features/result-queue/quick-result-replace.js` | B3 单侧拆分（两阶段 commit） | **A ≈ 195**（main.jsx 瘦身） |
-| **V21 · RF-079 只读设计** | `src/outfit-workflow.jsx` result/task 域（83 fn / 1919 行） | 只读出设计，**不施工** | 回答 A，**决定下一张施工单** |
+| **V20 · RF-074 施工** | `src/main.jsx` + 追加既有 `features/result-queue/quick-result-replace.js` | B3 单侧拆分（两阶段 commit `9d45283`+`a5f07d0`+`33a4527`） | **A = −211 行**（main 6841→6630）；零新建文件；对照组 120 项 ALL PASS |
+| **V21 · RF-079 只读设计** | `src/outfit-workflow.jsx` result/task 域 | 只读出设计，**不施工**（文档 `c1616a5`） | 结论：**做**，A≈976 行；落点改 `src/features/outfit/outfit-task.js`（fileCount 58→59 划账） |
 
 **候选队列（V20/V21 完成后从这里取）**
 
 1. ✅ **RF-078-b 已完成 `91ad725`**（outfit −39；引入的二进制污染已由统筹修于 `9e5be71`）。
-2. 🔵 **RF-079 施工单**（待 V21 设计结论；若 "做" 则为下一主线）。
+2. 🟢 **RF-079 施工单（已批准，下一主线）**：落点 `src/features/outfit/outfit-task.js`，**新建 1 文件 ⇒ fileCount 58→59 需划账**（V21 §5.3 已论证代价可接受、A≈976 远超阈值）；形态走**普通模块导出**（非 B3 工厂，因 indent=0 函数不依赖组件 state）。与 main 侧真分叉，严禁统一。
 3. 🆕 **跨巨石块克隆 11 组 / ≈176 有效行**（本轮新工具扫出的债，见下方债登记第 7 条）。
 4. **main.prompt 域** 11 fn / 190 行，耦合 1.36 —— ⚠️ 其中 33 行落在 RF-078 已裁决区体内，需先核对裁决覆盖面。
 5. **outfit 侧 misc 域** 53 fn / 942 行（1.23）—— 与 RF-079 同属 outfit，需排队避免抢文件。

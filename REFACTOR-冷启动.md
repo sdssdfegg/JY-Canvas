@@ -17,17 +17,17 @@
 
 ---
 
-## 1. 现状快照（2026-10-03 **17:5x** 实测，快照 `7a1328a`）
+## 1. 现状快照（2026-10-03 **20:5x** 实测，快照 `33a4527`）
 
 | 项 | 值 |
 |---|---|
-| `src/main.jsx` | **6841** 行（RF-073 −16 → RF-076 **−224** → RF-077 **−337**） |
+| `src/main.jsx` | **6630** 行（RF-073 −16 → RF-076 **−224** → RF-077 **−337** → **RF-074 −211**） |
 | `src/outfit-workflow.jsx` | **10256** 行（RF-076 **−215** → RF-077 **−281** → RF-078-b **−39** → 清垃圾 +2） |
-| 两巨石合计 | **17097** 行 / 占比 **67.9%**（起点 18867 / 74.6%） |
+| 两巨石合计 | **16886** 行 / 占比 **66.9%**（起点 18867 / 74.6%） |
 | `src/shared/` | 4345 行（RF-076 工厂 +263） |
-| `src/features/` | 2018 行（js+jsx，含 RF-077 新增 `local-edit/LocalEditModal.jsx` 379）+ 546 行 css |
-| js/jsx 文件数 | **58** / 总 **25171** 行 |
-| 019 基线 `fileCount` | **58**（RF-077 已由统筹划账：57→58；RF-078-b 未新建文件故不划账） |
+| `src/features/` | 2311 行（js+jsx，含 RF-077 新增 `local-edit/LocalEditModal.jsx` 379、RF-074 给 `result-queue/quick-result-replace` +293）+ 546 行 css |
+| js/jsx 文件数 | **58** / 总 **25253** 行 |
+| 019 基线 `fileCount` | **58**（RF-077 已由统筹划账：57→58；RF-078-b 未新建文件故不划账；**RF-074 零新建故不划账**） |
 | ESLint 全仓 | errors=0 / **warnings=16**（src 15 + `server/routes/outfit.routes.js` 1） |
 
 > ⚠️ 两个口径别混用：全仓 **16**，src 单独 **15**。
@@ -37,7 +37,7 @@
 
 已抽出的 `src/features/` 模块（13 个）：
 `auth/api-key`(67) `canvas/canvas-actions`(313) `canvas/canvas-graph`(102) `detail/detail-group`(272)
-`local-edit/*`(721,含 3 个 jsx，**RF-077 新增 `LocalEditModal.jsx` 379**) `result-queue/quick-result-replace`(103)
+`local-edit/*`(721,含 3 个 jsx，**RF-077 新增 `LocalEditModal.jsx` 379**) `result-queue/quick-result-replace`(**396**，RF-074 追加两工厂)
 `savedir/save-directory`(91) `upload/reference-upload`(**203**，RF-073 −16) `video/video-composer`(146)
 
 **刷新命令**（一条，**不要用旧版那条**）：
@@ -78,6 +78,22 @@ node scripts/dev/snapshot-refresh.mjs
 | ESLint 全仓 | 0 errors / **16** warnings（基线 16，**无超基线组**） |
 | `vite build` | ✓ 1636 modules，产物 732.80 kB（gzip 228 kB） |
 | 全套 `run-all` ORDER | **38 项：净结果全绿**（判定方法见下 ⚠️） |
+
+### 1.6.1 V20/V21 收工复核（2026-10-03，快照 `33a4527`）
+
+两个并行单（V20=RF-074 施工 / V21=RF-079 只读设计）由执行者交付后，**统筹重跑六道门禁实测复核，全部仍为绿**：
+
+| 门禁 | 结果 |
+|---|---|
+| `source-hygiene-check` | ok，**dirtyFiles=0**（确认 RF-078-b 的二进制污染未复发） |
+| `frontend-duplication-check`（019） | ok / `duplicateCount`=0 / `fileCount`=**58** / `scannedFiles`=58（零新建，无范围漂移） |
+| `import-path-check` | ok / 220 specifiers / 0 violations |
+| `check-syntax` | **216/216** |
+| ESLint 全仓 | 0 errors / **16** warnings（精确等于基线，零回归） |
+| `vite build` | ✓ 1636 modules，5.91s（**唯一能验 import 名**的门禁，ESLint 抓不到） |
+| RF-074 两份对照组 | phaseA **59 项 ALL PASS** / phaseB **61 项 ALL PASS**（含 `flashDownloadFeedback-1300ms` 断言 ⇒ 未与 outfit 1100ms 统一；负向对照 `no-undef 命中 2 条` ⇒ harness 灵敏） |
+
+**实测结论**：V20 把 main.jsx 从 6841 降到 **6630（A=−211 行）**，零新建 src 文件、18 个函数整体搬出、薄壳位置正确无 TDZ；V21 为纯只读设计（仅 +667 行文档，outfit 源码 10256 行零改动），结论**做**、A≈976。两单均通过，阶段切换结论（转功能开发）**再次确认有效**。
 
 ### ⚠️ 跑全套验证的正确姿势（本轮实测得出，不照做会得到假结论）
 
