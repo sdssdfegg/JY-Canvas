@@ -1,16 +1,17 @@
 {
-  "note": "ESLint 棘轮基线：按「文件|规则」记条数，只用来拦新增问题。刷新方式：npm run lint:baseline",
-  "generatedAt": "2026-10-02",
+  "note": "ESLint 棘轮基线：按「文件|规则」记条数，只用来拦新增问题。刷新方式：npm run lint:baseline。2026-10-03 由统筹划账（不是 npm run lint:baseline 无脑刷新）：RF-077 把两侧巨石的局部编辑弹窗合并成 src/features/local-edit/LocalEditModal.jsx，两条 exhaustive-deps 是跟着 useEffect 一起搬过来的（main 7→5、outfit 9→7 各减 2，正好对得上），属转移而非新增 ⇒ 登记进来；总数 18→16 是净改善，不是放宽标准。",
+  "generatedAt": "2026-10-03",
   "eslintVersion": "9.39.4",
   "totals": {
     "errors": 0,
-    "warnings": 18,
-    "total": 18
+    "warnings": 16,
+    "total": 16
   },
   "counts": {
     "server/routes/outfit.routes.js|no-unused-vars": 1,
-    "src/main.jsx|react-hooks/exhaustive-deps": 7,
-    "src/outfit-workflow.jsx|react-hooks/exhaustive-deps": 9,
-    "src/shared/ui/cached-image.jsx|react-hooks/exhaustive-deps": 1
+    "src/main.jsx|react-hooks/exhaustive-deps": 5,
+    "src/outfit-workflow.jsx|react-hooks/exhaustive-deps": 7,
+    "src/shared/ui/cached-image.jsx|react-hooks/exhaustive-deps": 1,
+    "src/features/local-edit/LocalEditModal.jsx|react-hooks/exhaustive-deps": 2
   }
 }

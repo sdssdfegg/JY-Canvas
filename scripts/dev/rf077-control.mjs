@@ -116,7 +116,6 @@ function evalExpr(expr, bindings) {
 }
 
 // ---- 对某份组件源码，在给定输入下算出派生值 ----
-const STUB = () => {};
 function deriveAll(src, input) {
   const names = ["originalFile", "isLocalMode", "savedEdit", "isMaskMode", "ratioLocked", "activeRatio", "lockRatioForLoadValue"];
   const rhs = {};

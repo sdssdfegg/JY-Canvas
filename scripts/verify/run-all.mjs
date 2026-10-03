@@ -46,6 +46,11 @@ const ORDER = [
   //   额外带「扫描范围漂移」自检：基线口径与当前口径不一致即判红（98/104/22 三次数字反复
   //   的根因就是口径漂移静默改了结论）。存量 22 条记账、新增即失败。纯源码检查，跑得快。
   "frontend-duplication-check",
+  // 2026-10-03 新增：源码字节卫生（NUL / 控制字符 / 非法 UTF-8）。
+  // 起因是 RF-078-b 给 outfit-workflow.jsx 的注释混进二进制垃圾 —— 运行无感
+  // （build/ESLint 全绿）却让 grep 把整块巨石判为 binary，审计能力静默失效。
+  // 无基线无棘轮，纯字节扫描，跑得飞快。
+  "source-hygiene-check",
   // auth-key-parity：前后端 KEY 清洗规则逐用例一致（登记表第 13 行"后续可抽共享测试用例"）。
   // runtime-config-baseline：守住 server/core/runtime-config.js 的默认值
   // （超时 / 并发 / 缓存策略都是历史实测调校出来的，改了不报错、只改出图行为，
