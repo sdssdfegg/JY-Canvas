@@ -8,6 +8,9 @@ import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
 const FILE = "src/outfit-workflow.jsx";
+// 🔴 BASE 必须锁死在「本阶段之前」的 commit（af49552 = RF-077 收尾）。
+//    写成 HEAD 会在本单 commit 后退化成自比较（恒真），这是 RF-076 阶段的教训。
+const BASE = "af49552";
 const ABS = path.resolve(FILE);
 const CACHE_DIR = ".vite-cache";
 process.env.JINGYIN_VITE_CACHE_DIR = CACHE_DIR;
@@ -250,18 +253,27 @@ check("NEG-PROPS-DIFF", () => {
   return { note: `注入一侧 activeCategory 差异 ⇒ 比较器报出 ${diff.length} 项不同（比较器有效，非恒真）` };
 });
 
-// —— ESLint 全集比对：HEAD 版 ↔ 工作区版 ——
+// —— ESLint 全集比对：BASE(af49552) 版 ↔ 工作区版 ——
 try {
-  const headSrc = await gitShow("HEAD:src/outfit-workflow.jsx");
-  const headMsgs = await eslint.lintText(headSrc, { filePath: ABS }).then((rs) => rs[0].messages);
-  const nowMsgs = await eslint.lintText(src, { filePath: ABS }).then((rs) => rs[0].messages);
-  const key = (m) => `${m.ruleId}|${String(m.message).replace(/at line \d+/g, "at line N")}`;
-  const setA = new Map(); const setB = new Map();
-  for (const m of headMsgs) setA.set(key(m), m);
-  for (const m of nowMsgs) setB.set(key(m), m);
-  const added = [...setB.keys()].filter((k) => !setA.has(k));
-  const gone = [...setA.keys()].filter((k) => !setB.has(k));
-  results.push({ name: "LINT-SET-EQUAL", pass: added.length === 0 && gone.length === 0, note: `HEAD ${setA.size} 条 / 改后 ${setB.size} 条；新增 ${added.length} 消失 ${gone.length}${added.concat(gone).length ? " :: " + added.concat(gone).join(" | ") : ""}` });
+  const baseSrc = await gitShow(`${BASE}:src/outfit-workflow.jsx`);
+  // 自证 BASE 取对了版本：BASE 里必须还没有本组件（否则比对退化成自比较 ⇒ 恒真）
+  if (baseSrc.includes("PromptPresetGrid")) {
+    results.push({ name: "LINT-SET-EQUAL", pass: false, note: `BASE ${BASE} 里已含 PromptPresetGrid ⇒ 基准取错，比对会退化成自比较` });
+  } else {
+    const baseMsgs = await eslint.lintText(baseSrc, { filePath: ABS }).then((rs) => rs[0].messages);
+    const nowMsgs = await eslint.lintText(src, { filePath: ABS }).then((rs) => rs[0].messages);
+    const key = (m) => `${m.ruleId}|${String(m.message).replace(/at line \d+/g, "at line N")}`;
+    const setA = new Map(); const setB = new Map();
+    for (const m of baseMsgs) setA.set(key(m), m);
+    for (const m of nowMsgs) setB.set(key(m), m);
+    const added = [...setB.keys()].filter((k) => !setA.has(k));
+    const gone = [...setA.keys()].filter((k) => !setB.has(k));
+    results.push({
+      name: "LINT-SET-EQUAL",
+      pass: added.length === 0 && gone.length === 0,
+      note: `BASE(${BASE}) ${setA.size} 条 / 工作区 ${setB.size} 条；新增 ${added.length} 消失 ${gone.length}${added.concat(gone).length ? " :: " + added.concat(gone).join(" | ") : ""}`
+    });
+  }
 
   // 文件内注入负向对照（不改磁盘文件）：必须正好命中 no-unused-vars + no-undef
   const injected = src.replace("export default function OutfitWorkflow({", "const zzzUnused = notDefinedAnywhere;\n\nexport default function OutfitWorkflow({");
@@ -274,8 +286,8 @@ try {
 
 // —— BASE 切块逐字相同（异步）——
 try {
-  const headSrc = await gitShow("HEAD:src/outfit-workflow.jsx");
-  const hl = headSrc.split("\n").map((l) => (l.endsWith("\r") ? l.slice(0, -1) : l));
+  const baseSrc = await gitShow(`${BASE}:src/outfit-workflow.jsx`);
+  const hl = baseSrc.split("\n").map((l) => (l.endsWith("\r") ? l.slice(0, -1) : l));
   const ao = hl.findIndex((l) => l.trim() === '<div className="promptAssistantDock">');
   let ac = -1; for (let i = ao + 1; i < ao + 200; i += 1) if (hl[i] === "            </div>") { ac = i; break; }
   const bo = hl.findIndex((l) => l.trim() === '<div className="promptAssistantBody">');
@@ -283,10 +295,13 @@ try {
   const A = hl.slice(ao + 1, ac); const B = hl.slice(bo + 1, bc);
   let first = -1;
   for (let i = 0; i < Math.max(A.length, B.length); i += 1) if (A[i] !== B[i]) { first = i; break; }
+  // 自证：BASE 版本必须是「抽之前」的形态（75 行、以 promptTabs 开头），
+  // 否则说明 BASE 取到了本单之后的 commit，这条会退化成自比较 ⇒ 恒真。
+  const shapeOk = A.length === 75 && A[0].trim() === '<div className="promptTabs">';
   results.push({
     name: "BASE-SLICE-EQUAL",
-    pass: A.length === B.length && first === -1 && A.length > 0,
-    note: `HEAD 版两处：A ${ao + 2}-${ac} 行 / B ${bo + 2}-${bc} 行，inner 各 ${A.length}/${B.length} 行，首个差异索引=${first}`
+    pass: shapeOk && A.length === B.length && first === -1,
+    note: `BASE(${BASE}) 两处：A ${ao + 2}-${ac} 行 / B ${bo + 2}-${bc} 行，inner 各 ${A.length}/${B.length} 行，首个差异索引=${first}${shapeOk ? "" : "（形态不符：BASE 不是抽取前的版本）"}`
   });
 } catch (e) {
   results.push({ name: "BASE-SLICE-EQUAL", pass: false, note: `EXCEPTION ${e.message}` });
