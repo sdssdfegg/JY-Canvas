@@ -17,17 +17,17 @@
 
 ---
 
-## 1. 现状快照（2026-10-03 **20:5x** 实测，快照 `33a4527`）
+## 1. 现状快照（2026-10-04 **07:1x** 实测，快照 `0c14169`）
 
 | 项 | 值 |
 |---|---|
-| `src/main.jsx` | **6630** 行（RF-073 −16 → RF-076 **−224** → RF-077 **−337** → **RF-074 −211**） |
-| `src/outfit-workflow.jsx` | **10256** 行（RF-076 **−215** → RF-077 **−281** → RF-078-b **−39** → 清垃圾 +2） |
-| 两巨石合计 | **16886** 行 / 占比 **66.9%**（起点 18867 / 74.6%） |
-| `src/shared/` | 4345 行（RF-076 工厂 +263） |
-| `src/features/` | 2311 行（js+jsx，含 RF-077 新增 `local-edit/LocalEditModal.jsx` 379、RF-074 给 `result-queue/quick-result-replace` +293）+ 546 行 css |
-| js/jsx 文件数 | **58** / 总 **25253** 行 |
-| 019 基线 `fileCount` | **58**（RF-077 已由统筹划账：57→58；RF-078-b 未新建文件故不划账；**RF-074 零新建故不划账**） |
+| `src/main.jsx` | **6630** 行（RF-073 −16 → RF-076 **−224** → RF-077 **−337** → RF-074 **−211**） |
+| `src/outfit-workflow.jsx` | **9268** 行（RF-076 **−215** → RF-077 **−281** → RF-078-b **−39** → 清垃圾 +2 → **RF-079 −988**） |
+| 两巨石合计 | **15898** 行 / 占比 **62.8%**（起点 18867 / 74.6%） |
+| `src/shared/` | 4345 行 |
+| `src/features/` | **3380** 行（js+jsx，含 RF-079 新建 `outfit/outfit-task.js` **1069**）+ 546 行 css |
+| js/jsx 文件数 | **59** / 总 **25334** 行 |
+| 019 基线 `fileCount` | **59**（RF-077 57→58；**RF-079 58→59 已于 2026-10-04 由统筹划账**；RF-078-b / RF-074 零新建故不划账） |
 | ESLint 全仓 | errors=0 / **warnings=16**（src 15 + `server/routes/outfit.routes.js` 1） |
 
 > ⚠️ 两个口径别混用：全仓 **16**，src 单独 **15**。
@@ -35,10 +35,11 @@
 > `shared/ui/cached-image.jsx` 1 + server 1，全部是 `react-hooks/exhaustive-deps`（server 那条是 `no-unused-vars`）。
 > 基线 18→16 是**净改善**（RF-077 搬走 4 条 effect 告警，同时给新组件带来 2 条转移登记），详见 §1.6。
 
-已抽出的 `src/features/` 模块（13 个）：
+已抽出的 `src/features/` 模块（14 个）：
 `auth/api-key`(67) `canvas/canvas-actions`(313) `canvas/canvas-graph`(102) `detail/detail-group`(272)
 `local-edit/*`(721,含 3 个 jsx，**RF-077 新增 `LocalEditModal.jsx` 379**) `result-queue/quick-result-replace`(**396**，RF-074 追加两工厂)
 `savedir/save-directory`(91) `upload/reference-upload`(**203**，RF-073 −16) `video/video-composer`(146)
+**`outfit/outfit-task.js`(1069，RF-079 新建 —— 普通模块导出，非 B3 工厂)**
 
 **刷新命令**（一条，**不要用旧版那条**）：
 ```bash
