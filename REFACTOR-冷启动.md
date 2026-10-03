@@ -1,6 +1,7 @@
 # REFACTOR-冷启动.md · 新会话唯一入口
 
 > **用途**：任何新 AI 会话开工前，先读**这一个文件** + `.workbuddy/memory/MEMORY.md`（172 行）即可恢复全部上下文。
+> **本文档只管「重构」**。要**新增功能**时读 **`REFACTOR-新功能开发规范.md`**（防大文件复发的长效约束）。
 > **不要靠聊天记录流转** —— 聊天会截断，磁盘不会。
 > 本文档**每次收口时必须刷新**（行数、候选域、进度都会变）。最后实测：2026-10-03。
 
@@ -50,6 +51,18 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 
 ---
 
+## 1.5 run-all 4 项失败的归因（2026-10-03 已查清，**非代码回归**，别重复查）
+
+| 脚本 | 结论 | 处置 |
+|---|---|---|
+| `lint-ratchet-check` | **已修（`6726618`）**。51 组"新增"中 48 组来自根目录**未跟踪的垃圾副本 `verify/`**（54 文件，与 `scripts/verify` 逐字相同、无代码引用它，但被 `eslint .` 扫到且不在 Node 全局变量组 ⇒ 48 组 no-undef 假阳性）；另 3 组是本轮自建测量脚本的真债。已把副本移到 `tmp/_verify-legacy-20261003/`（可恢复）+ 修 3 处 ⇒ **超基线组数 51 → 0**，未动基线、未用 `--update` | 已绿 |
+| `local-edit-base-file-check` / `resize-long-edge-check` / `modal-shell-check` | 三者**同一个根因**：喂给 `tabbit-cli` 的 program 里 `page.goto` **没有设 `setDefaultNavigationTimeout`**，用 playwright 默认 30s；而 vite 冷启动首次编译 >30s ⇒ goto 超时抛错 ⇒ program 无返回值 ⇒ CLI 回执 `result.value` 为 null ⇒ 脚本降级为"浏览器回执无法解析（长度 ~1KB）"。**非探针 CLI 故障**（手动跑 `console.log("probe-ok")` 67ms 即 `status:"succeeded"`） | **RF-072**，见 §3 |
+
+🔑 教训：`eslint .` 的扫描范围是**全仓**，任何游离目录都会污染棘轮；新增 `eslint` 看不到
+的目录前，先确认它在 `eslint.config.mjs` 的哪个 `files` 组里。
+
+---
+
 ## 2. 两条线（**永不在同一单混做**）
 
 - **线 A · 块级克隆清零** —— 已完成，地毯扫描（shared 131 函数 × 三文件本地函数）**0 处漏搬**。
@@ -67,6 +80,7 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 
 | 序 | 候选 | 实测规模 | 说明 |
 |---|---|---|---|
+| 0 | **RF-072 · 修 3 个浏览器探针脚本**（`local-edit-base-file-check` / `resize-long-edge-check` / `modal-shell-check`） | 各 +1 行 | 🔴 **建议最先做**：这三个脚本的浏览器验证**从未真正执行过**（一直降级为"探针未执行"），等于三条验证是空的。修法：在喂给 `tabbit-cli` 的 program 开头加 `page.setDefaultNavigationTimeout(150000);`。**属于修脚本健壮性缺陷，不是放宽判据** —— 修完要确认它们真的跑出了 facts，而不是继续假通过 |
 | 1 | **参数化收口**：`addReferenceRewriteFiles`(features/upload) ↔ `addDetailFiles`(main.jsx) | 约 −35 行 | 同构近克隆（差 42%，仅差 state 对/常量/事件前缀）。RF-070 搬进新文件后 advisory 才第一次看见它。**按"参数化"处置，两侧各传原值，严禁统一成任一侧** |
 | 2 | **main.result 域** | 10 fn / 123 行，耦合 **0.90**（当前最低） | 低垂果实 |
 | 3 | **main.prompt 域** | 11 fn / 190 行，耦合 1.36 | 中等 |
