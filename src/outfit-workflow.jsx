@@ -5724,6 +5724,95 @@ function LegacyModulePanel({ title, subtitle, icon, children }) {
   );
 }
 
+// RF-078-b�:̈́�b{u~ + " + ��Q<	\`��!9�q( � JSX
+function PromptPresetGrid(props) {
+  const {
+    categories, activeCategory, onSelectCategory, dropCategory, onDropCategoryChange,
+    search, onSearchChange, presets, draggedId, onApplyPreset, onRenamePreset,
+    onRenameCategory, onDropPresetToCategory, onAddCategory, onCreatePreset,
+    onBeginDrag, onEndDrag, onDropPresetToPreset, onEditPreset, onDeletePreset
+  } = props;
+  return (
+    <>
+      <div className="promptTabs">
+        {categories.map((category) => (
+          <button
+            className={`promptTab ${activeCategory === category ? "active" : ""} ${dropCategory === category ? "dropTarget" : ""}`}
+            key={category}
+            type="button"
+            onClick={() => onSelectCategory(category)}
+            onDoubleClick={(event) => {
+              if (category === "全部") return;
+              event.preventDefault();
+              event.stopPropagation();
+              onRenameCategory(category);
+            }}
+            onDragOver={(event) => {
+              if (category === "全部") return;
+              event.preventDefault();
+              onDropCategoryChange(category);
+            }}
+            onDragLeave={() => onDropCategoryChange("")}
+            onDrop={(event) => onDropPresetToCategory(event, category)}
+          >
+            {category}
+          </button>
+        ))}
+        <button className="promptTab promptCategoryAdd" type="button" onClick={onAddCategory} title="新建分类">
+          <Plus size={13} />
+          <span>新建</span>
+        </button>
+      </div>
+      <label className="promptSearch">
+        <Search size={16} />
+        <input
+          value={search}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="搜索标题或内容..."
+        />
+      </label>
+      <button className="newPromptButton" type="button" onClick={onCreatePreset}>
+        <Plus size={15} />
+        <span>新建提示词</span>
+      </button>
+      <div className="promptPresetGrid">
+        {presets.map((preset) => (
+          <div
+            className={`promptChip ${draggedId === preset.id ? "dragging" : ""}`}
+            key={preset.id}
+            draggable
+            onDragStart={(event) => onBeginDrag(event, preset.id)}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => onDropPresetToPreset(event, preset.id)}
+            onDragEnd={onEndDrag}
+          >
+            <button
+              className="promptChipMain"
+              type="button"
+              onClick={() => onApplyPreset(preset)}
+              onDoubleClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onRenamePreset(preset);
+              }}
+              title={preset.content}
+            >
+              {preset.title}
+            </button>
+            <button className="promptChipIcon" type="button" onClick={() => onEditPreset(preset)} title="编辑提示词">
+              <Pencil size={14} />
+            </button>
+            <button className="promptChipIcon" type="button" onClick={() => onDeletePreset(preset)} title="删除">
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+        {presets.length === 0 && <p className="promptEmpty">没有找到匹配的提示词</p>}
+      </div>
+    </>
+  );
+}
+
 export default function OutfitWorkflow({
   view = "outfit",
   hostTheme = "dark",
@@ -9309,81 +9398,17 @@ function buildTasks(countOverride = plannedGenerationCount) {
             icon={<BookOpen size={22} />}
           >
             <div className="promptAssistantDock">
-              <div className="promptTabs">
-                {promptCategories.map((category) => (
-                  <button
-                    className={`promptTab ${promptCategory === category ? "active" : ""} ${promptDropCategory === category ? "dropTarget" : ""}`}
-                    key={category}
-                    type="button"
-                    onClick={() => setPromptCategory(category)}
-                    onDoubleClick={(event) => {
-                      if (category === "全部") return;
-                      event.preventDefault();
-                      event.stopPropagation();
-                      renamePromptCategory(category);
-                    }}
-                    onDragOver={(event) => {
-                      if (category === "全部") return;
-                      event.preventDefault();
-                      setPromptDropCategory(category);
-                    }}
-                    onDragLeave={() => setPromptDropCategory("")}
-                    onDrop={(event) => dropPromptOnCategory(event, category)}
-                  >
-                    {category}
-                  </button>
-                ))}
-                <button className="promptTab promptCategoryAdd" type="button" onClick={addPromptCategory} title="新建分类">
-                  <Plus size={13} />
-                  <span>新建</span>
-                </button>
-              </div>
-              <label className="promptSearch">
-                <Search size={16} />
-                <input
-                  value={promptSearch}
-                  onChange={(event) => setPromptSearch(event.target.value)}
-                  placeholder="搜索标题或内容..."
-                />
-              </label>
-              <button className="newPromptButton" type="button" onClick={openNewPromptEditor}>
-                <Plus size={15} />
-                <span>新建提示词</span>
-              </button>
-              <div className="promptPresetGrid">
-                {filteredPromptPresets.map((preset) => (
-                  <div
-                    className={`promptChip ${draggedPromptId === preset.id ? "dragging" : ""}`}
-                    key={preset.id}
-                    draggable
-                    onDragStart={(event) => beginPromptDrag(event, preset.id)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => dropPromptOnPreset(event, preset.id)}
-                    onDragEnd={endPromptDrag}
-                  >
-                    <button
-                      className="promptChipMain"
-                      type="button"
-                      onClick={() => schedulePromptPresetApply(preset)}
-                      onDoubleClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        renamePromptPresetTitle(preset);
-                      }}
-                      title={preset.content}
-                    >
-                      {preset.title}
-                    </button>
-                    <button className="promptChipIcon" type="button" onClick={() => editPromptPreset(preset)} title="编辑提示词">
-                      <Pencil size={14} />
-                    </button>
-                    <button className="promptChipIcon" type="button" onClick={() => deletePromptPreset(preset)} title="删除">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-                {filteredPromptPresets.length === 0 && <p className="promptEmpty">没有找到匹配的提示词</p>}
-              </div>
+              <PromptPresetGrid
+                categories={promptCategories} activeCategory={promptCategory} onSelectCategory={setPromptCategory}
+                dropCategory={promptDropCategory} onDropCategoryChange={setPromptDropCategory}
+                search={promptSearch} onSearchChange={setPromptSearch}
+                presets={filteredPromptPresets} draggedId={draggedPromptId}
+                onApplyPreset={schedulePromptPresetApply} onRenamePreset={renamePromptPresetTitle}
+                onRenameCategory={renamePromptCategory} onDropPresetToCategory={dropPromptOnCategory}
+                onAddCategory={addPromptCategory} onCreatePreset={openNewPromptEditor}
+                onBeginDrag={beginPromptDrag} onEndDrag={endPromptDrag} onDropPresetToPreset={dropPromptOnPreset}
+                onEditPreset={editPromptPreset} onDeletePreset={deletePromptPreset}
+              />
             </div>
           </LegacyModulePanel>
         </section>
@@ -9990,81 +10015,17 @@ function buildTasks(countOverride = plannedGenerationCount) {
               </button>
             </header>
             <div className="promptAssistantBody">
-              <div className="promptTabs">
-                {promptCategories.map((category) => (
-                  <button
-                    className={`promptTab ${promptCategory === category ? "active" : ""} ${promptDropCategory === category ? "dropTarget" : ""}`}
-                    key={category}
-                    type="button"
-                    onClick={() => setPromptCategory(category)}
-                    onDoubleClick={(event) => {
-                      if (category === "全部") return;
-                      event.preventDefault();
-                      event.stopPropagation();
-                      renamePromptCategory(category);
-                    }}
-                    onDragOver={(event) => {
-                      if (category === "全部") return;
-                      event.preventDefault();
-                      setPromptDropCategory(category);
-                    }}
-                    onDragLeave={() => setPromptDropCategory("")}
-                    onDrop={(event) => dropPromptOnCategory(event, category)}
-                  >
-                    {category}
-                  </button>
-                ))}
-                <button className="promptTab promptCategoryAdd" type="button" onClick={addPromptCategory} title="新建分类">
-                  <Plus size={13} />
-                  <span>新建</span>
-                </button>
-              </div>
-              <label className="promptSearch">
-                <Search size={16} />
-                <input
-                  value={promptSearch}
-                  onChange={(event) => setPromptSearch(event.target.value)}
-                  placeholder="搜索标题或内容..."
-                />
-              </label>
-              <button className="newPromptButton" type="button" onClick={openNewPromptEditor}>
-                <Plus size={15} />
-                <span>新建提示词</span>
-              </button>
-              <div className="promptPresetGrid">
-                {filteredPromptPresets.map((preset) => (
-                  <div
-                    className={`promptChip ${draggedPromptId === preset.id ? "dragging" : ""}`}
-                    key={preset.id}
-                    draggable
-                    onDragStart={(event) => beginPromptDrag(event, preset.id)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => dropPromptOnPreset(event, preset.id)}
-                    onDragEnd={endPromptDrag}
-                  >
-                    <button
-                      className="promptChipMain"
-                      type="button"
-                      onClick={() => schedulePromptPresetApply(preset)}
-                      onDoubleClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        renamePromptPresetTitle(preset);
-                      }}
-                      title={preset.content}
-                    >
-                      {preset.title}
-                    </button>
-                    <button className="promptChipIcon" type="button" onClick={() => editPromptPreset(preset)} title="编辑提示词">
-                      <Pencil size={14} />
-                    </button>
-                    <button className="promptChipIcon" type="button" onClick={() => deletePromptPreset(preset)} title="删除">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-                {filteredPromptPresets.length === 0 && <p className="promptEmpty">没有找到匹配的提示词</p>}
-              </div>
+              <PromptPresetGrid
+                categories={promptCategories} activeCategory={promptCategory} onSelectCategory={setPromptCategory}
+                dropCategory={promptDropCategory} onDropCategoryChange={setPromptDropCategory}
+                search={promptSearch} onSearchChange={setPromptSearch}
+                presets={filteredPromptPresets} draggedId={draggedPromptId}
+                onApplyPreset={schedulePromptPresetApply} onRenamePreset={renamePromptPresetTitle}
+                onRenameCategory={renamePromptCategory} onDropPresetToCategory={dropPromptOnCategory}
+                onAddCategory={addPromptCategory} onCreatePreset={openNewPromptEditor}
+                onBeginDrag={beginPromptDrag} onEndDrag={endPromptDrag} onDropPresetToPreset={dropPromptOnPreset}
+                onEditPreset={editPromptPreset} onDeletePreset={deletePromptPreset}
+              />
             </div>
           </section>
         </div>
