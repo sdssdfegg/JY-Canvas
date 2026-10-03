@@ -5724,7 +5724,9 @@ function LegacyModulePanel({ title, subtitle, icon, children }) {
   );
 }
 
-// RF-078-b�:̈́�b{u~ + " + ��Q<	\`��!9�q( � JSX
+// RF-078-b：提示词预设面板 JSX 在「停靠视图」与「模态弹窗」两处逐字重复，这里抽成共用组件。
+// 🔴 必须定义在模块顶层（本文件全局作用域），严禁挪进 OutfitWorkflow 组件体内 ——
+//    否则每次 render 都会重建组件类型，React 卸载重挂整棵子树，导致搜索框失焦、拖拽态重置。
 function PromptPresetGrid(props) {
   const {
     categories, activeCategory, onSelectCategory, dropCategory, onDropCategoryChange,
