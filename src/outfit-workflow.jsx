@@ -84,7 +84,6 @@ import {
   formatPixelSize,
   localPasteSizeReport,
   resolveLocalEditBaseFile,
-  snapSizeToRatio
 } from "./shared/local-edit-geometry.js";
 import { getAppConfig } from "./api/config.js";
 import { formatConnectionResult, testConnection } from "./api/connection.js";
@@ -4828,8 +4827,11 @@ function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, on
     return () => URL.revokeObjectURL(nextUrl);
   }, [originalFile]);
 
-  const localEditInteractionDeps = { imageRef, setDisplaySize, maskCanvasRef, displaySize, imageSize, brushSize, maskTool, paintRef, isMaskMode, working, brushResizeRef, setBrushCursor, setMaskPainted, setCropRect, setMaskRevision, activeRatio, setBrushSize };
-  const { measureImage, updateBrushCursor, beginMaskPaint, moveMaskPaint, endMaskPaint, leaveMaskPaint, clearMask, changeBrushByKeyboard, syncCropRectFromMask } = createLocalEditInteraction(localEditInteractionDeps);
+  const localEditInteractionDeps = {
+    imageRef, setDisplaySize, maskCanvasRef, displaySize, imageSize, brushSize, maskTool, paintRef, isMaskMode, working, brushResizeRef, setBrushCursor, setMaskPainted, setCropRect, setMaskRevision, activeRatio, setBrushSize,
+    setImageSize, savedEdit, onRatioChange, enabled: true, ratios: BATCH_LOCAL_EDIT_RATIOS, editMode, setEditMode, cropRect, fitRectToRatio, lockRatioForLoad: true, lockRatioForUpdate: !isMaskMode, defaultCropRect: defaultLocalEditCrop
+  };
+  const { measureImage, updateBrushCursor, beginMaskPaint, moveMaskPaint, endMaskPaint, leaveMaskPaint, clearMask, changeBrushByKeyboard, syncCropRectFromMask, chooseRatio, chooseEditMode, updateCropRect, onImageLoad } = createLocalEditInteraction(localEditInteractionDeps);
 
   useEffect(() => {
     window.addEventListener("resize", measureImage);
@@ -4900,63 +4902,10 @@ function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, on
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRatio, imageSize.height, imageSize.width, isMaskMode, maskRevision]);
 
-  function onImageLoad(event) {
-    const width = event.currentTarget.naturalWidth || 1;
-    const height = event.currentTarget.naturalHeight || 1;
-    setImageSize({ width, height });
-    const initial = savedEdit?.cropRect
-      // 旧会话存下来的选框也按当前比例重新整形（中心不动）。
-      ? fitRectToRatioLocked(savedEdit.cropRect, activeRatio, width, height)
-      : defaultLocalEditCrop(width, height, activeRatio);
-    setCropRect(initial);
-    window.requestAnimationFrame(measureImage);
-  }
-
   function fitRectToRatio(rect, nextRatio) {
     if (!imageSize.width || !imageSize.height) return rect;
     // 局部回贴：锁定比例，围绕原选框中心整形，且留在原图范围内。
     return fitRectToRatioLocked(rect, nextRatio, imageSize.width, imageSize.height);
-  }
-
-  function chooseRatio(nextRatio) {
-    if (!BATCH_LOCAL_EDIT_RATIOS.includes(nextRatio)) return;
-    onRatioChange?.(nextRatio);
-    if (isMaskMode) {
-      const bounds = maskBoundsFromCanvas(maskCanvasRef.current);
-      if (bounds) {
-        setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, nextRatio));
-      }
-      return;
-    }
-    setCropRect((current) => fitRectToRatio(current, nextRatio));
-  }
-
-  function chooseEditMode(nextMode) {
-    if (nextMode === editMode) return;
-    setEditMode(nextMode);
-    if (nextMode === LOCAL_EDIT_MASK_MODE) {
-      const bounds = maskBoundsFromCanvas(maskCanvasRef.current);
-      setMaskPainted(Boolean(bounds));
-      if (bounds) {
-        setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio));
-      }
-    } else if (cropRect) {
-      setCropRect((current) => fitRectToRatio(current, activeRatio));
-    }
-  }
-
-  function updateCropRect(nextRect) {
-    setCropRect((current) => {
-      const source = nextRect || current;
-      if (!source || !imageSize.width || !imageSize.height) return current;
-      // 局部回贴：任何写入路径都再吸附一次比例，保证选框"始终"等于所选比例；
-      // 涂抹蒙版模式的上下文框由涂抹轨迹决定，不锁比例。
-      if (!isMaskMode) {
-        const size = snapSizeToRatio(source.width, source.height, activeRatio, imageSize.width, imageSize.height);
-        return constrainLocalEditRect({ ...source, ...size }, imageSize.width, imageSize.height);
-      }
-      return constrainLocalEditRect(source, imageSize.width, imageSize.height);
-    });
   }
 
   const cropDragCtx = { dragRef, cropRect, displaySize, imageSize, updateCropRect, activeRatio, ratioLocked: !isMaskMode };

@@ -73,7 +73,6 @@ import {
   fitRectToRatioLocked,
   formatPixelSize,
   resolveLocalEditBaseFile,
-  snapSizeToRatio
 } from "./shared/local-edit-geometry.js";
 import DebouncedTextarea from "./shared/DebouncedTextarea.jsx";
 import { ErrorBoundary } from "./shared/error-boundary.jsx";
@@ -1736,8 +1735,11 @@ function QuickLocalEditModal({ item, ratio, mode = "local", onRatioChange, onClo
     return () => URL.revokeObjectURL(nextUrl);
   }, [originalFile]);
 
-  const localEditInteractionDeps = { imageRef, setDisplaySize, maskCanvasRef, displaySize, imageSize, brushSize, maskTool, paintRef, isMaskMode, working, brushResizeRef, setBrushCursor, setMaskPainted, setCropRect, setMaskRevision, activeRatio, setBrushSize };
-  const { measureImage, updateBrushCursor, beginMaskPaint, moveMaskPaint, endMaskPaint, leaveMaskPaint, clearMask, changeBrushByKeyboard, syncCropRectFromMask } = createLocalEditInteraction(localEditInteractionDeps);
+  const localEditInteractionDeps = {
+    imageRef, setDisplaySize, maskCanvasRef, displaySize, imageSize, brushSize, maskTool, paintRef, isMaskMode, working, brushResizeRef, setBrushCursor, setMaskPainted, setCropRect, setMaskRevision, activeRatio, setBrushSize,
+    setImageSize, savedEdit, onRatioChange, enabled: isLocalMode, ratios: QUICK_LOCAL_EDIT_RATIOS, editMode, setEditMode, cropRect, fitRectToRatio, lockRatioForLoad: ratioLocked, lockRatioForUpdate: ratioLocked, defaultCropRect: defaultQuickLocalEditCrop
+  };
+  const { measureImage, updateBrushCursor, beginMaskPaint, moveMaskPaint, endMaskPaint, leaveMaskPaint, clearMask, changeBrushByKeyboard, syncCropRectFromMask, chooseRatio, chooseEditMode, updateCropRect, onImageLoad } = createLocalEditInteraction(localEditInteractionDeps);
 
   useEffect(() => {
     window.addEventListener("resize", measureImage);
@@ -1808,26 +1810,6 @@ function QuickLocalEditModal({ item, ratio, mode = "local", onRatioChange, onClo
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRatio, imageSize.height, imageSize.width, isMaskMode, maskRevision]);
 
-  function onImageLoad(event) {
-    const width = event.currentTarget.naturalWidth || 1;
-    const height = event.currentTarget.naturalHeight || 1;
-    setImageSize({ width, height });
-    const initial = savedEdit?.cropRect
-      // 局部回贴：旧会话存下来的选框也按当前比例重新整形（中心不动），
-      // 避免"头部显示 2:3、选框却是别的比例"。普通裁剪保持原样。
-      ? (ratioLocked
-        ? fitRectToRatioLocked(savedEdit.cropRect, activeRatio, width, height)
-        : constrainCropRect(savedEdit.cropRect, width, height))
-      : (ratioLocked
-        // 局部回贴打开时，默认选框就是用户当前选定的比例（此前是"按图片自身比例"，
-        // 会出现选了 2:3 却给出一个图片比例选框的情况）。
-        ? fitRectToRatioLocked(null, activeRatio, width, height)
-        // 普通裁剪保持原语义：按图片自身比例取居中的 62% 区域。
-        : defaultQuickLocalEditCrop(width, height, activeRatio));
-    setCropRect(initial);
-    window.requestAnimationFrame(measureImage);
-  }
-
   function fitRectToRatio(rect, nextRatio) {
     if (!imageSize.width || !imageSize.height) return rect;
     // 局部回贴（框选模式）：锁定比例，围绕原选框中心整形，并留在原图范围内。
@@ -1860,47 +1842,6 @@ function QuickLocalEditModal({ item, ratio, mode = "local", onRatioChange, onClo
       width: nextWidth,
       height: nextHeight
     }, imageSize.width, imageSize.height);
-  }
-
-  function chooseLocalRatio(nextRatio) {
-    if (!isLocalMode || !QUICK_LOCAL_EDIT_RATIOS.includes(nextRatio)) return;
-    onRatioChange?.(nextRatio);
-    if (isMaskMode) {
-      const bounds = maskBoundsFromCanvas(maskCanvasRef.current);
-      if (bounds) {
-        setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, nextRatio));
-      }
-      return;
-    }
-    setCropRect((current) => fitRectToRatio(current, nextRatio));
-  }
-
-  function chooseEditMode(nextMode) {
-    if (!isLocalMode || nextMode === editMode) return;
-    setEditMode(nextMode);
-    if (nextMode === LOCAL_EDIT_MASK_MODE) {
-      const bounds = maskBoundsFromCanvas(maskCanvasRef.current);
-      setMaskPainted(Boolean(bounds));
-      if (bounds) {
-        setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio));
-      }
-    } else if (cropRect) {
-      setCropRect((current) => fitRectToRatio(current, activeRatio));
-    }
-  }
-
-  function updateCropRect(nextRect) {
-    setCropRect((current) => {
-      const source = nextRect || current;
-      if (!source || !imageSize.width || !imageSize.height) return current;
-      // 局部回贴：任何写入路径都再吸附一次比例，保证选框"始终"是所选比例
-      // （例如旧会话里存下来的选框比例和当前选择不一致时）。
-      if (ratioLocked) {
-        const size = snapSizeToRatio(source.width, source.height, activeRatio, imageSize.width, imageSize.height);
-        return constrainCropRect({ ...source, ...size }, imageSize.width, imageSize.height);
-      }
-      return constrainCropRect(source, imageSize.width, imageSize.height);
-    });
   }
 
   const cropDragCtx = { dragRef, cropRect, displaySize, imageSize, updateCropRect, activeRatio, ratioLocked };
@@ -2062,7 +2003,7 @@ function QuickLocalEditModal({ item, ratio, mode = "local", onRatioChange, onClo
                   key={itemRatio}
                   className={activeRatio === itemRatio ? "active" : ""}
                   type="button"
-                  onClick={() => chooseLocalRatio(itemRatio)}
+                  onClick={() => chooseRatio(itemRatio)}
                 >
                   {itemRatio}
                 </button>

@@ -1,4 +1,5 @@
 import { clamp } from "./numeric.js";
+import { fitRectToRatioLocked, snapSizeToRatio, constrainCropRect as sharedConstrainCropRect } from "./local-edit-geometry.js";
 
 export const LOCAL_EDIT_RECT_MODE = "rect";
 export const LOCAL_EDIT_MASK_MODE = "mask";
@@ -202,6 +203,10 @@ export function createLocalEditInteraction(deps) {
     paintRef, isMaskMode, working, brushResizeRef, setBrushCursor, setMaskPainted, setCropRect,
     setMaskRevision, activeRatio, setBrushSize
   } = deps;
+  const {
+    setImageSize, savedEdit, onRatioChange, enabled, ratios, editMode, setEditMode, cropRect,
+    fitRectToRatio, lockRatioForLoad, lockRatioForUpdate, defaultCropRect
+  } = deps;
   function measureImage() {
     const image = imageRef.current;
     if (!image) return;
@@ -345,6 +350,56 @@ function syncCropRectFromMask() {
     const nextRect = expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio);
     if (nextRect) setCropRect(nextRect);
 }
+  function chooseRatio(nextRatio) {
+    if (!enabled || !ratios.includes(nextRatio)) return;
+    onRatioChange?.(nextRatio);
+    if (isMaskMode) {
+      const bounds = maskBoundsFromCanvas(maskCanvasRef.current);
+      if (bounds) {
+        setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, nextRatio));
+      }
+      return;
+    }
+    setCropRect((current) => fitRectToRatio(current, nextRatio));
+  }
+  function chooseEditMode(nextMode) {
+    if (!enabled || nextMode === editMode) return;
+    setEditMode(nextMode);
+    if (nextMode === LOCAL_EDIT_MASK_MODE) {
+      const bounds = maskBoundsFromCanvas(maskCanvasRef.current);
+      setMaskPainted(Boolean(bounds));
+      if (bounds) {
+        setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio));
+      }
+    } else if (cropRect) {
+      setCropRect((current) => fitRectToRatio(current, activeRatio));
+    }
+  }
+  function updateCropRect(nextRect) {
+    setCropRect((current) => {
+      const source = nextRect || current;
+      if (!source || !imageSize.width || !imageSize.height) return current;
+      if (lockRatioForUpdate) {
+        const size = snapSizeToRatio(source.width, source.height, activeRatio, imageSize.width, imageSize.height);
+        return sharedConstrainCropRect({ ...source, ...size }, imageSize.width, imageSize.height);
+      }
+      return sharedConstrainCropRect(source, imageSize.width, imageSize.height);
+    });
+  }
+  function onImageLoad(event) {
+    const width = event.currentTarget.naturalWidth || 1;
+    const height = event.currentTarget.naturalHeight || 1;
+    setImageSize({ width, height });
+    const initial = savedEdit?.cropRect
+      ? (lockRatioForLoad
+        ? fitRectToRatioLocked(savedEdit.cropRect, activeRatio, width, height)
+        : sharedConstrainCropRect(savedEdit.cropRect, width, height))
+      : (lockRatioForLoad
+        ? fitRectToRatioLocked(null, activeRatio, width, height)
+        : defaultCropRect(width, height, activeRatio));
+    setCropRect(initial);
+    window.requestAnimationFrame(measureImage);
+  }
   return {
     measureImage,
     maskPointerPoint,
@@ -359,6 +414,10 @@ function syncCropRectFromMask() {
     leaveMaskPaint,
     clearMask,
     changeBrushByKeyboard,
-    syncCropRectFromMask
+    syncCropRectFromMask,
+    chooseRatio,
+    chooseEditMode,
+    updateCropRect,
+    onImageLoad
   };
 }

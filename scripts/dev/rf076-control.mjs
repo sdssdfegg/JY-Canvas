@@ -4,11 +4,27 @@
 //  2) 工厂 deps 解构覆盖设计约定的 17 个依赖名（缺一个即运行时 ReferenceError）；
 //  3) main.jsx / outfit-workflow.jsx 内已无这 14 个函数的内联 `function NAME(` 定义（确已搬走）。
 import { readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
 
-const FACTORY = "D:/源码开发/静音AI画板v4.0源码/src/shared/local-edit-mask.js";
-const BASE_MAIN = "D:/源码开发/静音AI画板v4.0源码/tmp/rf076-base-main.jsx";
-const MAIN = "D:/源码开发/静音AI画板v4.0源码/src/main.jsx";
-const OUTFIT = "D:/源码开发/静音AI画板v4.0源码/src/outfit-workflow.jsx";
+const ROOT = "D:/源码开发/静音AI画板v4.0源码";
+// ⚠ BASE 必须锁死在「RF-076-A 之前」的提交：阶段 A 已把 14 个函数从 main.jsx 搬走，
+//   若拿 HEAD(已搬空) 当语料库，断言1 会 14 个全 FAIL —— 那是基线取错，不是回归。
+const BASE_REV = "30e35c6"; // RF-076-A(73753f8) 的父提交
+const FACTORY = `${ROOT}/src/shared/local-edit-mask.js`;
+const MAIN = `${ROOT}/src/main.jsx`;
+const OUTFIT = `${ROOT}/src/outfit-workflow.jsx`;
+
+function gitShow(rev, path) {
+  return new Promise((resolve, reject) => {
+    const p = spawn("git", ["show", `${rev}:${path}`], { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] });
+    let out = "";
+    let err = "";
+    p.stdout.on("data", (d) => { out += d; });
+    p.stderr.on("data", (d) => { err += d; });
+    p.on("error", reject);
+    p.on("close", (code) => (code === 0 ? resolve(out) : reject(new Error(err || `git show exit ${code}`))));
+  });
+}
 
 const NAMES = [
   "measureImage", "maskPointerPoint", "maskPointerDisplayPoint", "updateBrushCursor",
@@ -96,7 +112,7 @@ function norm(text) {
 }
 
 const factorySrc = readFileSync(FACTORY, "utf8");
-const baseMainSrc = readFileSync(BASE_MAIN, "utf8");
+const baseMainSrc = await gitShow(BASE_REV, "src/main.jsx");
 const mainSrc = readFileSync(MAIN, "utf8");
 const outfitSrc = readFileSync(OUTFIT, "utf8");
 
