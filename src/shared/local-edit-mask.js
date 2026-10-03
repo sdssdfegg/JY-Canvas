@@ -207,6 +207,10 @@ export function createLocalEditInteraction(deps) {
     setImageSize, savedEdit, onRatioChange, enabled, ratios, editMode, setEditMode, cropRect,
     fitRectToRatio, lockRatioForLoad, lockRatioForUpdate, defaultCropRect
   } = deps;
+  const {
+    item, cropLocalEditFile, onApply, canvasToPngDataUrl, maskOpacity, setWorking,
+    fallbackToItem, rectModeTag
+  } = deps;
   function measureImage() {
     const image = imageRef.current;
     if (!image) return;
@@ -400,6 +404,35 @@ function syncCropRectFromMask() {
     setCropRect(initial);
     window.requestAnimationFrame(measureImage);
   }
+  async function applyLocalEdit() {
+    if (!cropRect || working) return;
+    if (isMaskMode && !maskCanvasHasPaint(maskCanvasRef.current)) return;
+    setWorking(true);
+    try {
+      if (isMaskMode) {
+        const canvas = maskCanvasRef.current;
+        const bounds = maskBoundsFromCanvas(canvas);
+        const maskCropRect = expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio) || cropRect;
+        const cropped = await cropLocalEditFile(item, maskCropRect, "mask_edit", { fallbackToItem });
+        onApply(item.id, {
+          ...cropped,
+          cropRect: maskCropRect,
+          aspectRatio: activeRatio,
+          editMode: LOCAL_EDIT_MASK_MODE,
+          maskDataUrl: canvasToPngDataUrl(canvas),
+          maskBounds: bounds,
+          brushSize,
+          maskOpacity
+        });
+      } else {
+        // 普通裁剪与局部回贴走**同一套**几何：输出尺寸恒等于选框在原图上的像素尺寸。
+        const cropped = await cropLocalEditFile(item, cropRect, rectModeTag, { fallbackToItem });
+        onApply(item.id, { ...cropped, aspectRatio: activeRatio, editMode: LOCAL_EDIT_RECT_MODE });
+      }
+    } finally {
+      setWorking(false);
+    }
+  }
   return {
     measureImage,
     maskPointerPoint,
@@ -418,6 +451,7 @@ function syncCropRectFromMask() {
     chooseRatio,
     chooseEditMode,
     updateCropRect,
-    onImageLoad
+    onImageLoad,
+    applyLocalEdit
   };
 }

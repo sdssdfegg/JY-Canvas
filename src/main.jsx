@@ -156,7 +156,6 @@ import {
   expandMaskBoundsToCropRect,
   imageBitmapFromDataUrl,
   maskBoundsFromCanvas,
-  maskCanvasHasPaint,
   normalizeMaskCanvas,
   createLocalEditInteraction
 } from "./shared/local-edit-mask.js";
@@ -1737,9 +1736,10 @@ function QuickLocalEditModal({ item, ratio, mode = "local", onRatioChange, onClo
 
   const localEditInteractionDeps = {
     imageRef, setDisplaySize, maskCanvasRef, displaySize, imageSize, brushSize, maskTool, paintRef, isMaskMode, working, brushResizeRef, setBrushCursor, setMaskPainted, setCropRect, setMaskRevision, activeRatio, setBrushSize,
-    setImageSize, savedEdit, onRatioChange, enabled: isLocalMode, ratios: QUICK_LOCAL_EDIT_RATIOS, editMode, setEditMode, cropRect, fitRectToRatio, lockRatioForLoad: ratioLocked, lockRatioForUpdate: ratioLocked, defaultCropRect: defaultQuickLocalEditCrop
+    setImageSize, savedEdit, onRatioChange, enabled: isLocalMode, ratios: QUICK_LOCAL_EDIT_RATIOS, editMode, setEditMode, cropRect, fitRectToRatio, lockRatioForLoad: ratioLocked, lockRatioForUpdate: ratioLocked, defaultCropRect: defaultQuickLocalEditCrop,
+    item, cropLocalEditFile, onApply, canvasToPngDataUrl, maskOpacity, setWorking, fallbackToItem: true, rectModeTag: isLocalMode ? "local_edit" : "crop"
   };
-  const { measureImage, updateBrushCursor, beginMaskPaint, moveMaskPaint, endMaskPaint, leaveMaskPaint, clearMask, changeBrushByKeyboard, syncCropRectFromMask, chooseRatio, chooseEditMode, updateCropRect, onImageLoad } = createLocalEditInteraction(localEditInteractionDeps);
+  const { measureImage, updateBrushCursor, beginMaskPaint, moveMaskPaint, endMaskPaint, leaveMaskPaint, clearMask, changeBrushByKeyboard, syncCropRectFromMask, chooseRatio, chooseEditMode, updateCropRect, onImageLoad, applyLocalEdit } = createLocalEditInteraction(localEditInteractionDeps);
 
   useEffect(() => {
     window.addEventListener("resize", measureImage);
@@ -1856,36 +1856,6 @@ function QuickLocalEditModal({ item, ratio, mode = "local", onRatioChange, onClo
 
 
 
-
-  async function applyLocalEdit() {
-    if (!cropRect || working) return;
-    if (isMaskMode && !maskCanvasHasPaint(maskCanvasRef.current)) return;
-    setWorking(true);
-    try {
-      if (isMaskMode) {
-        const canvas = maskCanvasRef.current;
-        const bounds = maskBoundsFromCanvas(canvas);
-        const maskCropRect = expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio) || cropRect;
-        const cropped = await cropLocalEditFile(item, maskCropRect, "mask_edit", { fallbackToItem: true });
-        onApply(item.id, {
-          ...cropped,
-          cropRect: maskCropRect,
-          aspectRatio: activeRatio,
-          editMode: LOCAL_EDIT_MASK_MODE,
-          maskDataUrl: canvasToPngDataUrl(canvas),
-          maskBounds: bounds,
-          brushSize,
-          maskOpacity
-        });
-      } else {
-        // 普通裁剪与局部回贴走**同一套**几何：输出尺寸恒等于选框在原图上的像素尺寸。
-        const cropped = await cropLocalEditFile(item, cropRect, isLocalMode ? "local_edit" : "crop", { fallbackToItem: true });
-        onApply(item.id, { ...cropped, aspectRatio: activeRatio, editMode: LOCAL_EDIT_RECT_MODE });
-      }
-    } finally {
-      setWorking(false);
-    }
-  }
 
   const scale = imageSize.width && displaySize.width ? displaySize.width / imageSize.width : 1;
   const cropStyle = cropRect ? {

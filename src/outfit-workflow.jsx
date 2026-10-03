@@ -61,7 +61,6 @@ import {
   expandMaskBoundsToCropRect,
   imageBitmapFromDataUrl,
   maskBoundsFromCanvas,
-  maskCanvasHasPaint,
   normalizeMaskCanvas,
   createLocalEditInteraction
 } from "./shared/local-edit-mask.js";
@@ -4829,9 +4828,10 @@ function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, on
 
   const localEditInteractionDeps = {
     imageRef, setDisplaySize, maskCanvasRef, displaySize, imageSize, brushSize, maskTool, paintRef, isMaskMode, working, brushResizeRef, setBrushCursor, setMaskPainted, setCropRect, setMaskRevision, activeRatio, setBrushSize,
-    setImageSize, savedEdit, onRatioChange, enabled: true, ratios: BATCH_LOCAL_EDIT_RATIOS, editMode, setEditMode, cropRect, fitRectToRatio, lockRatioForLoad: true, lockRatioForUpdate: !isMaskMode, defaultCropRect: defaultLocalEditCrop
+    setImageSize, savedEdit, onRatioChange, enabled: true, ratios: BATCH_LOCAL_EDIT_RATIOS, editMode, setEditMode, cropRect, fitRectToRatio, lockRatioForLoad: true, lockRatioForUpdate: !isMaskMode, defaultCropRect: defaultLocalEditCrop,
+    item, cropLocalEditFile, onApply, canvasToPngDataUrl, maskOpacity, setWorking, fallbackToItem: false, rectModeTag: "local_edit"
   };
-  const { measureImage, updateBrushCursor, beginMaskPaint, moveMaskPaint, endMaskPaint, leaveMaskPaint, clearMask, changeBrushByKeyboard, syncCropRectFromMask, chooseRatio, chooseEditMode, updateCropRect, onImageLoad } = createLocalEditInteraction(localEditInteractionDeps);
+  const { measureImage, updateBrushCursor, beginMaskPaint, moveMaskPaint, endMaskPaint, leaveMaskPaint, clearMask, changeBrushByKeyboard, syncCropRectFromMask, chooseRatio, chooseEditMode, updateCropRect, onImageLoad, applyLocalEdit } = createLocalEditInteraction(localEditInteractionDeps);
 
   useEffect(() => {
     window.addEventListener("resize", measureImage);
@@ -4920,35 +4920,6 @@ function OutfitLocalEditModal({ item, ratio, onRatioChange, onClose, onApply, on
 
 
 
-
-  async function applyLocalEdit() {
-    if (!cropRect || working) return;
-    if (isMaskMode && !maskCanvasHasPaint(maskCanvasRef.current)) return;
-    setWorking(true);
-    try {
-      if (isMaskMode) {
-        const canvas = maskCanvasRef.current;
-        const bounds = maskBoundsFromCanvas(canvas);
-        const maskCropRect = expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio) || cropRect;
-        const cropped = await cropLocalEditFile(item, maskCropRect, "mask_edit");
-        onApply(item.id, {
-          ...cropped,
-          cropRect: maskCropRect,
-          aspectRatio: activeRatio,
-          editMode: LOCAL_EDIT_MASK_MODE,
-          maskDataUrl: canvasToPngDataUrl(canvas),
-          maskBounds: bounds,
-          brushSize,
-          maskOpacity
-        });
-      } else {
-        const cropped = await cropLocalEditFile(item, cropRect, "local_edit");
-        onApply(item.id, { ...cropped, aspectRatio: activeRatio, editMode: LOCAL_EDIT_RECT_MODE });
-      }
-    } finally {
-      setWorking(false);
-    }
-  }
 
   const scale = imageSize.width && displaySize.width ? displaySize.width / imageSize.width : 1;
   const cropStyle = cropRect ? {

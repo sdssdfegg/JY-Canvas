@@ -14,7 +14,9 @@ import { createLocalEditInteraction, maskBoundsFromCanvas, expandMaskBoundsToCro
 import { fitRectToRatioLocked, snapSizeToRatio, constrainCropRect } from "../../src/shared/local-edit-geometry.js";
 
 const ROOT = "D:/源码开发/静音AI画板v4.0源码";
-const REV = "HEAD";
+// ⚠ 锁死在「RF-076-B 之前」的提交（= RF-076-A，73753f8）：这 4 个函数此时仍在两巨石内联。
+//   若留 "HEAD"，一旦 Phase B/C 提交，HEAD 就变成已搬空的版本 ⇒ 对照组全线失效。
+const REV = "73753f8";
 
 // Node 无 window：工厂与 BASE 的 onImageLoad 都调 window.requestAnimationFrame(measureImage)。
 globalThis.window = { requestAnimationFrame: () => {} };
