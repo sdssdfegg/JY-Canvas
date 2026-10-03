@@ -1387,6 +1387,36 @@ main 侧解构出来会被 `no-unused-vars` 点名。工厂仍返回全部（返
 ⇒ 抽完一个域后 advisory 命中数上升是**正常的债务显形**，不是新增重复。
 RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetailFiles`（main.jsx）同构近克隆（差 42%）。
 
+#### RF-072 · 修 3 个浏览器探针脚本（`9b223ca`，2026-10-03）✅ 已完成
+
+`scripts/verify/{local-edit-base-file-check,resize-long-edge-check,modal-shell-check}.mjs`，
+每个 program 模板开头 +2 行（注释 + `page.setDefaultNavigationTimeout(150000);`），**共 +6 行**。
+
+- **根因实测坐实**：`tmp/vite-cache-verify` 下堆积 **15 个 `deps_temp_*`、始终没有成型的 `deps/` 目录**
+  ⇒ 每次都是冷编译（约 55s）> playwright 默认导航 30s ⇒ `page.goto` 抛错 ⇒ 回执 `result.value` 为 null
+  ⇒ 降级「浏览器回执无法解析（长度 ~1KB）」+ 一条恒假的「浏览器探针未执行」。
+  CLI 本身没坏（手动喂最小 program 67ms 即 `succeeded`）。
+- **实测项数**：29 / 5 / 13 项 → **36 / 9 / 37** 项；`browser: skipped → ran`。三条浏览器验证第一次真正执行。
+- 验证：`node --check` 三文件过；ESLint 进程内逐条比对 **0 新增 0 消失**，并做了**负向对照**
+  （注入 `const zzzUnused = notDefinedAnywhere;` 命中 `no-unused-vars` + `no-undef` 2 条）+ `isPathIgnored=false` 自证；
+  全仓 `errors=0 / warnings=18`。
+- 🔴 **由此固化一条判据**：**「浏览器探针未执行」在本仓应视为异常信号**，不是可接受的环境降级。
+
+🆕 **副产物（未处理，另立单 RF-075）**：`local-edit-base-file-check` 的
+「批量：选框裁剪用 `resolveLocalEditBaseFile(imageItem)`」改前改后都失败 —— `cropOutfitLocalEditFile`
+在 **全 `src/` 已不存在**（只剩 `shared/local-edit-geometry.js:430` 一句注释提及），
+且与它相邻的「局部回贴弹窗预览」用的是**同一条正则**（能通过）⇒ **恒失败的僵尸断言**，同该文件里已标注移除的那条同款。
+
+#### RF-073 · 参数化收口 `addReferenceRewriteFiles` ↔ `addDetailFiles`（🔵 已立项，2026-10-03 派单）
+
+- 近克隆 24 行 / 差 42%（`block-clone-advisory` 报 `[C][L2]`）。**统筹已完成派单前对照表**（见 `REFACTOR-冷启动.md` §3.1）。
+- 🔴 **核心裁决**：`used` 算法是**真业务分叉**（reference = 产品图+参考图**合计**上限；detail = **按 role 各自**上限）
+  ⇒ **把 `used` 提升为入参**，调用点各传原值。**严禁在公共体里用 `countMode` 开关之外的方式抹平两侧差异**
+  （＝统一成任一侧 ⇒ 收窄 ⇒ 违规）。
+- **落点硬边界**：**禁止新建文件**（新建 `src/shared/*.js` ⇒ `scannedFiles` +1 ⇒ 019 `scopeDrift` 判红 + 划账）。
+  必须追加进**两侧本来就在 import 的既有模块**；找不到 ⇒ **停手报统筹**。
+- `remove` 对（4 行体）**净省 ≤0 行则不抽，只登记**。
+
 #### 下一步（B3-7 起）
 
 **已建立冷启动入口 `REFACTOR-冷启动.md`** —— 新会话只读它 + `MEMORY.md` 即可恢复，不依赖聊天记录。

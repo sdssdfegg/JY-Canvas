@@ -56,7 +56,7 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 | 脚本 | 结论 | 处置 |
 |---|---|---|
 | `lint-ratchet-check` | **已修（`6726618`）**。51 组"新增"中 48 组来自根目录**未跟踪的垃圾副本 `verify/`**（54 文件，与 `scripts/verify` 逐字相同、无代码引用它，但被 `eslint .` 扫到且不在 Node 全局变量组 ⇒ 48 组 no-undef 假阳性）；另 3 组是本轮自建测量脚本的真债。已把副本移到 `tmp/_verify-legacy-20261003/`（可恢复）+ 修 3 处 ⇒ **超基线组数 51 → 0**，未动基线、未用 `--update` | 已绿 |
-| `local-edit-base-file-check` / `resize-long-edge-check` / `modal-shell-check` | 三者**同一个根因**：喂给 `tabbit-cli` 的 program 里 `page.goto` **没有设 `setDefaultNavigationTimeout`**，用 playwright 默认 30s；而 vite 冷启动首次编译 >30s ⇒ goto 超时抛错 ⇒ program 无返回值 ⇒ CLI 回执 `result.value` 为 null ⇒ 脚本降级为"浏览器回执无法解析（长度 ~1KB）"。**非探针 CLI 故障**（手动跑 `console.log("probe-ok")` 67ms 即 `status:"succeeded"`） | **RF-072**，见 §3 |
+| `local-edit-base-file-check` / `resize-long-edge-check` / `modal-shell-check` | 三者**同一个根因**：喂给 `tabbit-cli` 的 program 里 `page.goto` **没有设 `setDefaultNavigationTimeout`**，用 playwright 默认 30s；而 vite 冷启动首次编译 >30s ⇒ goto 超时抛错 ⇒ program 无返回值 ⇒ CLI 回执 `result.value` 为 null ⇒ 脚本降级为"浏览器回执无法解析（长度 ~1KB）"。**非探针 CLI 故障**（手动跑 `console.log("probe-ok")` 67ms 即 `status:"succeeded"`） | ✅ **已修 `9b223ca`（RF-072）**：三脚本 program 各加 `page.setDefaultNavigationTimeout(150000)`；实测项数 **29/5/13 → 36/9/37**，`browser: skipped → ran`。🔴 **自此"探针未执行"这个降级态在本仓应视为异常信号** |
 
 🔑 教训：`eslint .` 的扫描范围是**全仓**，任何游离目录都会污染棘轮；新增 `eslint` 看不到
 的目录前，先确认它在 `eslint.config.mjs` 的哪个 `files` 组里。
@@ -80,15 +80,34 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 
 | 序 | 候选 | 实测规模 | 说明 |
 |---|---|---|---|
-| 0 | **RF-072 · 修 3 个浏览器探针脚本**（`local-edit-base-file-check` / `resize-long-edge-check` / `modal-shell-check`） | 各 +1 行 | 🔴 **建议最先做**：这三个脚本的浏览器验证**从未真正执行过**（一直降级为"探针未执行"），等于三条验证是空的。修法：在喂给 `tabbit-cli` 的 program 开头加 `page.setDefaultNavigationTimeout(150000);`。**属于修脚本健壮性缺陷，不是放宽判据** —— 修完要确认它们真的跑出了 facts，而不是继续假通过 |
-| 1 | **参数化收口**：`addReferenceRewriteFiles`(features/upload) ↔ `addDetailFiles`(main.jsx) | 约 −35 行 | 同构近克隆（差 42%，仅差 state 对/常量/事件前缀）。RF-070 搬进新文件后 advisory 才第一次看见它。**按"参数化"处置，两侧各传原值，严禁统一成任一侧** |
-| 2 | **main.result 域** | 10 fn / 123 行，耦合 **0.90**（当前最低） | 低垂果实 |
-| 3 | **main.prompt 域** | 11 fn / 190 行，耦合 1.36 | 中等 |
-| 4 | **outfit 侧（完全未动）** | misc 53 fn/942 行(1.23)、result 26 fn/940 行(1.15) | 最大的块，但 outfit 的 `misc` 与 `result` 都需要先出只读领域设计 |
+| ~~0~~ | ~~**RF-072 · 修 3 个浏览器探针脚本**~~ | 各 +2 行 | ✅ **已完成 `9b223ca`**（2026-10-03） |
+| **1** | 🔴 **RF-073 · 参数化收口**：`addReferenceRewriteFiles`(features/upload) ↔ `addDetailFiles`(main.jsx) | 约 −35 行 | **本轮派单（见 §3.1）**。同构近克隆（差 42%）。RF-070 搬进新文件后 advisory 才第一次看见它。**按"参数化"处置，两侧各传原值，严禁统一成任一侧**。⚠️ 统筹已实测：`used` 的算法是**真业务分叉**（reference = 产品图+参考图**合计**上限；detail = **按 role 各自**上限）⇒ 必须把 `used` 提升为入参，**不得在公共体里写 `countMode` 开关之外的方式抹平** |
+| 2 | **RF-074 · main.result 域** | 10 fn / 133 行，耦合 **0.90**（全场最低可搬量级） | ⚠️ 只碰本域仅 5/10（50%）⇒ 需注入跨域参数（`selectedIds`/`setActiveView`/`saveDirectory`/`setDetailInfoSelection` 等 8+ 项）。其中 `downloadItem` 实为 **directory 域**（误归类）。开工前必须重测 |
+| 3 | **main.prompt 域** | 11 fn / 190 行，耦合 **1.36** | 中等 |
+| 4 | **outfit.preview 域** | 9 fn / 259 行，耦合 **0.89**，只碰本域 7/9 | ✅ 判据合格、体量最大的**未动**域。⚠️ 其中 235 行是 outfit 独有的诊断面板**渲染函数**（返回 JSX）⇒ 落点须是 `.jsx`，开工前先确认这一点 |
+| 5 | **outfit 其余（完全未动）** | misc 53 fn/942 行(1.23)、result 26 fn/940 行(1.15) | 需先出只读领域设计 |
 
 **选域口径**：平均引用域数 ≤1.0 且只碰本域 ≥70% ⇒ 可抽；≥1.5 或纯函数 <30% ⇒ 编排层不抽。
 **每抽完一个域必须重测**（画布抽完 1.07→1.75，教训）。
 `node scripts/dev/domain-coupling.mjs` ｜ 明细 `node scripts/dev/domain-fn-list.mjs src/main.jsx 2248 8164 <域名>`
+
+### 3.1 RF-073 的派单前对照表（统筹 2026-10-03 实测，快照 `9b223ca`）
+
+> 执行者开工第一件事是**复核这张表**（自己读源码再量一遍），不是照抄。发现不符 ⇒ **停手报统筹**。
+
+| 差异项 | `addReferenceRewriteFiles`（`features/upload/reference-upload.js:38-62`） | `addDetailFiles`（`src/main.jsx:3304-3328`） | 判定 |
+|---|---|---|---|
+| 入参 | `(role, fileList)` | `(role, fileList)` | 同 |
+| 过滤 / 空返回 | `imageFilesFromList(fileList)`；`length === 0` 返回 | 逐字相同 | 等价 |
+| **`used` 算法** | `referenceProductFiles.length + referenceStyleFiles.length`（**两列表合计**） | `role === "product" ? detailProductFiles.length : detailReferenceFiles.length`（**按 role 各自**） | 🔴 **真业务分叉** ⇒ `used` 提升为入参，调用点各传原值 |
+| 上限常量 | `MAX_REFERENCE_REWRITE_FILES` | `MAX_DETAIL_FILES` | 入参 `maxFiles` |
+| 超限文案 | 「产品图和参考图合计最多 N 张」 | 「产品图/参考图最多 N 张」 | 入参 `limitMessage`（整串由调用点生成） |
+| 事件前缀 | `"参考生图"` | `"一键详情"` | 入参 `eventLabel` |
+| 写入 setter | `setReferenceProductFiles` / `setReferenceStyleFiles` | `setDetailProductFiles` / `setDetailReferenceFiles` | 回调 `onAccept(accepted)` |
+| 成功文案 | 「已添加 N 张产品图/参考图」 | 逐字相同 | 留在公共体（由 `role` 派生） |
+
+`removeReferenceRewriteFile` ↔ `removeDetailFile`：去标识符归一化后**逐字节等价** ⇒ 可直接参数化（差异全进 `onRemove` 回调）。
+⚠️ `remove` 函数体只有 4 行，**抽完的净省行数必须实测**；若 ≤0 行则**不抽，只登记**（搬一块的固定成本与块大小无关，§7.2）。
 
 ---
 
