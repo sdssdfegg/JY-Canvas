@@ -180,6 +180,9 @@ const destructured = shellIdx < 0 ? [] : mainLines[shellIdx]
   .filter(Boolean);
 check("contract:return-covers-destructured", destructured.every((n) => returned.has(n)), `解构=${destructured.join(",")}`);
 check("contract:destructured-list-exact", JSON.stringify(destructured) === JSON.stringify(EXPECTED_DESTRUCTURED), `实测=${JSON.stringify(destructured)}`);
+check("contract:return-list-exact",
+  returned.size === RETURNED.length && RETURNED.every((n) => returned.has(n)),
+  `return=[${[...returned].join(",")}]`);
 check("contract:internal-not-exported", INTERNAL_ONLY.every((n) => !returned.has(n)), "removeDetailResultIds 不进 return");
 check("contract:internal-not-destructured", INTERNAL_ONLY.every((n) => !destructured.includes(n)), "调用点不解构它");
 const unused = destructured.filter((n) => mainLines.filter((l, i) => i !== shellIdx && l.includes(n)).length === 0);
