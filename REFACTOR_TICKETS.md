@@ -1407,25 +1407,41 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 在 **全 `src/` 已不存在**（只剩 `shared/local-edit-geometry.js:430` 一句注释提及），
 且与它相邻的「局部回贴弹窗预览」用的是**同一条正则**（能通过）⇒ **恒失败的僵尸断言**，同该文件里已标注移除的那条同款。
 
-#### RF-073 · 参数化收口 `addReferenceRewriteFiles` ↔ `addDetailFiles`（🔵 已立项，2026-10-03 派单）
+#### RF-073 · 参数化收口 `addReferenceRewriteFiles` ↔ `addDetailFiles`（✅ 已完成 `7d7f264`，2026-10-03）
 
-- 近克隆 24 行 / 差 42%（`block-clone-advisory` 报 `[C][L2]`）。**统筹已完成派单前对照表**（见 `REFACTOR-冷启动.md` §3.1）。
-- 🔴 **核心裁决**：`used` 算法是**真业务分叉**（reference = 产品图+参考图**合计**上限；detail = **按 role 各自**上限）
-  ⇒ **把 `used` 提升为入参**，调用点各传原值。**严禁在公共体里用 `countMode` 开关之外的方式抹平两侧差异**
-  （＝统一成任一侧 ⇒ 收窄 ⇒ 违规）。
-- **落点硬边界**：**禁止新建文件**（新建 `src/shared/*.js` ⇒ `scannedFiles` +1 ⇒ 019 `scopeDrift` 判红 + 划账）。
-  必须追加进**两侧本来就在 import 的既有模块**；找不到 ⇒ **停手报统筹**。
-- `remove` 对（4 行体）**净省 ≤0 行则不抽，只登记**。
+**交付**：`src/shared/image-input.js` 新增 `addFilesByRole(role, fileList, used, maxFiles, limitMessage, eventLabel, addEvent, setProductFiles, setReferenceFiles)`
+与 `removeFilesByRole(role, index, setProductFiles, setReferenceFiles)`；两侧原函数退化为薄壳。3 文件 **+35 / −42**。
+
+- 🔴 **真分叉按裁决保留**（统筹实测复核，未抹平）：`used` 提升为入参 ——
+  reference 侧传 `referenceProductFiles.length + referenceStyleFiles.length`（**合计**口径），
+  detail 侧传 `role === "product" ? detailProductFiles.length : detailReferenceFiles.length`（**按 role 各自**口径）。
+  **公共体零 `countMode` 类分支开关**（全仓 grep 命中 0）。
+- **落点**：`src/shared/image-input.js`（两侧本来就从它 import `imageFilesFromList`）⇒ **零新建文件**，`fileCount` 仍 **57**。
+- **净省（逐 commit 实测 `git show <commit>:file | wc -l`）**：`main.jsx` 7418→**7402**（−16）、
+  `reference-upload.js` 219→**203**（−16）、`shared/image-input.js` 119→**144**（+25）⇒ **整体 −7**。
+  `remove` 对函数体各 7 行，按 §5.2 实测净省 −6（>0）⇒ 准予抽取。
+- **对照组**：`rf073-control.mjs`（390 项全矩阵）**390 PASS / 0 FAIL**；两条**分叉反证**改前改后结果相反
+  （合计口径超限被拒 / 各自口径仍收下）⇒ 分叉未被抹平。
+- **门禁（统筹提交后复测）**：019 `ok=true / duplicateCount=0 / scannedFiles=57 / regressions=[]`；
+  `import-path ok=true / violations=[] / scannedSpecifiers=220`；全仓 ESLint **`errors=0 / warnings=18`**（基线，src 17 + server 1）；
+  `vite build` ✓ 7.59s。`block-clone-advisory` **171 块/2731 行 → 170 块/2712 行**。
+- **人工冒烟**：✅ 用户亲测上传/删除（产品图 ↔ 参考图）**正常**。
+
+⚠️ 归档缺口：对照组脚本落在 `tmp/rf073-control.mjs`（`tmp/` 被 gitignore）⇒ **未随 commit 留存**。
+⇒ 固化要求：**后续各单的对照组脚本一律落 `scripts/dev/`**（可留存、可复跑），不得再用 `tmp/`。
 
 #### 下一步（B3-7 起）
 
 **已建立冷启动入口 `REFACTOR-冷启动.md`** —— 新会话只读它 + `MEMORY.md` 即可恢复，不依赖聊天记录。
 
-当前候选（2026-10-03 重测耦合度后）：
-1. **参数化收口** `addReferenceRewriteFiles` ↔ `addDetailFiles`（连同各自 remove 版本，约 −35 行）—— 小且确定，建议先做。
-2. **main.result 域** 10 fn / 123 行，耦合 **0.90**（当前最低）。
-3. **main.prompt 域** 11 fn / 190 行，耦合 1.36。
-4. **outfit 侧完全未动**：misc 53 fn/942 行(1.23)、result 26 fn/940 行(1.15) —— 需先出只读领域设计。
+当前候选（2026-10-03 RF-073 后重测）：
+1. 🔴 **RF-076 · 局部编辑交互层**（`main.jsx:1739-2089` ↔ `outfit-workflow.jsx:4831-5152`，**352/322 行、约 20 个函数**）
+   —— 全场体量最大的单块重复。统筹已出整段 diff 对照表（`REFACTOR-冷启动.md` §3.2）：**8 处差异 / ≥5 处真业务分叉**，
+   且**含 5 个 `useEffect`（deps 数组两侧不同）** ⇒ B3 工厂吃不下 ⇒ **先派只读领域设计单**，裁决后再拆施工单。
+2. **RF-074 · main.result 域** 10 fn / 123 行，耦合 **0.90**（⚠️ 只碰本域仅 5/10，需注入 8+ 跨域项）。
+3. **RF-075 · 僵尸断言清理**（`scripts/` 路，可与 src/ 路并行）：`cropOutfitLocalEditFile` 全 src 已消失。
+4. **main.prompt 域** 11 fn / 190 行，耦合 1.36。
+5. **outfit 侧完全未动**：misc 53 fn/942 行(1.23)、result 26 fn/940 行(1.15) —— 需先出只读领域设计。
 
 ⚠️ main 侧 `misc` 24 fn/546 行耦合已升至 **1.50**、`detail` 残余 12 fn/288 行升至 **2.08**、
 `canvas` 残余 8 fn/257 行 1.63 ⇒ **这三簇属编排层，不要按域抽**。

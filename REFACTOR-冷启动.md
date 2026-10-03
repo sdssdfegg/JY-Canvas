@@ -21,19 +21,21 @@
 
 | 项 | 值 |
 |---|---|
-| `src/main.jsx` | **7418** 行 |
+| `src/main.jsx` | **7402** 行（RF-073 −16） |
 | `src/outfit-workflow.jsx` | **10789** 行 |
-| 两巨石合计 | **18207** 行 / 占比 **71.0%**（起点 18867 / 74.6%） |
-| `src/shared/` | 4057 行 |
-| `src/features/` | 1655 行（js）+ 546 行 css |
-| js/jsx 文件数 | 57 / 总 25630 行 |
+| 两巨石合计 | **18191** 行 / 占比 **71.0%**（起点 18867 / 74.6%） |
+| `src/shared/` | 4082 行 |
+| `src/features/` | 1639 行（js）+ 546 行 css |
+| js/jsx 文件数 | 57 / 总 25623 行 |
 | 019 基线 `fileCount` | **57** |
-| ESLint 全仓 | errors=0 / **warnings=17**（基线 17） |
+| ESLint 全仓 | errors=0 / **warnings=18**（src 17 + `server/routes/outfit.routes.js` 1） |
+
+> 快照 `7d7f264`（RF-073 后）。⚠️ 全仓 warnings 是 **18**（含 server 1 条）；**src 单独是 17**，两个口径别混用。
 
 已抽出的 `src/features/` 模块（12 个）：
 `auth/api-key`(67) `canvas/canvas-actions`(313) `canvas/canvas-graph`(102) `detail/detail-group`(272)
 `local-edit/*`(342,含 2 个 jsx) `result-queue/quick-result-replace`(103) `savedir/save-directory`(91)
-`upload/reference-upload`(219) `video/video-composer`(146)
+`upload/reference-upload`(**203**，RF-073 −16) `video/video-composer`(146)
 
 **刷新命令**（一条）：
 ```bash
@@ -81,11 +83,13 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 | 序 | 候选 | 实测规模 | 说明 |
 |---|---|---|---|
 | ~~0~~ | ~~**RF-072 · 修 3 个浏览器探针脚本**~~ | 各 +2 行 | ✅ **已完成 `9b223ca`**（2026-10-03） |
-| **1** | 🔴 **RF-073 · 参数化收口**：`addReferenceRewriteFiles`(features/upload) ↔ `addDetailFiles`(main.jsx) | 约 −35 行 | **本轮派单（见 §3.1）**。同构近克隆（差 42%）。RF-070 搬进新文件后 advisory 才第一次看见它。**按"参数化"处置，两侧各传原值，严禁统一成任一侧**。⚠️ 统筹已实测：`used` 的算法是**真业务分叉**（reference = 产品图+参考图**合计**上限；detail = **按 role 各自**上限）⇒ 必须把 `used` 提升为入参，**不得在公共体里写 `countMode` 开关之外的方式抹平** |
-| 2 | **RF-074 · main.result 域** | 10 fn / 133 行，耦合 **0.90**（全场最低可搬量级） | ⚠️ 只碰本域仅 5/10（50%）⇒ 需注入跨域参数（`selectedIds`/`setActiveView`/`saveDirectory`/`setDetailInfoSelection` 等 8+ 项）。其中 `downloadItem` 实为 **directory 域**（误归类）。开工前必须重测 |
-| 3 | **main.prompt 域** | 11 fn / 190 行，耦合 **1.36** | 中等 |
-| 4 | **outfit.preview 域** | 9 fn / 259 行，耦合 **0.89**，只碰本域 7/9 | ✅ 判据合格、体量最大的**未动**域。⚠️ 其中 235 行是 outfit 独有的诊断面板**渲染函数**（返回 JSX）⇒ 落点须是 `.jsx`，开工前先确认这一点 |
-| 5 | **outfit 其余（完全未动）** | misc 53 fn/942 行(1.23)、result 26 fn/940 行(1.15) | 需先出只读领域设计 |
+| ~~1~~ | ~~**RF-073 · 参数化收口** `addReferenceRewriteFiles` ↔ `addDetailFiles`~~ | 实测 **−7 行** | ✅ **已完成 `7d7f264`**（2026-10-03，对照表见 §3.1）。advisory **171/2731 → 170/2712**；人工冒烟（上传/删除）已通过 |
+| **1** | 🔴 **RF-076 · 局部编辑交互层** `main.jsx:1739-2089` ↔ `outfit-workflow.jsx:4831-5152` | **352 / 322 行，约 20 个函数** | **本轮派单（§3.2，只读领域设计单，不写 src 代码）**。全场**体量最大**的单块重复。统筹已实测整段 diff：**8 处差异、≥5 处真业务分叉**，且**含 5 个 `useEffect`（deps 数组两侧不同）** ⇒ **B3 工厂吃不下**（工厂不得含 hook）⇒ 先出设计，再由统筹拆成若干施工单 |
+| 2 | **RF-074 · main.result 域** | 10 fn / 123 行，耦合 **0.90**（全场最低可搬量级） | ⚠️ 只碰本域仅 5/10（50%）⇒ 需注入跨域参数（`selectedIds`/`setActiveView`/`saveDirectory`/`setDetailInfoSelection` 等 8+ 项）。其中 `downloadItem` 实为 **directory 域**（误归类）。开工前必须重测 |
+| 3 | **RF-075 · 僵尸断言清理** | 1 条断言 | `scripts/` 路（可与 src/ 路并行）：`local-edit-base-file-check` 里 `cropOutfitLocalEditFile` 全 src 已不存在 ⇒ **恒失败**。⚠️ 注意该文件里**已有一处同类僵尸断言被标注移除**，本次是第二处 |
+| 4 | **main.prompt 域** | 11 fn / 190 行，耦合 **1.36** | 中等 |
+| 5 | **outfit.preview 域** | 9 fn / 259 行，耦合 **0.89**，只碰本域 7/9 | ✅ 判据合格、体量最大的**未动**域。⚠️ 其中 235 行是 outfit 独有的诊断面板**渲染函数**（返回 JSX）⇒ 落点须是 `.jsx`，开工前先确认这一点 |
+| 6 | **outfit 其余（完全未动）** | misc 53 fn/942 行(1.23)、result 26 fn/940 行(1.15) | 需先出只读领域设计 |
 
 **选域口径**：平均引用域数 ≤1.0 且只碰本域 ≥70% ⇒ 可抽；≥1.5 或纯函数 <30% ⇒ 编排层不抽。
 **每抽完一个域必须重测**（画布抽完 1.07→1.75，教训）。
@@ -107,7 +111,40 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 | 成功文案 | 「已添加 N 张产品图/参考图」 | 逐字相同 | 留在公共体（由 `role` 派生） |
 
 `removeReferenceRewriteFile` ↔ `removeDetailFile`：去标识符归一化后**逐字节等价** ⇒ 可直接参数化（差异全进 `onRemove` 回调）。
+> ✅ **已交付 `7d7f264`**：`used` 按裁决提升为入参，两侧薄壳各传原值（reference=合计 / detail=各自），
+> 公共体 `addFilesByRole` / `removeFilesByRole` 落在 `src/shared/image-input.js`（**零新建文件**）。
+> 实测净省 main −16 / reference-upload −16 / shared +25 ⇒ **整体 −7**。
+
 ⚠️ `remove` 函数体只有 4 行，**抽完的净省行数必须实测**；若 ≤0 行则**不抽，只登记**（搬一块的固定成本与块大小无关，§7.2）。
+
+### 3.2 RF-076 的派单前对照表（统筹 2026-10-03 实测，快照 `7d7f264`）
+
+> 提取方式：`src/main.jsx:1739-2089`（352 行）↔ `src/outfit-workflow.jsx:4831-5152`（322 行）整段 `diff -u`。
+> 🔴 **这块不是"一个函数"，是一整段连续区域**（约 20 个函数：measureImage / onImageLoad / fitRectToRatio /
+> chooseLocalRatio / chooseEditMode / updateCropRect / maskPointerPoint / paintMask / refreshMaskState /
+> begin·move·end·leaveMaskPaint / clearMask / applyLocalEdit 等）。advisory 报的 `[C][L1] 203 行` 只是它的中段。
+
+| # | 差异点 | main 侧 | outfit 侧 | 统筹预判 |
+|---|---|---|---|---|
+| 1 | 「编辑模式」初始化 `useEffect` | `isLocalMode && savedEdit?...`；deps `[item?.id, isLocalMode]` | 无 `isLocalMode`；deps `[item?.id]` | 🔴 **真分叉**：main 组件**兼管普通裁剪 + 局部编辑**，outfit 侧**只做局部编辑** |
+| 2 | mask canvas 初始化 `useEffect` 守卫 | `!canvas \|\| !isLocalMode \|\| ...` | 无 `!isLocalMode` | 🔴 真分叉（同 #1） |
+| 3 | 注释文字 | 「见资源生命周期要求」 | 「V11-RF-050 §6.0：与 src/main.jsx 统一到带守卫版」 | ⚪ 假分叉（注释） |
+| 4 | mask 初始化收尾 | **无条件** `setMaskPainted(false)` + `setMaskRevision+1` | **只在 `else` 分支**才做 | 🔴🔴 **真分叉（行为差异）**，不是写法差异 ⇒ 参数化必须能表达"是否无条件重置" |
+| 5 | `onImageLoad` 初始选框 | 三元 `ratioLocked ? fitRectToRatioLocked : constrainCropRect`；默认 `defaultQuickLocalEditCrop` | 恒 `fitRectToRatioLocked`；默认 `defaultLocalEditCrop` | 🔴 真分叉（main 保留**普通裁剪自由矩形**语义）+ 常量不同源 |
+| 6 | `fitRectToRatio` | `ratioLocked` 分支 + **~30 行自由矩形算法** | 只一行 `fitRectToRatioLocked` | 🔴 真分叉，**行数差最大处**（diff hunk 57→21） |
+| 7 | `chooseLocalRatio` / `chooseRatio` | `!isLocalMode \|\| QUICK_LOCAL_EDIT_RATIOS.includes` | `BATCH_LOCAL_EDIT_RATIOS.includes` | 🔴 真分叉（守卫 + 比例常量表） |
+| 8 | `chooseEditMode` | `!isLocalMode \|\| nextMode === editMode` | 无 `isLocalMode` | 🔴 真分叉（同 #1） |
+| 9 | `updateCropRect` | 判据 `ratioLocked`；`constrainCropRect` | 判据 `!isMaskMode`；`constrainLocalEditRect` | 🔴🔴 **真分叉（判据语义不同，不是同一变量的两个名字）** + 约束函数不同源 |
+| 10 | `cropDragCtx` | `ratioLocked` | `ratioLocked: !isMaskMode` | 🔴 同 #9 |
+| 11 | `applyLocalEdit` | `cropLocalEditFile(..., isLocalMode ? "local_edit" : "crop", { fallbackToItem: true })` | `cropLocalEditFile(..., "local_edit")`（**无第四参**） | 🔴 真分叉（`fallbackToItem`，§6.10 已记：#16 用**参数化**处置、两侧各传原值，**不得统一**） |
+| 12 | 区域尾部 | — | 多出 `cropPercent` / `maskCanvasStyle` / `brushCursorStyle` | 🔴 **渲染期变量**（在组件体里算 style）⇒ **不能进工厂**，必须留在两侧 |
+
+🔴🔴 **Hook 边界（本块的关键结论）**：区域内有 **5 个 `useEffect`**，且 **deps 数组两侧不同**
+（`[item?.id, isLocalMode]` vs `[item?.id]` 等）。B3 定型形态是**普通工厂**（不 import React、无 `useState/useCallback/useMemo`）
+⇒ **`useEffect` 一律进不了工厂** ⇒ 这块**不可能整体搬**，只能是「纯函数/事件处理器进工厂 + effect 与渲染变量留在组件」。
+
+⇒ 因此本单派的是**只读领域设计单**（不写 src 代码），让执行者把上面的预判逐条复核并给出可施工的拆分方案，
+再由统筹裁决后拆成若干施工单。**不要在没出设计前直接开施工**。
 
 ---
 
@@ -155,8 +192,11 @@ node tmp/lint.mjs                            # ④ 取 ESLint 当前基线（**�
 
 ## 7. 待用户人工冒烟（可攒着一起给，未验证不等于有问题）
 
+✅ **已验通过（2026-10-03，用户亲测）**：参考生图 / 一键详情的**上传与删除**（产品图 ↔ 参考图），
+即 RF-073 触及的整条链路 —— 对应下面第 2 条，可划掉。
+
 - 一键详情页：分屏拖拽排序、拼图预览开关 + 滚轮缩放 + 拖拽平移、长图拼接下载、预设保存/加载/删除
-- 参考生图上传区：拖图落区（含从结果卡拖图）、"产品图+参考图合计最多 6 张"提示
+- ~~参考生图上传区：拖图落区（含从结果卡拖图）、"产品图+参考图合计最多 6 张"提示~~ → 上传/删除已验通过；**拖图落区**仍未验
 - 无限画布全域：新建/重命名/删除/清空/切换画布、拖节点、连线/删连线、滚轮缩放、拖图落画布取坐标、适应视图
 - 结果卡：拖一张结果图到另一张上替换（源被移除、选中与预览同步）
 - 视频生成：加参考图（>10MB 应报错）、拖图落视频区、换模型/时长、轮询状态与超时文案
