@@ -1453,10 +1453,15 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 3. effect#2/#4 体抽助手 ⇒ **暂缓**，登记 **RF-076-D**（收益 ~14 行 vs 额外对照成本，不划算）。
 4. `fitRectToRatio` **不搬**（非重复）。
 
-#### RF-076-A · 施工单（`V4.0-执行单-V13-RF-076-A.md`，🔵 已派单）
+#### RF-076 施工单（🔵 已派单 `V4.0-执行单-V14-RF-076-全量.md`；`V13-RF-076-A.md` 作废）
 
-范围：12 个无分叉纯函数 + effect#3/#5 体。选它做第一单的理由：这 14 个成员**全部落在 `diff -u` 无 hunk 的区间内**
-⇒ 两侧逐字相同 ⇒ **零参数化、零行为变化**，是整块里唯一能"闭眼验收"的一批。
+🔴 **2026-10-03 排产变更（用户拍板）**：**不拆多张施工单**（多单交接易出错）⇒ 改为**一张全量单一次做完**，
+**单内分 3 次阶段 commit 保留回滚点**：
+- **阶段 A** 12 个无分叉纯函数 + effect#3/#5 体（两侧逐字相同，零参数化、零行为变化，预估 ≈125 行）
+- **阶段 B** 4 个参数化函数（`enabled`/`ratios`/`isLocalMode`/`lockRatio`/`defaultCropRect`）+ `cropDragCtx.ratioLocked`（≈45 行）
+- **阶段 C** `applyLocalEdit`（`fallbackToItem`+`rectModeTag`）+ 收尾接线（≈19 行）
+
+每阶段后跑对照组 + 六道门禁，通过才 commit 下一阶段。落点仍是追加既有 `src/shared/local-edit-mask.js`（零新建文件）。
 
 #### 下一步（B3-7 起）
 
@@ -1464,11 +1469,9 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 
 当前候选（2026-10-03 RF-076 设计交付后）：
 
-1. 🔴 **RF-076-A · 局部编辑交互层施工单**（已派单 `V4.0-执行单-V13-RF-076-A.md`）
-   —— 12 个无分叉纯函数 + effect#3/#5 体，**零参数化、零行为变化**，12/18 成员、预估净省 ≈125 行。
-   后续：**RF-076-B**（4 个参数化函数 `enabled`/`ratios`/`lockRatio`/`defaultCropRect`）
-   → **RF-076-C**（`applyLocalEdit` + 接线）→ **RF-076-D**（effect#2/#4 体抽助手，可选，已裁决暂缓）。
-   🔴 **B/C/D 必须在 A 单验收通过后再派**，不要一次做完。
+1. 🔴 **RF-076 · 局部编辑交互层全量施工单**（已派单 `V4.0-执行单-V14-RF-076-全量.md`，单内 3 次阶段 commit）
+   —— A 无分叉 12 函数 + effect#3/#5 体 → B 4 个参数化函数 → C `applyLocalEdit`+接线；合计预估净省 ≈180–195 行。
+   后续：**RF-076-D**（effect#2/#4 体抽助手，已裁决暂缓，可选 ~14 行）。
 2. **RF-074 · main.result 域** 10 fn / 123 行，耦合 **0.90**（⚠️ 只碰本域仅 5/10，需注入 8+ 跨域项）。
 3. **RF-075 · 僵尸断言清理**（`scripts/` 路，可与 src/ 路并行）：`cropOutfitLocalEditFile` 全 src 已消失。
 4. **main.prompt 域** 11 fn / 190 行，耦合 1.36。
