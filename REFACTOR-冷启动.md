@@ -17,40 +17,36 @@
 
 ---
 
-## 1. 现状快照（2026-10-03 实测，刷新命令见下）
+## 1. 现状快照（2026-10-03 **17:5x** 实测，快照 `7a1328a`）
 
 | 项 | 值 |
 |---|---|
 | `src/main.jsx` | **6841** 行（RF-073 −16 → RF-076 **−224** → RF-077 **−337**） |
-| `src/outfit-workflow.jsx` | **10293** 行（RF-076 **−215** → RF-077 **−281**） |
-| 两巨石合计 | **17134** 行 / 占比 **68.0%**（起点 18867 / 74.6%） |
+| `src/outfit-workflow.jsx` | **10256** 行（RF-076 **−215** → RF-077 **−281** → RF-078-b **−39** → 清垃圾 +2） |
+| 两巨石合计 | **17097** 行 / 占比 **67.9%**（起点 18867 / 74.6%） |
 | `src/shared/` | 4345 行（RF-076 工厂 +263） |
-| `src/features/` | 2018 行（js+jsx，RF-077 新增 `local-edit/LocalEditModal.jsx` 379）+ 546 行 css |
-| js/jsx 文件数 | **58** / 总 25208 行 |
-| 019 基线 `fileCount` | **58**（RF-077 已由统筹划账：57→58） |
-| ESLint 全仓 | errors=0 / **warnings=17**（src 16 + `server/routes/outfit.routes.js` 1） |
+| `src/features/` | 2018 行（js+jsx，含 RF-077 新增 `local-edit/LocalEditModal.jsx` 379）+ 546 行 css |
+| js/jsx 文件数 | **58** / 总 **25171** 行 |
+| 019 基线 `fileCount` | **58**（RF-077 已由统筹划账：57→58；RF-078-b 未新建文件故不划账） |
+| ESLint 全仓 | errors=0 / **warnings=16**（src 15 + `server/routes/outfit.routes.js` 1） |
 
-> 快照 **`af49552`**（RF-077 全量完成后）。⚠️ 全仓 warnings 是 **17**（含 server 1 条）；**src 单独是 16**，
-> 两个口径别混用。RF-077 后 warnings 由 18→17（少 1 条 `react-hooks/exhaustive-deps`，属改善）。
+> ⚠️ 两个口径别混用：全仓 **16**，src 单独 **15**。
+> 16 的构成：`main.jsx` 5 + `outfit-workflow.jsx` 7 + `LocalEditModal.jsx` 2 +
+> `shared/ui/cached-image.jsx` 1 + server 1，全部是 `react-hooks/exhaustive-deps`（server 那条是 `no-unused-vars`）。
+> 基线 18→16 是**净改善**（RF-077 搬走 4 条 effect 告警，同时给新组件带来 2 条转移登记），详见 §1.6。
 
 已抽出的 `src/features/` 模块（13 个）：
 `auth/api-key`(67) `canvas/canvas-actions`(313) `canvas/canvas-graph`(102) `detail/detail-group`(272)
 `local-edit/*`(721,含 3 个 jsx，**RF-077 新增 `LocalEditModal.jsx` 379**) `result-queue/quick-result-replace`(103)
 `savedir/save-directory`(91) `upload/reference-upload`(**203**，RF-073 −16) `video/video-composer`(146)
 
-**刷新命令**（一条）：
+**刷新命令**（一条，**不要用旧版那条**）：
 ```bash
-node -e "
-const {execSync}=require('child_process');
-const all=execSync('git ls-files src',{encoding:'utf8'}).split('\n').filter(f=>/\.jsx?\$/.test(f));
-let tot=0; const rows=[];
-for(const f of all){const n=execSync('git show HEAD:'+f,{encoding:'utf8',maxBuffer:1<<28}).split('\n').length-1; tot+=n; rows.push([f,n]);}
-const g=n=>rows.find(r=>r[0]==='src/'+n)[1];
-const mono=g('main.jsx')+g('outfit-workflow.jsx');
-console.log('文件='+all.length+' 总行='+tot+' main='+g('main.jsx')+' outfit='+g('outfit-workflow.jsx')+' 巨石='+mono+' 占比='+(mono/tot*100).toFixed(1)+'%');
-console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)=>a+b[1],0)+' features='+rows.filter(r=>r[0].startsWith('src/features')).reduce((a,b)=>a+b[1],0));
-"
+node scripts/dev/snapshot-refresh.mjs
 ```
+> 🔴 旧版文档里给的是 `execSync` 版本 —— 本环境 `execSync`/`spawnSync` 必 EBUSY，
+> 那条命令根本跑不出数。新版全用 `fs` 直读，零子进程，输出直接就是上表每一行。
+> 顺便会打出 features 明细和 TOP5 大文件，抄文档不必手算。
 
 ---
 
@@ -63,6 +59,70 @@ console.log('shared='+rows.filter(r=>r[0].startsWith('src/shared')).reduce((a,b)
 
 🔑 教训：`eslint .` 的扫描范围是**全仓**，任何游离目录都会污染棘轮；新增 `eslint` 看不到
 的目录前，先确认它在 `eslint.config.mjs` 的哪个 `files` 组里。
+
+---
+
+## 1.6 一轮「能否转功能开发」的稳定性复核（2026-10-03，**快照 `7a1328a`**）
+
+结论：**可以转**。但复核过程本身就是答案的一半 —— 门禁全绿不代表没问题，
+底下三件事只有亲手量才发现。派单前后都要按这一节走一遍。
+
+### 六道门禁实测结果（全部为本次亲手跑，非引用汇报）
+
+| 门禁 | 结果 |
+|---|---|
+| `source-hygiene-check`（**本轮新立**） | ok，224 文件 0 脏字节 |
+| `frontend-duplication-check`（019） | ok / `duplicateCount`=0 / `fileCount`=**58** / 无范围漂移 |
+| `import-path-check` | ok，220 specifiers / 0 violations |
+| `check-syntax` | **205/205** |
+| ESLint 全仓 | 0 errors / **16** warnings（基线 16，**无超基线组**） |
+| `vite build` | ✓ 1636 modules，产物 732.80 kB（gzip 228 kB） |
+| 全套 `run-all` ORDER | **38 项：净结果全绿**（判定方法见下 ⚠️） |
+
+### ⚠️ 跑全套验证的正确姿势（本轮实测得出，不照做会得到假结论）
+
+用脚本**串行批处理**整套 ORDER 时，第二次跑出了 **10 项 FAIL**（连同首次异常计 **11 项**），
+而且失败名单与第一次完全不重叠（第一次红的是 `modal-shell-check` + `lint-ratchet-check`，
+第二次红的是 `batch-prompt-passthrough` / `connection-test` / `http-mock` / `pro-wire` /
+`white-refine-split` / `retouch-intent-request` / `run-all-check` 等）。
+把这 11 项**单独拎出来逐个重跑，全部 exit=0 / ok=true** ⇒ **零真回归，纯并发干扰**。
+
+根因：这批脚本会各自 `spawn` 一个 `server/index.js` 或占 `127.0.0.1` 端口
+（`http-mock-check` 起 8899、`pro-wire-check` 起网关 mock、`*intent-request-check` 起主服务），
+批处理时前一项的子进程还没完全退出、端口没释放，后一项就起不来。
+
+⇒ 规则三条：
+1. **一次只跑一项**，别用一串 `for` 连着跑 —— 至少这批含 `spawn` 的脚本必须如此。
+2. 跑的过程中**不要同时开 `vite build` / `npm run dev`**（本轮就是这么撞出来的）。
+3. 批处理报 FAIL 时，**先单独重跑确认**，不要直接当成回归去修代码 —— 否则会去改一段好代码。
+
+### 复核查出的三个问题（均已修并有 commit）
+
+1. 🔴 **`outfit-workflow.jsx` 被二进制污染 ⇒ grep 对该巨石静默失效**（`9e5be71`）
+   RF-078-b 给第 5727 行的注释写进 NUL + 9 个控制字符 + 非法 UTF-8。
+   后果不是"注释难看"，而是 **grep/rg 把整个 1 万行文件判为 binary** —
+   而派单前「四处 grep 判是否被裁决过」、worktree 对拍、「搬 A 查唯一调用方」全依赖 grep。
+   等于让审计体系对着 outfit 侧集体失明，**且不报错**。
+   ⚠️ build / ESLint 全绿，**只有字节级扫描能发现** ⇒ 已立 `source-hygiene-check` 常驻门禁。
+2. **`modal-shell-check` 3 红** —— RF-075 的漏网（`7a1328a`）
+   RF-077 换组件后断言失配，按同一口径**重定位**（类名断言改指新组件 + 补"引用到位"断言 +
+   数量 4→3）。🔑 **组件改名/合并后，必须 grep 全部 verify 脚本找旧名** —— RF-075 只扫了
+   `local-edit-base-file-check`，漏了 `modal-shell-check`。
+3. **`rf077-control.mjs` 的死变量 `STUB`** —— 对照组脚本自身没过 lint，属真缺陷，直接删（不划账）。
+
+### 🔴 修 bin 污染时的两个必踩坑（写死在这里）
+
+- **不能用 `latin1` 读整体再原样写回** ⇒ 插入的中文被拆成单字节落盘，反向污染出新垃圾。
+- **不能用 `utf8` 读整体再写回** ⇒ 其余行的非法字节被替换成 U+FFFD，一夜间改坏另外 1 万行。
+- ✅ 正解：**只在字节层面切那一行** + 插入段用 `Buffer.from(text, "utf8")` 显式编码，其余字节原样。
+  参考实现 `scripts/dev/fix-rf078b-garbage.mjs`。
+
+### 登记（本轮**未**处理，知悉即可）
+
+- `outfit-workflow.jsx` 有 **98 行 LF** 混在 10156 行 CRLF 中。经溯源 BASE `98d6178` 同样是
+  98 行 LF ⇒ **历史遗留、非本轮引入**，按最小改动原则未动。将来若统一行尾，务必单独开单。
+- 分支现状：所有重构提交都在 **`batch3-rf101-103`** 上，领先 `main` **157 个提交**、`main` 无分叉
+  ⇒ 随时可快进合并。是否合并属产品决策，**不要擅自作为技术收尾动作执行**。
 
 ---
 

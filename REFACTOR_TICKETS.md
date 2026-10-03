@@ -1510,10 +1510,22 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 - 🔴 **方法论修正**（已写进冷启动 §4.1）：**「三处契约文档 grep 零命中 ⇒ 从未被裁决」这条判据作废** ——
   裁决可能写在 `src/shared/**/*.js` **文件头注释**里。**派单前必须四处 grep**（含 `src/shared/`），否则会把已裁决的债当新债重开一单。
 
-#### RF-074 · main.result/download 域（🔵 **本轮派只读领域设计单** `V4.0-执行单-V19-RF-074.md`）
+#### RF-074 · main.result/download 域（✅ **只读设计单已完成 `ec66dc9`**，结论「做」，**施工单待派**）
 
 - `src/main.jsx:3036-3459`，**21 函数 / 371 行**（统筹实测，逐函数行数见冷启动 §3.10）。
   ⚠️ 修订旧登记：此前记为「10 fn / 123 行、耦合 0.90」是**旧快照且域划小了**。
+- ✅ **设计单结论（2026-10-03 `ec66dc9`，零 src 改动）**：
+  - 可搬 **18/21**（✅14 + 🟡4，86%）；❌3 = `clearAll`（编排层，18 项注入 + `window.confirm` 用户交互，
+    净省趋近 0）/ `saveProcessedImageFile`（savedir 域且作为 prop 传出，**建议与 `openSaveDirectory`
+    合并另开 savedir 第二单**，合计 40 行 < 100 ⇒ 当前不派）/ `downloadStitchPreview`（跨工厂真循环）。
+  - 注入 22 项；🔴 禁止 import `main.jsx`，`QUICK_RESULT_DRAG_TYPE`/`loadHistoryResults` 等走 deps。
+  - 落点 = **追加进既有** `src/features/result-queue/quick-result-replace.js`（两个工厂）
+    ⇒ **零新建文件 ⇒ fileCount 仍 58 ⇒ 019 不划账**。
+  - 判据 **A（巨石减少）≈ 195 行**、B（总行数）≈ +68 净增 ⇒ **A≥100 且可搬≥2/3 ⇒ 做**，
+    建议分两阶段 commit（阶段 1 download 121 行 → 阶段 2 result/history 76 行）。
+- ⚠️ **执行者纠正统筹一处测量失真**：21 函数实测 **268 行**而非 371 行 —— 旧测法
+  「上一函数名尾行 → 下一函数名首行」的区间减法把**已抽取工厂的解构块**算成了待搬函数体。
+  ⇒ **后续排产一律用配平脚本测量**（`scripts/dev/snapshot-refresh.mjs` 同类），别用区间减法。
 - 🔑 **选它与 RF-078-b 并行的理由**：对象是 `main.jsx`，而 RF-078-b 改的是 `outfit-workflow.jsx`
   ⇒ **零抢文件、行号不漂移**。单里因此写死：**禁止读/改 `outfit-workflow.jsx`**（此刻是中间态）。
 - 🔴 **收益口径澄清**（写进冷启动 §3.10）：本单是**单侧拆分单**，不是消重单 ⇒
@@ -1524,10 +1536,19 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 - ⚠️ 域归属需执行者重判：`removeDetailResultIds` 可能属 detail 域、`beginReferenceImageDrag`(45 行) 可能属 upload 域、
   `refreshHistory`/`syncHistoryFromServer` 可能属 history 域 ⇒ **不许为凑数把异域函数塞进同一工厂**。
 
-#### RF-078-b · outfit 内部提示词面板 A/B 去重（🔵 **本轮派单**）
+#### RF-078-b · outfit 内部提示词面板 A/B 去重（✅ **已完成 `91ad725`**）
 
 - `outfit-workflow.jsx:9311-9387`（`promptAssistantDock`）↔ `9992-10068`（`promptAssistantBody`），
   去掉容器行后 **2 × 76 行，`diff` 0 hunk、逐字相同**。
+- 落地：抽成模块顶层组件 **`PromptPresetGrid`**（定义于 5730 行，`OutfitWorkflow` 之前），
+  两处调用点在 9403 / 10020。**outfit 10293 → 10254（−39）**，符合"保守估 30–50"的预期。
+- ✅ 契约符合性实测：定义在**模块顶层**✔、**未新建文件**⇒ `fileCount` 仍 **58，019 不划账**✔。
+- 🔴 **但本单引入了一处二进制污染** ⇒ 第 5727 行的注释写进了 NUL + 非法 UTF-8，
+  导致 **grep 把整个 `outfit-workflow.jsx` 判为 binary**（整整 1 万行无法检索），
+  而专升本涉案前的「四处 grep」、worktree 对拍全依赖 grep ⇒ **审计对该巨石静默失明**。
+  已由统筹测出并修（**`9e5be71`**），同时立 `source-hygiene-check` 常驻门禁防复发。
+  ⚠️ 教训：**每次 src 交付后都要跑一次字节级扫描**，build/ESLint/浏览器探针全都抓不到这类问题。
+- props 20 个，两侧逐项同值（唯一差异是外层容器 className，容器仍留在各自调用点）。
 - 🔑 与 RF-078 **性质完全不同**：两处同属 `OutfitWorkflow`（5727 起）**同一组件的 render**，共享同一套 state
   ⇒ **props 两侧传完全相同的值 ⇒ 零分叉、行为零变化**。
 - 🔴 **落点：定义在 `src/outfit-workflow.jsx` 模块顶层，不新建文件** ⇒ `fileCount` 仍 58 ⇒ **019 不划账**。
@@ -1538,14 +1559,23 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 
 **已建立冷启动入口 `REFACTOR-冷启动.md`** —— 新会话只读它 + `MEMORY.md` 即可恢复，不依赖聊天记录。
 
-当前候选（2026-10-03 RF-077 验收后）：
+当前候选（**2026-10-03 稳定性复核后，快照 `7a1328a`**）：
 
-1. 🔴 **RF-078-b**（`src/outfit-workflow.jsx`，施工中）+ **RF-074**（只读设计单，对象 `src/main.jsx`）
-   —— **两路并行不冲突**（改 outfit vs 只读 main）。
-2. ~~**RF-074 · main.result 域** 10 fn / 123 行~~ ⇒ **见下条**（已升级为 21 fn / 371 行的只读领域设计单）。
+> 🔑 **阶段已切换：转入功能开发，重构降为低优先的慢车道。**
+> 依据 = 冷启动 §1.6 的六道门禁全绿（019 dup0/fileCount58、check-syntax 205/205、
+> ESLint 16 ≤ 基线、vite build ✓、run-all 39 项全绿含浏览器探针）。
+> 下面 1–5 项作为**有空再做**的存量，**不再是阻塞项**。
+
+1. ✅ **RF-078-b 已完成 `91ad725`**（outfit −39；遗留的二进制污染由统筹修于 `9e5be71`）。
+2. 🔵 **RF-074 施工单待派** —— 只读设计单 `ec66dc9` 结论「做」，**A ≈ 195 行**，追加进既有
+   `features/result-queue/quick-result-replace.js`（两工厂、零新建文件、不划账），
+   建议两阶段 commit。**这是慢车道里收益最确定的一单**，想动工从这里开始。
 3. **main.prompt 域** 11 fn / 190 行，耦合 1.36。
 4. **outfit 侧完全未动**：misc 53 fn/942 行(1.23)、result 26 fn/940 行(1.15) —— 需先出只读领域设计。
 5. **RF-076-D**（effect#2/#4 体抽助手，已裁决暂缓，可选 ~14 行）。
+6. 📌 **技术债登记（不派单，知悉即可）**：`outfit-workflow.jsx` 有 98 行 LF 混在 10156 行 CRLF 中
+   （BASE `98d6178` 同为此数 ⇒ 历史遗留）；分支 `batch3-rf101-103` 领先 `main` 157 提交、main 无分叉，
+   随时可快进合并 —— **是否合并属产品决策，需用户拍板**。
 
 ⚠️ main 侧 `misc` 24 fn/546 行耦合已升至 **1.50**、`detail` 残余 12 fn/288 行升至 **2.08**、
 `canvas` 残余 8 fn/257 行 1.63 ⇒ **这三簇属编排层，不要按域抽**。
