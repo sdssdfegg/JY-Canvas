@@ -77,6 +77,8 @@ try {
     browserReason = "tabbit-cli 不存在，跳过浏览器部分";
   } else {
     const program = `
+// vite 冷启动（依赖预构建）常 >30s，playwright 默认导航超时会抛错 ⇒ 本行必须保留
+page.setDefaultNavigationTimeout(150000);
 const mod = async () => (await import("/scripts/verify/resize-long-edge-page.jsx?v=" + Date.now()));
 await page.goto("http://127.0.0.1:${APP_PORT}/", {waitUntil: "domcontentloaded"});
 await page.waitForTimeout(2400);
