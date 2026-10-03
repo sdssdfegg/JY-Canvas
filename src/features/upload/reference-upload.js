@@ -2,7 +2,7 @@
 // 形态同 RF-066~069：普通工厂（不 import React、无 useState/useCallback/useMemo）。
 // deps 解构保持同名 ⇒ main.jsx 调用点零改动；函数体内部互相调用直接引用闭包局部函数 ⇒ 不改签名。
 import { fileBaseName } from "../../shared/file-name.js";
-import { imageExtension, imageFilesFromList } from "../../shared/image-input.js";
+import { imageExtension, imageFilesFromList, addFilesByRole, removeFilesByRole } from "../../shared/image-input.js";
 import { imageFileFromUrl } from "../../shared/result-image.js";
 
 // 模块级常量随本域一起搬出（main.jsx JSX 仍要用于展示上限 ⇒ 反向 import 回来）。
@@ -36,29 +36,13 @@ export function createReferenceUpload(deps) {
   } = deps;
 
   function addReferenceRewriteFiles(role, fileList) {
-    const picked = imageFilesFromList(fileList);
-    if (picked.length === 0) return;
-    const used = referenceProductFiles.length + referenceStyleFiles.length;
-    const remaining = MAX_REFERENCE_REWRITE_FILES - used;
-    if (remaining <= 0) {
-      addEvent("参考生图", `产品图和参考图合计最多 ${MAX_REFERENCE_REWRITE_FILES} 张`);
-      return;
-    }
-    const accepted = picked.slice(0, remaining);
-    if (role === "product") {
-      setReferenceProductFiles((current) => [...current, ...accepted]);
-    } else {
-      setReferenceStyleFiles((current) => [...current, ...accepted]);
-    }
-    addEvent("参考生图", `已添加 ${accepted.length} 张${role === "product" ? "产品图" : "参考图"}`);
+    addFilesByRole(role, fileList, referenceProductFiles.length + referenceStyleFiles.length,
+      MAX_REFERENCE_REWRITE_FILES, `产品图和参考图合计最多 ${MAX_REFERENCE_REWRITE_FILES} 张`,
+      "参考生图", addEvent, setReferenceProductFiles, setReferenceStyleFiles);
   }
 
   function removeReferenceRewriteFile(role, index) {
-    if (role === "product") {
-      setReferenceProductFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    } else {
-      setReferenceStyleFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    }
+    removeFilesByRole(role, index, setReferenceProductFiles, setReferenceStyleFiles);
   }
 
   function appendReferenceFiles(fileList, options = {}) {

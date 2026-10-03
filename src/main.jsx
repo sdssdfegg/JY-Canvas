@@ -109,7 +109,7 @@ import {
   imageBitmapFromFile,
   imageExtension,
   imageFilesFromClipboard,
-  imageFilesFromList
+  imageFilesFromList, addFilesByRole, removeFilesByRole
 } from "./shared/image-input.js";
 import { readJsonStorage, removeStorageItem, writeJsonStorage } from "./lib/storage/json-storage.js";
 import OutfitWorkflow from "./outfit-workflow.jsx";
@@ -3302,29 +3302,13 @@ function App() {
   }
 
   function addDetailFiles(role, fileList) {
-    const picked = imageFilesFromList(fileList);
-    if (picked.length === 0) return;
-    const used = role === "product" ? detailProductFiles.length : detailReferenceFiles.length;
-    const remaining = MAX_DETAIL_FILES - used;
-    if (remaining <= 0) {
-      addEvent("一键详情", `${role === "product" ? "产品图" : "参考图"}最多 ${MAX_DETAIL_FILES} 张`);
-      return;
-    }
-    const accepted = picked.slice(0, remaining);
-    if (role === "product") {
-      setDetailProductFiles((current) => [...current, ...accepted]);
-    } else {
-      setDetailReferenceFiles((current) => [...current, ...accepted]);
-    }
-    addEvent("一键详情", `已添加 ${accepted.length} 张${role === "product" ? "产品图" : "参考图"}`);
+    addFilesByRole(role, fileList, role === "product" ? detailProductFiles.length : detailReferenceFiles.length,
+      MAX_DETAIL_FILES, `${role === "product" ? "产品图" : "参考图"}最多 ${MAX_DETAIL_FILES} 张`,
+      "一键详情", addEvent, setDetailProductFiles, setDetailReferenceFiles);
   }
 
   function removeDetailFile(role, index) {
-    if (role === "product") {
-      setDetailProductFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    } else {
-      setDetailReferenceFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    }
+    removeFilesByRole(role, index, setDetailProductFiles, setDetailReferenceFiles);
   }
 
   const {

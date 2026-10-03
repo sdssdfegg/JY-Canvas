@@ -117,3 +117,28 @@ export async function imageBitmapFromBlob(blob) {
     image.src = url;
   });
 }
+/**
+ * 参考生图「产品图+参考图」与一键详情「按 role 各自」两种上传上限逻辑的
+ * 公共实现（RF-073 参数化收口）。差异以入参传入，公共体不内嵌任何口径分支：
+ * used 由调用点按各自算法算好再传，setProductFiles / setReferenceFiles 由
+ * 调用点按 role 落位。行为须与两侧改前逐字一致（零业务变化）。
+ */
+export function addFilesByRole(role, fileList, used, maxFiles, limitMessage, eventLabel, addEvent, setProductFiles, setReferenceFiles) {
+  const picked = imageFilesFromList(fileList);
+  if (picked.length === 0) return;
+  const remaining = maxFiles - used;
+  if (remaining <= 0) {
+    addEvent(eventLabel, limitMessage);
+    return;
+  }
+  const accepted = picked.slice(0, remaining);
+  if (role === "product") setProductFiles((current) => [...current, ...accepted]);
+  else setReferenceFiles((current) => [...current, ...accepted]);
+  addEvent(eventLabel, `已添加 ${accepted.length} 张${role === "product" ? "产品图" : "参考图"}`);
+}
+
+/** 删除某 role 下第 index 张文件（RF-073 参数化收口，与 addFilesByRole 同源）。 */
+export function removeFilesByRole(role, index, setProductFiles, setReferenceFiles) {
+  if (role === "product") setProductFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  else setReferenceFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
+}
