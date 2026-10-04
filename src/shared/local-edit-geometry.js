@@ -182,7 +182,7 @@ export function fitRectToRatioLocked(rect, ratio, imageWidth, imageHeight) {
  * 拖动时用位移更大的那个轴驱动，另一个轴按比例跟随 —— 手感接近原生裁剪框，
  * 又不会出现"拖了宽高比变了"的形变。
  */
-export function resizeRectFromCornerLocked(sourceRect, handle, deltaX, deltaY, ratio, imageWidth, imageHeight) {
+export function resizeRectFromCornerLocked(sourceRect, handle, deltaX, deltaY, ratio, imageWidth, imageHeight, drivingAxis = undefined) {
   const directionX = handle.includes("e") ? 1 : -1;
   const directionY = handle.includes("s") ? 1 : -1;
   const anchorX = directionX > 0 ? sourceRect.x : sourceRect.x + sourceRect.width;
@@ -192,12 +192,27 @@ export function resizeRectFromCornerLocked(sourceRect, handle, deltaX, deltaY, r
   const desiredWidth = Math.max(1, sourceRect.width + deltaX * directionX);
   const desiredHeight = Math.max(1, sourceRect.height + deltaY * directionY);
   const { width: ratioWidth, height: ratioHeight } = parseRatioParts(ratio);
-
-  // 位移更大的轴当主导轴，避免对角线抖动时选框乱跳。
   const widthFromHeight = (desiredHeight * ratioWidth) / ratioHeight;
-  const driven = Math.abs(deltaX) >= Math.abs(deltaY)
-    ? Math.max(1, desiredWidth)
-    : Math.max(1, widthFromHeight);
+
+  // BUG-01 修复：角柄缩放「选框回弹」。
+  // 根因：原 `driven` 是 `|dx|>=|dy| ? 宽驱动 : 高驱动` 的分段函数，在
+  // `|dx|==|dy|` 处存在跳变，慢拖/斜拖反复穿越边界 → 选框弹一下（同轨迹最大跳变 41px）。
+  //   - drivingAxis === "x"：纯宽驱动（100% 跟手，由调用方在单次拖拽内锁定）；
+  //   - drivingAxis === "y"：纯高驱动（同上）；
+  //   - 未指定（默认）：沿比例对角线连续投影，单一连续公式彻底消除分段跳变，
+  //     作为向后兼容兜底，保证即使不锁轴也连续（§5 裸探针直接转绿）。
+  let driven;
+  if (drivingAxis === "y") {
+    driven = Math.max(1, widthFromHeight);
+  } else if (drivingAxis === "x") {
+    driven = Math.max(1, desiredWidth);
+  } else {
+    const moveX = deltaX * directionX;
+    const moveY = deltaY * directionY;
+    const deltaWidth = ((moveX * ratioWidth + moveY * ratioHeight) * ratioWidth)
+      / (ratioWidth * ratioWidth + ratioHeight * ratioHeight);
+    driven = Math.max(1, sourceRect.width + deltaWidth);
+  }
   const size = snapSizeToRatio(driven, 0, ratio, maxWidth, maxHeight);
   return {
     x: directionX > 0 ? anchorX : anchorX - size.width,
@@ -208,7 +223,7 @@ export function resizeRectFromCornerLocked(sourceRect, handle, deltaX, deltaY, r
 }
 
 /** 中心对称缩放（比例锁定，Alt 拖动）：中心不动，宽高始终满足 ratio。 */
-export function resizeRectFromCenterLocked(sourceRect, handle, deltaX, deltaY, ratio, imageWidth, imageHeight) {
+export function resizeRectFromCenterLocked(sourceRect, handle, deltaX, deltaY, ratio, imageWidth, imageHeight, drivingAxis = undefined) {
   const directionX = handle.includes("e") ? 1 : -1;
   const directionY = handle.includes("s") ? 1 : -1;
   const centerX = sourceRect.x + sourceRect.width / 2;
@@ -219,9 +234,20 @@ export function resizeRectFromCenterLocked(sourceRect, handle, deltaX, deltaY, r
   const desiredHeight = Math.max(1, sourceRect.height + deltaY * directionY * 2);
   const { width: ratioWidth, height: ratioHeight } = parseRatioParts(ratio);
   const widthFromHeight = (desiredHeight * ratioWidth) / ratioHeight;
-  const driven = Math.abs(deltaX) >= Math.abs(deltaY)
-    ? Math.max(1, desiredWidth)
-    : Math.max(1, widthFromHeight);
+
+  // BUG-01 修复（Alt 中心缩放同源）：见 resizeRectFromCornerLocked 注释。
+  let driven;
+  if (drivingAxis === "y") {
+    driven = Math.max(1, widthFromHeight);
+  } else if (drivingAxis === "x") {
+    driven = Math.max(1, desiredWidth);
+  } else {
+    const moveX = deltaX * directionX * 2;
+    const moveY = deltaY * directionY * 2;
+    const deltaWidth = ((moveX * ratioWidth + moveY * ratioHeight) * ratioWidth)
+      / (ratioWidth * ratioWidth + ratioHeight * ratioHeight);
+    driven = Math.max(1, sourceRect.width + deltaWidth);
+  }
   const size = snapSizeToRatio(driven, 0, ratio, maxWidth, maxHeight);
   return {
     x: centerX - size.width / 2,

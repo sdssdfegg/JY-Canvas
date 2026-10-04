@@ -36,10 +36,10 @@ export const CROP_MIN_PIXEL_SIZE = 1;
  * @param {number} deltaY 指针位移（原图坐标）
  * @param {{ ratioLocked: boolean, activeRatio: any, imageWidth: number, imageHeight: number }} options
  */
-export function resizeCropRectFromCorner(sourceRect, handle, deltaX, deltaY, { ratioLocked, activeRatio, imageWidth, imageHeight }) {
+export function resizeCropRectFromCorner(sourceRect, handle, deltaX, deltaY, { ratioLocked, activeRatio, imageWidth, imageHeight, drivingAxis }) {
   if (ratioLocked) {
     return resizeRectFromCornerLocked(
-      sourceRect, handle, deltaX, deltaY, activeRatio, imageWidth, imageHeight
+      sourceRect, handle, deltaX, deltaY, activeRatio, imageWidth, imageHeight, drivingAxis
     );
   }
   const directionX = handle.includes("e") ? 1 : -1;
@@ -62,10 +62,10 @@ export function resizeCropRectFromCorner(sourceRect, handle, deltaX, deltaY, { r
  * Alt 中心缩放选框（以选框中心为锚点，位移按 2 倍计入宽高）。
  * 参数含义同 {@link resizeCropRectFromCorner}。
  */
-export function resizeCropRectFromCenter(sourceRect, handle, deltaX, deltaY, { ratioLocked, activeRatio, imageWidth, imageHeight }) {
+export function resizeCropRectFromCenter(sourceRect, handle, deltaX, deltaY, { ratioLocked, activeRatio, imageWidth, imageHeight, drivingAxis }) {
   if (ratioLocked) {
     return resizeRectFromCenterLocked(
-      sourceRect, handle, deltaX, deltaY, activeRatio, imageWidth, imageHeight
+      sourceRect, handle, deltaX, deltaY, activeRatio, imageWidth, imageHeight, drivingAxis
     );
   }
   const directionX = handle.includes("e") ? 1 : -1;

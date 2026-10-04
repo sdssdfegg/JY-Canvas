@@ -37,7 +37,9 @@ export function beginCropDrag(event, mode, { cropRect, displaySize, imageSize, d
     centerResize,
     startX: event.clientX,
     startY: event.clientY,
-    rect: cropRect
+    rect: cropRect,
+    // BUG-01 修复：单次拖拽内锁定的驱动轴，见 moveCropDrag。
+    drivingAxis: undefined
   };
 }
 
@@ -62,13 +64,22 @@ export function moveCropDrag(event, { dragRef, cropRect, displaySize, imageSize,
   }
 
   const handle = drag.mode.startsWith("resize-") ? drag.mode.slice("resize-".length) : "se";
+
+  // BUG-01 修复：单次拖拽内锁定驱动轴。
+  // 累计位移超过死区（3px）时首次定轴并写入 dragRef；之后不再翻转，
+  // 避免慢拖/斜拖反复穿越 |dx|>=|dy| 边界导致选框回弹（drivingAxis 透传给几何函数）。
+  if (drag.drivingAxis === undefined && Math.hypot(deltaX, deltaY) >= 3) {
+    drag.drivingAxis = Math.abs(deltaX) >= Math.abs(deltaY) ? "x" : "y";
+  }
+
   updateCropRect((drag.centerResize
     ? resizeCropRectFromCenter
     : resizeCropRectFromCorner)(drag.rect, handle, deltaX, deltaY, {
     ratioLocked,
     activeRatio,
     imageWidth: imageSize.width,
-    imageHeight: imageSize.height
+    imageHeight: imageSize.height,
+    drivingAxis: drag.drivingAxis
   }));
 }
 
