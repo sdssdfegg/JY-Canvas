@@ -17,30 +17,35 @@
 
 ---
 
-## 1. 现状快照（2026-10-04 **19:1x** 实测，快照 `b378239`，BUG-01 修复后）
+## 1. 现状快照（2026-10-05 **00:0x** 实测，快照 `e31a71a`，RF-081+082 施工后）
 
 | 项 | 值 |
 |---|---|
-| `src/main.jsx` | **6630** 行（RF-073 −16 → RF-076 **−224** → RF-077 **−337** → RF-074 **−211**） |
-| `src/outfit-workflow.jsx` | **7185** 行（RF-076 **−215** → RF-077 **−281** → RF-078-b **−39** → 清垃圾 +2 → RF-079 **−988** → **RF-080 −2083**） |
-| 两巨石合计 | **13815** 行 / 占比 **54.3%**（起点 18867 / 74.6%）🎉 **首次跌破 55%** |
-| `src/shared/` | **4371** 行（BUG-01 给 `local-edit-geometry.js` +29） |
-| `src/features/` | **5557** 行（js+jsx，含 RF-079 新建 `outfit/outfit-task.js` **1069**、RF-080 新建 `outfit/outfit-panels.jsx` **2166**）+ 546 行 css |
-| js/jsx 文件数 | **60** / 总 **25454** 行 |
-| 019 基线 `fileCount` | **60**（RF-077 57→58；RF-079 58→59；**RF-080 59→60 已于 2026-10-04 由统筹划账**；RF-078-b / RF-074 / **BUG-01 零新建故不划账**） |
-| ESLint 全仓 | errors=0 / **warnings=16**（src 15 + `server/routes/outfit.routes.js` 1） |
+| `src/main.jsx` | **5610** 行（RF-073 −16 → RF-076 **−224** → RF-077 **−337** → RF-074 **−211** → **RF-082 −1020**） |
+| `src/outfit-workflow.jsx` | **4801** 行（RF-076 **−215** → RF-077 **−281** → RF-078-b **−39** → 清垃圾 +2 → RF-079 **−988** → RF-080 **−2083** → **RF-081 −2384**） |
+| 两巨石合计 | **10411** 行 / 占比 **40.8%**（起点 18867 / 74.6%）🎉🎉 **首次跌破 41%** |
+| `src/shared/` | **4518** 行（RF-082 新建 `app-defaults.js` 147） |
+| `src/features/` | **8892** 行（js+jsx，含 RF-079 `outfit/outfit-task.js` **1069**、RF-080 `outfit/outfit-panels.jsx` **2166**、**RF-081 `outfit/outfit-top.js` 2146**、RF-082 `storage/storage-store.js` 272 + `crop/quick-crop-panels.jsx` 239）+ 546 行 css |
+| js/jsx 文件数 | **64** / 总 **25532** 行 |
+| 019 基线 `fileCount` | **64**（RF-077 57→58；RF-079 58→59；RF-080 59→60；**RF-081+082 60→64 已于 2026-10-05 由统筹划账**；RF-078-b / RF-074 / BUG-01 零新建故不划账） |
+| ESLint 全仓 | errors=0 / **warnings=45** ⚠️（src **37** + `scripts/dev/` 8 + server 1） |
 
-> ⚠️ 两个口径别混用：全仓 **16**，src 单独 **15**。
-> 16 的构成：`main.jsx` 5 + `outfit-workflow.jsx` 7 + `LocalEditModal.jsx` 2 +
-> `shared/ui/cached-image.jsx` 1 + server 1，全部是 `react-hooks/exhaustive-deps`（server 那条是 `no-unused-vars`）。
-> 基线 18→16 是**净改善**（RF-077 搬走 4 条 effect 告警，同时给新组件带来 2 条转移登记），详见 §1.6。
+> ⚠️ **三个口径别混用**：全仓 **45**、src **37**、基线可比 **16**。
+> 45 的构成：`main.jsx` **26** + `outfit-workflow.jsx` 5 + `LocalEditModal.jsx` 2 +
+> `outfit-panels.jsx` 2 + `quick-crop-panels.jsx` 1 + `cached-image.jsx` 1 = src 37，
+> 加 `scripts/dev/` 8（RF-081/082 两个分析脚本自带）+ server 1。
+> 🔴 **src 37 是回归**：其中 **`main.jsx` 22 条 `no-unused-vars` 是 RF-082 留下的孤儿 import**，
+> 已派 **V28 补单**（`V4.0-执行单-V28-RF-082-清孤儿import.md`）清理，清完应回到 src **15**（main 4 + outfit 5 + 其余 6）。
+> 剩余 4 条 `exhaustive-deps` 是原基线内容，非回归。
 
-已抽出的 `src/features/` 模块（15 个）：
-`auth/api-key`(67) `canvas/canvas-actions`(313) `canvas/canvas-graph`(102) `detail/detail-group`(272)
-`local-edit/*`(721,含 3 个 jsx，**RF-077 新增 `LocalEditModal.jsx` 379**) `result-queue/quick-result-replace`(**396**，RF-074 追加两工厂)
-`savedir/save-directory`(91) `upload/reference-upload`(**203**，RF-073 −16) `video/video-composer`(146)
+已抽出的 `src/features/` 模块（19 个）：
+`auth/api-key`(67) `canvas/canvas-actions`(313) `canvas/canvas-graph`(102) `detail/detail-group`(**389**，RF-082 ←S2)
+`local-edit/*`(含 3 个 jsx，`LocalEditModal.jsx` 379) `result-queue/quick-result-replace`(**396**，RF-074 追加两工厂)
+`savedir/save-directory`(91) `upload/reference-upload`(**504**，RF-082 ←S3+S4) `video/video-composer`(**195**，RF-082 ←S6)
 `outfit/outfit-task.js`(**1069**，RF-079 新建 —— 普通模块导出，非 B3 工厂)
-**`outfit/outfit-panels.jsx`(2166，RF-080 新建 —— 5 个面板组件 + 52 个依赖闭包)**
+`outfit/outfit-panels.jsx`(2166，RF-080 新建 —— 5 个面板组件 + 52 个依赖闭包)
+**`outfit/outfit-top.js`(2146，RF-081 新建)** **`storage/storage-store.js`(272，RF-082 S1+S7)**
+**`crop/quick-crop-panels.jsx`(239，RF-082 S8+S9 —— `DetailUploadZone` + `QuickCropViewportModal`)**
 
 **刷新命令**（一条，**不要用旧版那条**）：
 ```bash

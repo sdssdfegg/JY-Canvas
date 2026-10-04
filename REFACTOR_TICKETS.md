@@ -1672,12 +1672,24 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 - RF-081：1599（函数）+ 475（常量）− 25（删孤儿）− 1（回填）= **2048** ✅
 - RF-082：971（函数）+ 137（常量）− 0（删孤儿，babel 实测）− 12（回填）= **1096** ✅
 
-**阶段二：施工单（V26 / V27 已派）**
+**阶段二：施工单（V26 / V27 —— ✅ 均已完成 2026-10-05）**
 
-| 单 | 施工对象 | 预期 A | 施工能否并行 |
-|---|---|---|---|
-| **V26 · RF-081 施工** `V4.0-执行单-V26-RF-081-施工.md` | `outfit-workflow.jsx` + 新建 `outfit-top.js` + 追加 `outfit-panels.jsx` | **−2048** | ❌ 与 V27 都写 src，**须串行**（先 V26） |
-| **V27 · RF-082 施工** `V4.0-执行单-V27-RF-082-施工.md` | `main.jsx` + 新建 3 文件 + 追加 4 处 | **−1042**（削减后） | 同上 |
+| 单 | 施工对象 | 预期 A | 实测 A | 提交 |
+|---|---|---|---|---|
+| **V26 · RF-081 施工** | `outfit-workflow.jsx` + 新建 `outfit-top.js` | −2048 | **−2384**（outfit 7185→4801，超预期 336） | `4342bf2`；新文件 2146 行 |
+| **V27 · RF-082 施工** | `main.jsx` + 新建 3 + 追加 4 | −1042 | **−1020**（main 6630→5610） | `29adeeb`…`e69595e` + `e31a71a` |
+
+- 🎉 **两巨石 13815 → 10411，占比 54.3% → 40.8%**（起点 18867 / 74.6%）。
+- 新增 src 文件 **+4 / −0**（`outfit-top.js` 2146 ／ `app-defaults.js` 147 ／ `storage-store.js` 272 ／ `quick-crop-panels.jsx` 239）。
+- 门禁：`cycle-scan` **环 0** ／ check-syntax **239/239** ／ import-path 220/0 ／ hygiene dirtyFiles=0 ／ `vite build` ✓。
+- **019 `fileCount` 60→64 已由统筹划账**（时序合规：两单全提交、工作区无未跟踪 src 文件后才一次性 `--update`）。
+
+**阶段三：V28 补单（🔵 已派，收尾阻塞项）**
+
+🔴 **RF-082 留下 22 个孤儿 import 在 `main.jsx`** —— ESLint `no-unused-vars` 实测 22 条（施工前 main 仅 5 条 warning）。
+**门禁盲区**：`no-unused-vars` 是 warning 非 error，而 `lint-ratchet` 在本环境恒失败（`spawnSync` EBUSY）⇒ 无人拦住。
+⇒ 补单 `V4.0-执行单-V28-RF-082-清孤儿import.md`：只动 `main.jsx`，按行号**降序**删 22 个 specifier。
+验收：`main.jsx` 26→**4**（且 `no-unused-vars`=0）／ src 合计 37→**15** ／ 全仓 45→**23**。
 
 ### 🔧 统筹对 RF-082 的裁决：**新建文件 11 → 3**
 
