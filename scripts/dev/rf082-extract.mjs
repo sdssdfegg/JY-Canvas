@@ -55,7 +55,8 @@ function repoRelOf(absOrRel) { const abs = absOrRel.startsWith(".") ? resolve(SR
 function resolveToAbs(repoRel) { return resolve(repoRoot, repoRel); }
 function absOfSource(targetRepoRel, sourceSpecifier) {
   // sourceSpecifier: bare (react) / relative (./x) / repoRel (src/x)
-  if (sourceSpecifier.startsWith(".")) return resolve(resolveToAbs(targetRepoRel), sourceSpecifier);
+  // 相对路径基于「目录」解析（targetRepoRel 是文件路径，path.resolve 会把它当一层目录，故先用 dirname）。
+  if (sourceSpecifier.startsWith(".")) return resolve(dirname(resolveToAbs(targetRepoRel)), sourceSpecifier);
   if (sourceSpecifier.startsWith("/")) return resolve(sourceSpecifier);
   if (sourceSpecifier.includes("/")) return resolveToAbs(sourceSpecifier);
   return resolve(repoRoot, sourceSpecifier);
