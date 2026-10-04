@@ -30,14 +30,11 @@ import { Modal, ModalHeader } from "../../shared/ui/Modal.jsx";
 import { changeCropScale } from "./crop-drag.js";
 import { LocalEditBrushTools } from "./LocalEditBrushTools.jsx";
 import { LocalEditCropOverlay } from "./LocalEditCropOverlay.jsx";
+import { ratioValue } from "./crop-rect-resize.js";
 
-// 与 src/main.jsx 同源的纯函数（仅普通裁剪自由矩形分支使用）。
-export function ratioValue(ratio) {
-  const [rawW, rawH] = String(ratio || "1:1").split(":").map((part) => Number(part));
-  const w = Number.isFinite(rawW) && rawW > 0 ? rawW : 1;
-  const h = Number.isFinite(rawH) && rawH > 0 ? rawH : 1;
-  return w / h;
-}
+// ratioValue 定义已迁至 crop-rect-resize.js（RF-082 S5：打破 crop-rect-resize ↔ LocalEditModal 循环依赖），
+// 此处重新导出供 main.jsx / outfit-panels.jsx 复用（顶部已 import 引入本地作用域）。
+export { ratioValue };
 
 // RF-077 · 合并自 main.QuickLocalEditModal 与 outfit.OutfitLocalEditModal 的共享弹窗壳。
 // 交互层逻辑已在 RF-076 收口进 createLocalEditInteraction，本组件只收「壳」，

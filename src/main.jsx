@@ -155,6 +155,8 @@ import { createVideoComposer } from "./features/video/video-composer.js";
 import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, PUBLIC_RELEASE_MODE, PUBLIC_RELEASE_RESET_KEY, STORAGE_KEY, STORAGE_PREFIX, builtinPrompts, defaultState, detailDefaults, referenceDefaults, videoDefaults } from "./shared/app-defaults.js";
 import { SHOW_INFINITE_CANVAS, formatStorageSize, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, sanitizeStoredImage, saveHistoryResults } from "./features/storage/storage-store.js";
 import { clampDetailCount, clampDetailModelUsage, clampReferenceStrength, clampReverseScreens, hydrateDetailGroupsWithHistory, loadDetailGroups, loadDetailPresets, normalizeDetailSettings, sanitizeDetailGroupsForStorage } from "./features/detail/detail-group.js";
+import { composeQuickLocalEditBlob, defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
+
 
 
 
@@ -190,8 +192,8 @@ const DETAIL_ANALYSIS_MODEL = "gpt-5.4-mini";
 
 
 const LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES = 16 * 1024 * 1024;
-const LOCAL_EDIT_OUTPUT_TARGET_BYTES = 64 * 1024 * 1024;
-const LOCAL_EDIT_OUTPUT_JPEG_QUALITIES = [0.985, 0.975, 0.965, 0.95, 0.94];
+
+
 const CANVAS_NODE_WIDTH = 236;
 const CANVAS_NODE_HEIGHT = 260;
 const CANVAS_GENERATOR_WIDTH = 286;
@@ -640,77 +642,9 @@ const JSON_IMAGE_URLS_MODELS = new Set(["nano-banana-pro"]);
 
 
 
-// 选框几何统一走 src/shared/local-edit-geometry.js（批量侧 outfit-workflow.jsx 用同一份），
-// 这里保留同名局部引用，调用点不用改。
-const constrainCropRect = sharedConstrainCropRect;
 
-// 2026-09-25 对齐 3.0 新源码：删除了 expandLocalEditContextRect。
-// 3.0 的局部回贴把用户选框以外的区域当作"不可改动"，上传给模型的局部图
-// 就是选框本身（frontend/ecommerce/src/features/crop/cropImage.ts 里
-// canvas 尺寸严格等于 sourceRect），不存在"多送一圈上下文"的概念。
-// 这里保留一个同语义的显式说明，方便以后回溯为什么没有这个函数。
 
-// canonical ID 是 banana-2；旧存档 nano-banana2 通过 canonicalModel 映射到同一支，
-// 保证迁移后这两条「香蕉 2 专属」判断不会失配。
-// （阶段 B 刀 2：本函数已收进 src/shared/routing.js，与那里逐字节等价，此处改为 import。）
 
-/**
- * 把模型返回的局部结果**按原图坐标**贴回底图。
- *
- * 2026-09-25 对齐 3.0 新源码（frontend/ecommerce/src/shared/image/localPaste.ts:128-202
- * `composeLocalResult`）。3.0 的契约是：
- *   1. 画布 = 底图**完整尺寸**，先把底图画满；
- *   2. 全程**唯一一次**写入是
- *      `context.drawImage(local, rect.x, rect.y, rect.width, rect.height)`
- *      （返回图尺寸与选区不一致时按选区尺寸拉伸贴入，不做 cover 裁切）；
- *   3. **不做**羽化、自动对齐、颜色匹配、中性色调匹配、锐化、护脸/护身保护；
- *   4. 选框外的像素逐字节等于底图。
- *
- * 那一段的原文注释就是："刻意不做运行版的羽化/自动对齐/颜色匹配/护脸等后处理
- * （任务要求不得擅自增加美化、锐化或调色）——贴回就是贴回。"
- *
- * 所以这里删掉了 V11 原有的：
- *   - autoAlign（alignLocalEditPatchCanvas，会对结果做 ±maxShift 位移）
- *   - colorMatch（colorMatchLocalEditPatchCanvas，会改结果颜色）
- *   - protectSkinAndFace（protectSkinAndFaceFromLocalOutfitPatch，
- *     会用 destination-out 把"头顶 12%~34% 的肤色区域"挖掉，让原图盖回来）
- *   - feather（createFeatherMask，会让选框最外圈回退成原图）
- *
- * 涂抹蒙版（LOCAL_EDIT_MASK_MODE）保留：那是**用户自己画出来的选区**，
- * 不是自动保护。它按硬边（不羽化）裁剪，只有用户涂到的地方会被替换。
- *
- * `_options` 保留在签名里，老调用点不用改；其中的保护类参数一律不再生效。
- */
-async function composeQuickLocalEditBlob(originalFile, generatedBlob, cropRect, localEdit = null, _options = {}) {
-  const original = await imageBitmapFromFile(originalFile);
-  const generated = await imageBitmapFromBlob(generatedBlob);
-  let maskImage = null;
-  let blendMask = null;
-  try {
-    const isMaskEdit = localEdit?.editMode === LOCAL_EDIT_MASK_MODE && localEdit?.maskDataUrl;
-    if (isMaskEdit) {
-      // 用户涂抹的选区：按硬边（不羽化）裁剪，只替换涂到的像素。
-      const rect = constrainCropRect(
-        localEdit?.cropRect || cropRect,
-        original.width || original.naturalWidth,
-        original.height || original.naturalHeight
-      );
-      maskImage = await imageBitmapFromDataUrl(localEdit.maskDataUrl);
-      blendMask = createLocalEditAlphaMask(maskImage, rect, 0);
-    }
-    // 实际贴回在 src/shared/local-edit-geometry.js（与批量侧同一份实现）。
-    const composed = await composeLocalPasteBlob(original, generated, localEdit?.cropRect || cropRect, {
-      maskImage: blendMask,
-      targetBytes: LOCAL_EDIT_OUTPUT_TARGET_BYTES,
-      qualities: LOCAL_EDIT_OUTPUT_JPEG_QUALITIES
-    });
-    return composed.blob;
-  } finally {
-    original.close?.();
-    generated.close?.();
-    maskImage?.close?.();
-  }
-}
 
 function shouldNormalizeQuickUploadForModel(model) {
   return isBanana2Model(model);
@@ -815,24 +749,7 @@ function DetailUploadZone({
   );
 }
 
-function defaultQuickLocalEditCrop(width, height, ratio) {
-  // 2026-09-25：默认选框不再用外部比例去"裁"出一个形状，而是按图片自身比例
-  // 取居中的 62% 区域。比例按钮仍然存在，点一下才会把选框整形到那个比例。
-  // 这样"打开弹窗就变成正方形选框"不会再发生（除非原图本身就是正方形）。
-  const imageRatio = height > 0 ? width / height : ratioValue(ratio);
-  let cropWidth = width * 0.62;
-  let cropHeight = cropWidth / imageRatio;
-  if (cropHeight > height * 0.62) {
-    cropHeight = height * 0.62;
-    cropWidth = cropHeight * imageRatio;
-  }
-  return constrainCropRect({
-    x: (width - cropWidth) / 2,
-    y: (height - cropHeight) / 2,
-    width: cropWidth,
-    height: cropHeight
-  }, width, height);
-}
+
 
 
 
