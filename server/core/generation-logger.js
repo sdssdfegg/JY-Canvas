@@ -22,6 +22,20 @@ import { rootDir } from "./app-paths.js";
 import { ASSET_LOG_MAX_BYTES, GENERATION_LOG_MAX_BYTES, RUNTIME_LOG_MAX_BYTES } from "./runtime-config.js";
 import { compactLogMessage, localDateFolder, localDateTime, readableBytes, readableMs, sanitizeFilePart } from "./format-utils.js";
 
+// ── 任务文本日志「写失败」的可见化（V30）───────────────────────────────────
+// appendTaskTextLog 以前失败是完全静默的（`.catch(() => {})`），导致「单任务 txt 没生成」
+// 无法区分下面两种性质完全不同的情况：
+//   · 按设计跳过 —— requestId 为空 / client_ 前缀 / 阶段不在白名单（合法行为，不是故障）
+//   · 想写没写成 —— mkdir 或 appendFile 真抛错（权限、磁盘满、路径非法、并发竞态）
+// 这里只把第二种落到 runtime-errors.log，让它在排查时留得下信号。
+//
+// 为什么必须节流：本函数处在出图关键路径上，如果 txt 持续写失败（比如磁盘满），
+// 每次请求都落一条会把故障放大成日志风暴，反而更难排查。
+// ⇒ 同一类错误（按 error.code 分桶）最多每 60 秒落 1 条，期间次数累加进 suppressed。
+// ⚠️ 只做观测：绝不改 taskTextLogPath 的跳过规则，也绝不让 txt 失败影响主流程。
+const TASK_TEXT_FAULT_THROTTLE_MS = 60 * 1000;
+const taskTextFaultBuckets = new Map();
+
 export async function writeGenerationLog(entry) {
   if (process.env.JINGYIN_DISABLE_GENERATION_LOGS === "1") return;
   const logDir = path.join(rootDir, "logs");
@@ -29,7 +43,11 @@ export async function writeGenerationLog(entry) {
   await mkdir(logDir, { recursive: true });
   await rotateLogFileIfNeeded(logFile, GENERATION_LOG_MAX_BYTES);
   await appendFile(logFile, `${JSON.stringify(entry)}\n`, "utf8");
-  await appendTaskTextLog(entry).catch(() => {});
+  // 单任务 txt 是「诊断用」的旁路产物：它写失败绝不能影响出图主流程，
+  // 所以这里必须保留 .catch()，只是把以前吞掉的错误改成留一条可追溯的记录。
+  await appendTaskTextLog(entry).catch((error) => {
+    reportTaskTextLogFault(entry, error).catch(() => {});
+  });
 }
 
 export async function rotateLogFileIfNeeded(file, maxBytes) {
@@ -214,6 +232,34 @@ export async function writeRuntimeFaultLog(entry) {
   await mkdir(logDir, { recursive: true });
   await rotateLogFileIfNeeded(logFile, RUNTIME_LOG_MAX_BYTES);
   await appendFile(logFile, `${JSON.stringify(entry)}\n`, "utf8");
+}
+
+/** 把「单任务 txt 想写没写成」记进 runtime-errors.log（同类错误 60 秒内最多 1 条）。
+ * 只做观测：本函数返回的 promise 永不 reject，调用方可以放心 fire-and-forget。 */
+export async function reportTaskTextLogFault(entry, error) {
+  const bucket = String(error?.code || error?.name || "unknown");
+  const now = Date.now();
+  const state = taskTextFaultBuckets.get(bucket) || { lastAt: 0, suppressed: 0 };
+  state.suppressed += 1;
+  if (now - state.lastAt < TASK_TEXT_FAULT_THROTTLE_MS) {
+    taskTextFaultBuckets.set(bucket, state);
+    return;
+  }
+  state.lastAt = now;
+  const pending = state.suppressed;
+  state.suppressed = 0;
+  taskTextFaultBuckets.set(bucket, state);
+  await writeRuntimeFaultLog({
+    time: new Date().toISOString(),
+    ok: false,
+    stage: "task-text-log-write-failed",
+    requestId: entry?.requestId || null,
+    endpoint: entry?.endpoint || null,
+    error: String(error?.message || error).slice(0, 1000),
+    bucket,
+    // 本次之前被节流吞掉的同桶次数（>0 说明这不是偶发，是持续失败）
+    suppressed: Math.max(0, pending - 1)
+  }).catch(() => {});
 }
 
 export async function writeAssetLog(entry) {
