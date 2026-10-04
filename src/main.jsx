@@ -16,7 +16,6 @@ import {
   EyeOff,
   FileText,
   Flame,
-  Folder,
   FolderOpen,
   HardDrive,
   Image as ImageIcon,
@@ -50,7 +49,6 @@ import {
 } from "lucide-react";
 import { DEFAULT_MODELS, imageSourceFromResult } from "./shared/models.js";
 import {
-  canonicalModel,
   channelForModel,
   channelPriceLabel,
   channelsForModel,
@@ -65,22 +63,15 @@ import {
   classifyQuickPrimaryLocalIntent,
   promptForQuickGeneration
 } from "./shared/quickgen-prompt-rules.js";
-import {
-  clampCropTransform,
-  composeLocalPasteBlob,
-  constrainCropRect as sharedConstrainCropRect,
-  resolveLocalEditBaseFile,
-} from "./shared/local-edit-geometry.js";
 import DebouncedTextarea from "./shared/DebouncedTextarea.jsx";
 import { ErrorBoundary } from "./shared/error-boundary.jsx";
 import { DetailUploadZone, QuickCropViewportModal } from "./features/crop/quick-crop-panels.jsx";
-import { Modal, ModalHeader } from "./shared/ui/Modal.jsx";
 import ChannelPicker from "./shared/ui/ChannelPicker.jsx";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
 import { createDetailGroup } from "./features/detail/detail-group.js";
-import { MAX_REFERENCE_REWRITE_FILES, buildReferenceRemixPrompt, buildSmartReferencePrompt, createReferenceUpload, cropQuickReferenceViewportFile, makeQuickReferenceItem, prepareImageFilesForChannel, quickReferenceHasLocalEdit, quickReferenceOriginalFile, quickReferenceRunUploadFile, quickReferenceUploadFile, quickReferenceUploadFiles, referenceMetaFromFiles, referenceMetaFromQuickRunItems } from "./features/upload/reference-upload.js";
-import { LocalEditModal, ratioValue } from "./features/local-edit/LocalEditModal.jsx";
+import { MAX_REFERENCE_REWRITE_FILES, buildReferenceRemixPrompt, buildSmartReferencePrompt, createReferenceUpload, makeQuickReferenceItem, prepareImageFilesForChannel, quickReferenceHasLocalEdit, quickReferenceOriginalFile, quickReferenceRunUploadFile, quickReferenceUploadFile, quickReferenceUploadFiles, referenceMetaFromFiles, referenceMetaFromQuickRunItems } from "./features/upload/reference-upload.js";
+import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import {
   imageFileFromUrl,
   beginImageDownloadDrag,
@@ -93,18 +84,16 @@ import {
 } from "./shared/result-image.js";
 import { classifyGenerationError, formatGenerationError } from "./shared/generation-errors.js";
 import { fileSize, formatMs } from "./lib/format/index.js";
-import { canvasToBlob } from "./shared/canvas-blob.js";
 import { fileBaseName } from "./shared/file-name.js";
 import { videoResultUrl } from "./shared/video-task.js";
 import { normalizePromptCategories, normalizePromptPreset, promptFallbackCategory, usePromptLibrary } from "./shared/prompt-library.js";
 import {
-  imageBitmapFromBlob,
   imageBitmapFromFile,
   imageExtension,
   imageFilesFromClipboard,
   imageFilesFromList, addFilesByRole, removeFilesByRole
 } from "./shared/image-input.js";
-import { readJsonStorage, removeStorageItem, writeJsonStorage } from "./lib/storage/json-storage.js";
+import { readJsonStorage, writeJsonStorage } from "./lib/storage/json-storage.js";
 import OutfitWorkflow from "./outfit-workflow.jsx";
 import ImageEditorPanel from "./image-editor.jsx";
 import { getAppConfig } from "./api/config.js";
@@ -115,11 +104,6 @@ import {
   pickSaveDirectory as pickSaveDirectoryRequest,
   setSaveDirectory as setSaveDirectoryRequest
 } from "./api/save.js";
-import {
-  appendHistoryResults,
-  deleteHistoryResults,
-  getHistoryResults
-} from "./api/history.js";
 import {
   cleanStorageTargets,
   getStorageUsage,
@@ -143,8 +127,6 @@ import {
   LOCAL_EDIT_BRUSH_DEFAULT,
   LOCAL_EDIT_MASK_OPACITY_DEFAULT,
   LOCAL_EDIT_RECT_MODE,
-  createLocalEditAlphaMask,
-  imageBitmapFromDataUrl,
 } from "./shared/local-edit-mask.js";
 import "./styles.css";
 import { copyTextToClipboard } from "./shared/dom-actions.js";
@@ -153,8 +135,8 @@ import { incomingCanvasNodes, canvasResultItemsFromNode, canvasPromptForGenerato
 import { createCanvasActions, createCanvasInteractions } from "./features/canvas/canvas-actions.js";
 import { createQuickResultReplace, createResultDownload, createResultActions } from "./features/result-queue/quick-result-replace.js";
 import { createVideoComposer, durationOptionsForVideoModel, normalizeVideoSettingValue, videoPriceLabel, videoPromptPlaceholder } from "./features/video/video-composer.js";
-import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, PUBLIC_RELEASE_MODE, PUBLIC_RELEASE_RESET_KEY, STORAGE_KEY, STORAGE_PREFIX, builtinPrompts, defaultState, detailDefaults, referenceDefaults, videoDefaults } from "./shared/app-defaults.js";
-import { SHOW_INFINITE_CANVAS, formatStorageSize, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, sanitizeStoredImage, saveHistoryResults } from "./features/storage/storage-store.js";
+import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState, detailDefaults, referenceDefaults, videoDefaults } from "./shared/app-defaults.js";
+import { SHOW_INFINITE_CANVAS, formatStorageSize, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
 import { clampDetailCount, clampDetailModelUsage, clampReferenceStrength, clampReverseScreens, hydrateDetailGroupsWithHistory, loadDetailGroups, loadDetailPresets, normalizeDetailSettings, sanitizeDetailGroupsForStorage } from "./features/detail/detail-group.js";
 import { composeQuickLocalEditBlob, defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
 
