@@ -1659,14 +1659,46 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
    ⇒ 已分别升级为 **RF-081（outfit 侧）** 与 **RF-082（main 侧）** 两张只读设计单（见下 🟢）。
 6. **RF-076-D**（effect#2/#4 体抽助手，已裁决暂缓，可选 ~14 行）。
 
-🟢 **⇒ 当前主线（重构侧）：RF-081 / RF-082 两张只读设计单，已派，可并行**
+🟢 **⇒ 当前主线（重构侧）：RF-081 / RF-082 —— 设计已完成，施工单已派**
 
-| 单 | 对象 | 规模 | 状态 |
+**阶段一：只读设计（均已完成，src 零改动）**
+
+| 单 | 对象 | 设计结论 | 提交 |
 |---|---|---|---|
-| **V24 · RF-081** | `outfit-workflow.jsx` 剩余模块顶层函数域 | ≈87 个 / ≈1643 行 | 🔵 已派 `V4.0-执行单-V24-RF-081.md` |
-| **V25 · RF-082** | `main.jsx` 剩余模块顶层函数域 | ≈59 个 / ≈1011 行（已扣画布模型层） | 🔵 已派 `V4.0-执行单-V25-RF-082.md` |
+| **V24 · RF-081** | `outfit-workflow.jsx` 剩余顶层函数域 | **87 真顶层 / 1638 行**；可搬 **84/87 = 96.6%**；**A ≈ 2048**（outfit 7185→≈5137）；**环保持 0** | `59a706c`（339 行） |
+| **V25 · RF-082** | `main.jsx` 剩余顶层函数域 | **59 候选**；可搬 **50/59 = 84.7%**；**A ≈ 1096**（设计值）；环保持 0 | `3223c74`（276 行） |
 
-**两张均为只读单、分属不同文件、零冲突 ⇒ 允许并行。** 施工单待两份设计结论出来后再派。
+两份设计**算术均已正确**（回填 import 正确记为减项，吸取 RF-080 教训）：
+- RF-081：1599（函数）+ 475（常量）− 25（删孤儿）− 1（回填）= **2048** ✅
+- RF-082：971（函数）+ 137（常量）− 0（删孤儿，babel 实测）− 12（回填）= **1096** ✅
+
+**阶段二：施工单（V26 / V27 已派）**
+
+| 单 | 施工对象 | 预期 A | 施工能否并行 |
+|---|---|---|---|
+| **V26 · RF-081 施工** `V4.0-执行单-V26-RF-081-施工.md` | `outfit-workflow.jsx` + 新建 `outfit-top.js` + 追加 `outfit-panels.jsx` | **−2048** | ❌ 与 V27 都写 src，**须串行**（先 V26） |
+| **V27 · RF-082 施工** `V4.0-执行单-V27-RF-082-施工.md` | `main.jsx` + 新建 3 文件 + 追加 4 处 | **−1042**（削减后） | 同上 |
+
+### 🔧 统筹对 RF-082 的裁决：**新建文件 11 → 3**
+
+设计单要新建 11 个文件（`fileCount` 60→71）。**不批准，削减为 3 新建 + 4 追加**（`fileCount` 60→63）。
+
+理由：① 多个落点过小（`S6` 37 行、`S10` 59 行、`S5` 48 行）；② `features/` 已有 9 子目录可承接同域批次；
+③ `fileCount` 每增一文件多一次划账成本。符合 RF-074「追加既有文件、不划账」先例。
+
+| 处置 | 内容 |
+|---|---|
+| **新建 3** | `shared/app-defaults.js`(125) ／ `features/storage/storage-store.js`(S1+S7 合并 ≈209) ／ `features/crop/quick-crop-panels.jsx`(S8+S9 合并 ≈232) |
+| **追加 4** | `detail/detail-group.js`(←S2 101) ／ `upload/reference-upload.js`(←S3+S4 273) ／ `local-edit/crop-rect-resize.js`(←S5 48) ／ `video/video-composer.js`(←S6 37) |
+| **排除 1** | **S10 `main-helpers` 59 行不搬** —— 低于阈值且「main-helpers」不是领域概念，放 `shared/` 语义不清 |
+
+代价：A 从 1096 → **1042**（少 54 行），换来 `fileCount` 少增 8 个（此取舍划算）。
+✅ S0 共享层批准（12 常量 125 行），**必须最先搬**（S1–S9 全依赖它）。
+
+### 🟢 统筹对 RF-081 的裁决：`defaultLocalEditCrop` **可搬**（设计单列为"待确认"）
+- 理由：搬入 `outfit-top.js` 后，与 main 侧 `defaultQuickLocalEditCrop` **分属不同文件、无合并路径**；只 relocation 不改语义。
+- 强制：在 `outfit-top.js` 文件头写**禁止统一注释**（两侧语义不同 + 常量不同源）。
+- `loadOutfitPromptPresets` / `loadOutfitPromptCategories` 同理：**可搬但 storage key 必须随迁**，禁与 main 侧合并（刀 5 裁决）。
 
 🔴 **已裁决不可搬项（派单必须排除，统筹四处 grep 已确认）**
 - **main 画布模型层 ≈138 行**：`createCanvasNode`(60) / `createInfiniteCanvas`(27) / `normalizeInfiniteCanvasState`(36)。
