@@ -2,7 +2,8 @@
 // RF-081 (V26): 从 src/outfit-workflow.jsx 抽出的模块顶层纯函数 + 常量。
 // 形态：普通模块导出（非 B3 工厂）；只被 outfit-workflow.jsx 单向 import，自身绝不反向 import outfit。
 //
-// 🔴 本文件 defaultLocalEditCrop 与 main.jsx 的 defaultQuickLocalEditCrop 是「真分叉」：
+// 🔴 本文件 defaultLocalEditCrop 与 src/features/local-edit/crop-rect-resize.js 的 defaultQuickLocalEditCrop 是「真分叉」
+//    （RF-082 S5 从 src/main.jsx 迁入 crop-rect-resize.js，此处同步更新指向）：
 //    outfit 侧语义 = fitRectToRatioLocked(null,…) 一行包装；main 侧保留「普通裁剪自由矩形」语义。
 //    两侧常量不同源、语义不同，严禁合并、严禁互相 import。见冷启动「局部回帖分叉裁定」。
 import { fetchImageBlob } from "../../api/assets.js";

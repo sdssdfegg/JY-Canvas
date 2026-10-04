@@ -174,6 +174,11 @@ export async function composeQuickLocalEditBlob(originalFile, generatedBlob, cro
   }
 }
 
+// 🔴 本函数与 src/features/outfit/outfit-top.js 的 defaultLocalEditCrop 是「真分叉」：
+//    本侧语义 = 普通裁剪自由矩形（按原图比例取居中 62% 区域，见下方 2026-09-25 注释）；
+//    outfit 侧语义 = fitRectToRatioLocked(null,…) 一行包装。两侧不同名、常量不同源、语义不同。
+//    严禁合并、严禁互相 import。见冷启动「局部回帖分叉裁定」。
+//    （RF-082 S5 从 src/main.jsx 迁入；原文件头在 outfit-top.js 侧同步更新了指向。）
 export function defaultQuickLocalEditCrop(width, height, ratio) {
   // 2026-09-25：默认选框不再用外部比例去"裁"出一个形状，而是按图片自身比例
   // 取居中的 62% 区域。比例按钮仍然存在，点一下才会把选框整形到那个比例。
