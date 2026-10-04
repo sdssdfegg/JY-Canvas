@@ -153,11 +153,13 @@ import { createCanvasActions, createCanvasInteractions } from "./features/canvas
 import { createQuickResultReplace, createResultDownload, createResultActions } from "./features/result-queue/quick-result-replace.js";
 import { createVideoComposer } from "./features/video/video-composer.js";
 import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, PUBLIC_RELEASE_MODE, PUBLIC_RELEASE_RESET_KEY, STORAGE_KEY, STORAGE_PREFIX, builtinPrompts, defaultState, detailDefaults, referenceDefaults, videoDefaults } from "./shared/app-defaults.js";
+import { SHOW_INFINITE_CANVAS, formatStorageSize, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, sanitizeStoredImage, saveHistoryResults } from "./features/storage/storage-store.js";
 
 
 
 
-const LEGACY_STORAGE_KEYS = STORAGE_PREFIX === "jingyin-internal" ? ["jingyin-internal-settings-v2"] : [];
+
+
 
 
 
@@ -166,10 +168,10 @@ const QUICK_RESULT_DRAG_TYPE = "application/x-jingyin-quick-result";
 
 
 
-const HISTORY_DB_NAME = `${STORAGE_PREFIX}-history`;
-const HISTORY_DB_VERSION = 1;
-const HISTORY_STORE_NAME = "results";
-const HISTORY_FALLBACK_KEY = `${STORAGE_PREFIX}-history-fallback-v1`;
+
+
+
+
 
 
 
@@ -193,7 +195,7 @@ const CANVAS_GENERATOR_WIDTH = 286;
 const CANVAS_GENERATOR_HEIGHT = 360;
 const COUNT_OPTIONS = Array.from({ length: 12 }, (_, index) => index + 1);
 const REFERENCE_STRENGTH_OPTIONS = Array.from({ length: 8 }, (_, index) => 30 + index * 10);
-const SHOW_INFINITE_CANVAS = false;
+
 const VIDEO_STATUS_POLL_INTERVAL_MS = 4000;
 const VIDEO_STATUS_MAX_POLLS = 180;
 const VIDEO_REFERENCE_MAX_BYTES = 10 * 1024 * 1024;
@@ -202,18 +204,9 @@ const VIDEO_REFERENCE_MAX_BYTES = 10 * 1024 * 1024;
 
 
 
-const navItems = [
-  { id: "quickgen", label: "快捷生成", icon: Sparkles },
-  { id: "outfit", label: "批量生成", icon: Wand2 },
-  { id: "image-editor", label: "图片编辑", icon: Brush },
-  { id: "resize", label: "批量改尺寸", icon: Crop },
-  { id: "reference-remix", label: "参考生图", icon: Layers },
-  { id: "detail-main", label: "一键详情/主图", icon: FileText },
-  ...(SHOW_INFINITE_CANVAS ? [{ id: "infinite-canvas", label: "无限画布", icon: Box }] : []),
-  { id: "prompts", label: "提示词助手", icon: BookOpen }
-];
-const ACTIVE_VIEW_IDS = new Set(navItems.filter((item) => item.id !== "prompts").map((item) => item.id));
-const DEFAULT_ACTIVE_VIEW = PUBLIC_RELEASE_MODE ? "outfit" : "quickgen";
+
+
+
 
 
 
@@ -293,75 +286,15 @@ const promptCategories = ["全部", "常用", "批量复刻", "批量sku", "局�
 
 
 
-function normalizeActiveView(value) {
-  return ACTIVE_VIEW_IDS.has(value) ? value : DEFAULT_ACTIVE_VIEW;
-}
 
-function loadActiveView() {
-  return normalizeActiveView(readJsonStorage(ACTIVE_VIEW_KEY, DEFAULT_ACTIVE_VIEW));
-}
 
-function deleteIndexedDbSafely(name) {
-  if (typeof window === "undefined" || !window.indexedDB || !name) return Promise.resolve();
-  return new Promise((resolve) => {
-    try {
-      const request = window.indexedDB.deleteDatabase(name);
-      request.onsuccess = () => resolve();
-      request.onerror = () => resolve();
-      request.onblocked = () => resolve();
-    } catch {
-      resolve();
-    }
-  });
-}
 
-function runPublicReleaseStorageReset() {
-  if (!PUBLIC_RELEASE_MODE || typeof window === "undefined" || !window.localStorage) {
-    return Promise.resolve();
-  }
 
-  try {
-    const resetMarker = readJsonStorage(PUBLIC_RELEASE_RESET_KEY, localStorage.getItem(PUBLIC_RELEASE_RESET_KEY));
-    if (resetMarker === "done") {
-      return Promise.resolve();
-    }
 
-    [
-      STORAGE_KEY,
-      ACTIVE_VIEW_KEY,
-      PROMPT_PRESETS_KEY,
-      PROMPT_CATEGORIES_KEY,
-      DETAIL_PRESETS_KEY,
-      DETAIL_GROUPS_KEY,
-      INFINITE_CANVAS_KEY,
-      "jingyin-outfit-workflow-task-history-v1",
-      "jingyin-outfit-workflow-settings-v1",
-      "jingyin-outfit-workflow-pages-v1",
-      "jingyin-outfit-workflow-prompt-library-v1",
-      "jingyin-outfit-workflow-prompt-categories-v1",
-      "jingyin-outfit-workflow-prompt-library-v2-20260802",
-      "jingyin-outfit-workflow-prompt-categories-v2-20260802",
-      "jingyin-outfit-workflow-resize-settings-v3",
-      "jingyin-outfit-workflow-resize-batch-crop-v1",
-      HISTORY_FALLBACK_KEY
-    ].forEach((key) => removeStorageItem(key));
 
-    writeJsonStorage(PUBLIC_RELEASE_RESET_KEY, "done");
-  } catch {
-    // Public release packages should still start if storage cleanup is blocked.
-  }
 
-  return Promise.all([
-    deleteIndexedDbSafely(HISTORY_DB_NAME),
-    deleteIndexedDbSafely("jingyin-public-clean-20260728-history"),
-    deleteIndexedDbSafely("jingyin-public-clean-history"),
-    deleteIndexedDbSafely("jingyin-internal-history"),
-    deleteIndexedDbSafely("jingyin-outfit-workflow-local-v1"),
-    deleteIndexedDbSafely("jingyin-image-editor-v1")
-  ]).then(() => undefined);
-}
 
-const publicReleaseStorageResetPromise = runPublicReleaseStorageReset();
+
 
 // 🔴 与 src/outfit-workflow.jsx 的 `loadOutfitPromptCategories` **同名不同义**（V11-RF-040 裁定：改名不合并，勿合并）。跨文件引用只写函数名、不写行号（V11-RF-040c 裁决）。
 function loadPromptCategories() {
@@ -519,16 +452,7 @@ function loadInfiniteCanvasState() {
   return normalizeInfiniteCanvasState(readJsonStorage(INFINITE_CANVAS_KEY, null));
 }
 
-function loadState() {
-  const stored = readJsonStorage(STORAGE_KEY, null)
-    || LEGACY_STORAGE_KEYS.map((key) => readJsonStorage(key, null)).find(Boolean)
-    || {};
-  const { baseUrl: _discardedBaseUrl, ...safeStored } = stored;
-  const merged = { ...defaultState, ...safeStored, baseUrl: defaultState.baseUrl };
-  merged.model = canonicalModel(merged.model);
-  merged.dispatchMode = "manual";
-  return merged;
-}
+
 
 function normalizeDetailSettings(settings = {}) {
   const next = { ...detailDefaults, ...(settings || {}) };
@@ -632,22 +556,7 @@ function loadDetailPresets() {
     .slice(0, 30);
 }
 
-function sanitizeStoredImage(image) {
-  if (!image || typeof image !== "object") return null;
-  if (image.localUrl || image.archiveFile || image.type === "url") {
-    return {
-      type: image.type || "url",
-      value: image.value || image.localUrl || "",
-      ...(image.localUrl ? { localUrl: image.localUrl } : {}),
-      ...(image.archiveFile ? { archiveFile: image.archiveFile } : {}),
-      ...(image.archiveMime ? { archiveMime: image.archiveMime } : {})
-    };
-  }
-  if (image.type === "b64_json") {
-    return { type: "b64_json", value: "" };
-  }
-  return null;
-}
+
 
 function sanitizeDetailResultForStorage(result) {
   return {
@@ -718,129 +627,15 @@ function hydrateDetailGroupsWithHistory(groups, historyResults) {
   }));
 }
 
-function openHistoryDb() {
-  if (!window.indexedDB) return Promise.resolve(null);
 
-  return new Promise((resolve, reject) => {
-    const request = window.indexedDB.open(HISTORY_DB_NAME, HISTORY_DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(HISTORY_STORE_NAME)) {
-        db.createObjectStore(HISTORY_STORE_NAME, { keyPath: "id" });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
 
-function waitForTransaction(transaction) {
-  return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error);
-  });
-}
 
-async function loadHistoryResults() {
-  await publicReleaseStorageResetPromise;
 
-  try {
-    const payload = await getHistoryResults();
-    if (Array.isArray(payload.results)) {
-      return payload.results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    }
-  } catch {
-    // Browser-only preview can still use local history below.
-  }
 
-  try {
-    const db = await openHistoryDb();
-    if (!db) return readJsonStorage(HISTORY_FALLBACK_KEY, []);
 
-    return await new Promise((resolve, reject) => {
-      const transaction = db.transaction(HISTORY_STORE_NAME, "readonly");
-      const store = transaction.objectStore(HISTORY_STORE_NAME);
-      const request = store.getAll();
-      request.onsuccess = () => {
-        resolve((request.result || []).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
-      };
-      request.onerror = () => reject(request.error);
-      transaction.oncomplete = () => db.close();
-      transaction.onerror = () => db.close();
-    });
-  } catch {
-    return readJsonStorage(HISTORY_FALLBACK_KEY, []);
-  }
-}
 
-async function saveHistoryResults(items) {
-  if (!items?.length) return;
-  try {
-    await appendHistoryResults(items);
-    return;
-  } catch {
-    // Fall back to browser storage below.
-  }
 
-  try {
-    const db = await openHistoryDb();
-    if (!db) {
-      const current = readJsonStorage(HISTORY_FALLBACK_KEY, []);
-      writeJsonStorage(HISTORY_FALLBACK_KEY, [...items, ...current].map((item) => ({
-        ...item,
-        image: sanitizeStoredImage(item.image)
-      })).slice(0, 120));
-      return;
-    }
 
-    const transaction = db.transaction(HISTORY_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(HISTORY_STORE_NAME);
-    items.forEach((item) => store.put(item));
-    await waitForTransaction(transaction);
-    db.close();
-  } catch {
-    const current = readJsonStorage(HISTORY_FALLBACK_KEY, []);
-    writeJsonStorage(HISTORY_FALLBACK_KEY, [...items, ...current].map((item) => ({
-      ...item,
-      image: sanitizeStoredImage(item.image)
-    })).slice(0, 120));
-  }
-}
-
-async function removeHistoryResults(ids) {
-  if (!ids?.length) return;
-  try {
-    await deleteHistoryResults(ids);
-    return;
-  } catch {
-    // Fall back to browser storage below.
-  }
-
-  try {
-    const db = await openHistoryDb();
-    if (!db) {
-      const current = readJsonStorage(HISTORY_FALLBACK_KEY, []);
-      writeJsonStorage(HISTORY_FALLBACK_KEY, current.filter((item) => !ids.includes(item.id)).map((item) => ({
-        ...item,
-        image: sanitizeStoredImage(item.image)
-      })).slice(0, 120));
-      return;
-    }
-
-    const transaction = db.transaction(HISTORY_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(HISTORY_STORE_NAME);
-    ids.forEach((id) => store.delete(id));
-    await waitForTransaction(transaction);
-    db.close();
-  } catch {
-    const current = readJsonStorage(HISTORY_FALLBACK_KEY, []);
-    writeJsonStorage(HISTORY_FALLBACK_KEY, current.filter((item) => !ids.includes(item.id)).map((item) => ({
-      ...item,
-      image: sanitizeStoredImage(item.image)
-    })).slice(0, 120));
-  }
-}
 
 function clampCount(value) {
   return Math.max(1, Math.min(12, Number.parseInt(value, 10) || 1));
@@ -1030,22 +825,7 @@ async function fileToCompactJpegDataUrl(file, maxEdge = 1536, quality = 0.85) {
 // 需要走 JSON + image_urls 参考图通道的模型（对齐 3.0 的带图路径）。
 const JSON_IMAGE_URLS_MODELS = new Set(["nano-banana-pro"]);
 
-/**
- * 2026-09-29（v3.7）：把字节数格式化成人类可读的存储占用文案。
- * 只用于设置页的"数据与存储"区块，不做任何业务计算。
- */
-function formatStorageSize(bytes) {
-  const value = Number(bytes);
-  if (!Number.isFinite(value) || value <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let size = value;
-  let unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit += 1;
-  }
-  return `${size >= 100 || unit === 0 ? Math.round(size) : size.toFixed(1)} ${units[unit]}`;
-}
+
 
 
 // 选框几何统一走 src/shared/local-edit-geometry.js（批量侧 outfit-workflow.jsx 用同一份），
