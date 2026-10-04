@@ -154,6 +154,8 @@ import { createQuickResultReplace, createResultDownload, createResultActions } f
 import { createVideoComposer } from "./features/video/video-composer.js";
 import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, PUBLIC_RELEASE_MODE, PUBLIC_RELEASE_RESET_KEY, STORAGE_KEY, STORAGE_PREFIX, builtinPrompts, defaultState, detailDefaults, referenceDefaults, videoDefaults } from "./shared/app-defaults.js";
 import { SHOW_INFINITE_CANVAS, formatStorageSize, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, sanitizeStoredImage, saveHistoryResults } from "./features/storage/storage-store.js";
+import { clampDetailCount, clampDetailModelUsage, clampReferenceStrength, clampReverseScreens, hydrateDetailGroupsWithHistory, loadDetailGroups, loadDetailPresets, normalizeDetailSettings, sanitizeDetailGroupsForStorage } from "./features/detail/detail-group.js";
+
 
 
 
@@ -454,16 +456,7 @@ function loadInfiniteCanvasState() {
 
 
 
-function normalizeDetailSettings(settings = {}) {
-  const next = { ...detailDefaults, ...(settings || {}) };
-  next.analysisMode = "ai";
-  if (next.copywriting === "light") next.copywriting = "blank";
-  if (next.copywriting === "none") next.copywriting = "poster";
-  next.count = clampDetailCount(next.count);
-  next.modelUsage = clampDetailModelUsage(next.modelUsage);
-  next.reverseScreens = clampReverseScreens(next.reverseScreens);
-  return next;
-}
+
 
 function referenceControlText(value, target) {
   const skillMap = {
@@ -543,89 +536,17 @@ function loadPromptPresets() {
   return builtinPrompts;
 }
 
-function loadDetailPresets() {
-  const stored = readJsonStorage(DETAIL_PRESETS_KEY, []);
-  if (!Array.isArray(stored)) return [];
-  return stored
-    .map((preset, index) => ({
-      id: String(preset?.id || `detail_preset_${index}`),
-      name: String(preset?.name || "未命名预设").trim() || "未命名预设",
-      createdAt: Number(preset?.createdAt || Date.now()),
-      settings: normalizeDetailSettings(preset?.settings)
-    }))
-    .slice(0, 30);
-}
 
 
 
-function sanitizeDetailResultForStorage(result) {
-  return {
-    ...result,
-    image: sanitizeStoredImage(result?.image)
-  };
-}
 
-function sanitizeDetailGroupsForStorage(groups) {
-  return (Array.isArray(groups) ? groups : []).map((group) => ({
-    ...group,
-    productFiles: [],
-    referenceFiles: [],
-    prompts: (group.prompts || []).map((prompt) => ({
-      ...prompt,
-      results: (prompt.results || []).map(sanitizeDetailResultForStorage)
-    }))
-  })).slice(0, 20);
-}
 
-function loadDetailGroups() {
-  const stored = readJsonStorage(DETAIL_GROUPS_KEY, []);
-  if (!Array.isArray(stored)) return [];
-  return stored.map((group, groupIndex) => ({
-    ...group,
-    id: String(group?.id || `detail_group_${Date.now()}_${groupIndex}`),
-    label: String(group?.label || "详情记录"),
-    createdAt: Number(group?.createdAt || Date.now()),
-    status: group?.status || "success",
-    productFiles: [],
-    referenceFiles: [],
-    params: normalizeDetailSettings(group?.params || {}),
-    prompts: (group?.prompts || []).map((prompt, promptIndex) => ({
-      ...prompt,
-      screen: Number(prompt?.screen || promptIndex + 1),
-      enabled: prompt?.enabled !== false,
-      status: prompt?.status === "running" ? "idle" : (prompt?.status || "idle"),
-      results: (prompt?.results || []).map((result, resultIndex) => ({
-        ...result,
-        id: String(result?.id || `stored_detail_${groupIndex}_${promptIndex}_${resultIndex}`),
-        image: sanitizeStoredImage(result?.image),
-        source: "detail-main"
-      }))
-    }))
-  })).filter((group) => group.prompts.length > 0).slice(0, 20);
-}
 
-function hydrateDetailGroupsWithHistory(groups, historyResults) {
-  if (!Array.isArray(groups) || groups.length === 0 || !Array.isArray(historyResults) || historyResults.length === 0) {
-    return groups;
-  }
-  const historyById = new Map(historyResults.map((item) => [item.id, item]));
-  return groups.map((group) => ({
-    ...group,
-    prompts: (group.prompts || []).map((prompt) => ({
-      ...prompt,
-      results: (prompt.results || []).map((result) => {
-        const match = historyById.get(result.id);
-        if (!match) return result;
-        return {
-          ...result,
-          ...match,
-          prompt: result.prompt || match.prompt || prompt.text,
-          source: "detail-main"
-        };
-      })
-    }))
-  }));
-}
+
+
+
+
+
 
 
 
@@ -641,23 +562,13 @@ function clampCount(value) {
   return Math.max(1, Math.min(12, Number.parseInt(value, 10) || 1));
 }
 
-function clampDetailCount(value) {
-  return Math.max(1, Math.min(12, Number.parseInt(value, 10) || detailDefaults.count));
-}
 
-function clampDetailModelUsage(value) {
-  return Math.max(1, Math.min(12, Number.parseInt(value, 10) || detailDefaults.modelUsage));
-}
 
-function clampReverseScreens(value) {
-  return Math.max(0, Math.min(4, Number.parseInt(value, 10) || 0));
-}
 
-function clampReferenceStrength(value) {
-  const parsed = Number.parseInt(value, 10);
-  const rounded = Math.round((Number.isFinite(parsed) ? parsed : referenceDefaults.strength) / 10) * 10;
-  return Math.max(30, Math.min(100, rounded));
-}
+
+
+
+
 
 function makeResultId() {
   return `result_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;

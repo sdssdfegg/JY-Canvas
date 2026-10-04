@@ -1,8 +1,13 @@
+import { canvasToBlob } from "../../shared/canvas-blob.js";
+import { DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, detailDefaults, referenceDefaults } from "../../shared/app-defaults.js";
+import { readJsonStorage } from "../../lib/storage/json-storage.js";
+import { sanitizeStoredImage } from "../storage/storage-store.js";
+
 // 详情页分组 / 拼图域工厂 —— 全部函数体从 src/main.jsx 逐字抽出，未改一行逻辑。
 // 形态同 RF-066~070：普通工厂（不 import React、无 useState/useCallback/useMemo）。
 // deps 解构保持同名 ⇒ main.jsx 调用点零改动；函数体内部互相调用直接引用闭包局部函数 ⇒ 不改签名。
 // bitmapFromBlob / orderedPromptsForGroup 只在工厂内部被调用，故不进返回值。
-import { canvasToBlob } from "../../shared/canvas-blob.js";
+
 
 export function createDetailGroup(deps) {
   const {
@@ -269,4 +274,116 @@ export function createDetailGroup(deps) {
     loadDetailPreset,
     deleteDetailPreset
   };
+}
+
+
+export function normalizeDetailSettings(settings = {}) {
+  const next = { ...detailDefaults, ...(settings || {}) };
+  next.analysisMode = "ai";
+  if (next.copywriting === "light") next.copywriting = "blank";
+  if (next.copywriting === "none") next.copywriting = "poster";
+  next.count = clampDetailCount(next.count);
+  next.modelUsage = clampDetailModelUsage(next.modelUsage);
+  next.reverseScreens = clampReverseScreens(next.reverseScreens);
+  return next;
+}
+
+export function loadDetailPresets() {
+  const stored = readJsonStorage(DETAIL_PRESETS_KEY, []);
+  if (!Array.isArray(stored)) return [];
+  return stored
+    .map((preset, index) => ({
+      id: String(preset?.id || `detail_preset_${index}`),
+      name: String(preset?.name || "未命名预设").trim() || "未命名预设",
+      createdAt: Number(preset?.createdAt || Date.now()),
+      settings: normalizeDetailSettings(preset?.settings)
+    }))
+    .slice(0, 30);
+}
+
+export function sanitizeDetailResultForStorage(result) {
+  return {
+    ...result,
+    image: sanitizeStoredImage(result?.image)
+  };
+}
+
+export function sanitizeDetailGroupsForStorage(groups) {
+  return (Array.isArray(groups) ? groups : []).map((group) => ({
+    ...group,
+    productFiles: [],
+    referenceFiles: [],
+    prompts: (group.prompts || []).map((prompt) => ({
+      ...prompt,
+      results: (prompt.results || []).map(sanitizeDetailResultForStorage)
+    }))
+  })).slice(0, 20);
+}
+
+export function loadDetailGroups() {
+  const stored = readJsonStorage(DETAIL_GROUPS_KEY, []);
+  if (!Array.isArray(stored)) return [];
+  return stored.map((group, groupIndex) => ({
+    ...group,
+    id: String(group?.id || `detail_group_${Date.now()}_${groupIndex}`),
+    label: String(group?.label || "详情记录"),
+    createdAt: Number(group?.createdAt || Date.now()),
+    status: group?.status || "success",
+    productFiles: [],
+    referenceFiles: [],
+    params: normalizeDetailSettings(group?.params || {}),
+    prompts: (group?.prompts || []).map((prompt, promptIndex) => ({
+      ...prompt,
+      screen: Number(prompt?.screen || promptIndex + 1),
+      enabled: prompt?.enabled !== false,
+      status: prompt?.status === "running" ? "idle" : (prompt?.status || "idle"),
+      results: (prompt?.results || []).map((result, resultIndex) => ({
+        ...result,
+        id: String(result?.id || `stored_detail_${groupIndex}_${promptIndex}_${resultIndex}`),
+        image: sanitizeStoredImage(result?.image),
+        source: "detail-main"
+      }))
+    }))
+  })).filter((group) => group.prompts.length > 0).slice(0, 20);
+}
+
+export function hydrateDetailGroupsWithHistory(groups, historyResults) {
+  if (!Array.isArray(groups) || groups.length === 0 || !Array.isArray(historyResults) || historyResults.length === 0) {
+    return groups;
+  }
+  const historyById = new Map(historyResults.map((item) => [item.id, item]));
+  return groups.map((group) => ({
+    ...group,
+    prompts: (group.prompts || []).map((prompt) => ({
+      ...prompt,
+      results: (prompt.results || []).map((result) => {
+        const match = historyById.get(result.id);
+        if (!match) return result;
+        return {
+          ...result,
+          ...match,
+          prompt: result.prompt || match.prompt || prompt.text,
+          source: "detail-main"
+        };
+      })
+    }))
+  }));
+}
+
+export function clampDetailCount(value) {
+  return Math.max(1, Math.min(12, Number.parseInt(value, 10) || detailDefaults.count));
+}
+
+export function clampDetailModelUsage(value) {
+  return Math.max(1, Math.min(12, Number.parseInt(value, 10) || detailDefaults.modelUsage));
+}
+
+export function clampReverseScreens(value) {
+  return Math.max(0, Math.min(4, Number.parseInt(value, 10) || 0));
+}
+
+export function clampReferenceStrength(value) {
+  const parsed = Number.parseInt(value, 10);
+  const rounded = Math.round((Number.isFinite(parsed) ? parsed : referenceDefaults.strength) / 10) * 10;
+  return Math.max(30, Math.min(100, rounded));
 }
