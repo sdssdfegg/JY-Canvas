@@ -1597,17 +1597,27 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 | **V20 · RF-074 施工** | `src/main.jsx` + 追加既有 `features/result-queue/quick-result-replace.js` | B3 单侧拆分（两阶段 commit `9d45283`+`a5f07d0`+`33a4527`） | **A = −211 行**（main 6841→6630）；零新建文件；对照组 120 项 ALL PASS |
 | **V21 · RF-079 只读设计** | `src/outfit-workflow.jsx` result/task 域 | 只读出设计，**不施工**（文档 `c1616a5`） | 结论：**做**，A≈976 行；落点改 `src/features/outfit/outfit-task.js`（fileCount 58→59 划账） |
 | **RF-079 施工** | 同 V21 落点 | 普通模块导出（`0c14169`） | **A = −988**（outfit 10256→9268，优于预估 976）；新建 `outfit-task.js` 1069 行；对照组 `rf079-control.mjs` **58/58 ALL PASS**；**019 `fileCount` 58→59 已由统筹划账** |
+| **V22 · RF-080 只读设计** | `src/outfit-workflow.jsx` 5 个独立组件 | 只读出设计，**不施工**（`790eae3`，src 零改动） | 结论：**做**，可搬 5/5；**A ≈ −2082**（统筹纠偏，设计单误写 −2110）；循环依赖已定性（随迁闭包 ⇒ 环保持 0）；**落点甲已批，fileCount 59→60** |
 
 **候选队列（RF-079 施工完成后从这里取）**
 
 1. ✅ **RF-078-b 已完成 `91ad725`**（outfit −39；引入的二进制污染已由统筹修于 `9e5be71`）。
 2. ✅ **RF-079 施工已完成 `0c14169`**：A = **−988**（outfit 10256→9268，优于预估 976）；落点 `src/features/outfit/outfit-task.js`（1069 行，普通模块导出）；对照组 **58/58 ALL PASS**；**019 `fileCount` 58→59 已由统筹划账（2026-10-04），现 `ok=true / duplicateCount=0 / scannedFiles=59`**。
-   🟢 **⇒ 下一主线：RF-080 · outfit 独立组件抽文件**（**V22 只读设计单已派：`V4.0-执行单-V22-RF-080.md`**）
-   对象＝`outfit-workflow.jsx` 模块顶层 **5 个独立组件**，合计 **≈1511 行**：
-   `BatchResizePanel` 527 / `UploadZone` 360 / `WorkflowQuickVideoPanel` 336 / `CropModal` 201 / `PromptPresetGrid` 87。
-   实测**零外部引用、均未 export** ⇒ 边界干净。
-   🔴 核心待定性风险＝**循环依赖**（组件若依赖 outfit 本体 helper，抽出后成 `outfit-workflow ↔ outfit-panels` 环）。
-   ⚠️ **优先级已前移**：实测 1511 行 > 原登记的 "outfit misc 942 行"，且边界更干净。
+3. ✅ **RF-080 只读设计已完成 `790eae3`**（V22，文档 `V4.0-设计-RF-080-outfit独立组件.md`，20 KB / 320 行，src 零改动）。
+   结论：**做**，可搬 **5/5 = 100%**。
+   - 对象＝`outfit-workflow.jsx` 模块顶层 **5 个独立组件 ≈1511 行**（`BatchResizePanel`527 / `UploadZone`360 /
+     `WorkflowQuickVideoPanel`336 / `CropModal`201 / `PromptPresetGrid`87），零外部引用、均未 export，
+     **AST 判定全部真顶层**（`parent === Program`；统筹独立复核：5 个区间全在 4904 之前，与 AST 一致）。
+   - 🔴 **循环依赖已定性**：现状 `cycle-scan` 实测 **环数量 = 0**（108 文件）。
+     只搬组件 ⇒ 新文件须反向 import 原文件 21 个名字 ⇒ **环 0→1，不可接受**；
+     **组件 + 52 个闭包（585 行）一起随迁 ⇒ 零反向 import，环保持 0**（采用）。
+   - 🔧 **统筹复核纠偏**：设计单 A 写 −2110 有误（把"回填 import +23"当成减少项）⇒
+     正确 **A ≈ −2082**，outfit **9269 → ≈7187**（非 7159）。结论不变。
+   🟢 **⇒ 下一主线：RF-080 施工单（V23 已派：`V4.0-执行单-V23-RF-080-施工.md`）**
+   统筹裁决：**批准落点方案甲** —— 单一新文件 `src/features/outfit/outfit-panels.jsx`（≈2182 行），
+   **`fileCount` 59→60，已批划账**（施工后由统筹执行）。"拆 2 个文件"不采纳：
+   会把本单与「16 个通用件下沉」混在一起（违反一债一单），该债已单独登记（设计 §10 第 1 条）。
+   分 4 批 commit（P1 382 / P2 87 / P3 431 / P4 ≈1196），每批必跑 vite build + cycle-scan。
 3. 🆕 **跨巨石块克隆 11 组 / ≈176 有效行**（本轮新工具扫出的债，见下方债登记第 7 条）。
 4. **main.prompt 域** 11 fn / 190 行，耦合 1.36 —— ⚠️ 其中 33 行落在 RF-078 已裁决区体内，需先核对裁决覆盖面。
 5. **outfit 侧 misc 域** 53 fn / 942 行（1.23）—— 与 RF-079 同属 outfit，需排队避免抢文件。
