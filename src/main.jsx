@@ -151,11 +151,12 @@ import { loadSaveDirectory, openSaveDirectoryModal, commitSaveDirectory, chooseS
 import { incomingCanvasNodes, canvasResultItemsFromNode, canvasPromptForGenerator, canvasImagesForGenerator, canvasImageEntriesForGenerator, splitCanvasBatchEntries, buildCanvasBatchPrompt, screenPointToCanvas, canvasCenterFromRect } from "./features/canvas/canvas-graph.js";
 import { createCanvasActions, createCanvasInteractions } from "./features/canvas/canvas-actions.js";
 import { createQuickResultReplace, createResultDownload, createResultActions } from "./features/result-queue/quick-result-replace.js";
-import { createVideoComposer } from "./features/video/video-composer.js";
+import { createVideoComposer, durationOptionsForVideoModel, normalizeVideoSettingValue, videoPriceLabel, videoPromptPlaceholder } from "./features/video/video-composer.js";
 import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, PUBLIC_RELEASE_MODE, PUBLIC_RELEASE_RESET_KEY, STORAGE_KEY, STORAGE_PREFIX, builtinPrompts, defaultState, detailDefaults, referenceDefaults, videoDefaults } from "./shared/app-defaults.js";
 import { SHOW_INFINITE_CANVAS, formatStorageSize, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, sanitizeStoredImage, saveHistoryResults } from "./features/storage/storage-store.js";
 import { clampDetailCount, clampDetailModelUsage, clampReferenceStrength, clampReverseScreens, hydrateDetailGroupsWithHistory, loadDetailGroups, loadDetailPresets, normalizeDetailSettings, sanitizeDetailGroupsForStorage } from "./features/detail/detail-group.js";
 import { composeQuickLocalEditBlob, defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
+
 
 
 
@@ -517,47 +518,15 @@ function makeResultId() {
   return `result_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function durationOptionsForVideoModel(model = {}) {
-  if (Array.isArray(model.durations) && model.durations.length > 0) return model.durations;
-  const min = Math.max(1, Number(model.minDuration || videoDefaults.duration));
-  const max = Math.max(min, Number(model.maxDuration || min));
-  const options = [];
-  for (let value = min; value <= max; value += 5) options.push(value);
-  if (!options.includes(max)) options.push(max);
-  return options;
-}
 
-function videoPromptPlaceholder(model = {}) {
-  return String(model.promptPlaceholder || "输入视频画面、运动、镜头、服装和氛围要求").trim();
-}
 
-function videoPricePerSecond(model = {}, resolution = "") {
-  const price = Number(model.customerPricePerSecond?.[resolution]);
-  return Number.isFinite(price) ? price : null;
-}
 
-function videoPriceLabel(model = {}, resolution = "") {
-  const price = videoPricePerSecond(model, resolution);
-  return price === null ? "" : `算力 ${price.toFixed(3)}/秒`;
-}
 
-function normalizeVideoSettingValue(current = {}, videoModel = {}) {
-  const durations = durationOptionsForVideoModel(videoModel);
-  const resolutions = Array.isArray(videoModel.resolutions) && videoModel.resolutions.length ? videoModel.resolutions : ["720p"];
-  const ratios = Array.isArray(videoModel.aspectRatios) && videoModel.aspectRatios.length ? videoModel.aspectRatios : ["9:16"];
-  const defaultDuration = Number(videoModel.defaultDuration || durations[0] || videoDefaults.duration);
-  const requestedDuration = Number.parseInt(current.duration ?? defaultDuration, 10);
-  const duration = durations.includes(requestedDuration) ? requestedDuration : defaultDuration;
-  const resolution = resolutions.includes(current.resolution) ? current.resolution : (videoModel.defaultResolution || resolutions[0]);
-  const aspectRatio = ratios.includes(current.aspectRatio) ? current.aspectRatio : (videoModel.defaultAspectRatio || ratios[0]);
-  return {
-    ...current,
-    model: videoModel.value || current.model || videoDefaults.model,
-    duration,
-    resolution,
-    aspectRatio
-  };
-}
+
+
+
+
+
 
 function normalizeQuickReferenceItem(item) {
   if (!item) return null;

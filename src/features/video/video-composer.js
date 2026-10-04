@@ -1,3 +1,9 @@
+import { getVideoStatus } from "../../api/videos.js";
+import { dataUrlFromBlob } from "../../shared/result-image.js";
+import { imageFilesFromList } from "../../shared/image-input.js";
+import { isVideoTaskCompleted, isVideoTaskFailed, videoTaskStatusText } from "../../shared/video-task.js";
+import { videoDefaults } from "../../shared/app-defaults.js";
+
 // 视频生成编排（快捷生成侧）—— 工厂形态
 //
 // 形态说明：这里是【普通工厂】，不是 React hook —— 内部不使用 useState/useCallback/useMemo，
@@ -10,10 +16,10 @@
 // ⚠️ 跨文件引用只写函数名、不写行号：行号随任意一侧的编辑就会漂移，
 //    后人按图索骥只会被引到错处，刻意不补。
 
-import { getVideoStatus } from "../../api/videos.js";
-import { dataUrlFromBlob } from "../../shared/result-image.js";
-import { imageFilesFromList } from "../../shared/image-input.js";
-import { isVideoTaskCompleted, isVideoTaskFailed, videoTaskStatusText } from "../../shared/video-task.js";
+
+
+
+
 
 export function createVideoComposer(deps) {
   const {
@@ -142,5 +148,48 @@ export function createVideoComposer(deps) {
     onVideoComposerDrop,
     videoReferencePayload,
     pollVideoUntilFinished
+  };
+}
+
+
+export function durationOptionsForVideoModel(model = {}) {
+  if (Array.isArray(model.durations) && model.durations.length > 0) return model.durations;
+  const min = Math.max(1, Number(model.minDuration || videoDefaults.duration));
+  const max = Math.max(min, Number(model.maxDuration || min));
+  const options = [];
+  for (let value = min; value <= max; value += 5) options.push(value);
+  if (!options.includes(max)) options.push(max);
+  return options;
+}
+
+export function videoPromptPlaceholder(model = {}) {
+  return String(model.promptPlaceholder || "输入视频画面、运动、镜头、服装和氛围要求").trim();
+}
+
+export function videoPricePerSecond(model = {}, resolution = "") {
+  const price = Number(model.customerPricePerSecond?.[resolution]);
+  return Number.isFinite(price) ? price : null;
+}
+
+export function videoPriceLabel(model = {}, resolution = "") {
+  const price = videoPricePerSecond(model, resolution);
+  return price === null ? "" : `算力 ${price.toFixed(3)}/秒`;
+}
+
+export function normalizeVideoSettingValue(current = {}, videoModel = {}) {
+  const durations = durationOptionsForVideoModel(videoModel);
+  const resolutions = Array.isArray(videoModel.resolutions) && videoModel.resolutions.length ? videoModel.resolutions : ["720p"];
+  const ratios = Array.isArray(videoModel.aspectRatios) && videoModel.aspectRatios.length ? videoModel.aspectRatios : ["9:16"];
+  const defaultDuration = Number(videoModel.defaultDuration || durations[0] || videoDefaults.duration);
+  const requestedDuration = Number.parseInt(current.duration ?? defaultDuration, 10);
+  const duration = durations.includes(requestedDuration) ? requestedDuration : defaultDuration;
+  const resolution = resolutions.includes(current.resolution) ? current.resolution : (videoModel.defaultResolution || resolutions[0]);
+  const aspectRatio = ratios.includes(current.aspectRatio) ? current.aspectRatio : (videoModel.defaultAspectRatio || ratios[0]);
+  return {
+    ...current,
+    model: videoModel.value || current.model || videoDefaults.model,
+    duration,
+    resolution,
+    aspectRatio
   };
 }
