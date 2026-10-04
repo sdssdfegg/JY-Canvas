@@ -17,17 +17,17 @@
 
 ---
 
-## 1. 现状快照（2026-10-04 **17:5x** 实测，快照 `e5b0f68`）
+## 1. 现状快照（2026-10-04 **19:1x** 实测，快照 `b378239`，BUG-01 修复后）
 
 | 项 | 值 |
 |---|---|
 | `src/main.jsx` | **6630** 行（RF-073 −16 → RF-076 **−224** → RF-077 **−337** → RF-074 **−211**） |
 | `src/outfit-workflow.jsx` | **7185** 行（RF-076 **−215** → RF-077 **−281** → RF-078-b **−39** → 清垃圾 +2 → RF-079 **−988** → **RF-080 −2083**） |
-| 两巨石合计 | **13815** 行 / 占比 **54.4%**（起点 18867 / 74.6%）🎉 **首次跌破 55%** |
-| `src/shared/` | 4345 行 |
-| `src/features/` | **5546** 行（js+jsx，含 RF-079 新建 `outfit/outfit-task.js` **1069**、RF-080 新建 `outfit/outfit-panels.jsx` **2166**）+ 546 行 css |
-| js/jsx 文件数 | **60** / 总 **25417** 行 |
-| 019 基线 `fileCount` | **60**（RF-077 57→58；RF-079 58→59；**RF-080 59→60 已于 2026-10-04 由统筹划账**；RF-078-b / RF-074 零新建故不划账） |
+| 两巨石合计 | **13815** 行 / 占比 **54.3%**（起点 18867 / 74.6%）🎉 **首次跌破 55%** |
+| `src/shared/` | **4371** 行（BUG-01 给 `local-edit-geometry.js` +29） |
+| `src/features/` | **5557** 行（js+jsx，含 RF-079 新建 `outfit/outfit-task.js` **1069**、RF-080 新建 `outfit/outfit-panels.jsx` **2166**）+ 546 行 css |
+| js/jsx 文件数 | **60** / 总 **25454** 行 |
+| 019 基线 `fileCount` | **60**（RF-077 57→58；RF-079 58→59；**RF-080 59→60 已于 2026-10-04 由统筹划账**；RF-078-b / RF-074 / **BUG-01 零新建故不划账**） |
 | ESLint 全仓 | errors=0 / **warnings=16**（src 15 + `server/routes/outfit.routes.js` 1） |
 
 > ⚠️ 两个口径别混用：全仓 **16**，src 单独 **15**。
@@ -96,6 +96,34 @@ node scripts/dev/snapshot-refresh.mjs
 | RF-074 两份对照组 | phaseA **59 项 ALL PASS** / phaseB **61 项 ALL PASS**（含 `flashDownloadFeedback-1300ms` 断言 ⇒ 未与 outfit 1100ms 统一；负向对照 `no-undef 命中 2 条` ⇒ harness 灵敏） |
 
 **实测结论**：V20 把 main.jsx 从 6841 降到 **6630（A=−211 行）**，零新建 src 文件、18 个函数整体搬出、薄壳位置正确无 TDZ；V21 为纯只读设计（仅 +667 行文档，outfit 源码 10256 行零改动），结论**做**、A≈976。两单均通过，阶段切换结论（转功能开发）**再次确认有效**。
+
+### 1.6.2 RF-080 施工 + BUG-01 修复收工复核（2026-10-04，快照 `b378239`）
+
+| 门禁 | 结果 |
+|---|---|
+| `cycle-scan` | **环数量 0** ✅（关键：只搬组件会产生 1 个环，随迁闭包后保持 0） |
+| `frontend-duplication-check`（019） | `ok=true` / `duplicateCount=0` / `scannedFiles=60`；**BUG-01 零新建文件故 `fileCount` 不划账** |
+| `import-path-check` | ok / 220 specifiers / 0 violations |
+| `check-syntax` | **222/222**（+1 是新增探针 `bug01-bounce-probe.mjs`） |
+| `source-hygiene-check` | **dirtyFiles=0** |
+| ESLint 全仓 | 0 errors / **16** warnings（=基线） |
+| `vite build` | ✓ 5.09s |
+| BUG-01 验收探针 | 角柄跳变 **41→2px** / 中心 **81→4px**（标准 ≤6px），比例与越界失真 **0** ✅ |
+
+**两件实测结论**
+
+1. **RF-080 施工 A = −2083**（outfit 9268→7185），统筹纠偏后的预估 2082，**只差 1 行**；
+   新建 `outfit-panels.jsx` 2166 行（预估 2182）。
+   🔑 **设计单预言被验证**：「outfit 7 条 warning 里 2 条会跟着搬到新文件」⇒ 实测
+   `outfit-workflow.jsx` **5** + `outfit-panels.jsx` **2** = 7，全仓总数仍 **16**。
+2. **BUG-01 已修复**（`b378239`），**用户实测确认恢复正常**。
+   因果排除：施工单 `e5b0f68` 未碰任何 crop / local-edit 文件 ⇒ 确为历史遗留。
+   修法＝**方案丙（单次拖拽内锁轴）为主 + 方案乙（沿比例对角线连续投影）兜底**：
+   几何函数新增 `drivingAxis` 参数（默认走连续投影，向后兼容）；`crop-drag.js` 在累计位移超
+   **3px 死区**时首次定轴写入 `dragRef`，单次拖拽内不翻转。
+   🔑 方案甲 `max(宽驱动,高驱动)` **已被实测否决**（纯水平向内拖 `dy=0` 时框完全不缩小）。
+
+🎉 **两巨石 13815 行 / 54.3%**（起点 74.6%）—— **首次跌破 55%**。
 
 ### ⚠️ 跑全套验证的正确姿势（本轮实测得出，不照做会得到假结论）
 

@@ -1603,7 +1603,22 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
 
 | 编号 | 问题 | 定性 | 状态 |
 |---|---|---|---|
-| **BUG-01** | **局部回帖选框缩放「回弹」**：慢慢拖时框忽然变大/变小一块 | 功能缺陷。**已排除与 RF-080 的因果关系**（见下） | 🔵 修复单已派 `V4.0-修复单-BUG01-选框缩放回弹.md` |
+| **BUG-01** | **局部回帖选框缩放「回弹」**：慢慢拖时框忽然变大/变小一块 | 功能缺陷。**已排除与 RF-080 的因果关系**（见下） | ✅ **已修复 `b378239`**；探针验收 角柄 **41→2px** / 中心 **81→4px**（标准 ≤6px）、比例与越界失真 **0**；**用户实测确认恢复正常** |
+
+> **根因**（统筹用真实模块跑出，非推测）：`src/shared/local-edit-geometry.js` 的
+> `resizeRectFromCornerLocked` / `resizeRectFromCenterLocked` 用 `Math.abs(deltaX) >= Math.abs(deltaY)`
+> 选驱动轴 ⇒ `driven` 是**分段函数，在 `|dx|==|dy|` 处跳变**。
+> 实测：相邻两帧鼠标只差 2px ⇒ 框 350×525 → 366×549（**宽跳 16px**）；200 帧慢抖轨迹**最大跳变 41px**；
+> **比例失真帧数 = 0** ⇒ 比例约束没问题，**病根纯粹是连续性**（不是取整累积：`drag.rect` 在 `beginCropDrag` 一次性冻结）。
+>
+> **修法＝方案丙（锁轴）为主 + 方案乙（连续投影）兜底**：
+> - `local-edit-geometry.js`：两函数新增 `drivingAxis` 参数。默认（`undefined`）走**沿比例对角线连续投影**（单一连续公式，彻底消除分段跳变，向后兼容）；`"x"`/`"y"` 走纯轴响应（100% 跟手）。
+> - `crop-rect-resize.js`：透传 `drivingAxis`（**仅 `ratioLocked` 锁定分支**；自由矩形分支 `ratioLocked=false` 未改动）。
+> - `crop-drag.js`：`moveCropDrag` 累计位移超 **3px 死区**时首次定轴并写入 `dragRef`，**单次拖拽内不翻转**。
+>
+> 🔑 方案甲 `max(宽驱动,高驱动)` **已被实测否决**：纯水平向内拖 `dy=0` 时框**完全不缩小**（400→400，应 340）。
+> 验收探针落地 `scripts/dev/bug01-bounce-probe.mjs`（103 行）。门禁：`check-syntax` **222/222**、`ESLint` **0/16**、
+> `source-hygiene` dirtyFiles=0、`vite build` ✓、**019 零新建文件故不划账**（仍 `ok=true / dup=0 / 60`）。
 
 > **因果排除证据**：施工单 `e5b0f68` 只改了 2 个文件（新建 `outfit-panels.jsx` + 改 `outfit-workflow.jsx`），
 > **没碰任何 crop / local-edit 文件**；选框相关两个文件最后改动停在 `01b2325`(V11-RF-050) 与
@@ -1633,9 +1648,35 @@ RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetail
      实测 `outfit-workflow.jsx` **5** + `outfit-panels.jsx` **2** = 7，全仓总数仍 **16** ✅。
    - 🎉 两巨石 **13815 行 / 54.4%**（起点 74.6%，上一步 62.8%）⇒ **首次跌破 55%**。
 4. 🆕 **跨巨石块克隆 11 组 / ≈176 有效行**（本轮新工具扫出的债，见下方债登记第 7 条）。
-5. **main.prompt 域** 11 fn / 190 行，耦合 1.36 —— ⚠️ 其中 33 行落在 RF-078 已裁决区体内，需先核对裁决覆盖面。
-6. **outfit 侧 misc 域** 53 fn / 942 行（1.23）—— 原与 RF-079/080 同属 outfit 需排队抢文件，**RF-080 完工后已解禁**。
-7. **RF-076-D**（effect#2/#4 体抽助手，已裁决暂缓，可选 ~14 行）。
+5. ⚠️ **【已被实测推翻并升级】main.prompt 域 11 fn / 190 行 / outfit misc 域 53 fn / 942 行**
+   —— 这两条旧登记**规模严重低估**。2026-10-04 统筹用 `measure-top.mjs` 重测（快照 `b378239`）：
+
+   | 巨石 | 行数 | 组件本体 | 真顶层（剔除本体与伪顶层） | 扣除已裁决不可搬 |
+   |---|---|---|---|---|
+   | `outfit-workflow.jsx` | 7186 | `OutfitWorkflow` 4365（2820-7184） | **≈87 个 / ≈1643 行** | ≈1643 |
+   | `main.jsx` | 6631 | `App` 4946（1677-6622） | **≈59 个 / ≈1134 行** | **≈1011**（扣画布模型层 123） |
+
+   ⇒ 已分别升级为 **RF-081（outfit 侧）** 与 **RF-082（main 侧）** 两张只读设计单（见下 🟢）。
+6. **RF-076-D**（effect#2/#4 体抽助手，已裁决暂缓，可选 ~14 行）。
+
+🟢 **⇒ 当前主线（重构侧）：RF-081 / RF-082 两张只读设计单，已派，可并行**
+
+| 单 | 对象 | 规模 | 状态 |
+|---|---|---|---|
+| **V24 · RF-081** | `outfit-workflow.jsx` 剩余模块顶层函数域 | ≈87 个 / ≈1643 行 | 🔵 已派 `V4.0-执行单-V24-RF-081.md` |
+| **V25 · RF-082** | `main.jsx` 剩余模块顶层函数域 | ≈59 个 / ≈1011 行（已扣画布模型层） | 🔵 已派 `V4.0-执行单-V25-RF-082.md` |
+
+**两张均为只读单、分属不同文件、零冲突 ⇒ 允许并行。** 施工单待两份设计结论出来后再派。
+
+🔴 **已裁决不可搬项（派单必须排除，统筹四处 grep 已确认）**
+- **main 画布模型层 ≈138 行**：`createCanvasNode`(60) / `createInfiniteCanvas`(27) / `normalizeInfiniteCanvasState`(36)。
+  原文见 `REFACTOR_TICKETS.md:1234`「**试图搬但回滚** …… 登记为『不可搬』」；
+  原因＝内部引用 app 级 **`defaultState`**（`model`/`imageSize`/`aspectRatio`）与 **`clampCount`** ⇒ 不是纯领域函数。
+- **outfit `buildTasks`(73，4950-5022)**：**伪顶层** —— 写在 column 0 但**落在 `OutfitWorkflow` 组件区间内**，
+  RF-079 已判其依赖 `activeModels`/`settings`/`referenceImages` ⇒ 需注入 14 项，不属本轮真顶层。
+- ⚠️ **`processImageFileWithMeta`**（outfit）／**`defaultQuickLocalEditCrop`**（main）：均涉**真分叉裁定**，
+  可搬但**禁止与另一侧同名物合并**，搬前须确认另一侧不受影响。
+- ⚠️ **`loadOutfitPromptPresets`**：刀 5 裁决「改名不合并」，**storage key 不动**。
 
 📌 **本轮排产的实测事实**（用新工具 `fn-extent` / `self-clone-scan` / `cross-clone-scan` 得出，替代旧估算）：
 - **同文件块克隆已近枯竭**：outfit 最大组仅 31 有效行、main 最大 12 ⇒ 低垂果实确已摘完，
