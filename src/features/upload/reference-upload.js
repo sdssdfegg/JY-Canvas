@@ -4,6 +4,7 @@ import { imageFileFromUrl } from "../../shared/result-image.js";
 import { referenceDefaults } from "../../shared/app-defaults.js";
 import { resolveLocalEditBaseFile } from "../../shared/local-edit-geometry.js";
 import { canvasToBlob } from "../../shared/canvas-blob.js";
+import { moveItemByDrop } from "../../shared/list-order.js";
 
 // 参考图上传域工厂 —— 全部函数体从 src/main.jsx 逐字抽出，未改一行逻辑。
 // 形态同 RF-066~069：普通工厂（不 import React、无 useState/useCallback/useMemo）。
@@ -96,6 +97,23 @@ export function createReferenceUpload(deps) {
       const next = [...current];
       next.splice(Math.max(0, Math.min(index, next.length)), 0, ...accepted);
       addEvent("参考图", `已插入 ${accepted.length} 张参考图`);
+      return next;
+    });
+  }
+
+  // 2026-10-06：快捷生成侧补上「参考图左右调顺序」。批量侧早就有这个功能，
+  // 快捷侧一直缺。排序内核走 src/shared/list-order.js（两侧共用同一份实现）。
+  // placement = "before" | "after"，相对 toId 那张图。
+  function moveReferenceFile(fromId, toId, placement) {
+    setFiles((current) => {
+      const next = moveItemByDrop(current, fromId, toId, placement);
+      if (next === current) return current;
+      const fromIndex = current.findIndex((item) => item.id === fromId);
+      const toIndex = next.findIndex((item) => item.id === fromId);
+      // 顺序真的变了才记一笔；图1/图2 的编号会跟着变，用户需要知道。
+      if (fromIndex >= 0 && toIndex >= 0 && fromIndex !== toIndex) {
+        addEvent("参考图", `第 ${fromIndex + 1} 张移到第 ${toIndex + 1} 位`);
+      }
       return next;
     });
   }
@@ -197,6 +215,7 @@ export function createReferenceUpload(deps) {
     appendReferenceFiles,
     replaceReferenceFiles,
     insertReferenceFiles,
+    moveReferenceFile,
     onPickFiles,
     isReferenceDropData,
     onComposerDragOver,

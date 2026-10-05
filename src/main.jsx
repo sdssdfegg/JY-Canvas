@@ -762,6 +762,10 @@ function App() {
   const [promptCategory, setPromptCategory] = useState("全部");
   const [promptSearch, setPromptSearch] = useState("");
   const [referenceDropTarget, setReferenceDropTarget] = useState(null);
+  // 2026-10-06：快捷生成的参考图「左右调顺序」（批量侧早就有，快捷侧补齐）。
+  // 走 pointer 事件而不是 HTML5 drag —— 后者会和已有的「外部图片拖进来=替换」抢 dragover。
+  const [referenceSortTarget, setReferenceSortTarget] = useState(null);
+  const [draggingReferenceId, setDraggingReferenceId] = useState("");
   const [quickResultReplaceTargetId, setQuickResultReplaceTargetId] = useState("");
   const [quickCropEditTarget, setQuickCropEditTarget] = useState(null);
   const [quickLocalEditTarget, setQuickLocalEditTarget] = useState(null);
@@ -781,6 +785,9 @@ function App() {
   const [stitchContextMenu, setStitchContextMenu] = useState(null);
   const [imageEditorSeed, setImageEditorSeed] = useState(null);
   const inputRef = useRef(null);
+  const referencePointerSortRef = useRef(null);
+  // 排序松手后会紧接着触发一次 click ⇒ 会误开预览。沿用批量侧的 150ms 抑制窗口。
+  const suppressReferencePreviewRef = useRef(false);
   const videoReferenceInputRef = useRef(null);
   const detailProductInputRef = useRef(null);
   const detailReferenceInputRef = useRef(null);
@@ -1718,6 +1725,7 @@ function App() {
     addReferenceRewriteFiles,
     removeReferenceRewriteFile,
     appendReferenceFiles,
+    moveReferenceFile,
     onPickFiles,
     isReferenceDropData,
     onComposerDragOver,
@@ -2423,11 +2431,84 @@ function App() {
 
   function openUploadPreview(item) {
     if (!item?.url) return;
+    // 排完序松手会紧跟一次 click，这时不能开预览（同批量侧 outfit-panels 的 150ms 抑制窗口）。
+    if (suppressReferencePreviewRef.current) return;
     setUploadPreview({
       url: item.url,
       name: item.uploadName || item.file?.name || "上传图片",
       size: item.uploadSize || item.file?.size || 0
     });
+  }
+
+  // ---- 参考图左右调顺序（pointer 版，与批量侧 outfit-panels 同一套手感）----
+  function beginReferenceSort(event, item) {
+    if (event.button !== 0) return;
+    // 移除按钮 / 裁剪 / 局部回贴这三个工具按钮不参与拖拽。
+    if (event.target instanceof Element && event.target.closest(".referenceToolRow")) return;
+    referencePointerSortRef.current = {
+      id: item.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      target: null
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveReferenceSort(event) {
+    const sort = referencePointerSortRef.current;
+    if (!sort) return;
+    // 只有 1 张图时排不了序，也不需要起步。
+    if (previewFiles.length <= 1) return;
+    const deltaX = event.clientX - sort.startX;
+    const deltaY = event.clientY - sort.startY;
+    // 8px 阈值：没超过就当作普通点击，不要抢走 click。
+    if (!sort.active && Math.hypot(deltaX, deltaY) < 8) return;
+
+    sort.active = true;
+    setDraggingReferenceId(sort.id);
+    event.preventDefault();
+    event.stopPropagation();
+
+    const under = document.elementFromPoint(event.clientX, event.clientY);
+    const wrap = under?.closest?.(".referenceThumbWrap[data-reference-id]");
+    const targetId = wrap?.dataset?.referenceId;
+    if (!wrap || !targetId || targetId === sort.id) {
+      sort.target = null;
+      setReferenceSortTarget(null);
+      return;
+    }
+
+    const rect = wrap.getBoundingClientRect();
+    // 左右分半：过中线算"放到它后面"，否则算"放到它前面"。
+    const placement = event.clientX > rect.left + rect.width / 2 ? "after" : "before";
+    sort.target = { id: targetId, placement };
+    setReferenceSortTarget(sort.target);
+  }
+
+  function endReferenceSort(event) {
+    const sort = referencePointerSortRef.current;
+    if (!sort) return;
+    if (sort.active) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (sort.target) {
+        moveReferenceFile(sort.id, sort.target.id, sort.target.placement);
+      }
+      suppressReferencePreviewRef.current = true;
+      window.setTimeout(() => {
+        suppressReferencePreviewRef.current = false;
+      }, 150);
+    }
+    referencePointerSortRef.current = null;
+    setDraggingReferenceId("");
+    setReferenceSortTarget(null);
+  }
+
+  function cancelReferenceSort() {
+    referencePointerSortRef.current = null;
+    setDraggingReferenceId("");
+    setReferenceSortTarget(null);
   }
 
   function closeUploadPreview() {
@@ -4770,7 +4851,10 @@ function App() {
                 />
                 {previewFiles.map((item, index) => (
                   <React.Fragment key={item.id || `${item.file.name}-${item.file.lastModified}-${index}`}>
-                    <div className="referenceThumbWrap">
+                    <div
+                      className={`referenceThumbWrap ${draggingReferenceId === item.id ? "sorting" : ""} ${referenceSortTarget?.id === item.id ? (referenceSortTarget.placement === "after" ? "dropAfter" : "dropBefore") : ""}`}
+                      data-reference-id={item.id}
+                    >
                       <div
                       className={`referenceThumb ${referenceDropTarget?.type === "replace" && referenceDropTarget.index === index ? "replaceTarget" : ""} ${item.cropEdit ? "cropEditReady" : ""} ${item.localEdit ? "localEditReady" : ""}`}
                       data-reference-index={index}
@@ -4778,8 +4862,12 @@ function App() {
                       onDragOver={(event) => beginReferenceDrop(event, "replace", index)}
                       onDragLeave={endReferenceDrop}
                       onDrop={(event) => onReferenceDrop(event, "replace", index)}
+                      onPointerDown={(event) => beginReferenceSort(event, item)}
+                      onPointerMove={moveReferenceSort}
+                      onPointerUp={endReferenceSort}
+                      onPointerCancel={cancelReferenceSort}
                       onClick={() => openUploadPreview(item)}
-                      title={`${item.file.name} · ${fileSize(item.file.size)}，拖新图到这里可替换`}
+                      title={previewFiles.length > 1 ? `${item.file.name} · ${fileSize(item.file.size)}，按住可左右拖动调整顺序；拖新图到这里可替换` : `${item.file.name} · ${fileSize(item.file.size)}，拖新图到这里可替换`}
                     >
                       <b>图{index + 1}</b>
                       <img src={item.url} alt={item.file.name} draggable={false} />

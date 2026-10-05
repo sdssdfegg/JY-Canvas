@@ -2127,18 +2127,9 @@ export async function loadOutfitDraftState(options = {}) {
     pages
   };
 }
-export function moveItemByDrop(items, fromId, toId, placement) {
-  if (!fromId || !toId || fromId === toId) return items;
-  const fromIndex = items.findIndex((item) => item.id === fromId);
-  const targetIndex = items.findIndex((item) => item.id === toId);
-  if (fromIndex < 0 || targetIndex < 0) return items;
-
-  const next = [...items];
-  const [moved] = next.splice(fromIndex, 1);
-  const normalizedTargetIndex = next.findIndex((item) => item.id === toId);
-  next.splice(placement === "after" ? normalizedTargetIndex + 1 : normalizedTargetIndex, 0, moved);
-  return next;
-}
+// 2026-10-06：排序内核已抽到 src/shared/list-order.js（它是通用数组工具，不属于换装域）。
+// 这里重新导出，旧的 import 路径一行都不用改。
+export { moveItemByDrop } from "../../shared/list-order.js";
 export function defaultLocalEditCrop(width, height, ratio) {
   // 2026-09-25：默认选框就是上次/当前选定的比例（居中、约占 62%），
   // 因为局部回贴选框必须"始终"等于所选比例。

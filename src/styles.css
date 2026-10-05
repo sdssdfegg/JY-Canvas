@@ -944,6 +944,41 @@ textarea:focus {
   flex: 0 0 auto;
 }
 
+/* 参考图左右调顺序（2026-10-06 补齐，机制与批量侧 .thumbCard 一致）：
+   拖起来的那张半透明，目标位的左/右侧画一条竖线表示会插在哪。 */
+.referenceThumbWrap.sorting {
+  opacity: 0.45;
+}
+
+.referenceThumbWrap.sorting .referenceThumb {
+  cursor: grabbing;
+}
+
+.referenceThumbWrap.dropBefore::before,
+.referenceThumbWrap.dropAfter::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.referenceThumbWrap.dropBefore,
+.referenceThumbWrap.dropAfter {
+  position: relative;
+}
+
+.referenceThumbWrap.dropBefore::before {
+  left: -7px;
+}
+
+.referenceThumbWrap.dropAfter::after {
+  right: -7px;
+}
+
 .referenceThumb.replaceTarget {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent), var(--shadow);
