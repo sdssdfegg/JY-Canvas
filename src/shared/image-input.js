@@ -15,6 +15,17 @@
 //     **同名同体不同名**的 `imageExtensionFromMime`（逻辑逐字节相同、名字不同，
 //     019 门禁按名比对所以看不见），是否一并收口属另一张单，未在刀 3 内处理。
 
+// 渠道上传约束：发图到上游之前，把图压到什么规格。
+//
+// 这三个值**不是产品选择，是上游渠道的客观限制** —— 服务端图片渠道只有一条管线
+// （`server/core/image-channel-candidates.js` 里的备用渠道只做当次故障兜底），
+// 因此它们必须全站单一真源：批量侧与快捷侧共用同一组值，上游调整时一起变。
+//
+// ⚠️ 本次只收口「约束值」。两侧的压缩算法（`compressOriginalImageFile` 与
+// `compressImageForChannel`）已经各自演化，不要顺手合并 —— 那是另一笔单。
+export const CHANNEL_UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024;
+export const CHANNEL_UPLOAD_TARGET_BYTES = 3.75 * 1024 * 1024;
+export const CHANNEL_UPLOAD_MAX_SIDE = 3072;
 /** 文件是否算「图片」：MIME 优先，扩展名兜底（无 MIME 的场景，如拖拽部分来源）。 */
 export function isImageFile(file) {
   return String(file?.type || "").startsWith("image/")

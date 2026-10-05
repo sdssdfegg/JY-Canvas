@@ -8,12 +8,12 @@
 //    两侧常量不同源、语义不同，严禁合并、严禁互相 import。见冷启动「局部回帖分叉裁定」。
 import { fetchImageBlob } from "../../api/assets.js";
 import { normalizeApiKeyInput } from "../auth/api-key.js";
-import { CHANNEL_UPLOAD_LIMIT_BYTES, CHANNEL_UPLOAD_MAX_SIDE, CHANNEL_UPLOAD_TARGET_BYTES, DEFAULT_PREPROCESS_MODE, MAX_UPLOAD_IMAGES, compressOriginalImageFile, constrainLocalEditRect, loadImageFromUrl, makeId, padImageFile, processImageFile, ratioParts, resolveCropSourceRect } from "./outfit-panels.jsx";
+import { DEFAULT_PREPROCESS_MODE, MAX_UPLOAD_IMAGES, compressOriginalImageFile, constrainLocalEditRect, loadImageFromUrl, makeId, padImageFile, processImageFile, ratioParts, resolveCropSourceRect } from "./outfit-panels.jsx";
 import { OUTFIT_DRAFT_DB_KEY, cropReturnRectSnapshot, hydrateTasksWithUploadReferences, imageSource, localEditRectSnapshot, normalizeCropReturnMeta, normalizeQualityCheck, normalizeQualityCheckResult, normalizeRandomBackgroundFocus, outfitLocalGet, outfitLocalSet, readTaskHistory, recoverPersistedTasks, sanitizeTaskHistoryItem } from "./outfit-task.js";
 import { readJsonStorage } from "../../lib/storage/json-storage.js";
 import { canvasToBlob } from "../../shared/canvas-blob.js";
 import { fileBaseName } from "../../shared/file-name.js";
-import { imageBitmapFromBlob, imageBitmapFromFile, imageExtension } from "../../shared/image-input.js";
+import { CHANNEL_UPLOAD_LIMIT_BYTES, CHANNEL_UPLOAD_MAX_SIDE, CHANNEL_UPLOAD_TARGET_BYTES, imageBitmapFromBlob, imageBitmapFromFile, imageExtension } from "../../shared/image-input.js";
 import { composeLocalPasteBlob, fitRectToRatioLocked } from "../../shared/local-edit-geometry.js";
 import { LOCAL_EDIT_BRUSH_DEFAULT, LOCAL_EDIT_MASK_MODE, LOCAL_EDIT_MASK_OPACITY_DEFAULT, LOCAL_EDIT_RECT_MODE, createLocalEditAlphaMask, imageBitmapFromDataUrl } from "../../shared/local-edit-mask.js";
 import { defaultOutfitIntent, normalizeOutfitIntent } from "../../shared/outfit-intent.js";

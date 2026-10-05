@@ -43,6 +43,9 @@ import { canvasToBlob } from "../../shared/canvas-blob.js";
 import { preventFileDropNavigation } from "../../shared/dom-actions.js";
 import { fileBaseName } from "../../shared/file-name.js";
 import {
+  CHANNEL_UPLOAD_LIMIT_BYTES,
+  CHANNEL_UPLOAD_MAX_SIDE,
+  CHANNEL_UPLOAD_TARGET_BYTES,
   imageExtension,
   imageFilesFromClipboard,
   imageFilesFromList,
@@ -71,9 +74,6 @@ export const VIDEO_STATUS_POLL_INTERVAL_MS = 4000;
 export const VIDEO_STATUS_MAX_POLLS = 180;
 export const VIDEO_REFERENCE_MAX_BYTES = 10 * 1024 * 1024;
 export const MAX_UPLOAD_IMAGES = 10;
-export const CHANNEL_UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024;
-export const CHANNEL_UPLOAD_TARGET_BYTES = 3.75 * 1024 * 1024;
-export const CHANNEL_UPLOAD_MAX_SIDE = 3072;
 export const PREPROCESS_OPTIONS = [
   { value: "crop", label: "手动裁剪" },
   { value: "pad", label: "白底补边" },

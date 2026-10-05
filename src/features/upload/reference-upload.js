@@ -1,5 +1,5 @@
 import { fileBaseName } from "../../shared/file-name.js";
-import { addFilesByRole, imageBitmapFromFile, imageExtension, imageFilesFromList, removeFilesByRole } from "../../shared/image-input.js";
+import { CHANNEL_UPLOAD_LIMIT_BYTES, CHANNEL_UPLOAD_MAX_SIDE, CHANNEL_UPLOAD_TARGET_BYTES, addFilesByRole, imageBitmapFromFile, imageExtension, imageFilesFromList, removeFilesByRole } from "../../shared/image-input.js";
 import { imageFileFromUrl } from "../../shared/result-image.js";
 import { referenceDefaults } from "../../shared/app-defaults.js";
 import { resolveLocalEditBaseFile } from "../../shared/local-edit-geometry.js";
@@ -208,13 +208,6 @@ export function createReferenceUpload(deps) {
     imageFilesFromReferenceDrop
   };
 }
-
-
-export const CHANNEL_UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024;
-
-export const CHANNEL_UPLOAD_TARGET_BYTES = 3.75 * 1024 * 1024;
-
-export const CHANNEL_UPLOAD_MAX_SIDE = 3072;
 
 export function referenceControlText(value, target) {
   const skillMap = {

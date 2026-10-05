@@ -47,6 +47,7 @@ const MODAL_FILE = path.join(ROOT, "src", "features", "local-edit", "LocalEditMo
 const OUTFIT_TASK_FILE = path.join(ROOT, "src", "features", "outfit", "outfit-task.js");
 const OUTFIT_PANELS_FILE = path.join(ROOT, "src", "features", "outfit", "outfit-panels.jsx");
 const REFERENCE_UPLOAD_FILE = path.join(ROOT, "src", "features", "upload", "reference-upload.js");
+const SHARED_IMAGE_INPUT_FILE = path.join(ROOT, "src", "shared", "image-input.js");
 // 后端源码真相源（index.js + core/routes/shared 下所有模块）统一由共享模块收集，
 // 后续 Phase 拆分（搬到 routes/shared）后脚本无需逐个改：见 ./lib/server-sources.mjs。
 const SERVER_SOURCES = listServerSourceFiles();
@@ -116,6 +117,7 @@ const modalSrc = readFileSync(MODAL_FILE, "utf8");
 const outfitTaskSrc = readFileSync(OUTFIT_TASK_FILE, "utf8");
 const outfitPanelsSrc = readFileSync(OUTFIT_PANELS_FILE, "utf8");
 const referenceUploadSrc = readFileSync(REFERENCE_UPLOAD_FILE, "utf8");
+const imageInputSrc = readFileSync(SHARED_IMAGE_INPUT_FILE, "utf8");
 
 check("共享模块导出 resolveLocalEditBaseFile 且规则是「原图优先」",
   /export function resolveLocalEditBaseFile\(item\)\s*\{[\s\S]{0,400}?return item\.originalFile \|\| item\.file \|\| null;/.test(geometrySrc),
@@ -157,12 +159,17 @@ check("扩图仍自洽（原图保护底图与扩图画布同一文件）",
 check("快捷生成侧委托同一份规则（原图优先，裸 File 兜底）",
   /function quickReferenceOriginalFile\(item\)\s*\{[\s\S]{0,200}?return resolveLocalEditBaseFile\(item\) \|\| item;/.test(referenceUploadSrc),
   "src/main.jsx");
-// 这个常量现在有**两份**（outfit-panels.jsx 与 reference-upload.js，同名同值 3072），
-// 疑为 RF-081/082 搬运时两侧各留一份。是否合并属另一笔债、待裁决，本单不顺手改。
-// ⇒ 这里两份都要求存在（&&）：将来任一份被删都会转红，不会出现"删了一份还假通过"。
+// V32 收口：这组约束已并入 `src/shared/image-input.js` 单一真源。
+// 断言拆成三段而不是一段：
+//   ① 真源处的值仍是 3072（探针反例尺寸必须跟着线上压缩走，这是这条断言存在的理由）；
+//   ② 两个消费方**不再**留本地定义 —— 防止将来有人觉得"少个 import 麻烦"又复制回去；
+//   ③ 两个消费方确实还在引用这个名字 —— 证明删完仍然接线，不是"删了但没人用"。
 check("上传副本长边上限仍是 3072（探针反例尺寸与线上压缩一致）",
-  /CHANNEL_UPLOAD_MAX_SIDE = 3072;/.test(outfitPanelsSrc)
-    && /CHANNEL_UPLOAD_MAX_SIDE = 3072;/.test(referenceUploadSrc),
+  /export const CHANNEL_UPLOAD_MAX_SIDE = 3072;/.test(imageInputSrc)
+    && !/export const CHANNEL_UPLOAD_MAX_SIDE\b/.test(outfitPanelsSrc)
+    && !/export const CHANNEL_UPLOAD_MAX_SIDE\b/.test(referenceUploadSrc)
+    && /CHANNEL_UPLOAD_MAX_SIDE\b/.test(outfitPanelsSrc)
+    && /CHANNEL_UPLOAD_MAX_SIDE\b/.test(referenceUploadSrc),
   "3072");
 
 // 尺寸可见性接线：用户口径是"我给的图多少尺寸，返回的就是多少尺寸"，
