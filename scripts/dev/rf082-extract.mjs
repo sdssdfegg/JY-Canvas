@@ -48,8 +48,6 @@ const ALL_SEEDS = new Set([...BATCH_CONST_SEEDS.S0, ...Object.values(BATCH_FN_SE
 // ---------- 辅助 ----------
 function parseStr(src) { return parser.parse(src, { sourceType: "module", plugins: ["jsx"] }); }
 function readAbs(p) { return readFileSync(p, "utf8"); }
-function buildLineStarts(src) { const s = [0]; for (let i = 0; i < src.length; i++) if (src[i] === "\n") s.push(i + 1); return s; }
-function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 function relImport(fromFile, toFile) { let r = relative(dirname(fromFile), dirname(toFile)).replace(/\\/g, "/"); if (r === "") r = "."; if (!r.startsWith(".")) r = "./" + r; return `${r}/${basename(toFile)}`; }
 function repoRelOf(absOrRel) { const abs = absOrRel.startsWith(".") ? resolve(SRC_DIR, absOrRel) : resolve(absOrRel); return relative(repoRoot, abs).replace(/\\/g, "/"); }
 function resolveToAbs(repoRel) { return resolve(repoRoot, repoRel); }
