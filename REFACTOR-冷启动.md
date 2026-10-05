@@ -97,7 +97,7 @@ node scripts/dev/snapshot-refresh.mjs
 | `import-path-check` | ok / 220 specifiers / 0 violations |
 | `check-syntax` | **216/216** |
 | ESLint 全仓 | 0 errors / **16** warnings（精确等于基线，零回归） |
-| `vite build` | ✓ 1636 modules，5.91s（**唯一能验 import 名**的门禁，ESLint 抓不到） |
+| `vite build` | ✓ 1636 modules，5.91s（**唯一能验 import 名**的门禁，ESLint 抓不到）⚠️ **此说法不完整，2026-10-05 事故已证伪一半，见 §5 第 9 条** |
 | RF-074 两份对照组 | phaseA **59 项 ALL PASS** / phaseB **61 项 ALL PASS**（含 `flashDownloadFeedback-1300ms` 断言 ⇒ 未与 outfit 1100ms 统一；负向对照 `no-undef 命中 2 条` ⇒ harness 灵敏） |
 
 **实测结论**：V20 把 main.jsx 从 6841 降到 **6630（A=−211 行）**，零新建 src 文件、18 个函数整体搬出、薄壳位置正确无 TDZ；V21 为纯只读设计（仅 +667 行文档，outfit 源码 10256 行零改动），结论**做**、A≈976。两单均通过，阶段切换结论（转功能开发）**再次确认有效**。
@@ -559,6 +559,22 @@ grep -rn "<候选名>\|不能抽\|不许塞进来\|已分叉，停手\|待人类
 7. **对照组两坑**：① 注入给旧模块的依赖必须是**真实实现**不是简化 mock（否则假差异）；
    ② **建一个 env 跑一个**，不能先建两个再跑（模块级缓冲会被重置）；case 名用 `startsWith` 不用 `===`。
 8. **反证必须自检**：声明的 A/B 两分支日志必须不同，否则该组无判别力。
+9. 🔴 **搬运函数 ≠ 搬运它引用的 import**（2026-10-05 事故，P0，commit `2655c5d`）：
+   RF-082 把 `DetailUploadZone` / `QuickCropViewportModal` 搬进 `src/features/crop/quick-crop-panels.jsx`，
+   **组件走了、它们引用的模块级名字没跟过去** —— `Modal` / `ModalHeader` 与 6 个 lucide 图标
+   （`Folder` / `Image as ImageIcon` / `X` / `RotateCcw` / `Loader2` / `Crop`）留在了 `main.jsx`，
+   于是该文件里这 8 个名字从未被定义。用户点「应用裁剪」→ 错误边界接住 `Modal is not defined`。
+   **三道路径当时全没拦住**：
+   - `eslint .` = **0 errors** ⇒ `no-undef` 只看 `Identifier`，而 JSX 标签是 `JSXIdentifier`，**这是结构性盲区**；
+   - `vite build` **照过** ⇒ 未定义标识符在打包期只被当成「运行期全局变量」，不是构建错误；
+   - 其余门禁（import-path / hygiene / 019 / 语法）只管字节与路径，不管名字存不存在。
+   ⇒ 已开 `react/jsx-no-undef: "error"`（`eslint.config.mjs`），从此由**既有的** ESLint 门禁兜住，不用新增脚本。
+   🔑 **纠正 §1.6.1 里那句旧话**：`vite build` 能验的是「import 的 specifier 存不存在」，
+   **验不了**「代码里用到的标识符有没有被定义」。别再拿 build 全绿当"名字都对"。
+   🔑 同类缺陷只会来自搬运，**判据**：搬完 grep 目标文件里出现的每个模块级名字（组件/常量/图标/工具函数），
+   逐个确认它在新文件里**要么有定义、要么在 import 清单里**；JSX 组件名必须单独过一遍（ESLint 默认不看它）。
+10. **`no-undef` 与 `no-unused-vars` 是一对，但只管得住一半**：前者管"用了不存在的东西"（且漏 JSX），
+    后者管"引了不用"（只报 warning）。**删定义 / 搬定义**时两条都要实测点名，不能只看全仓总数。
 
 ---
 
