@@ -1,8 +1,10 @@
 // quick-crop-panels.jsx —— RF-082 从 src/main.jsx 逐字抽出（加 export），未改逻辑。
 import { useEffect, useRef, useState } from "react";
+import { Crop, Folder, Image as ImageIcon, Loader2, RotateCcw, X } from "lucide-react";
 import { cropQuickReferenceViewportFile, quickReferenceOriginalFile } from "../upload/reference-upload.js";
 import { ratioValue } from "../local-edit/crop-rect-resize.js";
 import { clampCropTransform } from "../../shared/local-edit-geometry.js";
+import { Modal, ModalHeader } from "../../shared/ui/Modal.jsx";
 
 export function DetailUploadZone({
   title,

@@ -90,7 +90,14 @@ const CORRECTNESS_RULES = {
   // —— 关键的一条：让 JSX 里用到的组件算"被使用"
   // 没有它，`<App />` 这种用法不算引用，整个报告会被"组件未使用"的假警报淹掉
   // （实测：加上之前 main.jsx 报 63 条，绝大多数是假的）。
-  "react/jsx-uses-vars": "error"
+  "react/jsx-uses-vars": "error",
+  // —— 它的孪生兄弟，补的是 no-undef 的一个**结构性盲区**：
+  // no-undef 只看 Identifier，而 JSX 标签是 JSXIdentifier ⇒ `<Modal />` 这种
+  // 「组件压根没 import」它一声不响，vite build 也照过（未定义标识符在打包期
+  // 只被当成运行期全局变量）。2026-10-05 实测事故：quick-crop-panels.jsx 里
+  // Modal / ModalHeader / Folder / ImageIcon / X / RotateCcw / Loader2 / Crop
+  // 共 8 个组件全部未定义，而 `npx eslint .` = 0 errors，带着 8 处必崩的界面发布了。
+  "react/jsx-no-undef": "error"
 };
 
 export default [
