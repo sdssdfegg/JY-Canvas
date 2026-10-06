@@ -123,6 +123,12 @@ await run(npmInvocation.command, [...npmInvocation.prefix, "run", "build"], {
   }
 });
 
+// V35：构建产物 dist/ 写一份空标记 .release-mode，使 `node server/index.js` 直接以 release 模式
+// 运行时命中 production 分支（静态托管 dist，不拉起 vite dev server）。
+console.log("1.1/8 Write .release-mode marker into dist");
+await mkdir(distDir, { recursive: true });
+await writeFile(path.join(distDir, ".release-mode"), "", "utf8");
+
 console.log("2/8 Obfuscate frontend JavaScript assets");
 const distAssetFiles = await walkFiles(path.join(rootDir, "dist"));
 for (const file of distAssetFiles.filter((item) => item.endsWith(".js"))) {
@@ -572,6 +578,11 @@ await writeFile(path.join(releaseDir, "tools", "校验和.txt"), `\uFEFF${[
   "发行说明：本安装包不含任何 KEY、上传图、历史图片或图片缓存；",
   "这些只会在运行时写入数据目录（默认 %LOCALAPPDATA%\\静音AI绘画数据）。"
 ].join("\r\n")}\n`, "utf8");
+
+// V35：在 exe 同目录放置 .release-mode 标记。打包 exe 运行时 rootDir 解析到数据目录，
+// dist 不在其下，故标记须放在 exe 所在目录，server/index.js 据此置 NODE_ENV=production，
+// 命中 production 分支（静态托管/内嵌前端），彻底不拉起 vite dev server。
+await writeFile(path.join(releaseDir, ".release-mode"), "", "utf8");
 
 console.log(`Release ready: ${releaseExe}`);
 console.log(`SHA256: ${hash}`);
