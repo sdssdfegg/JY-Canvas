@@ -2895,6 +2895,9 @@ function buildTasks(countOverride = plannedGenerationCount) {
         rect: localEditDiagnostics.pasteRect,
         output: { width: localEditDiagnostics.sourceWidth, height: localEditDiagnostics.sourceHeight }
       });
+      // V38 几何对齐：把「选框比例 vs 生成图比例」的相对差（%）与生成尺寸一起进 COMPOSE 详情。
+      // 贴回是等比拉伸填满选框，比例差越大 ⇒ 模型返回图被挤压得越狠 ⇒ 描边区外缘的缝越明显。
+      const localEditAspectMismatchPct = Number(localEditDiagnostics.aspectMismatchPct || 0);
       emitClientDiagnosticEvent({
         requestId: task.id,
         stage: "client-generation-local-paste-composed",
@@ -2904,11 +2907,17 @@ function buildTasks(countOverride = plannedGenerationCount) {
         detail: {
           taskId: task.id,
           baseName: task.modelItem?.name || "",
-          localPaste: localPasteSizes
+          localPaste: localPasteSizes,
+          generatedWidth: localEditDiagnostics.generatedWidth || 0,
+          generatedHeight: localEditDiagnostics.generatedHeight || 0,
+          aspectMismatchPct: localEditAspectMismatchPct
         }
       });
       if (!localPasteSizes.matches) {
         addEvent("贴回尺寸异常", `底图 ${localPasteSizes.base || "?"} → 输出 ${localPasteSizes.output || "?"}`);
+      }
+      if (Math.abs(localEditAspectMismatchPct) > 1) {
+        addEvent("贴回比例偏差", `选框与生成图比例差 ${localEditAspectMismatchPct}%（>${1}% 会出现描边缝）`);
       }
       const cachedUrl = createDocumentObjectUrl(composedBlob);
       const composedFile = fileFromBlob(

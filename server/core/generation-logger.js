@@ -146,6 +146,12 @@ export function taskLogLines(entry) {
   if (entry.n !== undefined) lines.push(`生成数量：${entry.n}`);
   if (entry.fileCount !== undefined) lines.push(`上传图片数：${entry.fileCount}`);
   if (entry.uploadBytes !== undefined) lines.push(`上传图片总大小：${readableBytes(entry.uploadBytes)}`);
+  // V38 诊断：以前只能靠"前端上传文件数 3 vs 服务端上传图片数 2"反推有没有蒙版，有了这行不用猜。
+  // maskBytes > 0 视为"有蒙版"（蒙版是 multer 的 mask 字段，只有 maskEdit 时才会有）。
+  if (entry.maskBytes !== undefined) {
+    const maskBytes = Number(entry.maskBytes) || 0;
+    lines.push(`上传蒙版：${maskBytes > 0 ? `有（${readableBytes(maskBytes)}）` : "无"}`);
+  }
   if (entry.contentLength !== undefined) lines.push(`本地请求体大小：${readableBytes(entry.contentLength)}`);
   if (entry.promptChars !== undefined || entry.promptBytes !== undefined) {
     lines.push(`提示词长度：${entry.promptChars || 0} 字 / ${readableBytes(entry.promptBytes || 0)}`);

@@ -1524,14 +1524,26 @@ export async function composeOutfitLocalEditBlob(originalFile, generatedBlob, cr
     const sourceWidth = original.width || original.naturalWidth;
     const sourceHeight = original.height || original.naturalHeight;
     const pasteRect = constrainLocalEditRect(localEdit?.cropRect || cropRect, sourceWidth, sourceHeight);
+    // V38 几何对齐诊断：贴回选框宽高比 vs 模型返回图宽高比 的相对差（%）。
+    // 贴回是 frameFit:"stretch"（非等比拉伸填满选框），两者比例不一致 ⇒ 模型返回图被挤压 ⇒
+    // 描边区外缘出现缝（V38 修的就是这个：把选框锁到生成比例）。
+    // |差值| > 1% 视为异常，进单任务日志；这样下次再错位，一眼能分清是"框比例不对"还是"模型返回比例不对"。
+    const generatedWidth = generated.width || generated.naturalWidth || 0;
+    const generatedHeight = generated.height || generated.naturalHeight || 0;
+    const pasteAspect = pasteRect.width && pasteRect.height ? pasteRect.width / pasteRect.height : 0;
+    const generatedAspect = generatedWidth && generatedHeight ? generatedWidth / generatedHeight : 0;
+    const aspectMismatchPct = pasteAspect && generatedAspect
+      ? Math.round(((pasteAspect / generatedAspect) - 1) * 10000) / 100
+      : 0;
 
     const diagnostics = {
       strategy: String(options.strategy || "local-paste"),
       editMode: localEdit?.editMode || LOCAL_EDIT_RECT_MODE,
       sourceWidth,
       sourceHeight,
-      generatedWidth: generated.width || generated.naturalWidth || 0,
-      generatedHeight: generated.height || generated.naturalHeight || 0,
+      generatedWidth,
+      generatedHeight,
+      aspectMismatchPct,
       frameFit: "stretch",
       pasteRect: localEditRectSnapshot(pasteRect),
       contextRect: null,

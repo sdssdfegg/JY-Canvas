@@ -177,6 +177,47 @@ export function fitRectToRatioLocked(rect, ratio, imageWidth, imageHeight) {
 }
 
 /**
+ * 比例锁定（"容纳"语义）：把任意矩形吸附成**精确符合 ratio、且能完整容纳原矩形**的最小同比例矩形。
+ *
+ * 与 `fitRectToRatioLocked` 的区别：后者是"在图片里放一个指定比例的选框"（以原选框大小为上限），
+ * 本函数是"给一个（已外扩的）包围盒，求能包住它的最小同比例矩形"——蒙版换装几何对齐修复（V38）用。
+ * 以原矩形中心为锚，保证外扩边距四边对称、选框不会单向偏移。
+ *
+ * @param {{x,y,width,height}} rect 原矩形（蒙版外扩后的包围盒）
+ * @param {string} ratio "2:3" / "1:1" ...
+ * @returns {{x,y,width,height}} 同比例、已夹进图片、中心对齐原矩形的选框
+ */
+export function fitRectToRatioContaining(rect, ratio, imageWidth, imageHeight) {
+  const sourceWidth = Math.max(1, Math.round(imageWidth || 1));
+  const sourceHeight = Math.max(1, Math.round(imageHeight || 1));
+  const { value: ratioValue } = parseRatioParts(ratio);
+  const baseWidth = Math.max(1, Math.round(rect?.width || 1));
+  const baseHeight = Math.max(1, Math.round(rect?.height || 1));
+  const centerX = rect ? rect.x + rect.width / 2 : sourceWidth / 2;
+  const centerY = rect ? rect.y + rect.height / 2 : sourceHeight / 2;
+
+  // 取"能容纳 base 的最小同比例矩形"：
+  //   base 相对更宽（baseWidth/baseHeight >= ratioValue）→ 宽驱动；否则高驱动。
+  let width;
+  let height;
+  if (baseHeight <= 0 || baseWidth / baseHeight >= ratioValue) {
+    width = baseWidth;
+    height = Math.max(1, Math.round(width / ratioValue));
+  } else {
+    height = baseHeight;
+    width = Math.max(1, Math.round(height * ratioValue));
+  }
+  // 用 snapSizeToRatio 统一取整（保证 width/height≈ratio，误差 ≤1px 且方向一致），再夹进图片。
+  const size = snapSizeToRatio(width, height, ratio, sourceWidth, sourceHeight);
+  return constrainCropRect({
+    x: Math.round(centerX - size.width / 2),
+    y: Math.round(centerY - size.height / 2),
+    width: size.width,
+    height: size.height
+  }, sourceWidth, sourceHeight);
+}
+
+/**
  * 角柄缩放（比例锁定）：对角做锚点，宽高始终满足 ratio，且不越界。
  *
  * 拖动时用位移更大的那个轴驱动，另一个轴按比例跟随 —— 手感接近原生裁剪框，

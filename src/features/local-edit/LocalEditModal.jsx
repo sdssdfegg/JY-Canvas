@@ -23,6 +23,7 @@ import {
   clampLocalEditMaskOpacity,
   createLocalEditInteraction,
   expandMaskBoundsToCropRect,
+  computeMaskContextPaddingPx,
   maskBoundsFromCanvas,
   normalizeMaskCanvas
 } from "../../shared/local-edit-mask.js";
@@ -160,7 +161,7 @@ export function LocalEditModal({
         const bounds = maskBoundsFromCanvas(canvas);
         setMaskPainted(Boolean(bounds));
         if (bounds) {
-          setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio) || savedEdit.cropRect || null);
+          setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio, { lockRatio: true, paddingPx: computeMaskContextPaddingPx(bounds) }) || savedEdit.cropRect || null);
         }
         setMaskRevision((current) => current + 1);
       };

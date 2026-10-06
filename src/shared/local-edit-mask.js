@@ -1,5 +1,10 @@
 import { clamp } from "./numeric.js";
-import { fitRectToRatioLocked, snapSizeToRatio, constrainCropRect as sharedConstrainCropRect } from "./local-edit-geometry.js";
+import {
+  fitRectToRatioLocked,
+  fitRectToRatioContaining,
+  snapSizeToRatio,
+  constrainCropRect as sharedConstrainCropRect
+} from "./local-edit-geometry.js";
 
 export const LOCAL_EDIT_RECT_MODE = "rect";
 export const LOCAL_EDIT_MASK_MODE = "mask";
@@ -55,20 +60,18 @@ export function maskBoundsFromCanvas(canvas, threshold = 10) {
 /**
  * 涂抹蒙版的包围盒 → 实际选框。
  *
- * 2026-09-25 对齐 3.0 新源码（frontend/ecommerce/src/shared/image/localPaste.ts）：
- * 3.0 的局部回贴几何是"**选框就是选区**"，贴回时唯一一次写入
- * `context.drawImage(local, rect.x, rect.y, rect.width, rect.height)`，框外像素逐字节不变。
- * 它**没有**运行版那套"包围盒 + 48px padding + 按比例外扩"的 Nl()。
+ * 默认行为（不传 `options.lockRatio`）：**只把包围盒夹进图片范围**，宽高保持用户实际涂抹的像素尺寸。
+ * 这是 2026-09-25 对齐 3.0 的契约，逐字保持，老调用点（不传 options）行为零变化。
  *
- * 所以这里不再做任何外扩或比例适配：
- *   - 不做 `padding = max(44, 48)` 的外扩（那是"自动扩大蒙版/选框外多送区域"）
- *   - 不按 `ratio` 重新凑比例（那是"因为比例设置自动扩展选区"）
- *   - 只把包围盒夹进图片范围内，宽高保持用户实际涂抹的像素尺寸
+ * 蒙版换装几何对齐修复（V38）：当 `options.lockRatio` 为真时，在"包围盒中心锚"上：
+ *   ① 四边各外扩 `options.paddingPx`（上下文边距，让模型看得见描边区外面是什么，避免切边重排）；
+ *   ② 以包围盒中心为锚，锁到 `ratio`（= 前端所选比例）的宽高比，取"能容纳外扩后包围盒"的最小同比例矩形；
+ *   ③ `constrainCropRect` 夹进原图。
+ * 这样得到的 rect 就是 `localEdit.cropRect`，被 裁剪 / 蒙版裁剪 / 回贴选框 三处共用 ⇒ 几何自动一致。
  *
- * 兼容性：`ratio` 与 `options` 参数保留在签名里，老调用点不用改；
- * 它们不再影响返回值。
+ * `ratio` 与 `options` 参数保留在签名里；仅 lockRatio 开启时才影响返回值（不破坏既有调用方）。
  */
-export function expandMaskBoundsToCropRect(bounds, imageWidth, imageHeight, _ratio, _options = {}) {
+export function expandMaskBoundsToCropRect(bounds, imageWidth, imageHeight, ratio, options = {}) {
   if (!bounds || !imageWidth || !imageHeight) return null;
   const sourceWidth = Math.max(1, Math.round(imageWidth));
   const sourceHeight = Math.max(1, Math.round(imageHeight));
@@ -76,7 +79,36 @@ export function expandMaskBoundsToCropRect(bounds, imageWidth, imageHeight, _rat
   const height = clamp(Math.round(bounds.height || 1), 1, sourceHeight);
   const x = clamp(Math.round(bounds.x || 0), 0, sourceWidth - width);
   const y = clamp(Math.round(bounds.y || 0), 0, sourceHeight - height);
-  return { x, y, width, height };
+
+  // 默认行为：不锁比例，直接返回夹取后的包围盒（逐字保持 2026-09-25 契约）。
+  if (!options || !options.lockRatio) {
+    return { x, y, width, height };
+  }
+
+  // 蒙版换装几何对齐修复（V38）：外扩 → 锁比例，以包围盒中心为锚。
+  const paddingPx = Math.min(
+    Math.max(0, Math.round(options?.paddingPx ?? computeMaskContextPaddingPx(bounds))),
+    sourceWidth,
+    sourceHeight
+  );
+  const expanded = {
+    x: x - paddingPx,
+    y: y - paddingPx,
+    width: width + paddingPx * 2,
+    height: height + paddingPx * 2
+  };
+  return fitRectToRatioContaining(expanded, ratio, sourceWidth, sourceHeight);
+}
+
+/**
+ * 蒙版换装上下文边距（原图像素）：给模型"看得见描边区外面是什么"的上下文，专治切边重排。
+ * 取"6% 的最大边"并夹在 [24, 160] 之间（见 V38 执行单 §2）；
+ * 边距越大模型分给"要改的那一块"的像素越少（画质下降），故封顶 160。
+ */
+export function computeMaskContextPaddingPx(bounds) {
+  const maxSide = Math.max(Number(bounds?.width) || 0, Number(bounds?.height) || 0);
+  const raw = Math.round(0.06 * maxSide);
+  return Math.min(160, Math.max(24, raw));
 }
 
 export function canvasToPngDataUrl(canvas) {
@@ -355,7 +387,7 @@ export function createLocalEditInteraction(deps) {
     const bounds = maskBoundsFromCanvas(canvas);
     setMaskPainted(Boolean(bounds));
     if (bounds) {
-      setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio));
+      setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio, { lockRatio: true, paddingPx: computeMaskContextPaddingPx(bounds) }));
     }
     setMaskRevision((current) => current + 1);
   }
@@ -427,7 +459,7 @@ function syncCropRectFromMask() {
     if (!isMaskMode || !imageSize.width || !imageSize.height) return;
     const bounds = maskBoundsFromCanvas(maskCanvasRef.current);
     if (!bounds) return;
-    const nextRect = expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio);
+    const nextRect = expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio, { lockRatio: true, paddingPx: computeMaskContextPaddingPx(bounds) });
     if (nextRect) setCropRect(nextRect);
 }
   function chooseRatio(nextRatio) {
@@ -436,7 +468,7 @@ function syncCropRectFromMask() {
     if (isMaskMode) {
       const bounds = maskBoundsFromCanvas(maskCanvasRef.current);
       if (bounds) {
-        setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, nextRatio));
+        setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, nextRatio, { lockRatio: true, paddingPx: computeMaskContextPaddingPx(bounds) }));
       }
       return;
     }
@@ -449,7 +481,7 @@ function syncCropRectFromMask() {
       const bounds = maskBoundsFromCanvas(maskCanvasRef.current);
       setMaskPainted(Boolean(bounds));
       if (bounds) {
-        setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio));
+        setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio, { lockRatio: true, paddingPx: computeMaskContextPaddingPx(bounds) }));
       }
     } else if (cropRect) {
       setCropRect((current) => fitRectToRatio(current, activeRatio));
@@ -488,7 +520,7 @@ function syncCropRectFromMask() {
       if (isMaskMode) {
         const canvas = maskCanvasRef.current;
         const bounds = maskBoundsFromCanvas(canvas);
-        const maskCropRect = expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio) || cropRect;
+        const maskCropRect = expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio, { lockRatio: true, paddingPx: computeMaskContextPaddingPx(bounds) }) || cropRect;
         const cropped = await cropLocalEditFile(item, maskCropRect, "mask_edit", { fallbackToItem });
         onApply(item.id, {
           ...cropped,
