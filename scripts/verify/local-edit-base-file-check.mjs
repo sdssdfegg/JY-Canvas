@@ -309,7 +309,9 @@ try {
     cwd: ROOT,
     stdio: ["ignore", "ignore", "ignore"],
     env: { ...process.env, PORT: String(APP_PORT), JINGYIN_PORT_FALLBACK_LIMIT: "0", JINGYIN_NO_BROWSER: "1",
-        JINGYIN_VITE_CACHE_DIR: path.join(process.cwd(), "tmp", "vite-cache-verify") }
+        // 按端口分目录：vite 配置哈希里含 PORT（见 vite.config.js），所有脚本共用一份缓存
+        // 会让配置哈希每次都变 ⇒ 每次起服务都重新预构建 ⇒ 触发沙箱批量删除守卫而崩（2026-10-06 实测）
+        JINGYIN_VITE_CACHE_DIR: path.join(process.cwd(), "tmp", `vite-cache-verify-${APP_PORT}`) }
   });
   installExitCleanup({ getChild: () => child });
   if (!(await waitForHealth(APP_PORT))) throw new Error("V11 测试实例未起来");
