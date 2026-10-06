@@ -207,7 +207,7 @@ export function registerOutfitRoutes(app) {
       || /批量白底精修|白底精修|白底图精修|服装精修|平铺精修|挂拍精修|去衣架|去掉衣架|white\s*refine/i.test(pageNameForWorkflow)
       || /批量平铺图|挂拍图|可选参考.*细节图|白底商品图|衣架去除/i.test(workflowText);
     const outfitWorkflow = !customWorkflow && !localDetailWorkflow && !poseRemixWorkflow && !outpaintWorkflow && !backgroundChangeWorkflow && !randomBackgroundWorkflow && !recolorWorkflow && !whiteRefineWorkflow && !designDraftWorkflow && !faceSwapWorkflow;
-    if (!outpaintWorkflow) {
+    if (!outpaintWorkflow && !payload.maskEdit) {
       maskFile = null;
     }
     const outfitReferenceMentioned = /图\s*3|图三|第三张|第三个|补充图|补充参考|参考图\s*3|reference\s*3/i.test([

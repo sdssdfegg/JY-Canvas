@@ -20,6 +20,10 @@
 import { compileOutfitPrompt, validateOutfitIntent } from "../../src/shared/outfit-intent.js";
 import { compileRetouchPrompt, validateRetouchIntent } from "../../src/shared/retouch-intent.js";
 
+// 蒙版换装（mask-inpaint）模式追加的硬约束：蒙版外区域由上游协议级保留，
+// 提示词再强调一次，双保险。仅当 payload.maskEdit === true 时拼接，其它 workflow 行为不变。
+const INPAINT_MASK_CONSTRAINT = "只重绘蒙版区域内的上装和下装；蒙版外的人物身份、姿势、四肢、背景严格保持不变。";
+
 export function primaryOutfitGenerationError(errors) {
   const list = Array.isArray(errors) ? errors.filter(Boolean) : [];
   const nonAuthError = list.find((error) => !/HTTP\s*401|invalid token|unauthorized|api key/i.test(error));
@@ -107,11 +111,18 @@ export function buildRetouchPrompt(payload) {
  * → 只发用户原话（历史契约，行为不变）。
  */
 export function buildOutfitPrompt(payload) {
-  if (usesRetouchIntent(payload)) return buildRetouchPrompt(payload);
-  if (!usesOutfitIntent(payload)) return buildUserPromptOnly(payload);
+  if (usesRetouchIntent(payload)) {
+    const text = buildRetouchPrompt(payload);
+    return payload?.maskEdit ? [text, INPAINT_MASK_CONSTRAINT].filter(Boolean).join("\n\n") : text;
+  }
+  if (!usesOutfitIntent(payload)) {
+    const text = buildUserPromptOnly(payload);
+    return payload?.maskEdit ? [text, INPAINT_MASK_CONSTRAINT].filter(Boolean).join("\n\n") : text;
+  }
   const { intent } = validateOutfitIntent(payload.outfitIntent);
   const clientPrompt = String(payload?.prompt || "").trim();
   const base = clientPrompt || compileOutfitPrompt({ intent }).prompt;
   const poseAnchorPrompt = String(payload?.poseAnchorPrompt || "").trim();
-  return [base, poseAnchorPrompt].filter(Boolean).join("\n\n");
+  const text = [base, poseAnchorPrompt].filter(Boolean).join("\n\n");
+  return payload?.maskEdit ? [text, INPAINT_MASK_CONSTRAINT].filter(Boolean).join("\n\n") : text;
 }

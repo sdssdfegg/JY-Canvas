@@ -45,7 +45,9 @@ import {
   LOCAL_EDIT_MASK_MODE,
   LOCAL_EDIT_BRUSH_DEFAULT,
   LOCAL_EDIT_MASK_OPACITY_DEFAULT,
-  LOCAL_EDIT_RECT_MODE
+  LOCAL_EDIT_RECT_MODE,
+  createInpaintUploadMask,
+  imageBitmapFromDataUrl
     } from "./shared/local-edit-mask.js";
 import DebouncedTextarea from "./shared/DebouncedTextarea.jsx";
 import { DEFAULT_MODELS } from "./shared/models.js";
@@ -2749,6 +2751,24 @@ function buildTasks(countOverride = plannedGenerationCount) {
     const outpaintUploadMeta = !localEdit && taskIsOutpaint
       ? await prepareOutpaintUploadCanvas(taskModelFile, taskAspectRatio)
       : null;
+    // 蒙版换装（mask-inpaint）：换装 + 涂抹蒙版模式时，把本地蒙版裁到与上传 cropFile 同框、
+    // 反转 alpha（透明=重绘服装区 / 不透明白=保留人体），随请求发上游做协议级局部修改。
+    // 局部回贴（local-detail）与其它 workflow 不置此开关，保持原行为。
+    let inpaintMaskFile = null;
+    if (taskIsOutfit && localEdit?.editMode === LOCAL_EDIT_MASK_MODE && localEdit?.maskDataUrl) {
+      const maskImage = await imageBitmapFromDataUrl(localEdit.maskDataUrl);
+      if (maskImage) {
+        const maskCanvas = createInpaintUploadMask(maskImage, localEdit.cropRect);
+        if (maskCanvas) {
+          inpaintMaskFile = await new Promise((resolve) => {
+            maskCanvas.toBlob((blob) => {
+              resolve(blob ? new File([blob], `mask_${task.order}_${task.modelItem.name}.png`, { type: "image/png" }) : null);
+            }, "image/png");
+          });
+        }
+        maskImage.close?.();
+      }
+    }
     const modelUploadFile = localEdit?.cropFile || (taskIsOutpaint
       ? outpaintUploadMeta?.file
       : await ensureOutfitUploadCanvasRatio(taskModelFile, taskAspectRatio));
@@ -2796,6 +2816,7 @@ function buildTasks(countOverride = plannedGenerationCount) {
       pairingMode: task.pairingMode || settings.pairingMode,
       preprocessMode: settings.preprocessMode,
       deferAutoSave: Boolean(localEdit || taskIsOutpaint),
+      maskEdit: Boolean(inpaintMaskFile),
       localEdit: localEdit ? {
         enabled: true,
         editMode: localEdit.editMode || LOCAL_EDIT_RECT_MODE,
@@ -2810,6 +2831,9 @@ function buildTasks(countOverride = plannedGenerationCount) {
     form.append("image", modelUploadFile, `model_${task.order}_${task.modelItem.name}`);
     if (taskIsOutpaint && outpaintUploadMeta?.maskFile instanceof File) {
       form.append("mask", outpaintUploadMeta.maskFile, `mask_${task.order}_${task.modelItem.name}`);
+    }
+    if (inpaintMaskFile instanceof Blob) {
+      form.append("mask", inpaintMaskFile, `mask_${task.order}_${task.modelItem.name}`);
     }
     // 设计稿 / 精修：图1 上传区可能有多张（精修是「多图生图」），其余几张按 图2…图N 一起发上去。
     if (taskWorkflowMode === "design-draft" || taskIsWhiteRefine) {

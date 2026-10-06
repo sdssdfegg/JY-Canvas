@@ -194,6 +194,57 @@ export function createLocalEditAlphaMask(maskImage, cropRect, feather = 18) {
   return mergedCanvas;
 }
 
+/**
+ * 把本地涂抹蒙版转成「上游 inpaint 蒙版」。
+ *
+ * 上游（GPT-Image / 香蕉 edits）约定：**不透明＝保留，透明＝重绘**。
+ * 本地涂抹蒙版语义相反（涂抹区＝白不透明＝用户想改的服装区），故必须 alpha 反转：
+ *   涂抹区（白不透明）⇒ 透明（待上游重绘）
+ *   其余（透明）      ⇒ 不透明白（上游保留）
+ *
+ * 输入 maskImage 为「全图尺寸」的涂抹蒙版位图（与 applyLocalEdit 导出的 maskDataUrl 同尺寸），
+ * 用 cropRect 裁到与上传的 cropFile 同一框、同一尺寸，保证像素级对齐。
+ * 注意：本函数**只追加**，不改动 normalizeMaskCanvas / createLocalEditAlphaMask / applyLocalEdit
+ * 既有导出语义（局部回贴前端合成链路依赖它们）。
+ */
+export function createInpaintUploadMask(maskImage, cropRect) {
+  if (!maskImage || !cropRect?.width || !cropRect?.height) return null;
+  const rect = {
+    x: Math.round(cropRect.x || 0),
+    y: Math.round(cropRect.y || 0),
+    width: Math.max(1, Math.round(cropRect.width || 1)),
+    height: Math.max(1, Math.round(cropRect.height || 1))
+  };
+  const canvas = document.createElement("canvas");
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  ctx.drawImage(maskImage, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height);
+  // 先归一化：涂抹区强制白不透明、其余透明（抗画笔抗锯齿产生的半透明边）。
+  normalizeMaskCanvas(canvas);
+  const imageData = ctx.getImageData(0, 0, rect.width, rect.height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] > 10) {
+      // 涂抹区 ⇒ 透明（待上游重绘）
+      data[i] = 0;
+      data[i + 1] = 0;
+      data[i + 2] = 0;
+      data[i + 3] = 0;
+    } else {
+      // 其余 ⇒ 不透明白（上游保留）
+      data[i] = 255;
+      data[i + 1] = 255;
+      data[i + 2] = 255;
+      data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
 // RF-076 · 局部编辑交互层 B3 工厂（阶段 A：12 个无分叉纯函数 + effect#3/#5 体）
 // 函数体从 src/main.jsx / src/outfit-workflow.jsx 逐字抽取，仅顶部加 deps 解构。
 // 后续阶段 B/C 在此文件内追加参数化函数（同域第二批，不新增 fileCount）。
