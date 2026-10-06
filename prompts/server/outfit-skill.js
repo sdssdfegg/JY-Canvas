@@ -22,7 +22,7 @@ import { compileRetouchPrompt, validateRetouchIntent } from "../../src/shared/re
 
 // 蒙版换装（mask-inpaint）模式追加的硬约束：蒙版外区域由上游协议级保留，
 // 提示词再强调一次，双保险。仅当 payload.maskEdit === true 时拼接，其它 workflow 行为不变。
-const INPAINT_MASK_CONSTRAINT = "只重绘蒙版区域内的上装和下装；蒙版外的人物身份、姿势、四肢、背景严格保持不变。";
+const INPAINT_MASK_CONSTRAINT = "只更换蒙版区域内的上装和下装。蒙版外的人物身份、姿势、四肢、背景严格保持不变；蒙版内若覆盖到手部、手指、颈部皮肤、面部或头发，这些人体部位也必须与原图完全一致，位置、形状、姿态不得有任何改变。新服装必须精确贴合原图中人体的轮廓线位置，肩线、袖口、腰头、裤脚与原图服装的位置逐像素对齐，不得放大、缩小或平移。";
 
 export function primaryOutfitGenerationError(errors) {
   const list = Array.isArray(errors) ? errors.filter(Boolean) : [];

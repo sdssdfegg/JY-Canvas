@@ -15,7 +15,7 @@ import { canvasToBlob } from "../../shared/canvas-blob.js";
 import { fileBaseName } from "../../shared/file-name.js";
 import { CHANNEL_UPLOAD_LIMIT_BYTES, CHANNEL_UPLOAD_MAX_SIDE, CHANNEL_UPLOAD_TARGET_BYTES, imageBitmapFromBlob, imageBitmapFromFile, imageExtension } from "../../shared/image-input.js";
 import { composeLocalPasteBlob, fitRectToRatioLocked } from "../../shared/local-edit-geometry.js";
-import { LOCAL_EDIT_BRUSH_DEFAULT, LOCAL_EDIT_MASK_MODE, LOCAL_EDIT_MASK_OPACITY_DEFAULT, LOCAL_EDIT_RECT_MODE, createLocalEditAlphaMask, imageBitmapFromDataUrl } from "../../shared/local-edit-mask.js";
+import { LOCAL_EDIT_BRUSH_DEFAULT, LOCAL_EDIT_MASK_MODE, LOCAL_EDIT_MASK_OPACITY_DEFAULT, LOCAL_EDIT_MASK_PASTE_FEATHER, LOCAL_EDIT_RECT_MODE, createLocalEditAlphaMask, imageBitmapFromDataUrl } from "../../shared/local-edit-mask.js";
 import { defaultOutfitIntent, normalizeOutfitIntent } from "../../shared/outfit-intent.js";
 import { normalizePromptCategories, normalizePromptPreset } from "../../shared/prompt-library.js";
 import { WHITE_REFINE_BATCH_LEGACY_DEFAULT_PROMPT, WHITE_REFINE_COLOR_LOCK_LEGACY_DEFAULT_PROMPT, WHITE_REFINE_DEFAULT_PROMPT, defaultRetouchIntent, normalizeRetouchIntent } from "../../shared/retouch-intent.js";
@@ -1543,14 +1543,17 @@ export async function composeOutfitLocalEditBlob(originalFile, generatedBlob, cr
       neutralToneMatch: false,
       sharpenPatch: false,
       protectSkinAndFace: false,
-      feather: 0,
+      feather: localEdit?.editMode === LOCAL_EDIT_MASK_MODE ? LOCAL_EDIT_MASK_PASTE_FEATHER : 0,
       patchRect: { x: pasteRect.x, y: pasteRect.y, width: pasteRect.width, height: pasteRect.height },
       composedAt: Date.now()
     };
 
     if (localEdit?.editMode === LOCAL_EDIT_MASK_MODE && localEdit?.maskDataUrl) {
       maskImage = await imageBitmapFromDataUrl(localEdit.maskDataUrl);
-      blendMask = createLocalEditAlphaMask(maskImage, pasteRect, 0);
+      // V37.1 接缝修复：mask 模式贴回 alpha 用「边界向外羽化」（blur 后硬边保内、软边
+      // 溢出向外过渡 ~N px），把上游重绘内容与原图从硬切变成渐变带。rect 模式 /
+      // local-detail 不走这里，仍守 2026-09-25「贴回就是贴回」硬边契约。
+      blendMask = createLocalEditAlphaMask(maskImage, pasteRect, LOCAL_EDIT_MASK_PASTE_FEATHER);
     }
 
     const useLosslessOutput = options.losslessOutput !== false;

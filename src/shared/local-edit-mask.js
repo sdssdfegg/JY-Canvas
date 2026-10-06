@@ -195,6 +195,15 @@ export function createLocalEditAlphaMask(maskImage, cropRect, feather = 18) {
 }
 
 /**
+ * 蒙版换装（maskEdit）贴回时的 alpha 羽化半径（像素）。
+ *
+ * V37.1 接缝修复：mask 模式贴回用「涂抹边界向外过渡」的软 alpha（blur 后硬边保内、
+ * 软边溢出在外），把上游重绘内容与原图的边界从硬切变成 ~N px 渐变带。
+ * 仅 mask 模式贴回使用；rect 模式 / local-detail 仍守 2026-09-25「贴回就是贴回」硬边契约。
+ */
+export const LOCAL_EDIT_MASK_PASTE_FEATHER = 16;
+
+/**
  * 把本地涂抹蒙版转成「上游 inpaint 蒙版」。
  *
  * 上游（GPT-Image / 香蕉 edits）约定：**不透明＝保留，透明＝重绘**。
@@ -242,7 +251,23 @@ export function createInpaintUploadMask(maskImage, cropRect) {
     }
   }
   ctx.putImageData(imageData, 0, 0);
-  return canvas;
+  // V37.1 上游蒙版边缘羽化：二值硬边会让上游在重绘边界产生生硬的接缝。
+  // 给透明（重绘）区边缘一圈 blur 过渡带，让上游在边界处渐变混合而不是硬切。
+  // 只影响本函数产出的上传蒙版，不改 normalizeMaskCanvas / applyLocalEdit 语义。
+  const featherPx = 8;
+  const softCanvas = document.createElement("canvas");
+  softCanvas.width = rect.width;
+  softCanvas.height = rect.height;
+  const softCtx = softCanvas.getContext("2d");
+  if (!softCtx) return canvas;
+  if ("filter" in softCtx) {
+    softCtx.filter = `blur(${featherPx}px)`;
+  }
+  softCtx.drawImage(canvas, 0, 0);
+  if ("filter" in softCtx) {
+    softCtx.filter = "none";
+  }
+  return softCanvas;
 }
 
 // RF-076 · 局部编辑交互层 B3 工厂（阶段 A：12 个无分叉纯函数 + effect#3/#5 体）
