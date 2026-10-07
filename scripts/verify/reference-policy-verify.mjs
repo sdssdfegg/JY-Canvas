@@ -167,7 +167,6 @@ console.log("\n[7] 双链路逐字一致（A 链路策略段 == B 链路 payload
 {
   const params = { strength: 60, element: "medium", composition: "light", scene: "medium", styleCount: 2 };
   const seg = renderReferencePolicy(params);
-  const segText = seg.join("\n");
 
   const aPrompt = buildReferenceRemixPrompt(
     { prompt: "测试主体", strength: params.strength, element: params.element, composition: params.composition, scene: params.scene },
