@@ -39,7 +39,10 @@ const IGNORES = [
   "tmp/**",
   "server/static-assets.generated.js",
   "server/skill-baselines/**",
-  "API/**"
+  "API/**",
+  // V41 归档目录：scripts/dev 一次性施工脚本的历史审计存档（见 V4.0-执行单-V41）。
+  // 与 baselines/**/tmp/** 同性质——非活跃开发代码，照出来也无法维护，故不扫。
+  "archive/**"
 ];
 
 /** 只开"能抓到 bug"的规则；规范类（缩进、引号、分号）一律不开。 */
