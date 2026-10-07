@@ -82,6 +82,9 @@ const ORDER = [
   "resize-long-edge-check",
   "generation-error-check",
   "reference-gate-check",
+  // 2026-10-07：V39 引入的参考生图策略验收脚本，纯逻辑、跑得快，需登记进顺序表，
+  // 否则 run-all-check 的「顺序表覆盖所有磁盘脚本」断言会点名漏登。
+  "reference-policy-verify",
   "batch-prompt-passthrough-check",
   "connection-test-check",
   "http-mock-check",
