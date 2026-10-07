@@ -31,7 +31,7 @@ const OUT_DIR = path.join(ROOT, "baselines", BASELINE_ID);
 const TREE_DIR = path.join(OUT_DIR, "tree");
 
 // 纳入基线的目录/文件（白名单）
-const INCLUDE_DIRS = ["src", "server", "prompts", "scripts", "public", "docs", "API", "V11维护文档"];
+const INCLUDE_DIRS = ["src", "server", "prompts", "scripts", "public", "docs", "API"];
 const INCLUDE_ROOT_FILES = [
   "index.html",
   "vite.config.js",
