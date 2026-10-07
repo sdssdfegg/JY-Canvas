@@ -1,4 +1,4 @@
-// V11 干净开发基线：生成可校验、可回滚的快照（本机没有 git，用等效快照代替）。
+// V11 干净开发基线：生成可校验、可回滚的快照（本仓已用 git；快照作为额外的可校验回滚层）。
 //
 // 只纳入「源码开发需要的东西」：
 //   src/ server/ prompts/ scripts/ public/ docs/ API/ V11维护文档/
@@ -150,7 +150,7 @@ const manifest = {
   createdAt: new Date().toISOString(),
   createdAtLocal: new Date().toLocaleString("zh-CN"),
   root: ROOT,
-  scheme: "本机没有 git，因此用「完整源码快照 + SHA-256 清单 + 回滚脚本」作为等效基线",
+  scheme: "本仓已用 git 做版本控制；本快照作为额外的「完整源码快照 + SHA-256 清单 + 回滚脚本」可校验基线",
   included: {
     dirs: INCLUDE_DIRS,
     rootFiles: INCLUDE_ROOT_FILES,
@@ -181,7 +181,7 @@ writeFileSync(path.join(OUT_DIR, "manifest.json"), `${JSON.stringify(manifest, n
 
 const restoreScript = `# 回滚到 ${BASELINE_ID}
 
-本机没有 git，用这个快照回滚。
+用这个快照回滚（git 之外的一层额外保障）。
 
 ## 回滚整份源码
 
