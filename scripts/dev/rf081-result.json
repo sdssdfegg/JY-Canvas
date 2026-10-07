@@ -1,0 +1,1705 @@
+{
+  "compStart": 2820,
+  "compEnd": 7184,
+  "pseudoTop": [
+    {
+      "name": "modelForIndex",
+      "start": 4944,
+      "end": 4948
+    },
+    {
+      "name": "buildTasks",
+      "start": 4950,
+      "end": 5022
+    }
+  ],
+  "trueTop": [
+    {
+      "name": "shouldRepairOutfitPrompt",
+      "start": 854,
+      "end": 867,
+      "size": 14,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 12
+    },
+    {
+      "name": "normalizeSmartIntervention",
+      "start": 869,
+      "end": 874,
+      "size": 6,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 5
+    },
+    {
+      "name": "normalizeGarmentParts",
+      "start": 879,
+      "end": 885,
+      "size": 7,
+      "imports": [],
+      "moduleDefs": [
+        "GARMENT_PART_OPTIONS",
+        "DEFAULT_GARMENT_PARTS"
+      ],
+      "globals": [
+        "Array",
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 12
+    },
+    {
+      "name": "sameGarmentParts",
+      "start": 887,
+      "end": 891,
+      "size": 5,
+      "imports": [],
+      "moduleDefs": [
+        "normalizeGarmentParts"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 10
+    },
+    {
+      "name": "normalizeGarmentComposition",
+      "start": 893,
+      "end": 902,
+      "size": 10,
+      "imports": [],
+      "moduleDefs": [
+        "DEFAULT_GARMENT_PARTS",
+        "GARMENT_COMPOSITION_OPTIONS",
+        "normalizeGarmentParts",
+        "DEFAULT_GARMENT_COMPOSITION"
+      ],
+      "globals": [
+        "Set",
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 23
+    },
+    {
+      "name": "garmentCompositionLabel",
+      "start": 904,
+      "end": 906,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [
+        "GARMENT_COMPOSITION_OPTIONS"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 3
+    },
+    {
+      "name": "readSettings",
+      "start": 946,
+      "end": 977,
+      "size": 32,
+      "imports": [
+        "readJsonStorage",
+        "normalizeQualityCheck",
+        "normalizeOutfitIntent",
+        "normalizeRetouchIntent",
+        "normalizeRandomBackgroundFocus",
+        "DEFAULT_PREPROCESS_MODE",
+        "canonicalModel"
+      ],
+      "moduleDefs": [
+        "STORAGE_KEY",
+        "defaultSettings",
+        "shouldUpgradeLegacyBatchConcurrency",
+        "DEFAULT_BATCH_CONCURRENCY",
+        "BATCH_CONCURRENCY_DEFAULT_MIGRATION_KEY",
+        "GENERATION_COUNT_AUTOLINK_MIGRATION_KEY",
+        "shouldRepairOutfitPrompt",
+        "OUTFIT_DEFAULT_PROMPT",
+        "normalizeGenerationCount",
+        "normalizeSmartIntervention",
+        "normalizeGarmentParts",
+        "normalizeGarmentComposition",
+        "normalizeBatchConcurrency"
+      ],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 59
+    },
+    {
+      "name": "normalizeOutfitPageName",
+      "start": 979,
+      "end": 992,
+      "size": 14,
+      "imports": [],
+      "moduleDefs": [
+        "DEFAULT_OUTFIT_PAGE_NAME",
+        "DEFAULT_POSE_REMIX_PAGE_NAME",
+        "DEFAULT_LOCAL_DETAIL_PAGE_NAME",
+        "DEFAULT_RANDOM_BACKGROUND_PAGE_NAME",
+        "DEFAULT_BACKGROUND_CHANGE_PAGE_NAME",
+        "DEFAULT_OUTPAINT_PAGE_NAME",
+        "DEFAULT_RECOLOR_PAGE_NAME",
+        "DEFAULT_WHITE_REFINE_PAGE_NAME"
+      ],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 23
+    },
+    {
+      "name": "isPoseRemixPageName",
+      "start": 994,
+      "end": 996,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 2
+    },
+    {
+      "name": "isLocalDetailPageName",
+      "start": 998,
+      "end": 1000,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 2
+    },
+    {
+      "name": "isBackgroundChangePageName",
+      "start": 1002,
+      "end": 1004,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 2
+    },
+    {
+      "name": "isRandomBackgroundPageName",
+      "start": 1006,
+      "end": 1008,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 2
+    },
+    {
+      "name": "isOutpaintPageName",
+      "start": 1010,
+      "end": 1012,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 2
+    },
+    {
+      "name": "isRecolorPageName",
+      "start": 1014,
+      "end": 1016,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 2
+    },
+    {
+      "name": "isWhiteRefinePageName",
+      "start": 1018,
+      "end": 1020,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 2
+    },
+    {
+      "name": "isDesignDraftPageName",
+      "start": 1022,
+      "end": 1024,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 2
+    },
+    {
+      "name": "isFaceSwapPageName",
+      "start": 1026,
+      "end": 1028,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 2
+    },
+    {
+      "name": "isCustomWorkflowPageName",
+      "start": 1030,
+      "end": 1032,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 2
+    },
+    {
+      "name": "mentionsOptionalReferenceImage",
+      "start": 1034,
+      "end": 1037,
+      "size": 4,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 4
+    },
+    {
+      "name": "defaultUploadLabelsForPage",
+      "start": 1039,
+      "end": 1051,
+      "size": 13,
+      "imports": [],
+      "moduleDefs": [
+        "isPoseRemixPageName",
+        "POSE_REMIX_UPLOAD_LABELS",
+        "isLocalDetailPageName",
+        "LOCAL_DETAIL_UPLOAD_LABELS",
+        "isDesignDraftPageName",
+        "DESIGN_DRAFT_UPLOAD_LABELS",
+        "isFaceSwapPageName",
+        "FACE_SWAP_UPLOAD_LABELS",
+        "isRandomBackgroundPageName",
+        "RANDOM_BACKGROUND_UPLOAD_LABELS",
+        "isBackgroundChangePageName",
+        "BACKGROUND_CHANGE_UPLOAD_LABELS",
+        "isOutpaintPageName",
+        "OUTPAINT_UPLOAD_LABELS",
+        "isRecolorPageName",
+        "RECOLOR_UPLOAD_LABELS",
+        "isWhiteRefinePageName",
+        "WHITE_REFINE_UPLOAD_LABELS",
+        "isCustomWorkflowPageName",
+        "CUSTOM_UPLOAD_LABELS",
+        "DEFAULT_UPLOAD_LABELS"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 31
+    },
+    {
+      "name": "defaultPromptForWorkflowMode",
+      "start": 1053,
+      "end": 1065,
+      "size": 13,
+      "imports": [
+        "WHITE_REFINE_DEFAULT_PROMPT"
+      ],
+      "moduleDefs": [
+        "POSE_REMIX_DEFAULT_PROMPT",
+        "DESIGN_DRAFT_DEFAULT_PROMPT",
+        "FACE_SWAP_DEFAULT_PROMPT",
+        "RANDOM_BACKGROUND_DEFAULT_PROMPT",
+        "BACKGROUND_CHANGE_DEFAULT_PROMPT",
+        "OUTPAINT_DEFAULT_PROMPT",
+        "RECOLOR_DEFAULT_PROMPT",
+        "LOCAL_DETAIL_DEFAULT_PROMPT",
+        "OUTFIT_DEFAULT_PROMPT"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 20
+    },
+    {
+      "name": "workflowModeFromPage",
+      "start": 1067,
+      "end": 1109,
+      "size": 43,
+      "imports": [],
+      "moduleDefs": [
+        "isCustomWorkflowPageName",
+        "isLocalDetailPageName",
+        "isFaceSwapPageName",
+        "isRandomBackgroundPageName",
+        "isOutpaintPageName",
+        "isWhiteRefinePageName",
+        "isRecolorPageName",
+        "isPoseRemixPageName",
+        "isDesignDraftPageName",
+        "isBackgroundChangePageName"
+      ],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 53
+    },
+    {
+      "name": "normalizeUploadLabelText",
+      "start": 1111,
+      "end": 1114,
+      "size": 4,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 5
+    },
+    {
+      "name": "normalizeUploadLabels",
+      "start": 1116,
+      "end": 1125,
+      "size": 10,
+      "imports": [],
+      "moduleDefs": [
+        "DEFAULT_OUTFIT_PAGE_NAME",
+        "defaultUploadLabelsForPage",
+        "normalizeUploadLabelText"
+      ],
+      "globals": [
+        "Object"
+      ],
+      "compDeps": [],
+      "refCount": 15
+    },
+    {
+      "name": "sameUploadLabels",
+      "start": 1127,
+      "end": 1134,
+      "size": 8,
+      "imports": [],
+      "moduleDefs": [
+        "normalizeUploadLabels"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 12
+    },
+    {
+      "name": "uploadLabelsMatchPreset",
+      "start": 1136,
+      "end": 1141,
+      "size": 6,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 12
+    },
+    {
+      "name": "isLegacyPoseRemixUploadLabels",
+      "start": 1143,
+      "end": 1148,
+      "size": 6,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 6
+    },
+    {
+      "name": "inferOutfitWorkflowMode",
+      "start": 1150,
+      "end": 1152,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [
+        "workflowModeFromPage"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 3
+    },
+    {
+      "name": "isSingletonWorkflowMode",
+      "start": 1154,
+      "end": 1156,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [
+        "SINGLETON_WORKFLOW_MODES"
+      ],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 3
+    },
+    {
+      "name": "outfitPageContentScore",
+      "start": 1158,
+      "end": 1169,
+      "size": 12,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "Array",
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 21
+    },
+    {
+      "name": "dedupeSingletonWorkflowPages",
+      "start": 1171,
+      "end": 1192,
+      "size": 22,
+      "imports": [],
+      "moduleDefs": [
+        "inferOutfitWorkflowMode",
+        "isSingletonWorkflowMode",
+        "outfitPageContentScore"
+      ],
+      "globals": [
+        "Map",
+        "Array",
+        "undefined"
+      ],
+      "compDeps": [],
+      "refCount": 30
+    },
+    {
+      "name": "normalizeOutfitPageSettings",
+      "start": 1194,
+      "end": 1222,
+      "size": 29,
+      "imports": [
+        "normalizeQualityCheck",
+        "normalizeOutfitIntent",
+        "normalizeRetouchIntent",
+        "normalizeRandomBackgroundFocus",
+        "normalizeApiKeyInput",
+        "DEFAULT_PREPROCESS_MODE"
+      ],
+      "moduleDefs": [
+        "defaultSettings",
+        "shouldUpgradeLegacyBatchConcurrency",
+        "DEFAULT_BATCH_CONCURRENCY",
+        "BATCH_CONCURRENCY_DEFAULT_MIGRATION_KEY",
+        "GENERATION_COUNT_AUTOLINK_MIGRATION_KEY",
+        "shouldRepairOutfitPrompt",
+        "OUTFIT_DEFAULT_PROMPT",
+        "normalizeGenerationCount",
+        "normalizeSmartIntervention",
+        "normalizeGarmentParts",
+        "normalizeGarmentComposition",
+        "normalizeBatchConcurrency",
+        "normalizeTheme"
+      ],
+      "globals": [
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 58
+    },
+    {
+      "name": "stripOutfitPageGlobalSettings",
+      "start": 1224,
+      "end": 1228,
+      "size": 5,
+      "imports": [],
+      "moduleDefs": [
+        "normalizeOutfitPageSettings"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 5
+    },
+    {
+      "name": "mergeOutfitPageSettings",
+      "start": 1230,
+      "end": 1237,
+      "size": 8,
+      "imports": [],
+      "moduleDefs": [
+        "readSettings",
+        "normalizeOutfitPageSettings",
+        "normalizeTheme"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 9
+    },
+    {
+      "name": "makeOutfitPage",
+      "start": 1239,
+      "end": 1367,
+      "size": 129,
+      "imports": [
+        "WHITE_REFINE_COLOR_LOCK_LEGACY_DEFAULT_PROMPT",
+        "WHITE_REFINE_BATCH_LEGACY_DEFAULT_PROMPT",
+        "WHITE_REFINE_DEFAULT_PROMPT",
+        "makeId"
+      ],
+      "moduleDefs": [
+        "DEFAULT_OUTFIT_PAGE_NAME",
+        "normalizeOutfitPageName",
+        "inferOutfitWorkflowMode",
+        "readSettings",
+        "FACE_SWAP_SHORT_DEFAULT_PROMPT",
+        "FACE_SWAP_BATCH_TONE_LEGACY_DEFAULT_PROMPT",
+        "FACE_SWAP_HEAD_LOCK_LEGACY_DEFAULT_PROMPT",
+        "LEGACY_FACE_SWAP_DEFAULT_PROMPT",
+        "FACE_SWAP_LOOSE_DEFAULT_PROMPT",
+        "POSE_MOTHER_FACE_SWAP_DEFAULT_PROMPT",
+        "FACE_SWAP_PRE_HEAD_LOCK_SHORT_DEFAULT_PROMPT",
+        "FACE_SWAP_PRE_HEAD_LOCK_DEFAULT_PROMPT",
+        "FACE_SWAP_DEFAULT_PROMPT",
+        "OUTFIT_DEFAULT_PROMPT",
+        "BACKGROUND_CHANGE_DEFAULT_PROMPT",
+        "BACKGROUND_CHANGE_LEGACY_DEFAULT_PROMPT",
+        "BACKGROUND_CHANGE_PERSON_LIGHT_LEGACY_DEFAULT_PROMPT",
+        "RANDOM_BACKGROUND_LIGHT_LEGACY_DEFAULT_PROMPT",
+        "RANDOM_BACKGROUND_NEUTRAL_DAYLIGHT_LEGACY_DEFAULT_PROMPT",
+        "RANDOM_BACKGROUND_RELIGHT_LEGACY_DEFAULT_PROMPT",
+        "RANDOM_BACKGROUND_LEGACY_DEFAULT_PROMPT",
+        "RANDOM_BACKGROUND_DEFAULT_PROMPT",
+        "OUTPAINT_DEFAULT_PROMPT",
+        "RECOLOR_COLOR_LEGACY_DEFAULT_PROMPT",
+        "RECOLOR_DEFAULT_PROMPT",
+        "LOCAL_DETAIL_DEFAULT_PROMPT",
+        "uploadLabelsMatchPreset",
+        "LEGACY_FACE_SWAP_UPLOAD_LABELS",
+        "POSE_MOTHER_FACE_SWAP_UPLOAD_LABELS",
+        "FACE_SWAP_UPLOAD_LABELS",
+        "LEGACY_POSE_REMIX_UPLOAD_LABELS",
+        "isLegacyPoseRemixUploadLabels",
+        "POSE_REMIX_UPLOAD_LABELS",
+        "DEFAULT_UPLOAD_LABELS",
+        "BACKGROUND_CHANGE_UPLOAD_LABELS",
+        "RANDOM_BACKGROUND_UPLOAD_LABELS",
+        "OUTPAINT_UPLOAD_LABELS",
+        "RECOLOR_UPLOAD_LABELS",
+        "LEGACY_WHITE_REFINE_UPLOAD_LABELS_1",
+        "LEGACY_WHITE_REFINE_UPLOAD_LABELS_2",
+        "WHITE_REFINE_UPLOAD_LABELS",
+        "CUSTOM_UPLOAD_LABELS",
+        "LOCAL_DETAIL_UPLOAD_LABELS",
+        "stripOutfitPageGlobalSettings",
+        "normalizeUploadLabels"
+      ],
+      "globals": [
+        "String",
+        "Boolean",
+        "Array"
+      ],
+      "compDeps": [],
+      "refCount": 202
+    },
+    {
+      "name": "makeDesignDraftPage",
+      "start": 1369,
+      "end": 1382,
+      "size": 14,
+      "imports": [],
+      "moduleDefs": [
+        "readSettings",
+        "makeOutfitPage",
+        "DEFAULT_DESIGN_DRAFT_PAGE_NAME",
+        "DESIGN_DRAFT_DEFAULT_PROMPT",
+        "DESIGN_DRAFT_UPLOAD_LABELS"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 9
+    },
+    {
+      "name": "makePoseRemixPage",
+      "start": 1384,
+      "end": 1398,
+      "size": 15,
+      "imports": [],
+      "moduleDefs": [
+        "readSettings",
+        "makeOutfitPage",
+        "DEFAULT_POSE_REMIX_PAGE_NAME",
+        "POSE_REMIX_DEFAULT_PROMPT",
+        "POSE_REMIX_UPLOAD_LABELS"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 9
+    },
+    {
+      "name": "makeBackgroundChangePage",
+      "start": 1400,
+      "end": 1413,
+      "size": 14,
+      "imports": [],
+      "moduleDefs": [
+        "readSettings",
+        "makeOutfitPage",
+        "DEFAULT_BACKGROUND_CHANGE_PAGE_NAME",
+        "BACKGROUND_CHANGE_DEFAULT_PROMPT",
+        "BACKGROUND_CHANGE_UPLOAD_LABELS"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 9
+    },
+    {
+      "name": "makeRandomBackgroundPage",
+      "start": 1415,
+      "end": 1430,
+      "size": 16,
+      "imports": [],
+      "moduleDefs": [
+        "readSettings",
+        "makeOutfitPage",
+        "DEFAULT_RANDOM_BACKGROUND_PAGE_NAME",
+        "RANDOM_BACKGROUND_DEFAULT_PROMPT",
+        "RANDOM_BACKGROUND_UPLOAD_LABELS"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 9
+    },
+    {
+      "name": "makeRecolorPage",
+      "start": 1432,
+      "end": 1448,
+      "size": 17,
+      "imports": [],
+      "moduleDefs": [
+        "readSettings",
+        "makeOutfitPage",
+        "DEFAULT_RECOLOR_PAGE_NAME",
+        "RECOLOR_DEFAULT_PROMPT",
+        "DEFAULT_GARMENT_PARTS",
+        "DEFAULT_GARMENT_COMPOSITION",
+        "RECOLOR_UPLOAD_LABELS"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 11
+    },
+    {
+      "name": "makeWhiteRefinePage",
+      "start": 1450,
+      "end": 1464,
+      "size": 15,
+      "imports": [
+        "WHITE_REFINE_DEFAULT_PROMPT"
+      ],
+      "moduleDefs": [
+        "readSettings",
+        "makeOutfitPage",
+        "DEFAULT_WHITE_REFINE_PAGE_NAME",
+        "WHITE_REFINE_UPLOAD_LABELS"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 9
+    },
+    {
+      "name": "makeFaceSwapPage",
+      "start": 1466,
+      "end": 1480,
+      "size": 15,
+      "imports": [],
+      "moduleDefs": [
+        "readSettings",
+        "makeOutfitPage",
+        "DEFAULT_FACE_SWAP_PAGE_NAME",
+        "FACE_SWAP_DEFAULT_PROMPT",
+        "FACE_SWAP_UPLOAD_LABELS"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 9
+    },
+    {
+      "name": "ensureWorkflowPages",
+      "start": 1482,
+      "end": 1577,
+      "size": 96,
+      "imports": [],
+      "moduleDefs": [
+        "readSettings",
+        "dedupeSingletonWorkflowPages",
+        "inferOutfitWorkflowMode",
+        "makePoseRemixPage",
+        "makeBackgroundChangePage",
+        "makeRandomBackgroundPage",
+        "makeRecolorPage",
+        "makeWhiteRefinePage",
+        "makeFaceSwapPage",
+        "makeDesignDraftPage"
+      ],
+      "globals": [
+        "Array",
+        "Boolean"
+      ],
+      "compDeps": [],
+      "refCount": 211
+    },
+    {
+      "name": "serializeOutfitPage",
+      "start": 1579,
+      "end": 1590,
+      "size": 12,
+      "imports": [
+        "makeId"
+      ],
+      "moduleDefs": [
+        "normalizeOutfitPageName",
+        "DEFAULT_OUTFIT_PAGE_NAME",
+        "inferOutfitWorkflowMode",
+        "stripOutfitPageGlobalSettings",
+        "normalizeUploadLabels"
+      ],
+      "globals": [
+        "String",
+        "Boolean"
+      ],
+      "compDeps": [],
+      "refCount": 20
+    },
+    {
+      "name": "readOutfitPages",
+      "start": 1592,
+      "end": 1609,
+      "size": 18,
+      "imports": [
+        "readJsonStorage",
+        "readTaskHistory"
+      ],
+      "moduleDefs": [
+        "readSettings",
+        "OUTFIT_PAGES_KEY",
+        "makeOutfitPage",
+        "DEFAULT_OUTFIT_PAGE_NAME",
+        "ensureWorkflowPages"
+      ],
+      "globals": [
+        "Array"
+      ],
+      "compDeps": [],
+      "refCount": 27
+    },
+    {
+      "name": "pickInitialOutfitPage",
+      "start": 1611,
+      "end": 1618,
+      "size": 8,
+      "imports": [],
+      "moduleDefs": [
+        "inferOutfitWorkflowMode",
+        "makeOutfitPage",
+        "DEFAULT_OUTFIT_PAGE_NAME"
+      ],
+      "globals": [
+        "Array",
+        "Boolean"
+      ],
+      "compDeps": [],
+      "refCount": 19
+    },
+    {
+      "name": "normalizeTheme",
+      "start": 1620,
+      "end": 1622,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [
+        "THEME_OPTIONS",
+        "defaultSettings"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 5
+    },
+    {
+      "name": "themeToVars",
+      "start": 1624,
+      "end": 1700,
+      "size": 77,
+      "imports": [],
+      "moduleDefs": [
+        "normalizeTheme"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 4
+    },
+    {
+      "name": "loadOutfitPromptPresets",
+      "start": 1715,
+      "end": 1738,
+      "size": 24,
+      "imports": [
+        "normalizePromptPreset",
+        "readJsonStorage"
+      ],
+      "moduleDefs": [
+        "BUILTIN_PROMPT_LIBRARY",
+        "PROMPT_PRESETS_KEY"
+      ],
+      "globals": [
+        "Array",
+        "Map",
+        "Set"
+      ],
+      "compDeps": [],
+      "refCount": 33
+    },
+    {
+      "name": "loadOutfitPromptCategories",
+      "start": 1745,
+      "end": 1755,
+      "size": 11,
+      "imports": [
+        "readJsonStorage",
+        "normalizePromptCategories"
+      ],
+      "moduleDefs": [
+        "PROMPT_CATEGORIES_KEY",
+        "PROMPT_PRESETS_KEY",
+        "PROMPT_CATEGORIES"
+      ],
+      "globals": [
+        "Array"
+      ],
+      "compDeps": [],
+      "refCount": 16
+    },
+    {
+      "name": "formatClock",
+      "start": 1759,
+      "end": 1767,
+      "size": 9,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "Number",
+        "Date"
+      ],
+      "compDeps": [],
+      "refCount": 7
+    },
+    {
+      "name": "qualityStatusClass",
+      "start": 1770,
+      "end": 1777,
+      "size": 8,
+      "imports": [
+        "normalizeQualityCheckResult"
+      ],
+      "moduleDefs": [],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 8
+    },
+    {
+      "name": "qualityStatusLabel",
+      "start": 1779,
+      "end": 1789,
+      "size": 11,
+      "imports": [
+        "normalizeQualityCheckResult"
+      ],
+      "moduleDefs": [],
+      "globals": [
+        "Number"
+      ],
+      "compDeps": [],
+      "refCount": 13
+    },
+    {
+      "name": "qualityBadgeTitle",
+      "start": 1791,
+      "end": 1803,
+      "size": 13,
+      "imports": [
+        "normalizeQualityCheckResult"
+      ],
+      "moduleDefs": [
+        "qualityStatusLabel"
+      ],
+      "globals": [
+        "Boolean"
+      ],
+      "compDeps": [],
+      "refCount": 17
+    },
+    {
+      "name": "localPasteDiagnosticSummary",
+      "start": 1806,
+      "end": 1842,
+      "size": 37,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "Number",
+        "Boolean"
+      ],
+      "compDeps": [],
+      "refCount": 53
+    },
+    {
+      "name": "LocalPasteDiagnosticsPanel",
+      "start": 1844,
+      "end": 1857,
+      "size": 14,
+      "imports": [],
+      "moduleDefs": [
+        "localPasteDiagnosticSummary"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 7
+    },
+    {
+      "name": "cropReturnDiagnosticSummary",
+      "start": 1859,
+      "end": 1878,
+      "size": 20,
+      "imports": [
+        "normalizeCropReturnMeta",
+        "fileSize"
+      ],
+      "moduleDefs": [],
+      "globals": [
+        "Boolean"
+      ],
+      "compDeps": [],
+      "refCount": 31
+    },
+    {
+      "name": "CropReturnDiagnosticsPanel",
+      "start": 1880,
+      "end": 1893,
+      "size": 14,
+      "imports": [],
+      "moduleDefs": [
+        "cropReturnDiagnosticSummary"
+      ],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 7
+    },
+    {
+      "name": "fileFromBlob",
+      "start": 1943,
+      "end": 1950,
+      "size": 8,
+      "imports": [
+        "imageExtension",
+        "fileBaseName"
+      ],
+      "moduleDefs": [],
+      "globals": [
+        "File",
+        "Date"
+      ],
+      "compDeps": [],
+      "refCount": 11
+    },
+    {
+      "name": "groupPreprocessValue",
+      "start": 1958,
+      "end": 1962,
+      "size": 5,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "Set"
+      ],
+      "compDeps": [],
+      "refCount": 8
+    },
+    {
+      "name": "normalizeGenerationCount",
+      "start": 1964,
+      "end": 1969,
+      "size": 6,
+      "imports": [
+        "MAX_UPLOAD_IMAGES"
+      ],
+      "moduleDefs": [],
+      "globals": [
+        "Number",
+        "Math"
+      ],
+      "compDeps": [],
+      "refCount": 9
+    },
+    {
+      "name": "normalizeBatchConcurrency",
+      "start": 1971,
+      "end": 1975,
+      "size": 5,
+      "imports": [],
+      "moduleDefs": [
+        "DEFAULT_BATCH_CONCURRENCY"
+      ],
+      "globals": [
+        "Number",
+        "Math"
+      ],
+      "compDeps": [],
+      "refCount": 9
+    },
+    {
+      "name": "shouldUpgradeLegacyBatchConcurrency",
+      "start": 1977,
+      "end": 1980,
+      "size": 4,
+      "imports": [],
+      "moduleDefs": [
+        "BATCH_CONCURRENCY_DEFAULT_MIGRATION_KEY"
+      ],
+      "globals": [
+        "Number"
+      ],
+      "compDeps": [],
+      "refCount": 5
+    },
+    {
+      "name": "delay",
+      "start": 2019,
+      "end": 2021,
+      "size": 3,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "Promise",
+        "window",
+        "Math",
+        "Number"
+      ],
+      "compDeps": [],
+      "refCount": 6
+    },
+    {
+      "name": "createAsyncLimiter",
+      "start": 2023,
+      "end": 2043,
+      "size": 21,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [
+        "Math",
+        "Number",
+        "Promise"
+      ],
+      "compDeps": [],
+      "refCount": 15
+    },
+    {
+      "name": "canvasToHighQualityJpegBlob",
+      "start": 2045,
+      "end": 2057,
+      "size": 13,
+      "imports": [
+        "canvasToBlob"
+      ],
+      "moduleDefs": [
+        "LOCAL_EDIT_OUTPUT_JPEG_QUALITIES",
+        "LOCAL_EDIT_OUTPUT_TARGET_BYTES"
+      ],
+      "globals": [
+        "Array",
+        "Math",
+        "Number"
+      ],
+      "compDeps": [],
+      "refCount": 19
+    },
+    {
+      "name": "canvasToLosslessPngBlob",
+      "start": 2059,
+      "end": 2062,
+      "size": 4,
+      "imports": [
+        "canvasToBlob"
+      ],
+      "moduleDefs": [],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 3
+    },
+    {
+      "name": "canvasToCropReturnBlob",
+      "start": 2064,
+      "end": 2069,
+      "size": 6,
+      "imports": [],
+      "moduleDefs": [
+        "canvasToHighQualityJpegBlob",
+        "CROP_RETURN_OUTPUT_TARGET_BYTES",
+        "CROP_RETURN_OUTPUT_JPEG_QUALITIES"
+      ],
+      "globals": [
+        "Number"
+      ],
+      "compDeps": [],
+      "refCount": 6
+    },
+    {
+      "name": "composeOutfitLocalEditBlob",
+      "start": 2114,
+      "end": 2172,
+      "size": 59,
+      "imports": [
+        "imageBitmapFromFile",
+        "imageBitmapFromBlob",
+        "constrainLocalEditRect",
+        "LOCAL_EDIT_RECT_MODE",
+        "localEditRectSnapshot",
+        "LOCAL_EDIT_MASK_MODE",
+        "imageBitmapFromDataUrl",
+        "createLocalEditAlphaMask",
+        "composeLocalPasteBlob"
+      ],
+      "moduleDefs": [
+        "LOCAL_EDIT_OUTPUT_TARGET_BYTES",
+        "LOCAL_EDIT_OUTPUT_JPEG_QUALITIES"
+      ],
+      "globals": [
+        "String",
+        "Boolean",
+        "Date",
+        "Number"
+      ],
+      "compDeps": [],
+      "refCount": 69
+    },
+    {
+      "name": "composeCropReturnBlob",
+      "start": 2174,
+      "end": 2220,
+      "size": 47,
+      "imports": [
+        "imageBitmapFromFile",
+        "imageBitmapFromBlob",
+        "normalizeCropReturnMeta",
+        "constrainLocalEditRect",
+        "cropReturnRectSnapshot"
+      ],
+      "moduleDefs": [
+        "canvasToCropReturnBlob",
+        "CROP_RETURN_OUTPUT_TARGET_BYTES"
+      ],
+      "globals": [
+        "Error",
+        "Math",
+        "document",
+        "Number",
+        "Date"
+      ],
+      "compDeps": [],
+      "refCount": 70
+    },
+    {
+      "name": "composeOutpaintOriginalRegionBlob",
+      "start": 2222,
+      "end": 2333,
+      "size": 112,
+      "imports": [
+        "imageBitmapFromFile",
+        "imageBitmapFromBlob",
+        "constrainLocalEditRect",
+        "cropReturnRectSnapshot"
+      ],
+      "moduleDefs": [
+        "canvasToLosslessPngBlob"
+      ],
+      "globals": [
+        "Error",
+        "Math",
+        "Number",
+        "document",
+        "Date"
+      ],
+      "compDeps": [],
+      "refCount": 183
+    },
+    {
+      "name": "blobFromOutfitImage",
+      "start": 2335,
+      "end": 2339,
+      "size": 5,
+      "imports": [
+        "imageSource",
+        "fetchImageBlob"
+      ],
+      "moduleDefs": [],
+      "globals": [
+        "Error"
+      ],
+      "compDeps": [],
+      "refCount": 6
+    },
+    {
+      "name": "processImageFileWithMeta",
+      "start": 2348,
+      "end": 2376,
+      "size": 29,
+      "imports": [
+        "processImageFile",
+        "loadImageFromUrl",
+        "resolveCropSourceRect"
+      ],
+      "moduleDefs": [],
+      "globals": [
+        "URL",
+        "Date"
+      ],
+      "compDeps": [],
+      "refCount": 32
+    },
+    {
+      "name": "ensureOutfitUploadCanvasRatio",
+      "start": 2380,
+      "end": 2397,
+      "size": 18,
+      "imports": [
+        "ratioParts",
+        "loadImageFromUrl",
+        "compressOriginalImageFile",
+        "padImageFile"
+      ],
+      "moduleDefs": [],
+      "globals": [
+        "File",
+        "URL",
+        "Math"
+      ],
+      "compDeps": [],
+      "refCount": 30
+    },
+    {
+      "name": "prepareOutpaintUploadCanvas",
+      "start": 2399,
+      "end": 2576,
+      "size": 178,
+      "imports": [
+        "ratioParts",
+        "loadImageFromUrl",
+        "compressOriginalImageFile",
+        "CHANNEL_UPLOAD_MAX_SIDE",
+        "canvasToBlob",
+        "CHANNEL_UPLOAD_TARGET_BYTES",
+        "CHANNEL_UPLOAD_LIMIT_BYTES",
+        "fileBaseName"
+      ],
+      "moduleDefs": [
+        "fileFromBlob"
+      ],
+      "globals": [
+        "File",
+        "URL",
+        "Math",
+        "document",
+        "Error",
+        "Date"
+      ],
+      "compDeps": [],
+      "refCount": 224
+    },
+    {
+      "name": "createImageItem",
+      "start": 2581,
+      "end": 2598,
+      "size": 18,
+      "imports": [
+        "processImageFile",
+        "makeId"
+      ],
+      "moduleDefs": [],
+      "globals": [
+        "URL",
+        "Date"
+      ],
+      "compDeps": [],
+      "refCount": 16
+    },
+    {
+      "name": "serializeDraftImageItem",
+      "start": 2600,
+      "end": 2630,
+      "size": 31,
+      "imports": [
+        "normalizeCropReturnMeta",
+        "LOCAL_EDIT_RECT_MODE",
+        "LOCAL_EDIT_BRUSH_DEFAULT",
+        "LOCAL_EDIT_MASK_OPACITY_DEFAULT",
+        "makeId",
+        "DEFAULT_PREPROCESS_MODE"
+      ],
+      "moduleDefs": [],
+      "globals": [
+        "Number",
+        "Date",
+        "String"
+      ],
+      "compDeps": [],
+      "refCount": 44
+    },
+    {
+      "name": "hydrateDraftImageItem",
+      "start": 2632,
+      "end": 2665,
+      "size": 34,
+      "imports": [
+        "makeId",
+        "DEFAULT_PREPROCESS_MODE",
+        "normalizeCropReturnMeta",
+        "LOCAL_EDIT_RECT_MODE",
+        "LOCAL_EDIT_BRUSH_DEFAULT",
+        "LOCAL_EDIT_MASK_OPACITY_DEFAULT"
+      ],
+      "moduleDefs": [],
+      "globals": [
+        "String",
+        "URL",
+        "Number",
+        "Date"
+      ],
+      "compDeps": [],
+      "refCount": 50
+    },
+    {
+      "name": "serializeOriginalDraftItem",
+      "start": 2667,
+      "end": 2680,
+      "size": 14,
+      "imports": [
+        "makeId"
+      ],
+      "moduleDefs": [],
+      "globals": [
+        "String",
+        "Number",
+        "Date"
+      ],
+      "compDeps": [],
+      "refCount": 22
+    },
+    {
+      "name": "hydrateOriginalDraftItem",
+      "start": 2682,
+      "end": 2694,
+      "size": 13,
+      "imports": [
+        "makeId"
+      ],
+      "moduleDefs": [],
+      "globals": [
+        "String",
+        "URL",
+        "Number",
+        "Date"
+      ],
+      "compDeps": [],
+      "refCount": 19
+    },
+    {
+      "name": "serializeDraftPage",
+      "start": 2696,
+      "end": 2711,
+      "size": 16,
+      "imports": [
+        "sanitizeTaskHistoryItem"
+      ],
+      "moduleDefs": [
+        "serializeDraftImageItem",
+        "serializeOutfitPage",
+        "serializeOriginalDraftItem"
+      ],
+      "globals": [
+        "Boolean",
+        "Map",
+        "String",
+        "Array"
+      ],
+      "compDeps": [],
+      "refCount": 33
+    },
+    {
+      "name": "hydrateDraftPage",
+      "start": 2713,
+      "end": 2732,
+      "size": 20,
+      "imports": [
+        "hydrateTasksWithUploadReferences",
+        "recoverPersistedTasks"
+      ],
+      "moduleDefs": [
+        "normalizeOutfitPageName",
+        "DEFAULT_OUTFIT_PAGE_NAME",
+        "hydrateDraftImageItem",
+        "makeOutfitPage",
+        "hydrateOriginalDraftItem",
+        "normalizeUploadLabels"
+      ],
+      "globals": [
+        "Boolean"
+      ],
+      "compDeps": [],
+      "refCount": 32
+    },
+    {
+      "name": "persistOutfitDraftState",
+      "start": 2734,
+      "end": 2741,
+      "size": 8,
+      "imports": [
+        "outfitLocalSet",
+        "OUTFIT_DRAFT_DB_KEY"
+      ],
+      "moduleDefs": [
+        "ensureWorkflowPages",
+        "readSettings",
+        "serializeDraftPage"
+      ],
+      "globals": [
+        "Date"
+      ],
+      "compDeps": [],
+      "refCount": 9
+    },
+    {
+      "name": "loadOutfitDraftState",
+      "start": 2743,
+      "end": 2752,
+      "size": 10,
+      "imports": [
+        "outfitLocalGet",
+        "OUTFIT_DRAFT_DB_KEY"
+      ],
+      "moduleDefs": [
+        "hydrateDraftPage"
+      ],
+      "globals": [
+        "Array",
+        "Boolean"
+      ],
+      "compDeps": [],
+      "refCount": 18
+    },
+    {
+      "name": "moveItemByDrop",
+      "start": 2770,
+      "end": 2781,
+      "size": 12,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 26
+    },
+    {
+      "name": "defaultLocalEditCrop",
+      "start": 2786,
+      "end": 2790,
+      "size": 5,
+      "imports": [
+        "fitRectToRatioLocked"
+      ],
+      "moduleDefs": [],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 4
+    },
+    {
+      "name": "LegacyModulePanel",
+      "start": 2801,
+      "end": 2814,
+      "size": 14,
+      "imports": [],
+      "moduleDefs": [],
+      "globals": [],
+      "compDeps": [],
+      "refCount": 4
+    }
+  ],
+  "summary": {
+    "A": 39,
+    "B": 48,
+    "C": 0,
+    "totalSize": 1638
+  },
+  "needMigrate": [
+    "GARMENT_PART_OPTIONS",
+    "DEFAULT_GARMENT_PARTS",
+    "normalizeGarmentParts",
+    "GARMENT_COMPOSITION_OPTIONS",
+    "DEFAULT_GARMENT_COMPOSITION",
+    "STORAGE_KEY",
+    "defaultSettings",
+    "shouldUpgradeLegacyBatchConcurrency",
+    "DEFAULT_BATCH_CONCURRENCY",
+    "BATCH_CONCURRENCY_DEFAULT_MIGRATION_KEY",
+    "GENERATION_COUNT_AUTOLINK_MIGRATION_KEY",
+    "shouldRepairOutfitPrompt",
+    "OUTFIT_DEFAULT_PROMPT",
+    "normalizeGenerationCount",
+    "normalizeSmartIntervention",
+    "normalizeGarmentComposition",
+    "normalizeBatchConcurrency",
+    "DEFAULT_OUTFIT_PAGE_NAME",
+    "DEFAULT_POSE_REMIX_PAGE_NAME",
+    "DEFAULT_LOCAL_DETAIL_PAGE_NAME",
+    "DEFAULT_RANDOM_BACKGROUND_PAGE_NAME",
+    "DEFAULT_BACKGROUND_CHANGE_PAGE_NAME",
+    "DEFAULT_OUTPAINT_PAGE_NAME",
+    "DEFAULT_RECOLOR_PAGE_NAME",
+    "DEFAULT_WHITE_REFINE_PAGE_NAME",
+    "isPoseRemixPageName",
+    "POSE_REMIX_UPLOAD_LABELS",
+    "isLocalDetailPageName",
+    "LOCAL_DETAIL_UPLOAD_LABELS",
+    "isDesignDraftPageName",
+    "DESIGN_DRAFT_UPLOAD_LABELS",
+    "isFaceSwapPageName",
+    "FACE_SWAP_UPLOAD_LABELS",
+    "isRandomBackgroundPageName",
+    "RANDOM_BACKGROUND_UPLOAD_LABELS",
+    "isBackgroundChangePageName",
+    "BACKGROUND_CHANGE_UPLOAD_LABELS",
+    "isOutpaintPageName",
+    "OUTPAINT_UPLOAD_LABELS",
+    "isRecolorPageName",
+    "RECOLOR_UPLOAD_LABELS",
+    "isWhiteRefinePageName",
+    "WHITE_REFINE_UPLOAD_LABELS",
+    "isCustomWorkflowPageName",
+    "CUSTOM_UPLOAD_LABELS",
+    "DEFAULT_UPLOAD_LABELS",
+    "POSE_REMIX_DEFAULT_PROMPT",
+    "DESIGN_DRAFT_DEFAULT_PROMPT",
+    "FACE_SWAP_DEFAULT_PROMPT",
+    "RANDOM_BACKGROUND_DEFAULT_PROMPT",
+    "BACKGROUND_CHANGE_DEFAULT_PROMPT",
+    "OUTPAINT_DEFAULT_PROMPT",
+    "RECOLOR_DEFAULT_PROMPT",
+    "LOCAL_DETAIL_DEFAULT_PROMPT",
+    "defaultUploadLabelsForPage",
+    "normalizeUploadLabelText",
+    "normalizeUploadLabels",
+    "workflowModeFromPage",
+    "SINGLETON_WORKFLOW_MODES",
+    "inferOutfitWorkflowMode",
+    "isSingletonWorkflowMode",
+    "outfitPageContentScore",
+    "normalizeTheme",
+    "normalizeOutfitPageSettings",
+    "readSettings",
+    "normalizeOutfitPageName",
+    "FACE_SWAP_SHORT_DEFAULT_PROMPT",
+    "FACE_SWAP_BATCH_TONE_LEGACY_DEFAULT_PROMPT",
+    "FACE_SWAP_HEAD_LOCK_LEGACY_DEFAULT_PROMPT",
+    "LEGACY_FACE_SWAP_DEFAULT_PROMPT",
+    "FACE_SWAP_LOOSE_DEFAULT_PROMPT",
+    "POSE_MOTHER_FACE_SWAP_DEFAULT_PROMPT",
+    "FACE_SWAP_PRE_HEAD_LOCK_SHORT_DEFAULT_PROMPT",
+    "FACE_SWAP_PRE_HEAD_LOCK_DEFAULT_PROMPT",
+    "BACKGROUND_CHANGE_LEGACY_DEFAULT_PROMPT",
+    "BACKGROUND_CHANGE_PERSON_LIGHT_LEGACY_DEFAULT_PROMPT",
+    "RANDOM_BACKGROUND_LIGHT_LEGACY_DEFAULT_PROMPT",
+    "RANDOM_BACKGROUND_NEUTRAL_DAYLIGHT_LEGACY_DEFAULT_PROMPT",
+    "RANDOM_BACKGROUND_RELIGHT_LEGACY_DEFAULT_PROMPT",
+    "RANDOM_BACKGROUND_LEGACY_DEFAULT_PROMPT",
+    "RECOLOR_COLOR_LEGACY_DEFAULT_PROMPT",
+    "uploadLabelsMatchPreset",
+    "LEGACY_FACE_SWAP_UPLOAD_LABELS",
+    "POSE_MOTHER_FACE_SWAP_UPLOAD_LABELS",
+    "LEGACY_POSE_REMIX_UPLOAD_LABELS",
+    "isLegacyPoseRemixUploadLabels",
+    "LEGACY_WHITE_REFINE_UPLOAD_LABELS_1",
+    "LEGACY_WHITE_REFINE_UPLOAD_LABELS_2",
+    "stripOutfitPageGlobalSettings",
+    "makeOutfitPage",
+    "DEFAULT_DESIGN_DRAFT_PAGE_NAME",
+    "DEFAULT_FACE_SWAP_PAGE_NAME",
+    "dedupeSingletonWorkflowPages",
+    "makePoseRemixPage",
+    "makeBackgroundChangePage",
+    "makeRandomBackgroundPage",
+    "makeRecolorPage",
+    "makeWhiteRefinePage",
+    "makeFaceSwapPage",
+    "makeDesignDraftPage",
+    "OUTFIT_PAGES_KEY",
+    "ensureWorkflowPages",
+    "THEME_OPTIONS",
+    "BUILTIN_PROMPT_LIBRARY",
+    "PROMPT_PRESETS_KEY",
+    "PROMPT_CATEGORIES_KEY",
+    "PROMPT_CATEGORIES",
+    "qualityStatusLabel",
+    "localPasteDiagnosticSummary",
+    "cropReturnDiagnosticSummary",
+    "LOCAL_EDIT_OUTPUT_JPEG_QUALITIES",
+    "LOCAL_EDIT_OUTPUT_TARGET_BYTES",
+    "canvasToHighQualityJpegBlob",
+    "CROP_RETURN_OUTPUT_TARGET_BYTES",
+    "CROP_RETURN_OUTPUT_JPEG_QUALITIES",
+    "canvasToCropReturnBlob",
+    "canvasToLosslessPngBlob",
+    "fileFromBlob",
+    "serializeDraftImageItem",
+    "serializeOutfitPage",
+    "serializeOriginalDraftItem",
+    "hydrateDraftImageItem",
+    "hydrateOriginalDraftItem",
+    "serializeDraftPage",
+    "hydrateDraftPage"
+  ]
+}
