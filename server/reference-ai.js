@@ -1,4 +1,5 @@
 import { createAbortSignal } from "./core/http-client.js";
+import { renderReferencePolicy, NO_REFERENCE_NOTE } from "../src/shared/reference-policy.js";
 import { asText, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
 const DEFAULT_REFERENCE_TEXT_MODEL = "gpt-5.4-mini";
@@ -12,20 +13,6 @@ function clampStrength(value) {
   return Math.max(30, Math.min(100, rounded));
 }
 
-function referenceStrengthPolicy(value) {
-  const strength = clampStrength(value);
-  const map = {
-    30: "极低参考：只判断参考图是否存在可用运营方向，最终画面主要由产品图和用户提示词主导。",
-    40: "低参考：只提取少量配色、情绪或电商氛围，必须保持明显原创。",
-    50: "轻中参考：可吸收参考图商业气质，但主体呈现、场景和镜头以重新设计为主。",
-    60: "中参考：保留参考图关键视觉策略，同时重组画面层次、卖点区和光线。",
-    70: "中高参考：较明显参考运营图风格和转化逻辑，但替换关键视觉细节。",
-    80: "高参考：强参考运营图的视觉方向和商业表达，必须重构元素、构图、场景，避免同款感。",
-    90: "极高参考：尽量靠近参考图运营策略，但必须避开相同版式、相同背景、相同文案和品牌信息。",
-    100: "满参考：最大程度吸收参考图投放策略和视觉记忆点，同时强制重绘所有可识别细节，不能复制原图。"
-  };
-  return map[strength] || map[60];
-}
 
 function referenceDimensionPolicy(value, dimension) {
   const policies = {
@@ -53,17 +40,27 @@ function referenceDimensionPolicy(value, dimension) {
 
 function localReferencePrompt(input) {
   const userPrompt = asText(input.prompt, "生成一张高质量电商商品图，突出商品真实结构、材质、颜色和核心卖点。");
+  const policyLines = Array.isArray(input.policies) && input.policies.length > 0
+    ? input.policies
+    : renderReferencePolicy({ strength: input.strength, element: input.element, composition: input.composition, scene: input.scene, styleCount: Number(input.styleCount) || 0 });
+  const policyBlock = policyLines.length > 0 ? policyLines : [NO_REFERENCE_NOTE];
   return [
     userPrompt,
-    `参考强度：${clampStrength(input.strength)}%。${referenceStrengthPolicy(input.strength)}`,
-    referenceDimensionPolicy(input.element, "元素"),
-    referenceDimensionPolicy(input.composition, "构图"),
-    referenceDimensionPolicy(input.scene, "场景主题"),
+    ...policyBlock,
     "整体风格只能选择一个稳定主调性，不要把多张参考图平均融合，不要混搭成拼贴感。",
     "产品图优先级最高：保持商品结构、颜色、材质、比例、纹理和关键细节不变。",
     "画面要求：电商主图/详情图质感，主体清晰，光线统一，背景干净，构图服务转化，商品边缘清楚。",
     "禁止：照搬参考图、水印、品牌、乱码文字、错误商品、风格割裂、过曝、畸形、虚假卖点。"
   ].join("\n");
+}
+
+function buildReferencePolicyText(input) {
+  if (Array.isArray(input.policies) && input.policies.length > 0) return input.policies;
+  return [
+    referenceDimensionPolicy(input.element, "元素"),
+    referenceDimensionPolicy(input.composition, "构图"),
+    referenceDimensionPolicy(input.scene, "场景主题")
+  ];
 }
 
 function buildReferenceSkillPayload(input, files, includeImages) {
@@ -103,12 +100,9 @@ function buildReferenceSkillPayload(input, files, includeImages) {
         "如果元素、构图、场景主题的强度互相冲突，以构图稳定和商品清晰为优先，舍弃会造成缝合感的内容。",
         "提示词要像专业摄影/电商美术指导给生图模型的指令，不要像规则列表拼接。"
       ],
-      strengthPolicy: referenceStrengthPolicy(input.strength),
-      elementPolicy: referenceDimensionPolicy(input.element, "元素"),
-      compositionPolicy: referenceDimensionPolicy(input.composition, "构图"),
-      scenePolicy: referenceDimensionPolicy(input.scene, "场景主题"),
+      referencePolicy: buildReferencePolicyText(input),
       requiredOutput: {
-        prompt: "string，一段最终生图提示词，中文，150-320字，必须自然连贯，不要 Markdown。",
+        prompt: "string，一段最终生图提示词，中文，150-320字，必须自然连贯，不要 Markdown；不得包含「参考值 / 百分比 / 档位说明」，必须是可直接执行的画面描述。",
         strategy: {
           mainStyleAxis: "string，单一主调性",
           referenceUsage: ["string，说明哪些参考维度被采用"],

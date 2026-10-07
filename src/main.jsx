@@ -70,7 +70,7 @@ import ChannelPicker from "./shared/ui/ChannelPicker.jsx";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
 import { createDetailGroup } from "./features/detail/detail-group.js";
-import { MAX_REFERENCE_REWRITE_FILES, buildReferenceRemixPrompt, buildSmartReferencePrompt, createReferenceUpload, makeQuickReferenceItem, prepareImageFilesForChannel, quickReferenceHasLocalEdit, quickReferenceOriginalFile, quickReferenceRunUploadFile, quickReferenceUploadFile, quickReferenceUploadFiles, referenceMetaFromFiles, referenceMetaFromQuickRunItems } from "./features/upload/reference-upload.js";
+import { MAX_REFERENCE_REWRITE_FILES, buildReferenceRemixPrompt, buildSmartReferencePrompt, createReferenceUpload, makeQuickReferenceItem, prepareImageFilesForChannel, quickReferenceHasLocalEdit, quickReferenceOriginalFile, quickReferenceRunUploadFile, quickReferenceUploadFile, quickReferenceUploadFiles, referenceMetaFromFiles, referenceMetaFromQuickRunItems, renderReferencePolicy } from "./features/upload/reference-upload.js";
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import {
   imageFileFromUrl,
@@ -1328,6 +1328,13 @@ function App() {
       const form = new FormData();
       form.set("payload", JSON.stringify({
         ...referenceSettings,
+        policies: renderReferencePolicy({
+          strength: referenceSettings.strength,
+          element: referenceSettings.element,
+          composition: referenceSettings.composition,
+          scene: referenceSettings.scene,
+          styleCount: referenceStyleFiles.length
+        }),
         apiKey,
         baseUrl: config.defaultBaseUrl || settings.baseUrl || defaultState.baseUrl,
         detailAnalysisModel: DETAIL_ANALYSIS_MODEL,
@@ -1347,7 +1354,7 @@ function App() {
           setIsSettingsOpen(true);
           throw new Error(message);
         }
-        const fallbackPrompt = payload?.fallbackPrompt || buildSmartReferencePrompt(referenceSettings);
+        const fallbackPrompt = payload?.fallbackPrompt || buildSmartReferencePrompt(referenceSettings, referenceStyleFiles.length);
         setReferenceSettings((current) => ({ ...current, prompt: fallbackPrompt }));
         addEvent("参考生图", "文本模型扩写失败，已使用保守 Skill 兜底");
         throw new Error(message);
