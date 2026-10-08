@@ -927,8 +927,26 @@ function App() {
   const imageCount = quickResults.length;
   const videoCount = videoResults.length;
   const visibleResults = resultFilter === "image" ? quickResults : quickResults;
+  // 结果去重：同一次生成的图若被重复写入 results（同 id 或「同图不同 id」），
+  // 画廊会出现「两张一模一样」的卡。按「图片内容签名优先、缺图回退 id」去重，
+  // 只保证画廊展示层不重复，不改数据模型、不动存储结构。
+  function dedupeResults(items) {
+    const seen = new Set();
+    const out = [];
+    for (const item of items) {
+      const img = item.image;
+      const imgKey = img?.type === "b64_json" && img.value
+        ? `b64:${img.value}`
+        : (img?.url ? `url:${img.url}` : null);
+      const key = imgKey || `id:${item.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+    return out;
+  }
   const quickGalleryItems = useMemo(() => {
-    const resultItems = visibleResults.map((item, index) => ({
+    const resultItems = dedupeResults(visibleResults).map((item, index) => ({
         kind: "result",
         key: `result-${item.id}`,
         result: item,
@@ -3110,7 +3128,7 @@ function App() {
         void removeHistoryResults([replaceResultId, ...nextResults.map((item) => item.id)])
           .then(() => saveHistoryResults([replacement, ...extraResults]));
       } else {
-        setResults((current) => [...nextResults, ...current]);
+        setResults((current) => dedupeResults([...nextResults, ...current]));
         void saveHistoryResults(nextResults);
       }
       setTiming(payload.timing);
@@ -5551,13 +5569,43 @@ function App() {
               onContextMenu={(event) => openContextMenu(event, previewResult.id)}
               title="滚轮缩放，按住拖动，单击关闭"
             >
-              <CachedImage
-                src={imageSourceFromResult(previewResult.image)}
-                alt="放大预览"
-                draggable
-                onDragStart={(event) => beginResultImageDrag(event, previewResult)}
-                style={{ transform: `translate(${previewPan.x}px, ${previewPan.y}px) scale(${previewZoom})` }}
-              />
+              {(() => {
+                const previewNavIndex = previewNavigationItems.findIndex((item) => item.id === previewResult.id);
+                const previewCanNav = previewNavigationItems.length > 1;
+                return (
+                  <>
+                    {previewCanNav && (
+                      <button
+                        className="previewArrow previewArrowLeft"
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); shiftPreview(-1); }}
+                        disabled={previewNavIndex <= 0}
+                        aria-label="上一张"
+                      >
+                        <ChevronLeft size={22} />
+                      </button>
+                    )}
+                    <CachedImage
+                      src={imageSourceFromResult(previewResult.image)}
+                      alt="放大预览"
+                      draggable
+                      onDragStart={(event) => beginResultImageDrag(event, previewResult)}
+                      style={{ transform: `translate(${previewPan.x}px, ${previewPan.y}px) scale(${previewZoom})` }}
+                    />
+                    {previewCanNav && (
+                      <button
+                        className="previewArrow previewArrowRight"
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); shiftPreview(1); }}
+                        disabled={previewNavIndex >= previewNavigationItems.length - 1}
+                        aria-label="下一张"
+                      >
+                        <ChevronRight size={22} />
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
             </div>
             {previewResult.prompt && (
               <button
