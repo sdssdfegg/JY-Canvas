@@ -774,7 +774,7 @@ function App() {
   const [draggedPromptCategory, setDraggedPromptCategory] = useState("");
   const [promptCategoryDropTarget, setPromptCategoryDropTarget] = useState(null);
   const [isComposerDragging, setIsComposerDragging] = useState(false);
-  const [nowTick, setNowTick] = useState(Date.now());
+  // V46.1: 移除非必要全局 tick（任务计时下沉到 <ElapsedTimer>）
   const [previewResult, setPreviewResult] = useState(null);
   const [uploadPreview, setUploadPreview] = useState(null);
   const [referencePreview, setReferencePreview] = useState(null);
@@ -1157,12 +1157,7 @@ function App() {
     if (videoReferencePreview?.url) URL.revokeObjectURL(videoReferencePreview.url);
   }, [videoReferencePreview]);
 
-  useEffect(() => {
-    if (quickTasks.length === 0 && referenceTasks.length === 0 && canvasTasks.length === 0) return undefined;
-    setNowTick(Date.now());
-    const timer = window.setInterval(() => setNowTick(Date.now()), 500);
-    return () => window.clearInterval(timer);
-  }, [quickTasks.length, referenceTasks.length, canvasTasks.length]);
+  // V46.1: 任务计时已下沉到 <ElapsedTimer>，此处不再需要全局 500ms 刷新
 
   useEffect(() => {
     if (activeView !== "quickgen" || quickGalleryItems.length === 0) return undefined;
@@ -1842,7 +1837,6 @@ function App() {
     const startedAt = Date.now();
     setVideoStatus("running");
     setVideoError("");
-    setNowTick(startedAt);
     setVideoTasks((current) => [...current, {
       id: requestId,
       status: "running",
@@ -2973,7 +2967,6 @@ function App() {
     setStatus("running");
     setError("");
     setTiming(null);
-    setNowTick(taskStartedAt);
     setQuickTasks((current) => [...current, {
       id: taskId,
       status: "running",
@@ -3170,7 +3163,6 @@ function App() {
     const taskStartedAt = Date.now();
     setReferenceStatus("running");
     setReferenceError("");
-    setNowTick(taskStartedAt);
     setReferenceTasks((current) => [...current, {
       id: taskId,
       status: "running",
@@ -4287,7 +4279,7 @@ function App() {
                               <span>生成输出</span>
                             </button>
                             {nodeTasks.map((task) => (
-                              <small className="canvasTaskLine" key={task.id}>{task.taskLabel || "任务"} · {formatMs(nowTick - task.startedAt)} · {task.modelLabel}</small>
+                              <small className="canvasTaskLine" key={task.id}>{task.taskLabel || "任务"} · <ElapsedTimer startedAt={task.startedAt} /> · {task.modelLabel}</small>
                             ))}
                             {node.error && <strong className="canvasNodeError">{node.error}</strong>}
                             {node.generationMs && !node.error && <small className="canvasTaskLine">上次 {formatMs(node.generationMs)}</small>}
@@ -4486,7 +4478,7 @@ function App() {
                       <article className="assetCard loadingCard referenceAssetCard" key={galleryItem.key}>
                         <Loader2 className="spin" size={28} />
                         <span>参考生图中</span>
-                        <strong>{formatMs(nowTick - task.startedAt)}</strong>
+                        <strong><ElapsedTimer startedAt={task.startedAt} /></strong>
                         <em>{task.modelLabel} · {task.imageSize} · {task.aspectRatio}</em>
                       </article>
                     );
@@ -4560,7 +4552,7 @@ function App() {
               <article className="assetCard loadingCard videoAssetCard" key={task.id}>
                 <Loader2 className="spin" size={28} />
                 <span>{task.statusText || "视频生成中"}</span>
-                <strong>{formatMs(nowTick - task.startedAt)}</strong>
+                <strong><ElapsedTimer startedAt={task.startedAt} /></strong>
                 <em>{task.modelLabel} · {task.resolution} · {task.aspectRatio} · {task.duration}s</em>
               </article>
             ))}
@@ -4715,7 +4707,7 @@ function App() {
                   <article className="assetCard loadingCard" key={galleryItem.key}>
                     <Loader2 className="spin" size={28} />
                     <span>生成中</span>
-                    <strong>{formatMs(nowTick - task.startedAt)}</strong>
+                    <strong><ElapsedTimer startedAt={task.startedAt} /></strong>
                     <em>{task.modelLabel} · {task.imageSize} · {task.aspectRatio}</em>
                   </article>
                 );
@@ -5685,3 +5677,16 @@ window.__JINGYIN_REACT_ROOT__ = appRoot;
 publicReleaseStorageResetPromise.finally(() => {
   appRoot.render(<App />);
 });
+
+// V46.1 任务计时下沉：自管 500ms 局部 tick，替换原先顶层的 setNowTick，
+// 避免「有任务在跑时每 500ms 强制巨石全树重渲染」导致的打字/交互卡顿。
+function ElapsedTimer({ startedAt }) {
+  const [tick, setTick] = useState(() => Date.now());
+  useEffect(() => {
+    setTick(Date.now());
+    const timer = window.setInterval(() => setTick(Date.now()), 500);
+    return () => window.clearInterval(timer);
+  }, [startedAt]);
+  const started = startedAt || tick;
+  return <>{formatMs(tick - started)}</>;
+}
