@@ -29,7 +29,25 @@ import { displayImageRequestUrl } from "../../api/assets.js";
 import { emitClientDiagnosticEvent } from "../../api/client.js";
 import { diagnosticImageSourceType } from "../result-image.js";
 
+// V46.2: 容量上限 + LRU 淘汰，避免长会话内存无限增长。
+// 注意：缓存只存 URL 字符串（不含解码位图），单条极省内存；
+// 容量取稳妥值 300——过小则回看被逐图重新预加载（重现小幅卡顿），过大则失去约束意义。
+const DISPLAY_IMAGE_CACHE_MAX = 300;
 const DISPLAY_IMAGE_CACHE = new Map();
+function cacheDisplayImageSet(key, value) {
+  if (!DISPLAY_IMAGE_CACHE.has(key) && DISPLAY_IMAGE_CACHE.size >= DISPLAY_IMAGE_CACHE_MAX) {
+    const oldest = DISPLAY_IMAGE_CACHE.keys().next().value;
+    if (oldest !== undefined) DISPLAY_IMAGE_CACHE.delete(oldest);
+  }
+  DISPLAY_IMAGE_CACHE.set(key, value);
+}
+function cacheDisplayImageTouch(key) {
+  const value = DISPLAY_IMAGE_CACHE.get(key);
+  if (value !== undefined) {
+    DISPLAY_IMAGE_CACHE.delete(key);
+    DISPLAY_IMAGE_CACHE.set(key, value);
+  }
+}
 
 function preloadDisplayImageUrl(url, timeoutMs = 20000) {
   if (!url || typeof Image !== "function") return Promise.resolve();
@@ -106,6 +124,7 @@ export function CachedImage({ src, alt = "", className = "", style, draggable = 
     }
     const requestSrc = displayImageRequestUrl(src);
     const cached = DISPLAY_IMAGE_CACHE.get(src);
+    if (cached) cacheDisplayImageTouch(src);
     if (cached?.url) {
       setDisplaySrc(cached.url);
       emitDisplayReady(cached.url);
@@ -113,10 +132,10 @@ export function CachedImage({ src, alt = "", className = "", style, draggable = 
     }
     const promise = cached?.promise || preloadDisplayImageUrl(requestSrc)
       .then(() => {
-        DISPLAY_IMAGE_CACHE.set(src, { url: requestSrc });
+        cacheDisplayImageSet(src, { url: requestSrc });
         return requestSrc;
       });
-    if (!cached?.promise) DISPLAY_IMAGE_CACHE.set(src, { promise });
+    if (!cached?.promise) cacheDisplayImageSet(src, { promise });
     setDisplaySrc("");
     promise
       .then((url) => {
