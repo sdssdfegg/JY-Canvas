@@ -5578,6 +5578,9 @@ function App() {
                       <button
                         className="previewArrow previewArrowLeft"
                         type="button"
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onPointerUp={(event) => event.stopPropagation()}
+                        onPointerCancel={(event) => event.stopPropagation()}
                         onClick={(event) => { event.stopPropagation(); shiftPreview(-1); }}
                         disabled={previewNavIndex <= 0}
                         aria-label="上一张"
@@ -5596,6 +5599,9 @@ function App() {
                       <button
                         className="previewArrow previewArrowRight"
                         type="button"
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onPointerUp={(event) => event.stopPropagation()}
+                        onPointerCancel={(event) => event.stopPropagation()}
                         onClick={(event) => { event.stopPropagation(); shiftPreview(1); }}
                         disabled={previewNavIndex >= previewNavigationItems.length - 1}
                         aria-label="下一张"
