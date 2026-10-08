@@ -73,10 +73,15 @@ function preloadDisplayImageUrl(url, timeoutMs = 20000) {
 
 // `...rest` 会原样透传给底层 `<img>`（V11-RF-048 放宽）。
 // 原因：outfit 侧的改名克隆 `PreparedResultImage` 用的是 `{...props}` 整体透传，
-// 调用点会传 `decoding` / `fetchPriority` / `onDragOver` / `onDrop` / `onDragEnd` 等本组件
-// 没有显式声明的属性。若统一后只保留显式清单，批量侧会**丢掉拖拽替换与加载优先级**（收窄）；
+// 调用点会传 `fetchPriority` / `onDragOver` / `onDrop` / `onDragEnd` 等本组件
+// 没有显式声明的属性。`decoding` 已提升为显式参数（默认 async，V46.4 增加），
+// 若统一后只保留显式清单，批量侧会**丢掉拖拽替换与加载优先级**（收窄）；
 // 按 RF-043 定下的「放宽 > 收窄」判据，这里必须整体透传。
-export function CachedImage({ src, alt = "", className = "", style, draggable = false, role, tabIndex, onDragStart, onClick, onKeyDown, onError, loading, diagnostic, ...rest }) {
+// V46.4：默认走浏览器原生懒加载 + 异步解码。离屏大图（结果图/画布图等）不进主线程
+// 解码与绘制，直接削减低端机滚动/回看时的卡顿；这是「IntersectionObserver 懒加载」的
+// 零风险实现，不触碰任何列表结构与拖拽重排（参考图托盘/结果图均为拖拽交互，真·虚拟化
+// 会卸载离屏项从而破坏拖拽，故选懒加载分支）。调用方仍可用 loading/decoding 显式覆盖。
+export function CachedImage({ src, alt = "", className = "", style, draggable = false, role, tabIndex, onDragStart, onClick, onKeyDown, onError, loading = "lazy", decoding = "async", diagnostic, ...rest }) {
   const [displaySrc, setDisplaySrc] = useState(() => {
     if (!src || src.startsWith("data:") || src.startsWith("blob:")) return src || "";
     const cached = DISPLAY_IMAGE_CACHE.get(src);
@@ -169,6 +174,7 @@ export function CachedImage({ src, alt = "", className = "", style, draggable = 
       onClick={onClick}
       onKeyDown={onKeyDown}
       loading={loading}
+      decoding={decoding}
       onError={onError}
       {...rest}
     />
