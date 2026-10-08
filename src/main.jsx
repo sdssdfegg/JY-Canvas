@@ -3801,7 +3801,7 @@ function App() {
                                 <h3>{prompt.title}</h3>
                                 <p>{prompt.summary}</p>
                                 {prompt.referenceStrategy && <small>{prompt.referenceStrategy}</small>}
-                                <textarea
+                                <StableTextarea
                                   value={prompt.text}
                                   onChange={(event) => updateDetailPrompt(activeDetailGroup.id, prompt.screen, { text: event.target.value })}
                                 />
@@ -4149,7 +4149,7 @@ function App() {
                         </header>
 
                         {node.type === "prompt" && (
-                          <textarea
+                          <StableTextarea
                             className="canvasPromptTextarea"
                             value={node.text}
                             onChange={(event) => updateCanvasNode(node.id, { text: event.target.value })}
@@ -4184,7 +4184,7 @@ function App() {
                                 ))}
                               </select>
                             </label>
-                            <textarea
+                            <StableTextarea
                               className="canvasNodePrompt"
                               value={node.prompt || ""}
                               onChange={(event) => updateCanvasNode(node.id, { prompt: event.target.value })}
@@ -4268,7 +4268,7 @@ function App() {
                                 {COUNT_OPTIONS.map((count) => <option key={count} value={count}>{count}</option>)}
                               </select>
                             </label>
-                            <textarea
+                            <StableTextarea
                               value={node.prompt || ""}
                               onChange={(event) => updateCanvasNode(node.id, { prompt: event.target.value })}
                               onPointerDown={(event) => event.stopPropagation()}
@@ -4442,7 +4442,7 @@ function App() {
                   </div>
                   <label className="detailField">
                     <span>生成要求</span>
-                    <textarea
+                    <StableTextarea
                       value={referenceSettings.prompt}
                       onChange={(event) => updateReferenceSetting("prompt", event.target.value)}
                       placeholder="例：生成一张女装主图，浅色调，干净电商质感，突出面料和版型，不要照抄参考图文字。"
@@ -4640,7 +4640,7 @@ function App() {
               )}
             </div>
 
-            <textarea
+            <StableTextarea
               className="promptBox videoPromptBox"
               value={videoSettings.prompt}
               onChange={(event) => updateVideoSetting("prompt", event.target.value)}
@@ -5690,3 +5690,63 @@ function ElapsedTimer({ startedAt }) {
   const started = startedAt || tick;
   return <>{formatMs(tick - started)}</>;
 }
+
+// V46.3 输入 memo 下沉：受控 textarea 用 ref 持有最新 onChange / onPointerDown，
+// 渲染时改用 useMemo([]) 产出的「稳定包装函数」，并配自定义 memo 比较器刻意忽略
+// 函数 prop 身份。这样父级（main.jsx 巨石）因其它 state 变动重渲时，value 未变的
+// 输入框可跳过重渲，缓解「别的输入框打字也拖着本框重渲」的卡顿。
+// 若只套 React.memo 而不忽略 handler 身份，inline arrow 每次都是新引用、memo 永远
+// 失效（零收益陷阱），故必须 ref + 自定义比较器双管齐下。
+const StableTextarea = React.memo(
+  function StableTextarea({
+    value,
+    onChange,
+    onPointerDown,
+    className,
+    placeholder,
+    disabled,
+    readOnly,
+    rows,
+    ...rest
+  }) {
+    const onChangeRef = useRef(onChange);
+    const onPointerDownRef = useRef(onPointerDown);
+    onChangeRef.current = onChange;
+    onPointerDownRef.current = onPointerDown;
+
+    const stableOnChange = useMemo(
+      () => (event) => { if (onChangeRef.current) onChangeRef.current(event); },
+      []
+    );
+    const stableOnPointerDown = useMemo(
+      () => (event) => { if (onPointerDownRef.current) onPointerDownRef.current(event); },
+      []
+    );
+
+    return (
+      <textarea
+        className={className}
+        placeholder={placeholder}
+        disabled={disabled}
+        readOnly={readOnly}
+        rows={rows}
+        value={value}
+        onChange={stableOnChange}
+        onPointerDown={onPointerDownRef.current ? stableOnPointerDown : undefined}
+        {...rest}
+      />
+    );
+  },
+  (prev, next) => {
+    // 仅当「非 handler 的渲染相关 prop」真正变化时才重渲；
+    // onChange / onPointerDown 身份变化被刻意忽略（已通过 ref 持有最新实现）。
+    // 其余 prop（含未来可能新增的 style / maxLength 等）一律做值比较，保证行为正确。
+    const prevKeys = Object.keys(prev);
+    if (prevKeys.length !== Object.keys(next).length) return false;
+    for (const key of prevKeys) {
+      if (key === "onChange" || key === "onPointerDown") continue;
+      if (prev[key] !== next[key]) return false;
+    }
+    return true;
+  }
+);
