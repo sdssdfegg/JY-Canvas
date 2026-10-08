@@ -49,6 +49,23 @@ function cacheDisplayImageTouch(key) {
   }
 }
 
+// V46.5：离屏时把已解码位图替换成 1x1 透明占位，回收显存/内存（低端机长会话核心痛点）。
+// 仅对经代理的 http(s) 外链生效；data:/blob: 本地资源不卸载（卸载即丢失且本就极小）。
+// 真·「小图下载」缩略图需服务端缩放（受 🔴 G-6 约束，当前不做），本方案是零服务端改动的安全替代。
+const OFFSCREEN_PLACEHOLDER = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+// 找到最近的滚动容器作为 IntersectionObserver 的 root，
+// 这样横向画廊（strip 内左右滚动）与纵向长列表都能正确判定离屏。
+function findScrollRoot(el) {
+  let node = el ? el.parentElement : null;
+  while (node) {
+    const overflow = typeof getComputedStyle === "function" ? getComputedStyle(node).overflow : "";
+    if (/(auto|scroll|hidden)/.test(overflow || "")) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
 function preloadDisplayImageUrl(url, timeoutMs = 20000) {
   if (!url || typeof Image !== "function") return Promise.resolve();
   return new Promise((resolve) => {
@@ -81,6 +98,9 @@ function preloadDisplayImageUrl(url, timeoutMs = 20000) {
 // 解码与绘制，直接削减低端机滚动/回看时的卡顿；这是「IntersectionObserver 懒加载」的
 // 零风险实现，不触碰任何列表结构与拖拽重排（参考图托盘/结果图均为拖拽交互，真·虚拟化
 // 会卸载离屏项从而破坏拖拽，故选懒加载分支）。调用方仍可用 loading/decoding 显式覆盖。
+// V46.5：在 V46.4 基础上加「离屏卸载」——滚出视口的已解码位图换成 1x1 透明占位并释放，
+// 滚回再还原（浏览器缓存使还原无网络开销）。配合 content-visibility:auto 双重削峰，
+// 专治长会话内存暴涨；零服务端改动、不碰 🔴 G-6 代理约束、画廊在屏内清晰不变、拖拽源地址不受影响。
 export function CachedImage({ src, alt = "", className = "", style, draggable = false, role, tabIndex, onDragStart, onClick, onKeyDown, onError, loading = "lazy", decoding = "async", diagnostic, ...rest }) {
   const [displaySrc, setDisplaySrc] = useState(() => {
     if (!src || src.startsWith("data:") || src.startsWith("blob:")) return src || "";
@@ -88,6 +108,9 @@ export function CachedImage({ src, alt = "", className = "", style, draggable = 
     return cached?.url || "";
   });
   const displayLogKeyRef = useRef("");
+  // V46.5：离屏标记。为 true 时渲染占位图、释放已解码位图；不影响原始 src 与拖拽源地址。
+  const imgRef = useRef(null);
+  const [isOffscreen, setOffscreen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,10 +184,27 @@ export function CachedImage({ src, alt = "", className = "", style, draggable = 
     };
   }, [src]);
 
+  // V46.5：离屏卸载已解码位图，削减长会话内存。
+  // 仅对经代理的 http(s) 外链生效；data:/blob: 与无 IO 环境直接跳过。
+  useEffect(() => {
+    const el = imgRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return undefined;
+    if (!src || src.startsWith("data:") || src.startsWith("blob:")) return undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) setOffscreen(!entry.isIntersecting);
+      },
+      { root: findScrollRoot(el) || null, rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [src]);
+
   return (
     <img
+      ref={imgRef}
       className={className}
-      src={displaySrc || undefined}
+      src={isOffscreen ? OFFSCREEN_PLACEHOLDER : (displaySrc || undefined)}
       alt={alt}
       style={style}
       draggable={draggable}
