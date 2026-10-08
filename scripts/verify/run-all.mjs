@@ -40,12 +40,40 @@ const ORDER = [
   // shared-ui-duplication：跨文件同名组件的棘轮（存量记账、新增即失败；
   //   另外额外报告同名两份实现是否已经分叉）。
   "shared-ui-duplication-check",
+  // V11-RF-019 交付物：前端跨文件同名**顶层函数**棘轮（camelCase 函数，与上面组件的
+  //   PascalCase 判据互补；两者允许重叠，如 ReferenceThumbTray 两边都命中，重叠不代表冲突）。
+  //   提取逻辑收在 lib/frontend-sources.mjs，与审计脚本共用一份，避免两套正则各自漂移。
+  //   额外带「扫描范围漂移」自检：基线口径与当前口径不一致即判红（98/104/22 三次数字反复
+  //   的根因就是口径漂移静默改了结论）。存量 22 条记账、新增即失败。纯源码检查，跑得快。
+  "frontend-duplication-check",
+  // 2026-10-03 新增：源码字节卫生（NUL / 控制字符 / 非法 UTF-8）。
+  // 起因是 RF-078-b 给 outfit-workflow.jsx 的注释混进二进制垃圾 —— 运行无感
+  // （build/ESLint 全绿）却让 grep 把整块巨石判为 binary，审计能力静默失效。
+  // 无基线无棘轮，纯字节扫描，跑得飞快。
+  "source-hygiene-check",
   // auth-key-parity：前后端 KEY 清洗规则逐用例一致（登记表第 13 行"后续可抽共享测试用例"）。
   // runtime-config-baseline：守住 server/core/runtime-config.js 的默认值
   // （超时 / 并发 / 缓存策略都是历史实测调校出来的，改了不报错、只改出图行为，
   //   所以必须能被自动发现）。跑得很快，排在起进程的那批之前。
   "runtime-config-baseline-check",
   "auth-key-parity-check",
+  // V11-RF-101 硬性交付物：出图并发状态只能各有一处定义点（在 server/core/image-concurrency.js 内）；
+  // 复用 V11-RF-010 的真相源收集器，将来 routes/** 自建第二份会被自动抓红。纯源码检查，跑得快。
+  "state-singleton-check",
+  // V11-RF-016 交付物：服务端跨文件同名顶层函数棘轮（存量记账、新增即失败、违规点名两处文件:行号）；
+  // 复用 V11-RF-010 的真相源收集器，将来 routes/shared/** 复制一份会被自动抓红。纯源码检查，跑得快。
+  "server-duplication-check",
+  // V11-RF-011 交付物：app-paths 的 rootDir 在源码兜底分支必须等于仓库根，
+  // 且 dataDir/日志目录/uploadTempDir 都落在 rootDir 下；JINGYIN_RELEASE_ROOT 仍最高优先。
+  // 纯进程内断言（不 spawn），跑得快，排在起进程的那批之前。
+  "app-paths-check",
+  // V11-RF-018 交付物：相对导入路径存在性门禁（血案直接解药 ——
+  // RF-116 把 app-bootstrap 搬进 core/ 后写成 ./static-assets.generated.js，
+  // 启动直接 ERR_MODULE_NOT_FOUND，而当时所有门禁都抓不到）。
+  // 只扫 server/** 源码里写死的 import/export/import() 字面量说明符，
+  // 复用 RF-010 的真相源收集器，将来 server/routes/** 写错同样自动点名。
+  // 无基线无棘轮：坏路径任何时刻都是错。纯源码检查，跑得很快。
+  "import-path-check",
   "canvas-asset-check",
   "history-repair-check",
   "history-integrity-check",
@@ -54,6 +82,9 @@ const ORDER = [
   "resize-long-edge-check",
   "generation-error-check",
   "reference-gate-check",
+  // 2026-10-07：V39 引入的参考生图策略验收脚本，纯逻辑、跑得快，需登记进顺序表，
+  // 否则 run-all-check 的「顺序表覆盖所有磁盘脚本」断言会点名漏登。
+  "reference-policy-verify",
   "batch-prompt-passthrough-check",
   "connection-test-check",
   "http-mock-check",
@@ -90,7 +121,13 @@ const ORDER = [
  * 需要时直接跑：node scripts/verify/speed-investigation.mjs
  */
 const TOOLS = [
-  "speed-investigation"
+  "speed-investigation",
+  // V11-RF-055 交付物：前端「块级克隆」advisory 档（只报不记账，恒以 0 退出）。
+  // 放在 TOOLS 而不是 ORDER，理由与上面一致：它**不做断言**（不参与 ok、不写进
+  // duplicateCount、不进基线、不影响 lint 棘轮），进断言顺序表只会让每次 run-all
+  // 多印 ~54 块在册债务的噪声，且会扰动"27/38"这个大家都在比对的基线计数。
+  // 排产前手工跑：node scripts/verify/block-clone-advisory.mjs
+  "block-clone-advisory"
 ];
 
 /** 可直接执行的脚本（.mjs）；.js/.jsx 是浏览器侧模块，由脚本内部或手工加载。 */
@@ -230,4 +267,4 @@ if (asJson) {
   }
 }
 
-process.exit(failed.length === 0 ? 0 : 1);
+process.exitCode = failed.length === 0 ? 0 : 1;

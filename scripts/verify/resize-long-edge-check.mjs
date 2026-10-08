@@ -25,6 +25,9 @@ const ROOT = process.cwd();
 const NODE = path.join(ROOT, "runtime", "node", "node.exe");
 const APP_PORT = 8811;
 const OUTFIT_FILE = path.join(ROOT, "src", "outfit-workflow.jsx");
+// RF-082：批量尺寸导出的常量与迁移实现已从 outfit-workflow.jsx 搬到这里。
+// 两个都要读 —— 只盯着新文件会让"将来有人把旧的那份改回来"变成盲区。
+const RESIZE_PANEL_FILE = path.join(ROOT, "src", "features", "outfit", "outfit-panels.jsx");
 const HISTORY_FILE = path.join(ROOT, "data", "history.json");
 const CLI = path.join(process.env.LOCALAPPDATA || "", "Tabbit", "LocalAgent", "bin", "tabbit-cli.exe");
 
@@ -51,12 +54,19 @@ const hashOf = (file) => {
 };
 
 // ---------------------------------------------------------------- 源码级
-const outfitSrc = readFileSync(OUTFIT_FILE, "utf8");
+const outfitSrc = [OUTFIT_FILE, RESIZE_PANEL_FILE]
+  .filter(existsSync)
+  .map((file) => readFileSync(file, "utf8"))
+  .join("\n");
 check("默认最长边是 3500", /longEdge:\s*3500/.test(outfitSrc), "DEFAULT_RESIZE_SETTINGS.longEdge");
 check("保留旧默认值常量用于迁移", /LEGACY_RESIZE_LONG_EDGE_DEFAULT\s*=\s*3000/.test(outfitSrc), "3000");
 check("normalizeResizeSettings 里有迁移（只认旧默认值）",
   /LEGACY_RESIZE_LONG_EDGE_DEFAULT\)\s*\{\s*next\.longEdge\s*=\s*DEFAULT_RESIZE_SETTINGS\.longEdge/.test(outfitSrc),
   "3000 → 3500");
+// 2026-10-06：防止新旧两份并存（搬过家的最容易留这种双胞胎）。
+check("迁移常量全局只有一份定义（不许新旧两份并存）",
+  (outfitSrc.match(/export const LEGACY_RESIZE_LONG_EDGE_DEFAULT\s*=\s*3000/g) || []).length === 1,
+  "LEGACY_RESIZE_LONG_EDGE_DEFAULT");
 
 // ---------------------------------------------------------------- 浏览器
 let child = null;
@@ -67,7 +77,10 @@ try {
   child = spawn(NODE, [path.join("server", "index.js")], {
     cwd: ROOT,
     stdio: ["ignore", "ignore", "ignore"],
-    env: { ...process.env, PORT: String(APP_PORT), JINGYIN_PORT_FALLBACK_LIMIT: "0", JINGYIN_NO_BROWSER: "1" }
+    env: { ...process.env, PORT: String(APP_PORT), JINGYIN_PORT_FALLBACK_LIMIT: "0", JINGYIN_NO_BROWSER: "1",
+        // 按端口分目录：vite 配置哈希里含 PORT（见 vite.config.js），所有脚本共用一份缓存
+        // 会让配置哈希每次都变 ⇒ 每次起服务都重新预构建 ⇒ 触发沙箱批量删除守卫而崩（2026-10-06 实测）
+        JINGYIN_VITE_CACHE_DIR: path.join(process.cwd(), "tmp", `vite-cache-verify-${APP_PORT}`) }
   });
   installExitCleanup({ getChild: () => child });
   if (!(await waitForHealth(APP_PORT))) throw new Error("V11 测试实例未起来");
@@ -76,6 +89,8 @@ try {
     browserReason = "tabbit-cli 不存在，跳过浏览器部分";
   } else {
     const program = `
+// vite 冷启动（依赖预构建）常 >30s，playwright 默认导航超时会抛错 ⇒ 本行必须保留
+page.setDefaultNavigationTimeout(150000);
 const mod = async () => (await import("/scripts/verify/resize-long-edge-page.jsx?v=" + Date.now()));
 await page.goto("http://127.0.0.1:${APP_PORT}/", {waitUntil: "domcontentloaded"});
 await page.waitForTimeout(2400);

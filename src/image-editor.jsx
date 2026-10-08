@@ -15,6 +15,15 @@ import {
   Upload
 } from "lucide-react";
 import { fileSize } from "./lib/format/index.js";
+import { clamp } from "./shared/numeric.js";
+import { canvasToBlob } from "./shared/canvas-blob.js";
+import { fileBaseName } from "./shared/file-name.js";
+import { imageBitmapFromFile, isImageFile } from "./shared/image-input.js";
+// 2026-10-02 · 阶段 B 刀 3 裁决 ④：本文件原有一份私有 `imageBitmapFromDataUrl`（fetch → blob →
+// imageBitmapFromFile），与 shared/local-edit-mask.js 那份是同族重复。统一到 shared 版
+// （main.jsx / outfit-workflow.jsx 早已 import 它）；4 个调用点全部只"画到 canvas"，消费方式不变。
+import { imageBitmapFromDataUrl } from "./shared/local-edit-mask.js";
+import { preventFileDropNavigation } from "./shared/dom-actions.js";
 
 const EDITOR_DB_NAME = "jingyin-image-editor-v1";
 const EDITOR_STORE_NAME = "project";
@@ -24,57 +33,6 @@ const EDITOR_HISTORY_LIMIT = 32;
 const EDITOR_BRUSH_DEFAULTS_VERSION = 2;
 const DEFAULT_TRANSFORM = { x: 0, y: 0, scale: 1, rotation: 0 };
 const DEFAULT_BRUSH = { size: 72, hardness: 0, opacity: 100 };
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, Number(value) || 0));
-}
-
-function fileBaseName(name) {
-  return String(name || "image").replace(/\.[^.]+$/, "") || "image";
-}
-
-function isImageFile(file) {
-  return file?.type?.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file?.name || "");
-}
-
-function canvasToBlob(canvas, type = "image/jpeg", quality = 0.94) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("图片导出失败"));
-    }, type, quality);
-  });
-}
-
-async function imageBitmapFromFile(file) {
-  if (window.createImageBitmap) {
-    try {
-      return await window.createImageBitmap(file, { imageOrientation: "from-image" });
-    } catch {
-      // Fall back to HTMLImageElement below.
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(image);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("无法读取图片"));
-    };
-    image.src = url;
-  });
-}
-
-async function imageBitmapFromDataUrl(dataUrl) {
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
-  return imageBitmapFromFile(blob);
-}
 
 function openEditorDb() {
   if (!window.indexedDB) return Promise.resolve(null);
@@ -305,6 +263,12 @@ export default function ImageEditorPanel({
   const saveTimerRef = useRef(0);
   const undoRef = useRef([]);
   const redoRef = useRef([]);
+  // RF-045：键盘监听用的「最新 undo/redo」转发 ref（与上面的历史栈 ref 同族不同义，勿混用）。
+  // 键盘监听器只注册一次（依赖里没有 tool/overlayOpacity 这类高频 state），若直接在监听器里闭包引用
+  // undo/redo，切换工具后监听器里仍是旧版 undo ⇒ 旧版 undo 会走旧版 scheduleProjectSave，
+  // 把切换工具之前的 tool / overlayOpacity / brush / zoom / differenceMode 写回项目存档。
+  const undoActionRef = useRef(null);
+  const redoActionRef = useRef(null);
   const [baseFile, setBaseFile] = useState(null);
   const [overlayFile, setOverlayFile] = useState(null);
   const [baseMeta, setBaseMeta] = useState(null);
@@ -330,12 +294,6 @@ export default function ImageEditorPanel({
   }, [baseMeta, overlayMeta]);
 
   useEffect(() => {
-    function preventFileDropNavigation(event) {
-      const types = Array.from(event.dataTransfer?.types || []);
-      if (!types.includes("Files")) return;
-      event.preventDefault();
-    }
-
     window.addEventListener("dragover", preventFileDropNavigation);
     window.addEventListener("drop", preventFileDropNavigation);
     return () => {
@@ -466,6 +424,13 @@ export default function ImageEditorPanel({
     updateUndoDepth();
     void restoreSnapshot(next);
   }
+
+  // RF-045：每渲染把最新的 undo/redo 转发给键盘监听器（JSX 按钮 onClick={undo} 走的是当次渲染的
+  // JSX，天然是最新版，不受影响；只有 window 监听器会滞留旧闭包）。
+  useEffect(() => {
+    undoActionRef.current = undo;
+    redoActionRef.current = redo;
+  });
 
   async function loadBaseFile(file, options = {}) {
     if (!isImageFile(file)) return;
@@ -626,13 +591,13 @@ export default function ImageEditorPanel({
       }
       if ((event.ctrlKey || event.metaKey) && key === "z") {
         event.preventDefault();
-        if (event.shiftKey) redo();
-        else undo();
+        if (event.shiftKey) redoActionRef.current?.();
+        else undoActionRef.current?.();
         return;
       }
       if ((event.ctrlKey || event.metaKey) && key === "y") {
         event.preventDefault();
-        redo();
+        redoActionRef.current?.();
         return;
       }
       if (event.key === "[") {

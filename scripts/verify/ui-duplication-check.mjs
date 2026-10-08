@@ -6,7 +6,7 @@
 //   - 只删了重复 UI，底层能力函数仍在
 //
 // 用法：node scripts/verify/ui-duplication-check.mjs
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
@@ -53,9 +53,19 @@ check("快捷生成悬浮框内没有第二套优化提示词按钮", countIn(qu
 check("快捷生成悬浮框内没有第二套词按钮", countIn(quickgenSection, "<span>词</span>") === 0);
 
 // 4) 2026-09-26：SKILL / 换装开关已按用户要求删除（快捷 + 批量都不再有任何 SKILL 开关）
-const settingsStateStart = mainJsx.indexOf("const defaultState = {");
-const settingsStateEnd = mainJsx.indexOf("};", settingsStateStart);
-const defaultStateBlock = mainJsx.slice(settingsStateStart, settingsStateEnd);
+// RF-081：`defaultState` 已搬到 src/shared/app-defaults.js。继续在 main.jsx 里找会拿到 -1，
+// 于是 slice(-1, N) 退化成空串、下面的「不再有 skillRulesEnabled」恒 PASS ——
+// 这条"SKILL 开关不得复活"的防线实际上形同虚设，但 run-all 显示绿。必须连文件一起改。
+const APP_DEFAULTS_FILE = path.join(root, "src", "shared", "app-defaults.js");
+const appDefaultsSrc = existsSync(APP_DEFAULTS_FILE) ? readFileSync(APP_DEFAULTS_FILE, "utf8") : "";
+const settingsStateStart = appDefaultsSrc.indexOf("export const defaultState = {");
+const settingsStateEnd = appDefaultsSrc.indexOf("\n};", settingsStateStart);
+const defaultStateBlock = settingsStateStart >= 0 && settingsStateEnd > settingsStateStart
+  ? appDefaultsSrc.slice(settingsStateStart, settingsStateEnd)
+  : "";
+// 守卫：没有这一条，下次再搬一次家就会重新变成"绿着但什么也没验"。
+check("成功切出 defaultState（SKILL 防线有效性的前提）",
+  settingsStateStart >= 0 && defaultStateBlock.length > 50, `len=${defaultStateBlock.length}`);
 check("defaultState 里不再有 skillRulesEnabled", !defaultStateBlock.includes("skillRulesEnabled"));
 check("快捷悬浮框里不再有 SKILL / 换装开关按钮", !footer.includes("skillToggleButton"));
 check("快捷悬浮框里不再有「换装」开关文案", !footer.includes("<span>换装</span>"));

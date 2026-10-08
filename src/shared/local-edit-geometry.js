@@ -17,6 +17,10 @@
 // 这里**不含**任何：补白边、按比例外扩、选区外恢复、自动回盖、蒙版膨胀、
 // 面部/身份/头脸/肩颈保护区、隐藏保护区域。
 
+import { canvasToBlob } from "./canvas-blob.js";
+import { imageBitmapFromFile } from "./image-input.js";
+import { fileBaseName } from "./file-name.js";
+
 export const LOCAL_EDIT_RECT_MODE = "rect";
 export const LOCAL_EDIT_MASK_MODE = "mask";
 
@@ -173,12 +177,53 @@ export function fitRectToRatioLocked(rect, ratio, imageWidth, imageHeight) {
 }
 
 /**
+ * 比例锁定（"容纳"语义）：把任意矩形吸附成**精确符合 ratio、且能完整容纳原矩形**的最小同比例矩形。
+ *
+ * 与 `fitRectToRatioLocked` 的区别：后者是"在图片里放一个指定比例的选框"（以原选框大小为上限），
+ * 本函数是"给一个（已外扩的）包围盒，求能包住它的最小同比例矩形"——蒙版换装几何对齐修复（V38）用。
+ * 以原矩形中心为锚，保证外扩边距四边对称、选框不会单向偏移。
+ *
+ * @param {{x,y,width,height}} rect 原矩形（蒙版外扩后的包围盒）
+ * @param {string} ratio "2:3" / "1:1" ...
+ * @returns {{x,y,width,height}} 同比例、已夹进图片、中心对齐原矩形的选框
+ */
+export function fitRectToRatioContaining(rect, ratio, imageWidth, imageHeight) {
+  const sourceWidth = Math.max(1, Math.round(imageWidth || 1));
+  const sourceHeight = Math.max(1, Math.round(imageHeight || 1));
+  const { value: ratioValue } = parseRatioParts(ratio);
+  const baseWidth = Math.max(1, Math.round(rect?.width || 1));
+  const baseHeight = Math.max(1, Math.round(rect?.height || 1));
+  const centerX = rect ? rect.x + rect.width / 2 : sourceWidth / 2;
+  const centerY = rect ? rect.y + rect.height / 2 : sourceHeight / 2;
+
+  // 取"能容纳 base 的最小同比例矩形"：
+  //   base 相对更宽（baseWidth/baseHeight >= ratioValue）→ 宽驱动；否则高驱动。
+  let width;
+  let height;
+  if (baseHeight <= 0 || baseWidth / baseHeight >= ratioValue) {
+    width = baseWidth;
+    height = Math.max(1, Math.round(width / ratioValue));
+  } else {
+    height = baseHeight;
+    width = Math.max(1, Math.round(height * ratioValue));
+  }
+  // 用 snapSizeToRatio 统一取整（保证 width/height≈ratio，误差 ≤1px 且方向一致），再夹进图片。
+  const size = snapSizeToRatio(width, height, ratio, sourceWidth, sourceHeight);
+  return constrainCropRect({
+    x: Math.round(centerX - size.width / 2),
+    y: Math.round(centerY - size.height / 2),
+    width: size.width,
+    height: size.height
+  }, sourceWidth, sourceHeight);
+}
+
+/**
  * 角柄缩放（比例锁定）：对角做锚点，宽高始终满足 ratio，且不越界。
  *
  * 拖动时用位移更大的那个轴驱动，另一个轴按比例跟随 —— 手感接近原生裁剪框，
  * 又不会出现"拖了宽高比变了"的形变。
  */
-export function resizeRectFromCornerLocked(sourceRect, handle, deltaX, deltaY, ratio, imageWidth, imageHeight) {
+export function resizeRectFromCornerLocked(sourceRect, handle, deltaX, deltaY, ratio, imageWidth, imageHeight, drivingAxis = undefined) {
   const directionX = handle.includes("e") ? 1 : -1;
   const directionY = handle.includes("s") ? 1 : -1;
   const anchorX = directionX > 0 ? sourceRect.x : sourceRect.x + sourceRect.width;
@@ -188,12 +233,27 @@ export function resizeRectFromCornerLocked(sourceRect, handle, deltaX, deltaY, r
   const desiredWidth = Math.max(1, sourceRect.width + deltaX * directionX);
   const desiredHeight = Math.max(1, sourceRect.height + deltaY * directionY);
   const { width: ratioWidth, height: ratioHeight } = parseRatioParts(ratio);
-
-  // 位移更大的轴当主导轴，避免对角线抖动时选框乱跳。
   const widthFromHeight = (desiredHeight * ratioWidth) / ratioHeight;
-  const driven = Math.abs(deltaX) >= Math.abs(deltaY)
-    ? Math.max(1, desiredWidth)
-    : Math.max(1, widthFromHeight);
+
+  // BUG-01 修复：角柄缩放「选框回弹」。
+  // 根因：原 `driven` 是 `|dx|>=|dy| ? 宽驱动 : 高驱动` 的分段函数，在
+  // `|dx|==|dy|` 处存在跳变，慢拖/斜拖反复穿越边界 → 选框弹一下（同轨迹最大跳变 41px）。
+  //   - drivingAxis === "x"：纯宽驱动（100% 跟手，由调用方在单次拖拽内锁定）；
+  //   - drivingAxis === "y"：纯高驱动（同上）；
+  //   - 未指定（默认）：沿比例对角线连续投影，单一连续公式彻底消除分段跳变，
+  //     作为向后兼容兜底，保证即使不锁轴也连续（§5 裸探针直接转绿）。
+  let driven;
+  if (drivingAxis === "y") {
+    driven = Math.max(1, widthFromHeight);
+  } else if (drivingAxis === "x") {
+    driven = Math.max(1, desiredWidth);
+  } else {
+    const moveX = deltaX * directionX;
+    const moveY = deltaY * directionY;
+    const deltaWidth = ((moveX * ratioWidth + moveY * ratioHeight) * ratioWidth)
+      / (ratioWidth * ratioWidth + ratioHeight * ratioHeight);
+    driven = Math.max(1, sourceRect.width + deltaWidth);
+  }
   const size = snapSizeToRatio(driven, 0, ratio, maxWidth, maxHeight);
   return {
     x: directionX > 0 ? anchorX : anchorX - size.width,
@@ -204,7 +264,7 @@ export function resizeRectFromCornerLocked(sourceRect, handle, deltaX, deltaY, r
 }
 
 /** 中心对称缩放（比例锁定，Alt 拖动）：中心不动，宽高始终满足 ratio。 */
-export function resizeRectFromCenterLocked(sourceRect, handle, deltaX, deltaY, ratio, imageWidth, imageHeight) {
+export function resizeRectFromCenterLocked(sourceRect, handle, deltaX, deltaY, ratio, imageWidth, imageHeight, drivingAxis = undefined) {
   const directionX = handle.includes("e") ? 1 : -1;
   const directionY = handle.includes("s") ? 1 : -1;
   const centerX = sourceRect.x + sourceRect.width / 2;
@@ -215,9 +275,20 @@ export function resizeRectFromCenterLocked(sourceRect, handle, deltaX, deltaY, r
   const desiredHeight = Math.max(1, sourceRect.height + deltaY * directionY * 2);
   const { width: ratioWidth, height: ratioHeight } = parseRatioParts(ratio);
   const widthFromHeight = (desiredHeight * ratioWidth) / ratioHeight;
-  const driven = Math.abs(deltaX) >= Math.abs(deltaY)
-    ? Math.max(1, desiredWidth)
-    : Math.max(1, widthFromHeight);
+
+  // BUG-01 修复（Alt 中心缩放同源）：见 resizeRectFromCornerLocked 注释。
+  let driven;
+  if (drivingAxis === "y") {
+    driven = Math.max(1, widthFromHeight);
+  } else if (drivingAxis === "x") {
+    driven = Math.max(1, desiredWidth);
+  } else {
+    const moveX = deltaX * directionX * 2;
+    const moveY = deltaY * directionY * 2;
+    const deltaWidth = ((moveX * ratioWidth + moveY * ratioHeight) * ratioWidth)
+      / (ratioWidth * ratioWidth + ratioHeight * ratioHeight);
+    driven = Math.max(1, sourceRect.width + deltaWidth);
+  }
   const size = snapSizeToRatio(driven, 0, ratio, maxWidth, maxHeight);
   return {
     x: centerX - size.width / 2,
@@ -243,15 +314,6 @@ export function scaleRectLocked(sourceRect, targetWidth, ratio, imageWidth, imag
     width: size.width,
     height: size.height
   };
-}
-
-function canvasToBlob(canvas, type, quality) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("图片编码失败"));
-    }, type, quality);
-  });
 }
 
 function releaseCanvas(canvas) {
@@ -377,5 +439,92 @@ export async function composeLocalPasteBlob(baseImage, generatedImage, rect, opt
   } finally {
     releaseCanvas(patchCanvas);
     releaseCanvas(canvas);
+  }
+}
+
+/**
+ * 裁剪舞台的「平移 / 缩放夹取」：把期望变换限制在「图不脱框」的范围内。
+ *
+ * 2026-10-02 V11-RF-053 收口：快捷生成侧（原 `clampTransform`）与批量侧
+ * （原 `clampCropTransform`）各一份，剥离缩进后逐行比对**只差一行守卫** ⇒ 收口到这里。
+ *
+ * ⚠️ 那一行差异已**参数化**，不是擅自统一：
+ *   批量侧原守卫是 `mode !== "crop" || !frame…`，即**非裁剪模式直接原样返回**（不夹取）；
+ *   快捷侧没有 mode 概念，恒夹取。
+ *   ⇒ 用 `options.enabled` 表达：批量侧传 `mode === "crop"`，快捷侧不传（默认 true）
+ *     ⇒ 两侧行为逐字等价。以后要改这段语义，必须先看清另一侧调用点传的是什么。
+ *
+ * @param {{x:number,y:number,scale:number}} next 期望的变换（未夹取）
+ * @param {object} options
+ *   - `frame` 舞台的 getBoundingClientRect() 结果（可为空 ⇒ 直接返回 next）
+ *   - `imageSize` 图的原始像素尺寸 `{width,height}`（**必填**，与抽取前一样不做可选链）
+ *   - `minScale` 最小缩放（调用点各自的 `minCropScale()`，**必填**）
+ *   - `enabled` false 时原样返回 next（默认 true）
+ * @returns {{x:number,y:number,scale:number}|object} 夹取后的变换；尺寸不全 / enabled=false 时返回 next 本身
+ */
+export function clampCropTransform(next, options = {}) {
+  const { frame, imageSize, minScale, enabled = true } = options;
+  if (!enabled || !frame?.width || !frame?.height || !imageSize.width || !imageSize.height) return next;
+  const containScale = Math.min(frame.width / imageSize.width, frame.height / imageSize.height);
+  const scale = Math.max(minScale, Math.min(4, Number(next.scale) || minScale));
+  const drawWidth = imageSize.width * containScale * scale;
+  const drawHeight = imageSize.height * containScale * scale;
+  const maxX = Math.max(0, (drawWidth - frame.width) / 2);
+  const maxY = Math.max(0, (drawHeight - frame.height) / 2);
+  return {
+    x: Math.max(-maxX, Math.min(maxX, Number(next.x) || 0)),
+    y: Math.max(-maxY, Math.min(maxY, Number(next.y) || 0)),
+    scale
+  };
+}
+
+/**
+ * 局部裁剪产物的体积上限与 JPEG 质量阶梯。
+ *
+ * 2026-10-03 随 `cropLocalEditFile` 一并搬来（V11-RF-053b）：两侧取值逐字一致
+ * （16 * 1024 * 1024 / [0.98, 0.96, 0.94, 0.92]），搬运前后无任何行为差异。
+ */
+export const LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES = 16 * 1024 * 1024;
+export const LOCAL_EDIT_CROP_JPEG_QUALITIES = [0.98, 0.96, 0.94, 0.92];
+
+/**
+ * 裁剪选框区域，产出送模型（或作为普通裁剪结果）的局部图。
+ *
+ * 2026-09-25 对齐 3.0 新源码：canvas 尺寸严格等于选框尺寸，不补白、不按比例外扩、
+ * 不再返回 `contextRect`（老调用点读到的字段仍在，只是恒为 null）。
+ *
+ * 2026-10-03 收口（V11-RF-053b）：快捷生成侧的 `cropQuickLocalEditFile` 与批量侧的
+ * `cropOutfitLocalEditFile` 剥离缩进后**只差无原图时的兜底策略** —— 两者底图来源其实是
+ * 同一处（`resolveLocalEditBaseFile`），差异仅在快捷侧条目可能就是裸 File ⇒ 允许兜底回 item，
+ * 批量侧必须抛错。差异参数化为 `fallbackToItem`，两侧各传原值 ⇒ 行为逐字不变。
+ */
+export async function cropLocalEditFile(
+  imageItem,
+  cropRect,
+  suffix = "local_edit",
+  { fallbackToItem = false } = {}
+) {
+  const originalFile = resolveLocalEditBaseFile(imageItem) || (fallbackToItem ? imageItem : null);
+  if (!originalFile) throw new Error("缺少原图，无法创建局部回贴区域");
+  const image = await imageBitmapFromFile(originalFile);
+  try {
+    const cropped = await cropRectToBlob(image, cropRect, {
+      targetBytes: LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES,
+      qualities: LOCAL_EDIT_CROP_JPEG_QUALITIES
+    });
+    return {
+      file: new File([cropped.blob], `${fileBaseName(originalFile.name)}_${suffix}.jpg`, {
+        type: "image/jpeg",
+        lastModified: Date.now()
+      }),
+      cropRect: cropped.rect,
+      contextRect: null,
+      sourceWidth: cropped.sourceWidth,
+      sourceHeight: cropped.sourceHeight,
+      cropQuality: cropped.quality,
+      cropBytes: cropped.blob.size
+    };
+  } finally {
+    image.close?.();
   }
 }

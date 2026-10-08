@@ -16,7 +16,6 @@ import {
   EyeOff,
   FileText,
   Flame,
-  Folder,
   FolderOpen,
   HardDrive,
   Image as ImageIcon,
@@ -50,12 +49,12 @@ import {
 } from "lucide-react";
 import { DEFAULT_MODELS, imageSourceFromResult } from "./shared/models.js";
 import {
-  canonicalModel,
   channelForModel,
   channelPriceLabel,
   channelsForModel,
   clampPromptForModel,
   convergeSettingsForModel,
+  isBanana2Model,
   isRoutingCatalogReady,
   modelCapabilities,
   routingFields
@@ -64,26 +63,37 @@ import {
   classifyQuickPrimaryLocalIntent,
   promptForQuickGeneration
 } from "./shared/quickgen-prompt-rules.js";
-import {
-  composeLocalPasteBlob,
-  constrainCropRect as sharedConstrainCropRect,
-  cropRectToBlob,
-  fitRectToRatioLocked,
-  formatPixelSize,
-  resizeRectFromCenterLocked,
-  resizeRectFromCornerLocked,
-  resolveLocalEditBaseFile,
-  scaleRectLocked,
-  snapSizeToRatio
-} from "./shared/local-edit-geometry.js";
 import DebouncedTextarea from "./shared/DebouncedTextarea.jsx";
 import { ErrorBoundary } from "./shared/error-boundary.jsx";
-import { Modal, ModalHeader } from "./shared/ui/Modal.jsx";
+import { DetailUploadZone, QuickCropViewportModal } from "./features/crop/quick-crop-panels.jsx";
 import ChannelPicker from "./shared/ui/ChannelPicker.jsx";
-import { brokenImageReason, isAllowedReferenceImage, resultImageCardState } from "./shared/result-image.js";
+import { CachedImage } from "./shared/ui/cached-image.jsx";
+import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
+import { createDetailGroup } from "./features/detail/detail-group.js";
+import { MAX_REFERENCE_REWRITE_FILES, buildReferenceRemixPrompt, buildSmartReferencePrompt, createReferenceUpload, makeQuickReferenceItem, prepareImageFilesForChannel, quickReferenceHasLocalEdit, quickReferenceOriginalFile, quickReferenceRunUploadFile, quickReferenceUploadFile, quickReferenceUploadFiles, referenceMetaFromFiles, referenceMetaFromQuickRunItems, renderReferencePolicy } from "./features/upload/reference-upload.js";
+import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
+import {
+  imageFileFromUrl,
+  beginImageDownloadDrag,
+  dataUrlFromBlob,
+  dragDownloadDateStamp,
+  previewDragStart,
+  previewPanFromDrag,
+  referenceSource,
+  resultImageCardState
+} from "./shared/result-image.js";
 import { classifyGenerationError, formatGenerationError } from "./shared/generation-errors.js";
 import { fileSize, formatMs } from "./lib/format/index.js";
-import { readJsonStorage, removeStorageItem, writeJsonStorage } from "./lib/storage/json-storage.js";
+import { fileBaseName } from "./shared/file-name.js";
+import { videoResultUrl } from "./shared/video-task.js";
+import { normalizePromptCategories, normalizePromptPreset, promptFallbackCategory, usePromptLibrary } from "./shared/prompt-library.js";
+import {
+  imageBitmapFromFile,
+  imageExtension,
+  imageFilesFromClipboard,
+  imageFilesFromList, addFilesByRole, removeFilesByRole
+} from "./shared/image-input.js";
+import { readJsonStorage, writeJsonStorage } from "./lib/storage/json-storage.js";
 import OutfitWorkflow from "./outfit-workflow.jsx";
 import ImageEditorPanel from "./image-editor.jsx";
 import { getAppConfig } from "./api/config.js";
@@ -95,11 +105,6 @@ import {
   setSaveDirectory as setSaveDirectoryRequest
 } from "./api/save.js";
 import {
-  appendHistoryResults,
-  deleteHistoryResults,
-  getHistoryResults
-} from "./api/history.js";
-import {
   cleanStorageTargets,
   getStorageUsage,
   revealStorageDir
@@ -110,123 +115,90 @@ import {
   rewriteQuickPrompt,
   rewriteReferencePrompt
 } from "./api/prompts.js";
-import { generateVideo, getVideoStatus } from "./api/videos.js";
-import { displayImageRequestUrl, fetchImageBlob, uploadCanvasAssets } from "./api/assets.js";
-import { emitClientDiagnosticEvent } from "./api/client.js";
-import { isAuthErrorMessage, normalizeApiKeyInput } from "./features/auth/api-key.js";
+import { generateVideo } from "./api/videos.js";
+import { uploadCanvasAssets } from "./api/assets.js";
 import {
-  LOCAL_EDIT_MASK_COLOR,
+  isAuthErrorMessage,
+  normalizeApiKeyInput,
+  testApiConnection
+} from "./features/auth/api-key.js";
+import {
   LOCAL_EDIT_MASK_MODE,
   LOCAL_EDIT_BRUSH_DEFAULT,
   LOCAL_EDIT_MASK_OPACITY_DEFAULT,
   LOCAL_EDIT_RECT_MODE,
-  canvasToPngDataUrl,
-  clampLocalEditBrushSize,
-  clampLocalEditMaskOpacity,
-  createLocalEditAlphaMask,
-  expandMaskBoundsToCropRect,
-  imageBitmapFromDataUrl,
-  maskBoundsFromCanvas,
-  maskCanvasHasPaint,
-  normalizeMaskCanvas
 } from "./shared/local-edit-mask.js";
 import "./styles.css";
+import { copyTextToClipboard } from "./shared/dom-actions.js";
+import { loadSaveDirectory, openSaveDirectoryModal, commitSaveDirectory, chooseSaveDirectory } from "./features/savedir/save-directory.js";
+import { incomingCanvasNodes, canvasResultItemsFromNode, canvasPromptForGenerator, canvasImagesForGenerator, canvasImageEntriesForGenerator, splitCanvasBatchEntries, buildCanvasBatchPrompt, screenPointToCanvas, canvasCenterFromRect } from "./features/canvas/canvas-graph.js";
+import { createCanvasActions, createCanvasInteractions } from "./features/canvas/canvas-actions.js";
+import { createQuickResultReplace, createResultDownload, createResultActions } from "./features/result-queue/quick-result-replace.js";
+import { createVideoComposer, durationOptionsForVideoModel, normalizeVideoSettingValue, videoPriceLabel, videoPromptPlaceholder } from "./features/video/video-composer.js";
+import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState, detailDefaults, referenceDefaults, videoDefaults } from "./shared/app-defaults.js";
+import { SHOW_INFINITE_CANVAS, formatStorageSize, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
+import { clampDetailCount, clampDetailModelUsage, clampReferenceStrength, clampReverseScreens, hydrateDetailGroupsWithHistory, loadDetailGroups, loadDetailPresets, normalizeDetailSettings, sanitizeDetailGroupsForStorage } from "./features/detail/detail-group.js";
+import { composeQuickLocalEditBlob, defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
 
-const STORAGE_PREFIX = import.meta.env.VITE_JINGYIN_STORAGE_PREFIX || "jingyin-internal";
-const STORAGE_KEY = `${STORAGE_PREFIX}-settings-v3`;
-const LEGACY_STORAGE_KEYS = STORAGE_PREFIX === "jingyin-internal" ? ["jingyin-internal-settings-v2"] : [];
-const PROMPT_LIBRARY_VERSION = "v2-20260802";
-const PROMPT_PRESETS_KEY = `${STORAGE_PREFIX}-prompt-library-${PROMPT_LIBRARY_VERSION}`;
-const PROMPT_CATEGORIES_KEY = `${STORAGE_PREFIX}-prompt-categories-${PROMPT_LIBRARY_VERSION}`;
+
+
+
+
+
+
+
+
+
+
+
+
+
 const PROMPT_CATEGORY_DRAG_TYPE = "application/x-jingyin-prompt-category";
 const QUICK_RESULT_DRAG_TYPE = "application/x-jingyin-quick-result";
-const DETAIL_PRESETS_KEY = `${STORAGE_PREFIX}-detail-presets-v1`;
-const DETAIL_GROUPS_KEY = `${STORAGE_PREFIX}-detail-groups-v1`;
-const INFINITE_CANVAS_KEY = `${STORAGE_PREFIX}-infinite-canvases-v1`;
-const HISTORY_DB_NAME = `${STORAGE_PREFIX}-history`;
-const HISTORY_DB_VERSION = 1;
-const HISTORY_STORE_NAME = "results";
-const HISTORY_FALLBACK_KEY = `${STORAGE_PREFIX}-history-fallback-v1`;
-const PUBLIC_RELEASE_MODE = import.meta.env.VITE_JINGYIN_PUBLIC_RELEASE === "1";
-const PUBLIC_RELEASE_ID = import.meta.env.VITE_JINGYIN_RELEASE_ID || STORAGE_PREFIX;
-const PUBLIC_RELEASE_RESET_KEY = `${STORAGE_PREFIX}-public-reset-${PUBLIC_RELEASE_ID}`;
-const ACTIVE_VIEW_KEY = `${STORAGE_PREFIX}-active-view-v1`;
+
+
+
+
+
+
+
+
+
+
+
 const CLIENT_SESSION_ID = `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const DEFAULT_MAX_REFERENCE_FILES = 5;
 const MAX_DETAIL_FILES = 6;
-const MAX_REFERENCE_REWRITE_FILES = 6;
 // 局部回贴可选比例。2026-09-25：补上 2:3 —— 局部回贴选框必须能锁定到用户选的比例，
 // 而 2:3 是竖版服装图最常用的比例之一，之前不在列表里会被回落到 1:1。
 const QUICK_LOCAL_EDIT_RATIOS = ["1:1", "2:3", "3:4", "4:3", "16:9", "9:16"];
 const DETAIL_ANALYSIS_MODEL = "gpt-5.4-mini";
-const CHANNEL_UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024;
-const CHANNEL_UPLOAD_TARGET_BYTES = 3.75 * 1024 * 1024;
-const CHANNEL_UPLOAD_MAX_SIDE = 3072;
+
+
+
 const LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES = 16 * 1024 * 1024;
-const LOCAL_EDIT_CROP_JPEG_QUALITIES = [0.98, 0.96, 0.94, 0.92];
-const LOCAL_EDIT_OUTPUT_TARGET_BYTES = 64 * 1024 * 1024;
-const LOCAL_EDIT_OUTPUT_JPEG_QUALITIES = [0.985, 0.975, 0.965, 0.95, 0.94];
+
+
 const CANVAS_NODE_WIDTH = 236;
 const CANVAS_NODE_HEIGHT = 260;
 const CANVAS_GENERATOR_WIDTH = 286;
 const CANVAS_GENERATOR_HEIGHT = 360;
 const COUNT_OPTIONS = Array.from({ length: 12 }, (_, index) => index + 1);
 const REFERENCE_STRENGTH_OPTIONS = Array.from({ length: 8 }, (_, index) => 30 + index * 10);
-const SHOW_INFINITE_CANVAS = false;
+
 const VIDEO_STATUS_POLL_INTERVAL_MS = 4000;
 const VIDEO_STATUS_MAX_POLLS = 180;
 const VIDEO_REFERENCE_MAX_BYTES = 10 * 1024 * 1024;
-const DISPLAY_IMAGE_CACHE = new Map();
 
-const defaultState = {
-  baseUrl: "",
-  apiKey: "",
-  model: "tt-image-2",
-  channelId: "",
-  dispatchMode: "manual",
-  imageSize: "2K",
-  aspectRatio: "3:4",
-  n: 1,
-  prompt: "把袖子改长一点点，差不多到手腕的位置",
-  theme: "dark"
-};
 
-const videoDefaults = {
-  model: "seedance-2.0",
-  prompt: "",
-  duration: 5,
-  resolution: "720p",
-  aspectRatio: "9:16",
-  outputAudio: false,
-  imageUrl: ""
-};
 
-const navItems = [
-  { id: "quickgen", label: "快捷生成", icon: Sparkles },
-  { id: "outfit", label: "批量生成", icon: Wand2 },
-  { id: "image-editor", label: "图片编辑", icon: Brush },
-  { id: "resize", label: "批量改尺寸", icon: Crop },
-  { id: "reference-remix", label: "参考生图", icon: Layers },
-  { id: "detail-main", label: "一键详情/主图", icon: FileText },
-  ...(SHOW_INFINITE_CANVAS ? [{ id: "infinite-canvas", label: "无限画布", icon: Box }] : []),
-  { id: "prompts", label: "提示词助手", icon: BookOpen }
-];
-const ACTIVE_VIEW_IDS = new Set(navItems.filter((item) => item.id !== "prompts").map((item) => item.id));
-const DEFAULT_ACTIVE_VIEW = PUBLIC_RELEASE_MODE ? "outfit" : "quickgen";
 
-const referenceDefaults = {
-  model: "tt-image-2",
-  channelId: "",
-  dispatchMode: "manual",
-  imageSize: "2K",
-  aspectRatio: "3:4",
-  n: 1,
-  strength: 60,
-  element: "medium",
-  composition: "light",
-  scene: "medium",
-  prompt: ""
-};
+
+
+
+
+
+
 
 const referenceControlOptions = [
   { value: "none", label: "不参考" },
@@ -247,28 +219,7 @@ const canvasBatchModeOptions = [
   { value: "by-model", label: "按模特批量" }
 ];
 
-const detailDefaults = {
-  workflow: "taobao-detail",
-  analysisMode: "ai",
-  model: "tt-image-2",
-  channelId: "",
-  dispatchMode: "manual",
-  ratio: "9:16",
-  imageSize: "2K",
-  count: 10,
-  copywriting: "need",
-  richness: "simple",
-  fontStyle: "heiti",
-  modelMode: "use-model",
-  modelPose: "regular",
-  modelUsage: 4,
-  reverseScreens: 2,
-  lang: "中文",
-  productName: "",
-  productFeature: "",
-  userInstruction: "",
-  sellingPoints: ""
-};
+
 
 const workflowOptions = [
   { value: "taobao-main", label: "淘宝 / 主图" },
@@ -323,154 +274,19 @@ const themeOptions = [
 
 const promptCategories = ["全部", "常用", "批量复刻", "批量sku", "局部迁移"];
 
-const builtinPrompts = [
-  {
-    id: "portrait-retouch",
-    title: "人像精修",
-    category: "常用",
-    content: "保留人物五官、神态和身份特征，优化皮肤质感、发丝细节和服装纹理，商业摄影质感，柔和自然光，背景干净。"
-  },
-  {
-    id: "product-retouch",
-    title: "产品精修",
-    category: "常用",
-    content: "保留产品结构、材质、比例和关键细节，增强边缘清晰度与表面质感，干净高级的电商主图光线，画面真实。"
-  },
-  {
-    id: "local-outfit-material-fit",
-    title: "局部换装锁版型面料",
-    category: "常用",
-    content: [
-      "局部换装任务：图1是原图，已框选局部编辑区域；图2是本次要换上的服装唯一来源。",
-      "请先在内部分析图2服装的面料类别和可见材质事实，例如棉麻、帆布、牛仔、雪纺、皮革、蕾丝、网纱、针织等，以及织纹方向、颗粒大小、厚薄、垂感、光泽、高光位置、透明度、褶皱逻辑、缝线方向和边缘结构；不要输出分析文字，只把分析结果用于生成。",
-      "把图2服装真实穿到图1人物局部区域内，严格保持图2的服装类别、版型、廓形、宽松/修身程度、腰身松量、肩线、领口形状、袖型、袖长、袖口、衣长、裙长、下摆宽度、开衩、扣子、拉链、口袋、拼接线、颜色、面料纹理、厚薄、垂感、反光和光泽。",
-      "只允许做符合图1姿态和身体角度的真实穿着适配与自然褶皱，不能按模型审美自动美化版型；禁止把图2服装改成更收腰、更细腰、更短、更紧身、更修身、更顺滑、更亮、更薄、更厚或更完美状态。",
-      "图1人物的脸、发型、头部位置、身体比例、姿势、手臂手腕手指、腿脚、背景光影和选区边缘必须保持稳定；不要输出整张重构图、对比图、文字、水印或边框。"
-    ].join("\n")
-  },
-  {
-    id: "upscale",
-    title: "超分",
-    category: "常用",
-    content: "提升图片清晰度和细节层次，去除噪点、压缩痕迹和轻微模糊，保持原图构图、人物特征、产品结构和色彩风格不变。"
-  },
-  {
-    id: "old-photo",
-    title: "老照片修复",
-    category: "常用",
-    content: "修复老照片划痕、褪色、污点和破损区域，增强面部细节与自然色彩，保持年代感和原始构图，不改变人物身份。"
-  },
-  {
-    id: "classic-figure",
-    title: "经典手办",
-    category: "批量复刻",
-    content: "把主体做成高品质经典手办展示图，保留角色特征和服装结构，材质细腻，工作室灯光，底座干净，商业级成品质感。"
-  },
-  {
-    id: "portrait-grid",
-    title: "人物九宫格",
-    category: "批量复刻",
-    content: "生成同一人物的九宫格头像或半身图，保持人物身份一致，变化表情、角度、动作和光线，整体风格统一，画面干净。"
-  },
-  {
-    id: "ip-four-view",
-    title: "ip四视图",
-    category: "批量sku",
-    content: "生成同一 IP 角色四视图，正面、侧面、背面和三分之二视角，角色设定一致，比例准确，服装与配色统一，白底展示。"
-  },
-  {
-    id: "line-color",
-    title: "线稿上色",
-    category: "局部迁移",
-    content: "在保留原始线稿结构和线条细节的基础上进行上色，颜色干净协调，明暗层次自然，画面完整，不改变构图。"
-  }
-];
 
-function normalizeActiveView(value) {
-  return ACTIVE_VIEW_IDS.has(value) ? value : DEFAULT_ACTIVE_VIEW;
-}
 
-function loadActiveView() {
-  return normalizeActiveView(readJsonStorage(ACTIVE_VIEW_KEY, DEFAULT_ACTIVE_VIEW));
-}
 
-function deleteIndexedDbSafely(name) {
-  if (typeof window === "undefined" || !window.indexedDB || !name) return Promise.resolve();
-  return new Promise((resolve) => {
-    try {
-      const request = window.indexedDB.deleteDatabase(name);
-      request.onsuccess = () => resolve();
-      request.onerror = () => resolve();
-      request.onblocked = () => resolve();
-    } catch {
-      resolve();
-    }
-  });
-}
 
-function runPublicReleaseStorageReset() {
-  if (!PUBLIC_RELEASE_MODE || typeof window === "undefined" || !window.localStorage) {
-    return Promise.resolve();
-  }
 
-  try {
-    const resetMarker = readJsonStorage(PUBLIC_RELEASE_RESET_KEY, localStorage.getItem(PUBLIC_RELEASE_RESET_KEY));
-    if (resetMarker === "done") {
-      return Promise.resolve();
-    }
 
-    [
-      STORAGE_KEY,
-      ACTIVE_VIEW_KEY,
-      PROMPT_PRESETS_KEY,
-      PROMPT_CATEGORIES_KEY,
-      DETAIL_PRESETS_KEY,
-      DETAIL_GROUPS_KEY,
-      INFINITE_CANVAS_KEY,
-      "jingyin-outfit-workflow-task-history-v1",
-      "jingyin-outfit-workflow-settings-v1",
-      "jingyin-outfit-workflow-pages-v1",
-      "jingyin-outfit-workflow-prompt-library-v1",
-      "jingyin-outfit-workflow-prompt-categories-v1",
-      "jingyin-outfit-workflow-prompt-library-v2-20260802",
-      "jingyin-outfit-workflow-prompt-categories-v2-20260802",
-      "jingyin-outfit-workflow-resize-settings-v3",
-      "jingyin-outfit-workflow-resize-batch-crop-v1",
-      HISTORY_FALLBACK_KEY
-    ].forEach((key) => removeStorageItem(key));
 
-    writeJsonStorage(PUBLIC_RELEASE_RESET_KEY, "done");
-  } catch {
-    // Public release packages should still start if storage cleanup is blocked.
-  }
 
-  return Promise.all([
-    deleteIndexedDbSafely(HISTORY_DB_NAME),
-    deleteIndexedDbSafely("jingyin-public-clean-20260728-history"),
-    deleteIndexedDbSafely("jingyin-public-clean-history"),
-    deleteIndexedDbSafely("jingyin-internal-history"),
-    deleteIndexedDbSafely("jingyin-outfit-workflow-local-v1"),
-    deleteIndexedDbSafely("jingyin-image-editor-v1")
-  ]).then(() => undefined);
-}
 
-const publicReleaseStorageResetPromise = runPublicReleaseStorageReset();
 
-function normalizePromptCategoryName(value) {
-  return String(value || "").replace(/\s+/g, " ").trim().slice(0, 18);
-}
 
-function normalizePromptCategories(values) {
-  const next = ["全部"];
-  for (const value of Array.isArray(values) ? values : []) {
-    const name = normalizePromptCategoryName(value);
-    if (!name || name === "全部" || next.includes(name)) continue;
-    next.push(name);
-  }
-  if (next.length === 1) next.push("常用");
-  return next.slice(0, 24);
-}
 
+// 🔴 与 src/outfit-workflow.jsx 的 `loadOutfitPromptCategories` **同名不同义**（V11-RF-040 裁定：改名不合并，勿合并）。跨文件引用只写函数名、不写行号（V11-RF-040c 裁决）。
 function loadPromptCategories() {
   const storedCategories = readJsonStorage(PROMPT_CATEGORIES_KEY, null);
   const storedPrompts = readJsonStorage(PROMPT_PRESETS_KEY, null) || [];
@@ -626,108 +442,19 @@ function loadInfiniteCanvasState() {
   return normalizeInfiniteCanvasState(readJsonStorage(INFINITE_CANVAS_KEY, null));
 }
 
-function loadState() {
-  const stored = readJsonStorage(STORAGE_KEY, null)
-    || LEGACY_STORAGE_KEYS.map((key) => readJsonStorage(key, null)).find(Boolean)
-    || {};
-  const { baseUrl: _discardedBaseUrl, ...safeStored } = stored;
-  const merged = { ...defaultState, ...safeStored, baseUrl: defaultState.baseUrl };
-  merged.model = canonicalModel(merged.model);
-  merged.dispatchMode = "manual";
-  return merged;
-}
 
-function normalizePromptPreset(preset, index = 0) {
-  const rawCategory = normalizePromptCategoryName(preset?.category);
-  const category = rawCategory && rawCategory !== "全部" ? rawCategory : "常用";
-  return {
-    id: String(preset?.id || `prompt_${Date.now()}_${index}`),
-    title: String(preset?.title || "未命名提示词").trim() || "未命名提示词",
-    category,
-    content: String(preset?.content || "").trim(),
-    custom: Boolean(preset?.custom)
-  };
-}
 
-function normalizeDetailSettings(settings = {}) {
-  const next = { ...detailDefaults, ...(settings || {}) };
-  next.analysisMode = "ai";
-  if (next.copywriting === "light") next.copywriting = "blank";
-  if (next.copywriting === "none") next.copywriting = "poster";
-  next.count = clampDetailCount(next.count);
-  next.modelUsage = clampDetailModelUsage(next.modelUsage);
-  next.reverseScreens = clampReverseScreens(next.reverseScreens);
-  return next;
-}
 
-function referenceControlText(value, target) {
-  const skillMap = {
-    元素: {
-      none: "参考元素：不使用运营参考图里的道具、装饰、文字、品牌标识和人物身份，只保留产品图本身的商品信息。",
-      light: "参考元素：只提取少量安全元素方向，例如色块、材质氛围、轻量道具类别；所有元素必须重新组合，不能照搬参考图主体。",
-      medium: "参考元素：可吸收参考图中对转化有帮助的元素类别和层级，例如卖点承托物、背景材质、配色呼应；必须替换具体样式和摆放。",
-      strong: "参考元素：重点学习参考图的元素策略和商业层次，但要重构道具、背景细节、文字位置和视觉符号，避免同款、商标、水印和原图文案。"
-    },
-    构图: {
-      none: "参考构图：不沿用参考图构图，采用稳定电商构图，主体清晰、留白合理、卖点视线顺畅。",
-      light: "参考构图：只轻参考画面方向和主体占比，重新安排视角、留白、前后景关系，避免相同镜头和相同版式。",
-      medium: "参考构图：保留参考图的视觉节奏和主次层级，例如主体位置、卖点区域、景深关系；但重新设计裁切、角度和空间比例。",
-      strong: "参考构图：重点参考参考图的转化型构图逻辑和视觉动线，但必须改变关键排版、画面比例、镜头距离和元素位置，不能复刻。"
-    },
-    场景主题: {
-      none: "参考场景主题：不参考运营参考图场景，重新生成符合商品调性的干净电商场景。",
-      light: "参考场景主题：只参考氛围方向，例如清爽、户外、居家、轻奢、专业感；场景地点和细节必须重建。",
-      medium: "参考场景主题：可吸收相近使用场景和情绪价值，让商品更有代入感；但替换空间结构、背景物和光线细节。",
-      strong: "参考场景主题：重点参考参考图的场景类型和消费情绪，但必须重构环境、装饰、人物关系和品牌信息，避免同图感。"
-    }
-  };
-  return skillMap[target]?.[value] || skillMap[target]?.none || `不参考运营参考图的${target}。`;
-}
 
-function referenceStrengthText(value) {
-  const strength = Math.max(30, Math.min(100, Number.parseInt(value, 10) || referenceDefaults.strength));
-  const map = {
-    30: "极低参考：只判断参考图是否有可用方向，主要由产品图和输入提示词主导。",
-    40: "低参考：提取少量配色、氛围或运营意图，保持画面明显原创。",
-    50: "轻中参考：吸收参考图的商业气质，但产品呈现、场景和构图以重新设计为主。",
-    60: "中参考：保留参考图的关键视觉策略，同时重组画面层次和电商卖点表达。",
-    70: "中高参考：较明显参考运营图的风格、节奏和转化逻辑，但替换关键画面细节。",
-    80: "高参考：强参考运营图的视觉方向和商业表达，必须重构元素、构图、场景，避免同款感。",
-    90: "极高参考：尽量靠近参考图的运营策略，但必须避开相同版式、相同背景、相同文案和品牌信息。",
-    100: "满参考：最大程度吸收参考图的投放策略和视觉记忆点，同时强制重绘所有可识别细节，不能复制原图。"
-  };
-  return map[Math.round(strength / 10) * 10] || map[60];
-}
 
-function buildReferenceRemixPrompt(settings, productCount, styleCount) {
-  const basePrompt = settings.prompt.trim() || "生成一张适合电商展示的高质量商品图，画面干净、真实、商业感强。";
-  return [
-    "你正在为电商运营生成一张参考改写图片。",
-    `上传图片顺序说明：前 ${productCount} 张是产品图/产品主体，用于锁定商品结构、颜色、材质、比例和关键细节；后 ${styleCount} 张是运营参考图，只用于参考视觉方向。`,
-    `参考值：${settings.strength}%（${referenceStrengthText(settings.strength)}）`,
-    referenceControlText(settings.element, "元素"),
-    referenceControlText(settings.composition, "构图"),
-    referenceControlText(settings.scene, "场景主题"),
-    "必须保持产品主体真实可信，不改变核心款式、结构和面料信息；不要照搬参考图里的品牌、人物身份、文字、水印、边框、排版比例或完全相同背景。",
-    "如果参考图里有不适合当前产品的内容，自动舍弃，只保留有助于电商转化的视觉策略。",
-    `整体提示词：${basePrompt}`
-  ].join("\n");
-}
 
-function buildSmartReferencePrompt(settings) {
-  const userIntent = settings.prompt.trim();
-  const baseIntent = userIntent || "生成一张适合电商投放和商品展示的高质量图片，突出产品真实款式、材质、颜色、卖点和购买欲。";
-  return [
-    baseIntent,
-    `参考策略：${settings.strength}%参考，${referenceStrengthText(settings.strength)}产品图优先级最高，参考图只用于提取运营方向。`,
-    referenceControlText(settings.element, "元素"),
-    referenceControlText(settings.composition, "构图"),
-    referenceControlText(settings.scene, "场景主题"),
-    "电商画面要求：主体清晰、商品不变形、材质纹理真实、光线柔和干净、画面有转化感；适合淘宝/抖音/小红书等平台展示。",
-    "规避项：不要照搬参考图，不要出现水印、商标、乱码文字、无关人物、错误结构、夸张畸变和虚假卖点。"
-  ].join("\n");
-}
 
+
+
+
+
+
+// 🔴 与 src/outfit-workflow.jsx 的 `loadOutfitPromptPresets` **同名不同义**（V11-RF-040 裁定：改名不合并，勿合并）。跨文件引用只写函数名、不写行号（V11-RF-040c 裁决）。
 function loadPromptPresets() {
   const stored = readJsonStorage(PROMPT_PRESETS_KEY, null);
   if (Array.isArray(stored) && stored.length > 0) {
@@ -737,358 +464,53 @@ function loadPromptPresets() {
   return builtinPrompts;
 }
 
-function loadDetailPresets() {
-  const stored = readJsonStorage(DETAIL_PRESETS_KEY, []);
-  if (!Array.isArray(stored)) return [];
-  return stored
-    .map((preset, index) => ({
-      id: String(preset?.id || `detail_preset_${index}`),
-      name: String(preset?.name || "未命名预设").trim() || "未命名预设",
-      createdAt: Number(preset?.createdAt || Date.now()),
-      settings: normalizeDetailSettings(preset?.settings)
-    }))
-    .slice(0, 30);
-}
 
-function sanitizeStoredImage(image) {
-  if (!image || typeof image !== "object") return null;
-  if (image.localUrl || image.archiveFile || image.type === "url") {
-    return {
-      type: image.type || "url",
-      value: image.value || image.localUrl || "",
-      ...(image.localUrl ? { localUrl: image.localUrl } : {}),
-      ...(image.archiveFile ? { archiveFile: image.archiveFile } : {}),
-      ...(image.archiveMime ? { archiveMime: image.archiveMime } : {})
-    };
-  }
-  if (image.type === "b64_json") {
-    return { type: "b64_json", value: "" };
-  }
-  return null;
-}
 
-function sanitizeDetailResultForStorage(result) {
-  return {
-    ...result,
-    image: sanitizeStoredImage(result?.image)
-  };
-}
 
-function sanitizeDetailGroupsForStorage(groups) {
-  return (Array.isArray(groups) ? groups : []).map((group) => ({
-    ...group,
-    productFiles: [],
-    referenceFiles: [],
-    prompts: (group.prompts || []).map((prompt) => ({
-      ...prompt,
-      results: (prompt.results || []).map(sanitizeDetailResultForStorage)
-    }))
-  })).slice(0, 20);
-}
 
-function loadDetailGroups() {
-  const stored = readJsonStorage(DETAIL_GROUPS_KEY, []);
-  if (!Array.isArray(stored)) return [];
-  return stored.map((group, groupIndex) => ({
-    ...group,
-    id: String(group?.id || `detail_group_${Date.now()}_${groupIndex}`),
-    label: String(group?.label || "详情记录"),
-    createdAt: Number(group?.createdAt || Date.now()),
-    status: group?.status || "success",
-    productFiles: [],
-    referenceFiles: [],
-    params: normalizeDetailSettings(group?.params || {}),
-    prompts: (group?.prompts || []).map((prompt, promptIndex) => ({
-      ...prompt,
-      screen: Number(prompt?.screen || promptIndex + 1),
-      enabled: prompt?.enabled !== false,
-      status: prompt?.status === "running" ? "idle" : (prompt?.status || "idle"),
-      results: (prompt?.results || []).map((result, resultIndex) => ({
-        ...result,
-        id: String(result?.id || `stored_detail_${groupIndex}_${promptIndex}_${resultIndex}`),
-        image: sanitizeStoredImage(result?.image),
-        source: "detail-main"
-      }))
-    }))
-  })).filter((group) => group.prompts.length > 0).slice(0, 20);
-}
 
-function hydrateDetailGroupsWithHistory(groups, historyResults) {
-  if (!Array.isArray(groups) || groups.length === 0 || !Array.isArray(historyResults) || historyResults.length === 0) {
-    return groups;
-  }
-  const historyById = new Map(historyResults.map((item) => [item.id, item]));
-  return groups.map((group) => ({
-    ...group,
-    prompts: (group.prompts || []).map((prompt) => ({
-      ...prompt,
-      results: (prompt.results || []).map((result) => {
-        const match = historyById.get(result.id);
-        if (!match) return result;
-        return {
-          ...result,
-          ...match,
-          prompt: result.prompt || match.prompt || prompt.text,
-          source: "detail-main"
-        };
-      })
-    }))
-  }));
-}
 
-function openHistoryDb() {
-  if (!window.indexedDB) return Promise.resolve(null);
 
-  return new Promise((resolve, reject) => {
-    const request = window.indexedDB.open(HISTORY_DB_NAME, HISTORY_DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(HISTORY_STORE_NAME)) {
-        db.createObjectStore(HISTORY_STORE_NAME, { keyPath: "id" });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
 
-function waitForTransaction(transaction) {
-  return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error);
-  });
-}
 
-async function loadHistoryResults() {
-  await publicReleaseStorageResetPromise;
 
-  try {
-    const payload = await getHistoryResults();
-    if (Array.isArray(payload.results)) {
-      return payload.results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    }
-  } catch {
-    // Browser-only preview can still use local history below.
-  }
 
-  try {
-    const db = await openHistoryDb();
-    if (!db) return readJsonStorage(HISTORY_FALLBACK_KEY, []);
 
-    return await new Promise((resolve, reject) => {
-      const transaction = db.transaction(HISTORY_STORE_NAME, "readonly");
-      const store = transaction.objectStore(HISTORY_STORE_NAME);
-      const request = store.getAll();
-      request.onsuccess = () => {
-        resolve((request.result || []).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
-      };
-      request.onerror = () => reject(request.error);
-      transaction.oncomplete = () => db.close();
-      transaction.onerror = () => db.close();
-    });
-  } catch {
-    return readJsonStorage(HISTORY_FALLBACK_KEY, []);
-  }
-}
 
-async function saveHistoryResults(items) {
-  if (!items?.length) return;
-  try {
-    await appendHistoryResults(items);
-    return;
-  } catch {
-    // Fall back to browser storage below.
-  }
 
-  try {
-    const db = await openHistoryDb();
-    if (!db) {
-      const current = readJsonStorage(HISTORY_FALLBACK_KEY, []);
-      writeJsonStorage(HISTORY_FALLBACK_KEY, [...items, ...current].map((item) => ({
-        ...item,
-        image: sanitizeStoredImage(item.image)
-      })).slice(0, 120));
-      return;
-    }
 
-    const transaction = db.transaction(HISTORY_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(HISTORY_STORE_NAME);
-    items.forEach((item) => store.put(item));
-    await waitForTransaction(transaction);
-    db.close();
-  } catch {
-    const current = readJsonStorage(HISTORY_FALLBACK_KEY, []);
-    writeJsonStorage(HISTORY_FALLBACK_KEY, [...items, ...current].map((item) => ({
-      ...item,
-      image: sanitizeStoredImage(item.image)
-    })).slice(0, 120));
-  }
-}
 
-async function removeHistoryResults(ids) {
-  if (!ids?.length) return;
-  try {
-    await deleteHistoryResults(ids);
-    return;
-  } catch {
-    // Fall back to browser storage below.
-  }
 
-  try {
-    const db = await openHistoryDb();
-    if (!db) {
-      const current = readJsonStorage(HISTORY_FALLBACK_KEY, []);
-      writeJsonStorage(HISTORY_FALLBACK_KEY, current.filter((item) => !ids.includes(item.id)).map((item) => ({
-        ...item,
-        image: sanitizeStoredImage(item.image)
-      })).slice(0, 120));
-      return;
-    }
 
-    const transaction = db.transaction(HISTORY_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(HISTORY_STORE_NAME);
-    ids.forEach((id) => store.delete(id));
-    await waitForTransaction(transaction);
-    db.close();
-  } catch {
-    const current = readJsonStorage(HISTORY_FALLBACK_KEY, []);
-    writeJsonStorage(HISTORY_FALLBACK_KEY, current.filter((item) => !ids.includes(item.id)).map((item) => ({
-      ...item,
-      image: sanitizeStoredImage(item.image)
-    })).slice(0, 120));
-  }
-}
+
+
+
 
 function clampCount(value) {
   return Math.max(1, Math.min(12, Number.parseInt(value, 10) || 1));
 }
 
-function clampDetailCount(value) {
-  return Math.max(1, Math.min(12, Number.parseInt(value, 10) || detailDefaults.count));
-}
 
-function clampDetailModelUsage(value) {
-  return Math.max(1, Math.min(12, Number.parseInt(value, 10) || detailDefaults.modelUsage));
-}
 
-function clampReverseScreens(value) {
-  return Math.max(0, Math.min(4, Number.parseInt(value, 10) || 0));
-}
 
-function clampReferenceStrength(value) {
-  const parsed = Number.parseInt(value, 10);
-  const rounded = Math.round((Number.isFinite(parsed) ? parsed : referenceDefaults.strength) / 10) * 10;
-  return Math.max(30, Math.min(100, rounded));
-}
+
+
+
+
 
 function makeResultId() {
   return `result_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function isImageFile(file) {
-  return file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
-}
 
-function imageFilesFromList(fileList) {
-  return Array.from(fileList || []).filter(isImageFile);
-}
 
-function videoResultUrl(task = {}) {
-  return String(task.url || task.videoUrl || task.outputUrl || task.output_url || "").trim();
-}
 
-function isVideoTaskCompleted(task = {}) {
-  const status = String(task.status || "").toLowerCase();
-  return Boolean(videoResultUrl(task)) || /complete|completed|success|succeeded|finished|done/.test(status);
-}
 
-function isVideoTaskFailed(task = {}) {
-  const status = String(task.status || "").toLowerCase();
-  return /fail|failed|error|cancel|cancelled|canceled/.test(status) || Boolean(task.error);
-}
 
-function videoTaskStatusText(task = {}) {
-  if (isVideoTaskCompleted(task)) return "已完成";
-  if (isVideoTaskFailed(task)) return "失败";
-  const progress = Number(task.progress);
-  if (Number.isFinite(progress) && progress > 0) return `生成中 ${Math.round(progress)}%`;
-  const status = String(task.status || "").trim();
-  if (/queue|queued|pending/i.test(status)) return "排队中";
-  if (/progress|running|processing/i.test(status)) return "生成中";
-  return status || "生成中";
-}
 
-function durationOptionsForVideoModel(model = {}) {
-  if (Array.isArray(model.durations) && model.durations.length > 0) return model.durations;
-  const min = Math.max(1, Number(model.minDuration || videoDefaults.duration));
-  const max = Math.max(min, Number(model.maxDuration || min));
-  const options = [];
-  for (let value = min; value <= max; value += 5) options.push(value);
-  if (!options.includes(max)) options.push(max);
-  return options;
-}
 
-function videoPromptPlaceholder(model = {}) {
-  return String(model.promptPlaceholder || "输入视频画面、运动、镜头、服装和氛围要求").trim();
-}
 
-function videoPricePerSecond(model = {}, resolution = "") {
-  const price = Number(model.customerPricePerSecond?.[resolution]);
-  return Number.isFinite(price) ? price : null;
-}
 
-function videoPriceLabel(model = {}, resolution = "") {
-  const price = videoPricePerSecond(model, resolution);
-  return price === null ? "" : `算力 ${price.toFixed(3)}/秒`;
-}
-
-function normalizeVideoSettingValue(current = {}, videoModel = {}) {
-  const durations = durationOptionsForVideoModel(videoModel);
-  const resolutions = Array.isArray(videoModel.resolutions) && videoModel.resolutions.length ? videoModel.resolutions : ["720p"];
-  const ratios = Array.isArray(videoModel.aspectRatios) && videoModel.aspectRatios.length ? videoModel.aspectRatios : ["9:16"];
-  const defaultDuration = Number(videoModel.defaultDuration || durations[0] || videoDefaults.duration);
-  const requestedDuration = Number.parseInt(current.duration ?? defaultDuration, 10);
-  const duration = durations.includes(requestedDuration) ? requestedDuration : defaultDuration;
-  const resolution = resolutions.includes(current.resolution) ? current.resolution : (videoModel.defaultResolution || resolutions[0]);
-  const aspectRatio = ratios.includes(current.aspectRatio) ? current.aspectRatio : (videoModel.defaultAspectRatio || ratios[0]);
-  return {
-    ...current,
-    model: videoModel.value || current.model || videoDefaults.model,
-    duration,
-    resolution,
-    aspectRatio
-  };
-}
-
-function imageFilesFromClipboard(clipboardData) {
-  const directFiles = imageFilesFromList(clipboardData?.files);
-  if (directFiles.length > 0) return directFiles;
-
-  return Array.from(clipboardData?.items || [])
-    .filter((item) => item.kind === "file" && item.type?.startsWith("image/"))
-    .map((item, index) => {
-      const file = item.getAsFile();
-      if (!file) return null;
-      if (file.name) return file;
-      return new File([file], `clipboard-${Date.now()}-${index + 1}.${imageExtension(file.type)}`, {
-        type: file.type || "image/png",
-        lastModified: Date.now()
-      });
-    })
-    .filter(Boolean);
-}
-
-function makeQuickReferenceItem(file) {
-  return {
-    id: `quick_ref_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    file,
-    originalFile: file,
-    cropEdit: null,
-    localEdit: null,
-    createdAt: Date.now()
-  };
-}
 
 function normalizeQuickReferenceItem(item) {
   if (!item) return null;
@@ -1105,298 +527,20 @@ function normalizeQuickReferenceItem(item) {
   };
 }
 
-function quickReferenceOriginalFile(item) {
-  // 与批量侧同一份规则（原图优先）：局部回贴的裁剪源与贴回底图必须是同一张图。
-  // 这里保留 `|| item` 兜底，因为快捷侧的条目可能就是裸 File。
-  return resolveLocalEditBaseFile(item) || item;
-}
 
-function quickReferenceUploadFile(item) {
-  return item?.localEdit?.cropFile || item?.cropEdit?.cropFile || item?.file || item;
-}
 
-function quickReferenceHasLocalEdit(item) {
-  return Boolean(item?.localEdit?.cropFile && item?.localEdit?.cropRect);
-}
 
-function quickReferenceUploadFiles(items) {
-  return (items || []).map(quickReferenceUploadFile).filter((file) => file instanceof File);
-}
 
-function quickReferenceRunUploadFile(item, localEditItem = null) {
-  if (localEditItem?.id && item?.id === localEditItem.id) {
-    return item?.localEdit?.cropFile || quickReferenceUploadFile(item);
-  }
-  return item?.cropEdit?.cropFile || quickReferenceOriginalFile(item);
-}
 
-function referenceMetaFromQuickRunItems(items, localEditItem = null, role = "reference", startIndex = 0) {
-  return (items || []).map((item, index) => {
-    const file = quickReferenceRunUploadFile(item, localEditItem);
-    const originalFile = quickReferenceOriginalFile(item);
-    const isActiveLocalEdit = Boolean(localEditItem?.id && item?.id === localEditItem.id);
-    return {
-      name: file?.name || originalFile?.name || `reference-${startIndex + index + 1}`,
-      role,
-      index: startIndex + index,
-      size: file?.size || 0,
-      type: file?.type || "",
-      lastModified: file?.lastModified || originalFile?.lastModified || 0,
-      cropEdit: Boolean(!isActiveLocalEdit && item?.cropEdit?.cropFile),
-      localEdit: isActiveLocalEdit
-    };
-  });
-}
 
-function referenceMetaFromFiles(files, role = "reference", startIndex = 0) {
-  return (files || []).map((file, index) => ({
-    name: file.name || `reference-${startIndex + index + 1}`,
-    role,
-    index: startIndex + index,
-    size: file.size || 0,
-    type: file.type || "",
-    lastModified: file.lastModified || 0
-  }));
-}
 
-function referenceSource(reference) {
-  return reference?.localUrl || reference?.url || reference?.value || "";
-}
 
-function preloadDisplayImageUrl(url, timeoutMs = 20000) {
-  if (!url || typeof Image !== "function") return Promise.resolve();
-  return new Promise((resolve) => {
-    const image = new Image();
-    let settled = false;
-    const done = () => {
-      if (settled) return;
-      settled = true;
-      if (timer) window.clearTimeout(timer);
-      resolve();
-    };
-    const timer = typeof window !== "undefined" ? window.setTimeout(done, timeoutMs) : null;
-    image.onload = done;
-    image.onerror = done;
-    image.decoding = "async";
-    image.src = url;
-    if (typeof image.decode === "function") {
-      image.decode().then(done, done);
-    }
-  });
-}
 
-function diagnosticImageSourceType(src) {
-  const text = String(src || "");
-  if (text.startsWith("data:")) return "base64/data";
-  if (text.startsWith("blob:")) return "browser-blob";
-  if (text.startsWith("/api/result/") || text.startsWith("/api/history-image/")) return "local-cache";
-  if (text.startsWith("/api/image-proxy")) return "local-proxy";
-  if (/^https?:\/\//i.test(text)) return "remote-url";
-  return text ? "local-url" : "empty";
-}
 
-function CachedImage({ src, alt = "", className = "", style, draggable = false, role, tabIndex, onDragStart, onClick, onKeyDown, onError, loading, diagnostic }) {
-  const [displaySrc, setDisplaySrc] = useState(() => {
-    if (!src || src.startsWith("data:") || src.startsWith("blob:")) return src || "";
-    const cached = DISPLAY_IMAGE_CACHE.get(src);
-    return cached?.url || "";
-  });
-  const displayLogKeyRef = useRef("");
 
-  useEffect(() => {
-    let cancelled = false;
-    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const emitDisplayReady = (shownSrc) => {
-      const requestId = String(diagnostic?.requestId || diagnostic?.taskId || "").trim();
-      if (!requestId) return;
-      const key = `${requestId}|${diagnostic?.placement || ""}|${shownSrc || src || ""}`;
-      if (displayLogKeyRef.current === key) return;
-      displayLogKeyRef.current = key;
-      emitClientDiagnosticEvent({
-        requestId,
-        stage: "client-result-display-ready",
-        endpoint: diagnostic?.endpoint || "",
-        method: "DISPLAY",
-        ok: true,
-        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
-        detail: {
-          taskId: requestId,
-          placement: diagnostic?.placement || "",
-          module: diagnostic?.module || "",
-          sourceType: diagnosticImageSourceType(shownSrc || src),
-          displayMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt)
-        }
-      });
-    };
-    if (!src) {
-      setDisplaySrc("");
-      return undefined;
-    }
-    if (src.startsWith("data:") || src.startsWith("blob:")) {
-      setDisplaySrc(src);
-      emitDisplayReady(src);
-      return undefined;
-    }
-    const requestSrc = displayImageRequestUrl(src);
-    const cached = DISPLAY_IMAGE_CACHE.get(src);
-    if (cached?.url) {
-      setDisplaySrc(cached.url);
-      emitDisplayReady(cached.url);
-      return undefined;
-    }
-    const promise = cached?.promise || preloadDisplayImageUrl(requestSrc)
-      .then(() => {
-        DISPLAY_IMAGE_CACHE.set(src, { url: requestSrc });
-        return requestSrc;
-      });
-    if (!cached?.promise) DISPLAY_IMAGE_CACHE.set(src, { promise });
-    setDisplaySrc("");
-    promise
-      .then((url) => {
-        if (!cancelled) {
-          setDisplaySrc(url);
-          emitDisplayReady(url);
-        }
-      })
-      .catch((error) => {
-        DISPLAY_IMAGE_CACHE.delete(src);
-        if (!cancelled) {
-          setDisplaySrc(src);
-          onError?.(error);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [src]);
 
-  return (
-    <img
-      className={className}
-      src={displaySrc || undefined}
-      alt={alt}
-      style={style}
-      draggable={draggable}
-      role={role}
-      tabIndex={tabIndex}
-      onDragStart={onDragStart}
-      onClick={onClick}
-      onKeyDown={onKeyDown}
-      loading={loading}
-      onError={onError}
-    />
-  );
-}
 
-function ReferenceThumbTray({ references, count = 0, className = "", max = 5, onOpen, onContextMenu, onImageDragStart }) {
-  const allItems = Array.isArray(references) ? references.filter(Boolean) : [];
-  // P1：统一图片地址校验 + 归档缺失标记。
-  // 归档已丢失（服务端标记 missing），或地址不在白名单（旧中转站/预签名链接等），
-  // 都不再渲染、不再请求，避免每次打开页面 404/502。用数量提示告诉用户当时用了几张参考图。
-  const items = allItems.filter((reference) => (
-    !reference?.missing && isAllowedReferenceImage(reference, referenceSource)
-  ));
-  const missingCount = allItems.length - items.length;
-  const visibleItems = items.slice(0, max);
-  if (visibleItems.length === 0 && (count > 0 || missingCount > 0)) {
-    const total = count || allItems.length;
-    return (
-      <div
-        className={`referenceThumbTray ${className}`}
-        title={missingCount > 0
-          ? `${missingCount} 张参考图缩略图不可用（归档文件不存在或地址不在允许来源），不再重复请求`
-          : "旧记录只保存了参考图数量，没有保存缩略图"}
-      >
-        <span className="referenceCountPill">{total} 张参考</span>
-      </div>
-    );
-  }
-  if (visibleItems.length === 0) return null;
-  return (
-    <div className={`referenceThumbTray ${className}`} title={`本张图使用了 ${items.length} 张参考图`}>
-      {visibleItems.map((reference, index) => {
-        const src = referenceSource(reference);
-        return (
-          <span
-            className="referenceMiniThumb"
-            key={reference.id || `${reference.name}-${index}`}
-            title={reference.name || `参考图 ${index + 1}`}
-            onContextMenu={onContextMenu ? (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onContextMenu(event, reference, index, items);
-            } : undefined}
-          >
-            {src && (
-              <CachedImage
-                src={src}
-                alt=""
-                loading="lazy"
-                draggable={Boolean(onImageDragStart)}
-                role={onOpen ? "button" : undefined}
-                tabIndex={onOpen ? 0 : undefined}
-                onDragStart={onImageDragStart ? (event) => onImageDragStart(event, reference, index, items) : undefined}
-                onClick={onOpen ? (event) => {
-                  event.stopPropagation();
-                  onOpen(items, index);
-                } : undefined}
-                onKeyDown={onOpen ? (event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onOpen(items, index);
-                  }
-                } : undefined}
-                onError={(event) => {
-                  event.currentTarget.style.display = "none";
-                  event.currentTarget.parentElement?.classList.add("missing");
-                }}
-              />
-            )}
-          </span>
-        );
-      })}
-      {items.length > max && <span className="referenceMoreThumb">+{items.length - max}</span>}
-    </div>
-  );
-}
 
-function fileBaseName(filename) {
-  return String(filename || "image").replace(/\.[^.]+$/, "") || "image";
-}
-
-function canvasToBlob(canvas, type, quality) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("图片压缩失败"));
-    }, type, quality);
-  });
-}
-
-async function imageBitmapFromFile(file) {
-  if (window.createImageBitmap) {
-    try {
-      return await window.createImageBitmap(file, { imageOrientation: "from-image" });
-    } catch {
-      // Some formats are better handled by HTMLImageElement below.
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("无法读取图片"));
-    };
-    img.src = url;
-  });
-}
 
 // 2026-09-25 对齐 3.0：删除了"把上传图补白到模型比例"的逻辑。
 // 3.0 的裁剪输出就是选框本身，没有任何 letterbox；用户看到的白边正是这里产生的
@@ -1448,271 +592,20 @@ async function fileToCompactJpegDataUrl(file, maxEdge = 1536, quality = 0.85) {
 // 需要走 JSON + image_urls 参考图通道的模型（对齐 3.0 的带图路径）。
 const JSON_IMAGE_URLS_MODELS = new Set(["nano-banana-pro"]);
 
-/**
- * 2026-09-29（v3.7）：把字节数格式化成人类可读的存储占用文案。
- * 只用于设置页的"数据与存储"区块，不做任何业务计算。
- */
-function formatStorageSize(bytes) {
-  const value = Number(bytes);
-  if (!Number.isFinite(value) || value <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let size = value;
-  let unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit += 1;
-  }
-  return `${size >= 100 || unit === 0 ? Math.round(size) : size.toFixed(1)} ${units[unit]}`;
-}
 
-async function imageBitmapFromBlob(blob) {
-  if (window.createImageBitmap) {
-    try {
-      return await window.createImageBitmap(blob);
-    } catch {
-      // Fall back to HTMLImageElement below.
-    }
-  }
 
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("无法读取图片"));
-    };
-    img.src = url;
-  });
-}
 
-function ratioValue(ratio) {
-  const [rawW, rawH] = String(ratio || "1:1").split(":").map((part) => Number(part));
-  const w = Number.isFinite(rawW) && rawW > 0 ? rawW : 1;
-  const h = Number.isFinite(rawH) && rawH > 0 ? rawH : 1;
-  return w / h;
-}
 
-// 选框几何统一走 src/shared/local-edit-geometry.js（批量侧 outfit-workflow.jsx 用同一份），
-// 这里保留同名局部引用，调用点不用改。
-const constrainCropRect = sharedConstrainCropRect;
 
-// 2026-09-25 对齐 3.0 新源码：删除了 expandLocalEditContextRect。
-// 3.0 的局部回贴把用户选框以外的区域当作"不可改动"，上传给模型的局部图
-// 就是选框本身（frontend/ecommerce/src/features/crop/cropImage.ts 里
-// canvas 尺寸严格等于 sourceRect），不存在"多送一圈上下文"的概念。
-// 这里保留一个同语义的显式说明，方便以后回溯为什么没有这个函数。
 
-// canonical ID 是 banana-2；旧存档 nano-banana2 通过 canonicalModel 映射到同一支，
-// 保证迁移后这两条「香蕉 2 专属」判断不会失配。
-function isBanana2Model(model) {
-  return canonicalModel(model, "") === "banana-2";
-}
-
-/**
- * 裁剪选框区域，产出送模型（或作为普通裁剪结果）的局部图。
- *
- * 2026-09-25 对齐 3.0 新源码：
- *   - 3.0 `frontend/ecommerce/src/features/crop/cropImage.ts:150`
- *     把画布尺寸**严格**定为 `sourceRect.width × sourceRect.height`；
- *     没有任何补白、补边、按比例外扩。
- *   - 所以这里也只用 `pasteRect`（= 用户选框，夹进原图范围内）建画布，
- *     输出 Blob 的像素尺寸恒等于选框尺寸。
- *   - 不再有 `contextRect`（"多送一圈上下文"），返回值的 `contextRect` 恒为 null，
- *     老调用点读到的字段仍然存在，只是永远为空。
- */
-async function cropQuickLocalEditFile(referenceItem, cropRect, suffix = "local_edit", _options = {}) {
-  const originalFile = quickReferenceOriginalFile(referenceItem);
-  const image = await imageBitmapFromFile(originalFile);
-  try {
-    // 实际裁剪在 src/shared/local-edit-geometry.js（与批量侧同一份实现）。
-    const cropped = await cropRectToBlob(image, cropRect, {
-      targetBytes: LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES,
-      qualities: LOCAL_EDIT_CROP_JPEG_QUALITIES
-    });
-    return {
-      file: new File([cropped.blob], `${fileBaseName(originalFile.name)}_${suffix}.jpg`, {
-        type: "image/jpeg",
-        lastModified: Date.now()
-      }),
-      cropRect: cropped.rect,
-      contextRect: null,
-      sourceWidth: cropped.sourceWidth,
-      sourceHeight: cropped.sourceHeight,
-      cropQuality: cropped.quality,
-      cropBytes: cropped.blob.size
-    };
-  } finally {
-    image.close?.();
-  }
-}
-
-/**
- * 把模型返回的局部结果**按原图坐标**贴回底图。
- *
- * 2026-09-25 对齐 3.0 新源码（frontend/ecommerce/src/shared/image/localPaste.ts:128-202
- * `composeLocalResult`）。3.0 的契约是：
- *   1. 画布 = 底图**完整尺寸**，先把底图画满；
- *   2. 全程**唯一一次**写入是
- *      `context.drawImage(local, rect.x, rect.y, rect.width, rect.height)`
- *      （返回图尺寸与选区不一致时按选区尺寸拉伸贴入，不做 cover 裁切）；
- *   3. **不做**羽化、自动对齐、颜色匹配、中性色调匹配、锐化、护脸/护身保护；
- *   4. 选框外的像素逐字节等于底图。
- *
- * 那一段的原文注释就是："刻意不做运行版的羽化/自动对齐/颜色匹配/护脸等后处理
- * （任务要求不得擅自增加美化、锐化或调色）——贴回就是贴回。"
- *
- * 所以这里删掉了 V11 原有的：
- *   - autoAlign（alignLocalEditPatchCanvas，会对结果做 ±maxShift 位移）
- *   - colorMatch（colorMatchLocalEditPatchCanvas，会改结果颜色）
- *   - protectSkinAndFace（protectSkinAndFaceFromLocalOutfitPatch，
- *     会用 destination-out 把"头顶 12%~34% 的肤色区域"挖掉，让原图盖回来）
- *   - feather（createFeatherMask，会让选框最外圈回退成原图）
- *
- * 涂抹蒙版（LOCAL_EDIT_MASK_MODE）保留：那是**用户自己画出来的选区**，
- * 不是自动保护。它按硬边（不羽化）裁剪，只有用户涂到的地方会被替换。
- *
- * `_options` 保留在签名里，老调用点不用改；其中的保护类参数一律不再生效。
- */
-async function composeQuickLocalEditBlob(originalFile, generatedBlob, cropRect, localEdit = null, _options = {}) {
-  const original = await imageBitmapFromFile(originalFile);
-  const generated = await imageBitmapFromBlob(generatedBlob);
-  let maskImage = null;
-  let blendMask = null;
-  try {
-    const isMaskEdit = localEdit?.editMode === LOCAL_EDIT_MASK_MODE && localEdit?.maskDataUrl;
-    if (isMaskEdit) {
-      // 用户涂抹的选区：按硬边（不羽化）裁剪，只替换涂到的像素。
-      const rect = constrainCropRect(
-        localEdit?.cropRect || cropRect,
-        original.width || original.naturalWidth,
-        original.height || original.naturalHeight
-      );
-      maskImage = await imageBitmapFromDataUrl(localEdit.maskDataUrl);
-      blendMask = createLocalEditAlphaMask(maskImage, rect, 0);
-    }
-    // 实际贴回在 src/shared/local-edit-geometry.js（与批量侧同一份实现）。
-    const composed = await composeLocalPasteBlob(original, generated, localEdit?.cropRect || cropRect, {
-      maskImage: blendMask,
-      targetBytes: LOCAL_EDIT_OUTPUT_TARGET_BYTES,
-      qualities: LOCAL_EDIT_OUTPUT_JPEG_QUALITIES
-    });
-    return composed.blob;
-  } finally {
-    original.close?.();
-    generated.close?.();
-    maskImage?.close?.();
-  }
-}
 
 function shouldNormalizeQuickUploadForModel(model) {
   return isBanana2Model(model);
 }
 
-async function compressImageForChannel(file, options = {}) {
-  const forceJpeg = Boolean(options.forceJpeg);
-  if (!file || (!forceJpeg && file.size <= CHANNEL_UPLOAD_LIMIT_BYTES)) {
-    return { file, compressed: false, normalized: false };
-  }
-  const bitmap = await imageBitmapFromFile(file);
-  try {
-    const sourceWidth = bitmap.width || bitmap.naturalWidth;
-    const sourceHeight = bitmap.height || bitmap.naturalHeight;
-    if (!sourceWidth || !sourceHeight) return { file, compressed: false, normalized: false };
 
-    let scale = Math.min(1, CHANNEL_UPLOAD_MAX_SIDE / Math.max(sourceWidth, sourceHeight));
-    let bestBlob = null;
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d", { alpha: false });
-    if (!ctx) return { file, compressed: false, normalized: false };
-    const targetBytes = CHANNEL_UPLOAD_TARGET_BYTES;
-    const qualitySteps = forceJpeg
-      ? [0.92, 0.88, 0.82, 0.76, 0.68, 0.58, 0.48, 0.42]
-      : [0.88, 0.8, 0.72, 0.64, 0.56, 0.48, 0.42];
 
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-      const width = Math.max(1, Math.round(sourceWidth * scale));
-      const height = Math.max(1, Math.round(sourceHeight * scale));
-      canvas.width = width;
-      canvas.height = height;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(bitmap, 0, 0, width, height);
 
-      for (const quality of qualitySteps) {
-        const blob = await canvasToBlob(canvas, "image/jpeg", quality);
-        bestBlob = blob;
-        if (blob.size <= targetBytes) {
-          return {
-            file: new File([blob], `${fileBaseName(file.name)}_upload.jpg`, {
-              type: "image/jpeg",
-              lastModified: Date.now()
-            }),
-            compressed: blob.size < file.size || file.size > CHANNEL_UPLOAD_LIMIT_BYTES,
-            normalized: forceJpeg
-          };
-        }
-      }
-      scale *= 0.78;
-    }
-
-    if (!bestBlob || bestBlob.size > CHANNEL_UPLOAD_LIMIT_BYTES || (!forceJpeg && bestBlob.size >= file.size)) {
-      return { file, compressed: false, normalized: false };
-    }
-    return {
-      file: new File([bestBlob], `${fileBaseName(file.name)}_upload.jpg`, {
-        type: "image/jpeg",
-        lastModified: Date.now()
-      }),
-      compressed: bestBlob.size < file.size || file.size > CHANNEL_UPLOAD_LIMIT_BYTES,
-      normalized: forceJpeg
-    };
-  } finally {
-    bitmap.close?.();
-  }
-}
-
-async function prepareImageFilesForChannel(files, options = {}) {
-  const prepared = [];
-  let compressedCount = 0;
-  let normalizedCount = 0;
-  let originalBytes = 0;
-  let uploadBytes = 0;
-  const preserveFirstFile = Boolean(options.preserveFirstFile);
-  const preserveFirstFileMaxBytes = Math.max(CHANNEL_UPLOAD_LIMIT_BYTES, Number(options.preserveFirstFileMaxBytes || CHANNEL_UPLOAD_LIMIT_BYTES));
-  for (const [index, file] of (files || []).entries()) {
-    originalBytes += file.size || 0;
-    if (preserveFirstFile && index === 0 && (file.size || 0) <= preserveFirstFileMaxBytes) {
-      uploadBytes += file.size || 0;
-      prepared.push(file);
-      continue;
-    }
-    let next;
-    try {
-      next = await compressImageForChannel(file, options);
-    } catch {
-      next = { file, compressed: false, normalized: false };
-    }
-    if ((next.file.size || 0) > CHANNEL_UPLOAD_LIMIT_BYTES) {
-      throw new Error(`image too large, max 4MB: ${file.name}`);
-    }
-    if (next.compressed) compressedCount += 1;
-    if (next.normalized) normalizedCount += 1;
-    uploadBytes += next.file.size || 0;
-    prepared.push(next.file);
-  }
-  return { files: prepared, compressedCount, normalizedCount, originalBytes, uploadBytes };
-}
-
-function imageExtension(type) {
-  if (type?.includes("jpeg")) return "jpg";
-  if (type?.includes("webp")) return "webp";
-  if (type?.includes("gif")) return "gif";
-  return "png";
-}
 
 /**
  * 生图错误的用户可读文案（快捷生成统一出口）。
@@ -1735,1057 +628,13 @@ function normalizeGenerationErrorMessage(error, context = {}) {
   return formatGenerationError(value, context);
 }
 
-function DetailUploadZone({
-  title,
-  subtitle,
-  previews,
-  count,
-  maxCount,
-  inputRef,
-  onPick,
-  onAddFiles,
-  onRemove,
-  onPreview,
-  onAssetLibrary
-}) {
-  function onDrop(event) {
-    event.preventDefault();
-    onAddFiles(event.dataTransfer.files);
-  }
 
-  return (
-    <section
-      className="detailUploadBox"
-      onDragOver={(event) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
-      }}
-      onDrop={onDrop}
-      aria-label={title}
-    >
-      <header>
-        <div>
-          <strong>{title}</strong>
-          <span>{subtitle}</span>
-        </div>
-        <button className="smallButton" type="button" onClick={onAssetLibrary}>
-          <Folder size={14} />
-          <span>素材库</span>
-        </button>
-      </header>
-      <button className="detailDropArea" type="button" onClick={() => inputRef.current?.click()}>
-        <ImageIcon size={30} />
-        <b>{title}</b>
-        <span>{subtitle}</span>
-      </button>
-      {previews.length > 0 && (
-        <div className="detailThumbGrid">
-          {previews.map((item, index) => (
-            <div
-              className="detailThumb"
-              key={`${item.file.name}-${item.file.lastModified}-${index}`}
-              onClick={() => onPreview?.(item)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onPreview?.(item);
-                }
-              }}
-            >
-              <img src={item.url} alt={item.file.name} draggable={false} />
-              <b>图{index + 1}</b>
-              <button type="button" onClick={(event) => { event.stopPropagation(); onRemove(index); }} aria-label="移除图片">
-                <X size={12} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      <input ref={inputRef} type="file" accept="image/*" multiple onChange={onPick} />
-      <small>{count}/{maxCount}</small>
-    </section>
-  );
-}
 
-function defaultQuickLocalEditCrop(width, height, ratio) {
-  // 2026-09-25：默认选框不再用外部比例去"裁"出一个形状，而是按图片自身比例
-  // 取居中的 62% 区域。比例按钮仍然存在，点一下才会把选框整形到那个比例。
-  // 这样"打开弹窗就变成正方形选框"不会再发生（除非原图本身就是正方形）。
-  const imageRatio = height > 0 ? width / height : ratioValue(ratio);
-  let cropWidth = width * 0.62;
-  let cropHeight = cropWidth / imageRatio;
-  if (cropHeight > height * 0.62) {
-    cropHeight = height * 0.62;
-    cropWidth = cropHeight * imageRatio;
-  }
-  return constrainCropRect({
-    x: (width - cropWidth) / 2,
-    y: (height - cropHeight) / 2,
-    width: cropWidth,
-    height: cropHeight
-  }, width, height);
-}
 
-async function cropQuickReferenceViewportFile(referenceItem, crop, ratio) {
-  const file = quickReferenceOriginalFile(referenceItem);
-  if (!(file instanceof File)) throw new Error("无法读取裁剪图片");
-  const bitmap = await imageBitmapFromFile(file);
-  try {
-    const sourceWidth = bitmap.width || bitmap.naturalWidth || 1;
-    const sourceHeight = bitmap.height || bitmap.naturalHeight || 1;
-    const stageWidth = Math.max(1, Number(crop?.stageWidth) || 1);
-    const stageHeight = Math.max(1, Number(crop?.stageHeight) || 1);
-    const baseScale = Math.min(stageWidth / sourceWidth, stageHeight / sourceHeight);
-    const drawScale = baseScale * Math.max(0.05, Number(crop?.scale) || 1);
-    const drawWidth = sourceWidth * drawScale;
-    const drawHeight = sourceHeight * drawScale;
-    const left = stageWidth / 2 - drawWidth / 2 + (Number(crop?.x) || 0);
-    const top = stageHeight / 2 - drawHeight / 2 + (Number(crop?.y) || 0);
-    const viewLeft = (0 - left) / drawScale;
-    const viewTop = (0 - top) / drawScale;
-    const viewRight = (stageWidth - left) / drawScale;
-    const viewBottom = (stageHeight - top) / drawScale;
 
-    let sourceX = Math.max(0, Math.min(sourceWidth, viewLeft));
-    let sourceY = Math.max(0, Math.min(sourceHeight, viewTop));
-    let sourceRight = Math.max(0, Math.min(sourceWidth, viewRight));
-    let sourceBottom = Math.max(0, Math.min(sourceHeight, viewBottom));
 
-    if (sourceRight - sourceX < 2 || sourceBottom - sourceY < 2) {
-      // 2026-09-25：这里原来会按 ratio 重新凑一个等比源矩形（并在横图/竖图上取中间一块）。
-      // 那是"因为比例设置自动扩展选区"的来源之一：用户看到的可见范围会被换掉。
-      // 现在只把可见范围夹进图片范围内，不做任何比例重算。
-      sourceX = Math.max(0, Math.min(sourceWidth - 1, viewLeft));
-      sourceY = Math.max(0, Math.min(sourceHeight - 1, viewTop));
-      sourceRight = Math.max(sourceX + 1, Math.min(sourceWidth, viewRight));
-      sourceBottom = Math.max(sourceY + 1, Math.min(sourceHeight, viewBottom));
-    }
 
-    const cropWidth = Math.max(1, sourceRight - sourceX);
-    const cropHeight = Math.max(1, sourceBottom - sourceY);
-    const scaleDown = Math.min(1, CHANNEL_UPLOAD_MAX_SIDE / Math.max(cropWidth, cropHeight));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(cropWidth * scaleDown));
-    canvas.height = Math.max(1, Math.round(cropHeight * scaleDown));
-    const ctx = canvas.getContext("2d", { alpha: false });
-    if (!ctx) throw new Error("无法创建裁剪画布");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(bitmap, sourceX, sourceY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
-    const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
-    const croppedFile = new File([blob], `${fileBaseName(file.name)}_crop.jpg`, {
-      type: "image/jpeg",
-      lastModified: Date.now()
-    });
-    return {
-      file: croppedFile,
-      cropRect: {
-        x: Math.round(sourceX),
-        y: Math.round(sourceY),
-        width: Math.round(cropWidth),
-        height: Math.round(cropHeight)
-      },
-      sourceWidth,
-      sourceHeight,
-      aspectRatio: ratio
-    };
-  } finally {
-    bitmap.close?.();
-  }
-}
 
-function QuickCropViewportModal({ item, ratio, onClose, onApply, onClear }) {
-  const stageRef = useRef(null);
-  const dragRef = useRef(null);
-  const [imageUrl, setImageUrl] = useState("");
-  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
-  const [working, setWorking] = useState(false);
-  const originalFile = quickReferenceOriginalFile(item);
-  const activeRatio = ratio || "3:4";
-  const activeRatioValue = ratioValue(activeRatio);
-  const savedCrop = item?.cropEdit;
-
-  useEffect(() => {
-    if (!originalFile) return undefined;
-    const nextUrl = URL.createObjectURL(originalFile);
-    setImageUrl(nextUrl);
-    return () => URL.revokeObjectURL(nextUrl);
-  }, [originalFile]);
-
-  function minCropScale() {
-    const frame = stageRef.current?.getBoundingClientRect();
-    if (!frame?.width || !frame?.height || !imageSize.width || !imageSize.height) return 1;
-    const containScale = Math.min(frame.width / imageSize.width, frame.height / imageSize.height);
-    const coverScale = Math.max(frame.width / imageSize.width, frame.height / imageSize.height);
-    return Math.max(1, coverScale / containScale);
-  }
-
-  function clampTransform(next) {
-    const frame = stageRef.current?.getBoundingClientRect();
-    if (!frame?.width || !frame?.height || !imageSize.width || !imageSize.height) return next;
-    const containScale = Math.min(frame.width / imageSize.width, frame.height / imageSize.height);
-    const minScale = minCropScale();
-    const scale = Math.max(minScale, Math.min(4, Number(next.scale) || minScale));
-    const drawWidth = imageSize.width * containScale * scale;
-    const drawHeight = imageSize.height * containScale * scale;
-    const maxX = Math.max(0, (drawWidth - frame.width) / 2);
-    const maxY = Math.max(0, (drawHeight - frame.height) / 2);
-    return {
-      x: Math.max(-maxX, Math.min(maxX, Number(next.x) || 0)),
-      y: Math.max(-maxY, Math.min(maxY, Number(next.y) || 0)),
-      scale
-    };
-  }
-
-  function resetTransform() {
-    setTransform({ x: 0, y: 0, scale: minCropScale() });
-  }
-
-  useEffect(() => {
-    if (!imageSize.width || !imageSize.height) return undefined;
-    const frame = window.requestAnimationFrame(resetTransform);
-    return () => window.cancelAnimationFrame(frame);
-  }, [imageSize.height, imageSize.width, item?.id, activeRatio]);
-
-  function beginDrag(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    dragRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      start: transform
-    };
-  }
-
-  function moveDrag(event) {
-    const drag = dragRef.current;
-    if (!drag) return;
-    event.preventDefault();
-    setTransform(clampTransform({
-      ...drag.start,
-      x: drag.start.x + event.clientX - drag.x,
-      y: drag.start.y + event.clientY - drag.y
-    }));
-  }
-
-  function endDrag(event) {
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    dragRef.current = null;
-  }
-
-  function zoomByWheel(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    const step = event.deltaY > 0 ? -0.08 : 0.08;
-    setTransform((current) => clampTransform({
-      ...current,
-      scale: current.scale + step
-    }));
-  }
-
-  async function applyCrop() {
-    if (working) return;
-    const frame = stageRef.current?.getBoundingClientRect();
-    if (!frame?.width || !frame?.height) return;
-    setWorking(true);
-    try {
-      const cropped = await cropQuickReferenceViewportFile(item, {
-        ...transform,
-        stageWidth: frame.width,
-        stageHeight: frame.height
-      }, activeRatio);
-      onApply(item.id, cropped);
-    } finally {
-      setWorking(false);
-    }
-  }
-
-  return (
-    <Modal
-      layerClassName="modalLayer previewLayer"
-      panelClassName="quickLocalEditModal quickCropViewportModal"
-      onClose={onClose}
-    >
-      <ModalHeader
-        title="普通裁剪"
-        subtitle={<>{originalFile?.name || "上传图片"} · 裁剪后的参考图参与生成 · {activeRatio}</>}
-        onClose={onClose}
-        closeLabel="关闭"
-      />
-        <div className="quickCropViewportWrap">
-          <div
-            className="quickCropViewportStage"
-            ref={stageRef}
-            style={{ aspectRatio: `${activeRatioValue}` }}
-            onPointerDown={beginDrag}
-            onPointerMove={moveDrag}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
-            onWheel={zoomByWheel}
-          >
-            {imageUrl && (
-              <img
-                src={imageUrl}
-                alt=""
-                draggable={false}
-                onLoad={(event) => {
-                  setImageSize({
-                    width: event.currentTarget.naturalWidth || 0,
-                    height: event.currentTarget.naturalHeight || 0
-                  });
-                }}
-                style={{
-                  transform: `translate(calc(-50% + ${transform.x}px), calc(-50% + ${transform.y}px)) scale(${transform.scale})`
-                }}
-              />
-            )}
-          </div>
-        </div>
-        <footer>
-          <span>拖动画面调整位置，滚轮缩放图片，确认后只保存裁剪后的参考图。</span>
-          <div>
-            {savedCrop && (
-              <button className="smallButton" type="button" onClick={() => onClear(item.id)}>
-                <RotateCcw size={15} />
-                <span>取消裁剪</span>
-              </button>
-            )}
-            <button className="smallButton" type="button" onClick={onClose}>取消</button>
-            <button className="generateButton quickLocalApplyButton" type="button" onClick={applyCrop} disabled={working}>
-              {working ? <Loader2 size={16} className="spin" /> : <Crop size={16} />}
-              <span>应用裁剪</span>
-            </button>
-          </div>
-        </footer>
-    </Modal>
-  );
-}
-
-function QuickLocalEditModal({ item, ratio, mode = "local", onRatioChange, onClose, onApply, onClear }) {
-  const imageRef = useRef(null);
-  const maskCanvasRef = useRef(null);
-  const dragRef = useRef(null);
-  const paintRef = useRef(null);
-  const brushResizeRef = useRef(null);
-  const maskInitRef = useRef("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
-  const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
-  const [cropRect, setCropRect] = useState(null);
-  const [editMode, setEditMode] = useState(LOCAL_EDIT_RECT_MODE);
-  const [maskTool, setMaskTool] = useState("brush");
-  const [brushSize, setBrushSize] = useState(LOCAL_EDIT_BRUSH_DEFAULT);
-  const [maskOpacity, setMaskOpacity] = useState(LOCAL_EDIT_MASK_OPACITY_DEFAULT);
-  const [brushCursor, setBrushCursor] = useState({ x: 0, y: 0, visible: false });
-  const [maskPainted, setMaskPainted] = useState(false);
-  const [maskRevision, setMaskRevision] = useState(0);
-  const [working, setWorking] = useState(false);
-  const originalFile = quickReferenceOriginalFile(item);
-  const isLocalMode = mode === "local";
-  const savedEdit = isLocalMode ? item?.localEdit : item?.cropEdit;
-  const isMaskMode = isLocalMode && editMode === LOCAL_EDIT_MASK_MODE;
-  // 只有「局部回贴 + 框选区域」锁比例：
-  //   - 涂抹蒙版模式的框是 AI 上下文包围盒，由涂抹轨迹决定，不能按比例改写；
-  //   - 普通裁剪按现有自由矩形语义，不锁比例。
-  const ratioLocked = isLocalMode && !isMaskMode;
-  const activeRatio = isLocalMode
-    ? (QUICK_LOCAL_EDIT_RATIOS.includes(ratio) ? ratio : QUICK_LOCAL_EDIT_RATIOS[0])
-    : (savedEdit?.aspectRatio || ratio || "1:1");
-  const modalTitle = isLocalMode ? "局部回贴" : "普通裁剪";
-  const modalDescription = isLocalMode ? "生成后贴回原图同一坐标" : "只裁剪送入模型的参考图，不做回贴";
-
-  useEffect(() => {
-    if (!originalFile) return undefined;
-    const nextUrl = URL.createObjectURL(originalFile);
-    setImageUrl(nextUrl);
-    return () => URL.revokeObjectURL(nextUrl);
-  }, [originalFile]);
-
-  function measureImage() {
-    const image = imageRef.current;
-    if (!image) return;
-    setDisplaySize({
-      width: image.clientWidth || 0,
-      height: image.clientHeight || 0
-    });
-  }
-
-  useEffect(() => {
-    window.addEventListener("resize", measureImage);
-    return () => window.removeEventListener("resize", measureImage);
-  }, []);
-
-  useEffect(() => {
-    setEditMode(isLocalMode && savedEdit?.editMode === LOCAL_EDIT_MASK_MODE ? LOCAL_EDIT_MASK_MODE : LOCAL_EDIT_RECT_MODE);
-    setMaskPainted(Boolean(isLocalMode && savedEdit?.editMode === LOCAL_EDIT_MASK_MODE && savedEdit?.maskDataUrl));
-    setMaskTool("brush");
-    setBrushSize(clampLocalEditBrushSize(savedEdit?.brushSize || LOCAL_EDIT_BRUSH_DEFAULT));
-    setMaskOpacity(clampLocalEditMaskOpacity(savedEdit?.maskOpacity || LOCAL_EDIT_MASK_OPACITY_DEFAULT));
-    setBrushCursor({ x: 0, y: 0, visible: false });
-    maskInitRef.current = "";
-  }, [item?.id, isLocalMode]);
-
-  useEffect(() => {
-    if (!isMaskMode) return undefined;
-    function changeBrushByKeyboard(event) {
-      const target = event.target;
-      const isTyping = target?.tagName === "INPUT"
-        || target?.tagName === "TEXTAREA"
-        || target?.tagName === "SELECT"
-        || target?.isContentEditable;
-      if (isTyping) return;
-      const isDecrease = event.key === "[" || event.code === "BracketLeft";
-      const isIncrease = event.key === "]" || event.code === "BracketRight";
-      if (!isDecrease && !isIncrease) return;
-      event.preventDefault();
-      const step = event.shiftKey ? 12 : 4;
-      setBrushSize((current) => clampLocalEditBrushSize(current + (isIncrease ? step : -step)));
-    }
-    window.addEventListener("keydown", changeBrushByKeyboard);
-    return () => window.removeEventListener("keydown", changeBrushByKeyboard);
-  }, [isMaskMode]);
-
-  useEffect(() => {
-    const canvas = maskCanvasRef.current;
-    if (!canvas || !isLocalMode || !imageSize.width || !imageSize.height) return;
-    const initKey = `${item?.id || "item"}:${imageSize.width}x${imageSize.height}`;
-    if (maskInitRef.current === initKey && canvas.width === imageSize.width && canvas.height === imageSize.height) return;
-    canvas.width = imageSize.width;
-    canvas.height = imageSize.height;
-    const ctx = canvas.getContext("2d");
-    ctx?.clearRect(0, 0, canvas.width, canvas.height);
-    maskInitRef.current = initKey;
-
-    if (savedEdit?.editMode === LOCAL_EDIT_MASK_MODE && savedEdit?.maskDataUrl) {
-      // 卸载/切图后 onload 仍可能触发，对已卸载组件 setState 会报警告并留下悬挂引用。
-      // 这里用 cancelled 标记把迟到的回调直接丢掉（见资源生命周期要求）。
-      let cancelled = false;
-      const maskImage = new Image();
-      maskImage.onload = () => {
-        if (cancelled) return;
-        const nextCtx = canvas.getContext("2d");
-        if (!nextCtx) return;
-        nextCtx.clearRect(0, 0, canvas.width, canvas.height);
-        nextCtx.drawImage(maskImage, 0, 0, canvas.width, canvas.height);
-        normalizeMaskCanvas(canvas);
-        const bounds = maskBoundsFromCanvas(canvas);
-        setMaskPainted(Boolean(bounds));
-        if (bounds) {
-          setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio) || savedEdit.cropRect || null);
-        }
-        setMaskRevision((current) => current + 1);
-      };
-      maskImage.src = savedEdit.maskDataUrl;
-      return () => {
-        cancelled = true;
-        maskImage.onload = null;
-      };
-    }
-    setMaskPainted(false);
-    setMaskRevision((current) => current + 1);
-    return undefined;
-  }, [activeRatio, imageSize.height, imageSize.width, isLocalMode, item?.id, savedEdit?.editMode, savedEdit?.maskDataUrl]);
-
-  useEffect(() => {
-    if (!isMaskMode || !imageSize.width || !imageSize.height) return;
-    const bounds = maskBoundsFromCanvas(maskCanvasRef.current);
-    if (!bounds) return;
-    const nextRect = expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio);
-    if (nextRect) setCropRect(nextRect);
-  }, [activeRatio, imageSize.height, imageSize.width, isMaskMode, maskRevision]);
-
-  function onImageLoad(event) {
-    const width = event.currentTarget.naturalWidth || 1;
-    const height = event.currentTarget.naturalHeight || 1;
-    setImageSize({ width, height });
-    const initial = savedEdit?.cropRect
-      // 局部回贴：旧会话存下来的选框也按当前比例重新整形（中心不动），
-      // 避免"头部显示 2:3、选框却是别的比例"。普通裁剪保持原样。
-      ? (ratioLocked
-        ? fitRectToRatioLocked(savedEdit.cropRect, activeRatio, width, height)
-        : constrainCropRect(savedEdit.cropRect, width, height))
-      : (ratioLocked
-        // 局部回贴打开时，默认选框就是用户当前选定的比例（此前是"按图片自身比例"，
-        // 会出现选了 2:3 却给出一个图片比例选框的情况）。
-        ? fitRectToRatioLocked(null, activeRatio, width, height)
-        // 普通裁剪保持原语义：按图片自身比例取居中的 62% 区域。
-        : defaultQuickLocalEditCrop(width, height, activeRatio));
-    setCropRect(initial);
-    window.requestAnimationFrame(measureImage);
-  }
-
-  function fitRectToRatio(rect, nextRatio) {
-    if (!imageSize.width || !imageSize.height) return rect;
-    // 局部回贴（框选模式）：锁定比例，围绕原选框中心整形，并留在原图范围内。
-    if (ratioLocked) {
-      return fitRectToRatioLocked(rect, nextRatio, imageSize.width, imageSize.height);
-    }
-    // 普通裁剪：保持原有的自由矩形语义（只做边界夹取，不锁比例）。
-    const targetRatio = ratioValue(nextRatio);
-    const centerX = rect ? rect.x + rect.width / 2 : imageSize.width / 2;
-    const centerY = rect ? rect.y + rect.height / 2 : imageSize.height / 2;
-    const baseWidth = rect?.width || imageSize.width * 0.62;
-    const baseHeight = rect?.height || imageSize.height * 0.62;
-    let nextWidth = baseWidth;
-    let nextHeight = nextWidth / targetRatio;
-    if (nextHeight > baseHeight) {
-      nextHeight = baseHeight;
-      nextWidth = nextHeight * targetRatio;
-    }
-    if (nextWidth > imageSize.width) {
-      nextWidth = imageSize.width;
-      nextHeight = nextWidth / targetRatio;
-    }
-    if (nextHeight > imageSize.height) {
-      nextHeight = imageSize.height;
-      nextWidth = nextHeight * targetRatio;
-    }
-    return constrainCropRect({
-      x: centerX - nextWidth / 2,
-      y: centerY - nextHeight / 2,
-      width: nextWidth,
-      height: nextHeight
-    }, imageSize.width, imageSize.height);
-  }
-
-  function chooseLocalRatio(nextRatio) {
-    if (!isLocalMode || !QUICK_LOCAL_EDIT_RATIOS.includes(nextRatio)) return;
-    onRatioChange?.(nextRatio);
-    if (isMaskMode) {
-      const bounds = maskBoundsFromCanvas(maskCanvasRef.current);
-      if (bounds) {
-        setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, nextRatio));
-      }
-      return;
-    }
-    setCropRect((current) => fitRectToRatio(current, nextRatio));
-  }
-
-  function chooseEditMode(nextMode) {
-    if (!isLocalMode || nextMode === editMode) return;
-    setEditMode(nextMode);
-    if (nextMode === LOCAL_EDIT_MASK_MODE) {
-      const bounds = maskBoundsFromCanvas(maskCanvasRef.current);
-      setMaskPainted(Boolean(bounds));
-      if (bounds) {
-        setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio));
-      }
-    } else if (cropRect) {
-      setCropRect((current) => fitRectToRatio(current, activeRatio));
-    }
-  }
-
-  function updateCropRect(nextRect) {
-    setCropRect((current) => {
-      const source = nextRect || current;
-      if (!source || !imageSize.width || !imageSize.height) return current;
-      // 局部回贴：任何写入路径都再吸附一次比例，保证选框"始终"是所选比例
-      // （例如旧会话里存下来的选框比例和当前选择不一致时）。
-      if (ratioLocked) {
-        const size = snapSizeToRatio(source.width, source.height, activeRatio, imageSize.width, imageSize.height);
-        return constrainCropRect({ ...source, ...size }, imageSize.width, imageSize.height);
-      }
-      return constrainCropRect(source, imageSize.width, imageSize.height);
-    });
-  }
-
-  function beginCropDrag(event, mode) {
-    if (!cropRect || !displaySize.width || !imageSize.width) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    const centerResize = event.altKey && event.button === 0;
-    dragRef.current = {
-      mode: centerResize && mode === "move" ? "resize-se" : mode,
-      centerResize,
-      startX: event.clientX,
-      startY: event.clientY,
-      rect: cropRect
-    };
-  }
-
-  // 2026-09-25 对齐要求（本轮）：「局部回贴选框必须跟随用户选定的比例」。
-  //   - 局部回贴 + 框选区域：角柄缩放 / Alt 中心缩放 / 区域大小滑杆全部锁定 activeRatio，
-  //     宽高始终精确满足比例（整数像素），且不越出原图。
-  //   - 普通裁剪：保持上一轮确定的自由矩形语义（拖多大就是多大）。
-  const CROP_MIN_PIXEL_SIZE = 1;
-
-  function resizeCropRectFromCorner(sourceRect, handle, deltaX, deltaY) {
-    if (ratioLocked) {
-      return resizeRectFromCornerLocked(
-        sourceRect, handle, deltaX, deltaY, activeRatio, imageSize.width, imageSize.height
-      );
-    }
-    const directionX = handle.includes("e") ? 1 : -1;
-    const directionY = handle.includes("s") ? 1 : -1;
-    const anchorX = directionX > 0 ? sourceRect.x : sourceRect.x + sourceRect.width;
-    const anchorY = directionY > 0 ? sourceRect.y : sourceRect.y + sourceRect.height;
-    const maxWidth = Math.max(1, directionX > 0 ? imageSize.width - anchorX : anchorX);
-    const maxHeight = Math.max(1, directionY > 0 ? imageSize.height - anchorY : anchorY);
-    const nextWidth = Math.max(CROP_MIN_PIXEL_SIZE, Math.min(maxWidth, sourceRect.width + deltaX * directionX));
-    const nextHeight = Math.max(CROP_MIN_PIXEL_SIZE, Math.min(maxHeight, sourceRect.height + deltaY * directionY));
-    return {
-      x: directionX > 0 ? anchorX : anchorX - nextWidth,
-      y: directionY > 0 ? anchorY : anchorY - nextHeight,
-      width: nextWidth,
-      height: nextHeight
-    };
-  }
-
-  function resizeCropRectFromCenter(sourceRect, handle, deltaX, deltaY) {
-    if (ratioLocked) {
-      return resizeRectFromCenterLocked(
-        sourceRect, handle, deltaX, deltaY, activeRatio, imageSize.width, imageSize.height
-      );
-    }
-    const directionX = handle.includes("e") ? 1 : -1;
-    const directionY = handle.includes("s") ? 1 : -1;
-    const centerX = sourceRect.x + sourceRect.width / 2;
-    const centerY = sourceRect.y + sourceRect.height / 2;
-    const maxWidth = Math.max(1, Math.min(centerX, imageSize.width - centerX) * 2);
-    const maxHeight = Math.max(1, Math.min(centerY, imageSize.height - centerY) * 2);
-    const nextWidth = Math.max(CROP_MIN_PIXEL_SIZE, Math.min(maxWidth, sourceRect.width + deltaX * directionX * 2));
-    const nextHeight = Math.max(CROP_MIN_PIXEL_SIZE, Math.min(maxHeight, sourceRect.height + deltaY * directionY * 2));
-    return {
-      x: centerX - nextWidth / 2,
-      y: centerY - nextHeight / 2,
-      width: nextWidth,
-      height: nextHeight
-    };
-  }
-
-  function moveCropDrag(event) {
-    const drag = dragRef.current;
-    if (!drag || !cropRect || !displaySize.width || !displaySize.height) return;
-    event.preventDefault();
-    const scaleX = imageSize.width / Math.max(1, displaySize.width);
-    const scaleY = imageSize.height / Math.max(1, displaySize.height);
-    const deltaX = (event.clientX - drag.startX) * scaleX;
-    const deltaY = (event.clientY - drag.startY) * scaleY;
-    if (drag.mode === "move") {
-      updateCropRect({
-        ...drag.rect,
-        x: drag.rect.x + deltaX,
-        y: drag.rect.y + deltaY
-      });
-      return;
-    }
-
-    const handle = drag.mode.startsWith("resize-") ? drag.mode.slice("resize-".length) : "se";
-    updateCropRect(drag.centerResize
-      ? resizeCropRectFromCenter(drag.rect, handle, deltaX, deltaY)
-      : resizeCropRectFromCorner(drag.rect, handle, deltaX, deltaY));
-  }
-
-  function endCropDrag(event) {
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    dragRef.current = null;
-  }
-
-  function changeCropScale(event) {
-    if (!cropRect || !imageSize.width || !imageSize.height) return;
-    const percent = Number(event.target.value) / 100;
-    // 局部回贴：按目标宽度等比缩放，宽高比例不变（原来分别按图宽/图高取百分比会把选框压变形）。
-    if (ratioLocked) {
-      updateCropRect(scaleRectLocked(cropRect, imageSize.width * percent, activeRatio, imageSize.width, imageSize.height));
-      return;
-    }
-    // 普通裁剪：保持自由矩形语义，对当前选框按图片宽高的百分比自由缩放。
-    const nextWidth = Math.max(CROP_MIN_PIXEL_SIZE, imageSize.width * percent);
-    const nextHeight = Math.max(CROP_MIN_PIXEL_SIZE, imageSize.height * percent);
-    const centerX = cropRect.x + cropRect.width / 2;
-    const centerY = cropRect.y + cropRect.height / 2;
-    updateCropRect({
-      x: centerX - nextWidth / 2,
-      y: centerY - nextHeight / 2,
-      width: nextWidth,
-      height: nextHeight
-    });
-  }
-
-  function maskPointerPoint(event) {
-    const canvas = maskCanvasRef.current;
-    if (!canvas || !displaySize.width || !displaySize.height || !imageSize.width || !imageSize.height) return null;
-    const box = canvas.getBoundingClientRect();
-    const x = Math.max(0, Math.min(imageSize.width, ((event.clientX - box.left) / Math.max(1, box.width)) * imageSize.width));
-    const y = Math.max(0, Math.min(imageSize.height, ((event.clientY - box.top) / Math.max(1, box.height)) * imageSize.height));
-    return { x, y };
-  }
-
-  function maskPointerDisplayPoint(event) {
-    const canvas = maskCanvasRef.current;
-    if (!canvas) return null;
-    const box = canvas.getBoundingClientRect();
-    return {
-      x: Math.max(0, Math.min(box.width, event.clientX - box.left)),
-      y: Math.max(0, Math.min(box.height, event.clientY - box.top))
-    };
-  }
-
-  function updateBrushCursor(event, visible = true) {
-    const point = maskPointerDisplayPoint(event);
-    if (!point) return;
-    setBrushCursor({ ...point, visible });
-  }
-
-  function sourceBrushSize() {
-    if (!displaySize.width || !displaySize.height) return brushSize;
-    const scaleX = imageSize.width / Math.max(1, displaySize.width);
-    const scaleY = imageSize.height / Math.max(1, displaySize.height);
-    return Math.max(4, brushSize * Math.max(scaleX, scaleY));
-  }
-
-  function paintMask(event, fresh = false) {
-    const canvas = maskCanvasRef.current;
-    const point = maskPointerPoint(event);
-    if (!canvas || !point) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const size = sourceBrushSize();
-    const previous = fresh ? null : paintRef.current?.last || null;
-    ctx.save();
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = size;
-    ctx.globalCompositeOperation = maskTool === "eraser" ? "destination-out" : "source-over";
-    ctx.strokeStyle = LOCAL_EDIT_MASK_COLOR;
-    ctx.fillStyle = LOCAL_EDIT_MASK_COLOR;
-    ctx.beginPath();
-    if (previous) {
-      ctx.moveTo(previous.x, previous.y);
-      ctx.lineTo(point.x, point.y);
-      ctx.stroke();
-    } else {
-      ctx.arc(point.x, point.y, size / 2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
-    paintRef.current = { painting: true, last: point };
-  }
-
-  function refreshMaskState() {
-    const canvas = maskCanvasRef.current;
-    const bounds = maskBoundsFromCanvas(canvas);
-    setMaskPainted(Boolean(bounds));
-    if (bounds) {
-      setCropRect(expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio));
-    }
-    setMaskRevision((current) => current + 1);
-  }
-
-  function beginMaskPaint(event) {
-    if (!isMaskMode || working) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    updateBrushCursor(event);
-    if (event.button === 2) {
-      brushResizeRef.current = {
-        startX: event.clientX,
-        startSize: brushSize
-      };
-      return;
-    }
-    paintMask(event, true);
-  }
-
-  function moveMaskPaint(event) {
-    if (!isMaskMode) return;
-    updateBrushCursor(event);
-    if (brushResizeRef.current) {
-      event.preventDefault();
-      const delta = event.clientX - brushResizeRef.current.startX;
-      setBrushSize(clampLocalEditBrushSize(brushResizeRef.current.startSize + delta * 0.5));
-      return;
-    }
-    if (!paintRef.current?.painting) return;
-    event.preventDefault();
-    paintMask(event);
-  }
-
-  function endMaskPaint(event) {
-    event.preventDefault();
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    if (brushResizeRef.current) {
-      brushResizeRef.current = null;
-      return;
-    }
-    if (!paintRef.current?.painting) return;
-    paintRef.current = null;
-    refreshMaskState();
-  }
-
-  function leaveMaskPaint() {
-    setBrushCursor((current) => ({ ...current, visible: false }));
-  }
-
-  function clearMask() {
-    const canvas = maskCanvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    setMaskPainted(false);
-    setMaskRevision((current) => current + 1);
-  }
-
-  async function applyLocalEdit() {
-    if (!cropRect || working) return;
-    if (isMaskMode && !maskCanvasHasPaint(maskCanvasRef.current)) return;
-    setWorking(true);
-    try {
-      if (isMaskMode) {
-        const canvas = maskCanvasRef.current;
-        const bounds = maskBoundsFromCanvas(canvas);
-        const maskCropRect = expandMaskBoundsToCropRect(bounds, imageSize.width, imageSize.height, activeRatio) || cropRect;
-        const cropped = await cropQuickLocalEditFile(item, maskCropRect, "mask_edit");
-        onApply(item.id, {
-          ...cropped,
-          cropRect: maskCropRect,
-          aspectRatio: activeRatio,
-          editMode: LOCAL_EDIT_MASK_MODE,
-          maskDataUrl: canvasToPngDataUrl(canvas),
-          maskBounds: bounds,
-          brushSize,
-          maskOpacity
-        });
-      } else {
-        // 普通裁剪与局部回贴走**同一套**几何：输出尺寸恒等于选框在原图上的像素尺寸。
-        const cropped = await cropQuickLocalEditFile(item, cropRect, isLocalMode ? "local_edit" : "crop");
-        onApply(item.id, { ...cropped, aspectRatio: activeRatio, editMode: LOCAL_EDIT_RECT_MODE });
-      }
-    } finally {
-      setWorking(false);
-    }
-  }
-
-  const scale = imageSize.width && displaySize.width ? displaySize.width / imageSize.width : 1;
-  const cropStyle = cropRect ? {
-    left: `${cropRect.x * scale}px`,
-    top: `${cropRect.y * scale}px`,
-    width: `${cropRect.width * scale}px`,
-    height: `${cropRect.height * scale}px`
-  } : {};
-  const cropPercent = cropRect && imageSize.width ? Math.round((cropRect.width / imageSize.width) * 100) : 62;
-  const maskCanvasStyle = displaySize.width && displaySize.height ? {
-    width: `${displaySize.width}px`,
-    height: `${displaySize.height}px`,
-    opacity: isMaskMode ? maskOpacity / 100 : 0
-  } : {};
-  const brushCursorStyle = {
-    left: `${brushCursor.x}px`,
-    top: `${brushCursor.y}px`,
-    width: `${brushSize}px`,
-    height: `${brushSize}px`
-  };
-  const applyDisabled = working || !cropRect || (isMaskMode && !maskPainted);
-  // 尺寸口径（与批量侧同一套）：底图 = 我放进图1的那张文件；局部回贴输出与它同尺寸。
-  const baseSizeText = formatPixelSize(imageSize.width, imageSize.height)
-    || formatPixelSize(savedEdit?.sourceWidth, savedEdit?.sourceHeight);
-  // 选框是在另一张不同尺寸的图上框的 → 坐标会错位，必须提醒重新框选。
-  const staleRect = Boolean(
-    isLocalMode
-    && savedEdit?.sourceWidth
-    && imageSize.width
-    && (Math.round(savedEdit.sourceWidth) !== Math.round(imageSize.width)
-      || Math.round(savedEdit.sourceHeight || 0) !== Math.round(imageSize.height))
-  );
-
-  return (
-    <Modal
-      layerClassName="modalLayer previewLayer"
-      panelClassName="quickLocalEditModal"
-      onClose={onClose}
-    >
-      <ModalHeader
-        title={modalTitle}
-        subtitle={<>{originalFile?.name || "上传图片"} · {isLocalMode && baseSizeText ? `底图 ${baseSizeText} · ` : ""}{modalDescription} · {activeRatio}</>}
-        onClose={onClose}
-        closeLabel="关闭"
-      />
-      {staleRect && (
-        <p className="quickLocalEditWarning" role="alert">
-          已保存的选框是在 {formatPixelSize(savedEdit?.sourceWidth, savedEdit?.sourceHeight)} 的图上框的，
-          当前底图是 {baseSizeText}：坐标对不上，请重新框选后再应用（否则会贴偏移）。
-        </p>
-      )}
-        <div className="quickLocalEditStage">
-          <div className="quickLocalEditImageWrap">
-            {imageUrl && (
-              <img
-                ref={imageRef}
-                src={imageUrl}
-                alt=""
-                draggable={false}
-                onLoad={onImageLoad}
-              />
-            )}
-            {isLocalMode && (
-              <canvas
-                ref={maskCanvasRef}
-                className={`quickLocalMaskCanvas ${isMaskMode ? "active" : ""}`}
-                style={maskCanvasStyle}
-                onPointerDown={beginMaskPaint}
-                onPointerMove={moveMaskPaint}
-                onPointerUp={endMaskPaint}
-                onPointerCancel={endMaskPaint}
-                onPointerEnter={(event) => updateBrushCursor(event)}
-                onPointerLeave={leaveMaskPaint}
-                onContextMenu={(event) => event.preventDefault()}
-              />
-            )}
-            {isMaskMode && brushCursor.visible && (
-              <div
-                className={`quickLocalBrushCursor ${maskTool === "eraser" ? "erase" : "paint"}`}
-                style={brushCursorStyle}
-              />
-            )}
-            {cropRect && displaySize.width > 0 && !isMaskMode && (
-              <div
-                className="quickLocalCropBox"
-                style={cropStyle}
-                onPointerDown={(event) => beginCropDrag(event, "move")}
-                onPointerMove={moveCropDrag}
-                onPointerUp={endCropDrag}
-                onPointerCancel={endCropDrag}
-              >
-                <span />
-                {["nw", "ne", "sw", "se"].map((handle) => (
-                  <i
-                    className={`quickLocalCropHandle quickLocalCropHandle-${handle}`}
-                    key={handle}
-                    onPointerDown={(event) => beginCropDrag(event, `resize-${handle}`)}
-                    onPointerMove={moveCropDrag}
-                    onPointerUp={endCropDrag}
-                    onPointerCancel={endCropDrag}
-                  />
-                ))}
-              </div>
-            )}
-            {cropRect && displaySize.width > 0 && isMaskMode && maskPainted && (
-              <div className="quickLocalMaskContextBox" style={cropStyle}>
-                <span>AI上下文</span>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="quickLocalEditControls">
-          {isLocalMode && (
-            <div className="quickLocalModeGroup" role="group" aria-label="局部编辑模式">
-              <button
-                className={editMode === LOCAL_EDIT_RECT_MODE ? "active" : ""}
-                type="button"
-                onClick={() => chooseEditMode(LOCAL_EDIT_RECT_MODE)}
-              >
-                <Crop size={14} />
-                <span>框选区域</span>
-              </button>
-              <button
-                className={editMode === LOCAL_EDIT_MASK_MODE ? "active" : ""}
-                type="button"
-                onClick={() => chooseEditMode(LOCAL_EDIT_MASK_MODE)}
-              >
-                <Brush size={14} />
-                <span>涂抹蒙版</span>
-              </button>
-            </div>
-          )}
-          {isLocalMode && (
-            <div className="quickLocalRatioGroup" role="group" aria-label="局部区域比例">
-              {QUICK_LOCAL_EDIT_RATIOS.map((itemRatio) => (
-                <button
-                  key={itemRatio}
-                  className={activeRatio === itemRatio ? "active" : ""}
-                  type="button"
-                  onClick={() => chooseLocalRatio(itemRatio)}
-                >
-                  {itemRatio}
-                </button>
-              ))}
-            </div>
-          )}
-          {isMaskMode ? (
-            <div className="quickLocalBrushTools">
-              <button
-                className={maskTool === "brush" ? "active" : ""}
-                type="button"
-                onClick={() => setMaskTool("brush")}
-                title="白笔添加"
-              >
-                <span className="quickLocalBrushSwatch white" />
-                <span>白笔</span>
-              </button>
-              <button
-                className={maskTool === "eraser" ? "active" : ""}
-                type="button"
-                onClick={() => setMaskTool("eraser")}
-                title="黑笔擦除"
-              >
-                <span className="quickLocalBrushSwatch black" />
-                <span>黑笔</span>
-              </button>
-              <label>
-                <span>笔刷 {brushSize}</span>
-                <input
-                  type="range"
-                  min="8"
-                  max="160"
-                  value={brushSize}
-                  onChange={(event) => setBrushSize(clampLocalEditBrushSize(event.target.value))}
-                />
-              </label>
-              <label>
-                <span>透明度 {maskOpacity}%</span>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  value={maskOpacity}
-                  onChange={(event) => setMaskOpacity(clampLocalEditMaskOpacity(event.target.value))}
-                />
-              </label>
-              <button type="button" onClick={clearMask} disabled={!maskPainted}>清空</button>
-            </div>
-          ) : (
-            <label>
-              <span>区域大小</span>
-              <input
-                type="range"
-                min="12"
-                max="100"
-                value={Math.max(12, Math.min(100, cropPercent))}
-                onChange={changeCropScale}
-              />
-            </label>
-          )}
-          {cropRect && (
-            <small>{isMaskMode ? "上下文 " : ""}{Math.round(cropRect.width)} × {Math.round(cropRect.height)} px</small>
-          )}
-        </div>
-        <footer>
-          <span>{isMaskMode ? "涂抹需要 AI 修改的区域，生成后只把涂抹到的像素贴回原图。" : isLocalMode ? "拖动选区调整位置，生成后会按原图坐标原样贴回选框区域，选框外不动。" : "拖动选区调整位置，裁剪后的参考图会参与生成，但结果不贴回原图。"}</span>
-          <div>
-            {savedEdit && (
-              <button className="smallButton" type="button" onClick={isMaskMode ? clearMask : () => onClear(item.id)}>
-                {isMaskMode ? <Brush size={15} /> : <RotateCcw size={15} />}
-                <span>{isMaskMode ? "清除涂抹" : isLocalMode ? "取消局部回贴" : "取消裁剪"}</span>
-              </button>
-            )}
-            <button className="smallButton" type="button" onClick={onClose}>取消</button>
-            <button className="generateButton quickLocalApplyButton" type="button" onClick={applyLocalEdit} disabled={applyDisabled}>
-              {working ? <Loader2 size={16} className="spin" /> : isMaskMode ? <Brush size={16} /> : isLocalMode ? <Scissors size={16} /> : <Crop size={16} />}
-              <span>{isMaskMode ? "应用蒙版回贴" : isLocalMode ? "应用局部回贴" : "应用裁剪"}</span>
-            </button>
-          </div>
-        </footer>
-    </Modal>
-  );
-}
 
 function App() {
   const [config, setConfig] = useState({ hasServerKey: false, models: DEFAULT_MODELS, defaultBaseUrl: defaultState.baseUrl });
@@ -2913,6 +762,10 @@ function App() {
   const [promptCategory, setPromptCategory] = useState("全部");
   const [promptSearch, setPromptSearch] = useState("");
   const [referenceDropTarget, setReferenceDropTarget] = useState(null);
+  // 2026-10-06：快捷生成的参考图「左右调顺序」（批量侧早就有，快捷侧补齐）。
+  // 走 pointer 事件而不是 HTML5 drag —— 后者会和已有的「外部图片拖进来=替换」抢 dragover。
+  const [referenceSortTarget, setReferenceSortTarget] = useState(null);
+  const [draggingReferenceId, setDraggingReferenceId] = useState("");
   const [quickResultReplaceTargetId, setQuickResultReplaceTargetId] = useState("");
   const [quickCropEditTarget, setQuickCropEditTarget] = useState(null);
   const [quickLocalEditTarget, setQuickLocalEditTarget] = useState(null);
@@ -2921,7 +774,7 @@ function App() {
   const [draggedPromptCategory, setDraggedPromptCategory] = useState("");
   const [promptCategoryDropTarget, setPromptCategoryDropTarget] = useState(null);
   const [isComposerDragging, setIsComposerDragging] = useState(false);
-  const [nowTick, setNowTick] = useState(Date.now());
+  // V46.1: 移除非必要全局 tick（任务计时下沉到 <ElapsedTimer>）
   const [previewResult, setPreviewResult] = useState(null);
   const [uploadPreview, setUploadPreview] = useState(null);
   const [referencePreview, setReferencePreview] = useState(null);
@@ -2932,6 +785,9 @@ function App() {
   const [stitchContextMenu, setStitchContextMenu] = useState(null);
   const [imageEditorSeed, setImageEditorSeed] = useState(null);
   const inputRef = useRef(null);
+  const referencePointerSortRef = useRef(null);
+  // 排序松手后会紧接着触发一次 click ⇒ 会误开预览。沿用批量侧的 150ms 抑制窗口。
+  const suppressReferencePreviewRef = useRef(false);
   const videoReferenceInputRef = useRef(null);
   const detailProductInputRef = useRef(null);
   const detailReferenceInputRef = useRef(null);
@@ -3301,12 +1157,7 @@ function App() {
     if (videoReferencePreview?.url) URL.revokeObjectURL(videoReferencePreview.url);
   }, [videoReferencePreview]);
 
-  useEffect(() => {
-    if (quickTasks.length === 0 && referenceTasks.length === 0 && canvasTasks.length === 0) return undefined;
-    setNowTick(Date.now());
-    const timer = window.setInterval(() => setNowTick(Date.now()), 500);
-    return () => window.clearInterval(timer);
-  }, [quickTasks.length, referenceTasks.length, canvasTasks.length]);
+  // V46.1: 任务计时已下沉到 <ElapsedTimer>，此处不再需要全局 500ms 刷新
 
   useEffect(() => {
     if (activeView !== "quickgen" || quickGalleryItems.length === 0) return undefined;
@@ -3472,6 +1323,13 @@ function App() {
       const form = new FormData();
       form.set("payload", JSON.stringify({
         ...referenceSettings,
+        policies: renderReferencePolicy({
+          strength: referenceSettings.strength,
+          element: referenceSettings.element,
+          composition: referenceSettings.composition,
+          scene: referenceSettings.scene,
+          styleCount: referenceStyleFiles.length
+        }),
         apiKey,
         baseUrl: config.defaultBaseUrl || settings.baseUrl || defaultState.baseUrl,
         detailAnalysisModel: DETAIL_ANALYSIS_MODEL,
@@ -3491,7 +1349,7 @@ function App() {
           setIsSettingsOpen(true);
           throw new Error(message);
         }
-        const fallbackPrompt = payload?.fallbackPrompt || buildSmartReferencePrompt(referenceSettings);
+        const fallbackPrompt = payload?.fallbackPrompt || buildSmartReferencePrompt(referenceSettings, referenceStyleFiles.length);
         setReferenceSettings((current) => ({ ...current, prompt: fallbackPrompt }));
         addEvent("参考生图", "文本模型扩写失败，已使用保守 Skill 兜底");
         throw new Error(message);
@@ -3511,344 +1369,69 @@ function App() {
     }
   }
 
-  function patchActiveCanvas(updater) {
-    setInfiniteCanvasState((current) => {
-      const activeId = current.activeId || current.canvases[0]?.id;
-      return {
-        ...current,
-        activeId,
-        canvases: current.canvases.map((canvas) => {
-          if (canvas.id !== activeId) return canvas;
-          const patch = typeof updater === "function" ? updater(canvas) : updater;
-          return { ...canvas, ...patch, updatedAt: Date.now() };
-        })
-      };
-    });
-  }
+  const {
+    patchActiveCanvas, patchCanvasById, updateCanvasNode, updateCanvasNodeByCanvasId,
+    createCanvas, renameCanvas, deleteCanvas, clearCanvas, selectCanvas,
+    addCanvasNode, deleteCanvasNode
+  } = createCanvasActions({
+    setInfiniteCanvasState,
+    activeCanvas,
+    addEvent,
+    setCanvasSelectedNodeId,
+    setCanvasViewport,
+    setCanvasConnectStart,
+    createInfiniteCanvas,
+    createCanvasNode,
+    canvasCenterPoint
+  });
 
-  function patchCanvasById(canvasId, updater) {
-    setInfiniteCanvasState((current) => ({
-      ...current,
-      canvases: current.canvases.map((canvas) => {
-        if (canvas.id !== canvasId) return canvas;
-        const patch = typeof updater === "function" ? updater(canvas) : updater;
-        return { ...canvas, ...patch, updatedAt: Date.now() };
-      })
-    }));
-  }
 
-  function updateCanvasNode(nodeId, updater) {
-    patchActiveCanvas((canvas) => ({
-      nodes: canvas.nodes.map((node) => {
-        if (node.id !== nodeId) return node;
-        const patch = typeof updater === "function" ? updater(node) : updater;
-        return { ...node, ...patch, updatedAt: Date.now() };
-      })
-    }));
-  }
 
-  function updateCanvasNodeByCanvasId(canvasId, nodeId, updater) {
-    patchCanvasById(canvasId, (canvas) => ({
-      nodes: canvas.nodes.map((node) => {
-        if (node.id !== nodeId) return node;
-        const patch = typeof updater === "function" ? updater(node) : updater;
-        return { ...node, ...patch, updatedAt: Date.now() };
-      })
-    }));
-  }
 
-  function createCanvas() {
-    const canvas = createInfiniteCanvas();
-    setInfiniteCanvasState((current) => ({
-      activeId: canvas.id,
-      canvases: [canvas, ...current.canvases]
-    }));
-    setCanvasSelectedNodeId("");
-    setCanvasViewport({ x: 34, y: 18, scale: 1 });
-    addEvent("无限画布", "已新建画布");
-  }
 
-  function renameCanvas() {
-    if (!activeCanvas) return;
-    const name = window.prompt("请输入画布名称", activeCanvas.name);
-    if (!name?.trim()) return;
-    patchActiveCanvas({ name: name.trim() });
-    addEvent("无限画布", "画布已重命名");
-  }
 
-  function deleteCanvas() {
-    if (!activeCanvas) return;
-    const confirmed = window.confirm(`确定删除「${activeCanvas.name}」吗？画布内节点会被清理，不影响其它栏目。`);
-    if (!confirmed) return;
-    setInfiniteCanvasState((current) => {
-      if (current.canvases.length <= 1) {
-        const replacement = createInfiniteCanvas("默认画布");
-        return { activeId: replacement.id, canvases: [replacement] };
-      }
-      const nextCanvases = current.canvases.filter((canvas) => canvas.id !== activeCanvas.id);
-      return { activeId: nextCanvases[0].id, canvases: nextCanvases };
-    });
-    setCanvasSelectedNodeId("");
-    addEvent("无限画布", "画布已删除");
-  }
 
-  function clearCanvas() {
-    if (!activeCanvas) return;
-    const confirmed = window.confirm("确定清空当前画布吗？只会清理无限画布，不影响其它栏目。");
-    if (!confirmed) return;
-    const reset = createInfiniteCanvas(activeCanvas.name);
-    patchActiveCanvas({
-      nodes: reset.nodes,
-      connections: reset.connections
-    });
-    setCanvasSelectedNodeId("");
-    addEvent("无限画布", "当前画布已清空");
-  }
 
-  function selectCanvas(canvasId) {
-    setInfiniteCanvasState((current) => ({
-      ...current,
-      activeId: canvasId
-    }));
-    setCanvasSelectedNodeId("");
-    setCanvasConnectStart(null);
-  }
+
 
   function screenToCanvasPoint(clientX, clientY) {
-    const rect = canvasStageRef.current?.getBoundingClientRect();
-    if (!rect) return { x: 120, y: 120 };
-    return {
-      x: (clientX - rect.left - canvasViewport.x) / canvasViewport.scale,
-      y: (clientY - rect.top - canvasViewport.y) / canvasViewport.scale
-    };
+    return screenPointToCanvas(canvasStageRef.current?.getBoundingClientRect(), canvasViewport, clientX, clientY);
   }
 
   function canvasCenterPoint(offsetX = 0, offsetY = 0) {
-    const rect = canvasStageRef.current?.getBoundingClientRect();
-    if (!rect) return { x: 120 + offsetX, y: 120 + offsetY };
-    return {
-      x: (rect.width / 2 - canvasViewport.x) / canvasViewport.scale + offsetX,
-      y: (rect.height / 2 - canvasViewport.y) / canvasViewport.scale + offsetY
-    };
+    return canvasCenterFromRect(canvasStageRef.current?.getBoundingClientRect(), canvasViewport, offsetX, offsetY);
   }
 
-  function addCanvasNode(type, patch = {}) {
-    const point = patch.x == null || patch.y == null ? canvasCenterPoint() : { x: patch.x, y: patch.y };
-    const node = createCanvasNode(type, { ...patch, x: point.x, y: point.y });
-    patchActiveCanvas((canvas) => ({
-      nodes: [...canvas.nodes, node]
-    }));
-    setCanvasSelectedNodeId(node.id);
-    return node;
-  }
 
-  function deleteCanvasNode(nodeId) {
-    patchActiveCanvas((canvas) => ({
-      nodes: canvas.nodes.filter((node) => node.id !== nodeId),
-      connections: canvas.connections.filter((connection) => connection.fromNodeId !== nodeId && connection.toNodeId !== nodeId)
-    }));
-    setCanvasSelectedNodeId((current) => current === nodeId ? "" : current);
-    setCanvasConnectStart((current) => current?.nodeId === nodeId ? null : current);
-  }
 
-  function fitCanvasView() {
-    if (!activeCanvas || activeCanvas.nodes.length === 0) {
-      setCanvasViewport({ x: 34, y: 18, scale: 1 });
-      return;
-    }
-    const rect = canvasStageRef.current?.getBoundingClientRect();
-    const minX = Math.min(...activeCanvas.nodes.map((node) => node.x));
-    const minY = Math.min(...activeCanvas.nodes.map((node) => node.y));
-    const maxX = Math.max(...activeCanvas.nodes.map((node) => node.x + node.w));
-    const maxY = Math.max(...activeCanvas.nodes.map((node) => node.y + node.h));
-    if (!rect) {
-      setCanvasViewport({ x: 34 - minX, y: 18 - minY, scale: 1 });
-      return;
-    }
-    const scale = Math.max(0.35, Math.min(1.2, Math.min((rect.width - 100) / Math.max(1, maxX - minX), (rect.height - 100) / Math.max(1, maxY - minY))));
-    setCanvasViewport({
-      x: rect.width / 2 - ((minX + maxX) / 2) * scale,
-      y: rect.height / 2 - ((minY + maxY) / 2) * scale,
-      scale: Number(scale.toFixed(2))
-    });
-  }
+  const {
+    fitCanvasView, handleCanvasWheel, beginCanvasPan, beginCanvasNodeDrag,
+    moveCanvasDrag, endCanvasDrag, beginCanvasConnection,
+    completeCanvasConnection, removeCanvasConnection
+  } = createCanvasInteractions({
+    activeCanvas,
+    canvasStageRef,
+    canvasViewport,
+    setCanvasViewport,
+    canvasDrag,
+    setCanvasDrag,
+    canvasConnectStart,
+    setCanvasConnectStart,
+    setCanvasSelectedNodeId,
+    patchActiveCanvas,
+    updateCanvasNode,
+    addEvent,
+    makeResultId,
+  });
 
-  function handleCanvasWheel(event) {
-    event.preventDefault();
-    const rect = canvasStageRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const nextScale = Math.max(0.25, Math.min(2.4, Number((canvasViewport.scale * (event.deltaY < 0 ? 1.08 : 0.92)).toFixed(3))));
-    const worldX = (event.clientX - rect.left - canvasViewport.x) / canvasViewport.scale;
-    const worldY = (event.clientY - rect.top - canvasViewport.y) / canvasViewport.scale;
-    setCanvasViewport({
-      x: event.clientX - rect.left - worldX * nextScale,
-      y: event.clientY - rect.top - worldY * nextScale,
-      scale: nextScale
-    });
-  }
 
-  function beginCanvasPan(event) {
-    if (event.button !== 0) return;
-    if (event.target.closest(".infiniteNode") || event.target.closest("button,input,select,textarea")) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    setCanvasDrag({
-      type: "pan",
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      startViewport: canvasViewport
-    });
-  }
 
-  function beginCanvasNodeDrag(event, nodeId) {
-    if (event.button !== 0) return;
-    if (event.target.closest("button,input,select,textarea")) return;
-    const node = activeCanvas?.nodes.find((item) => item.id === nodeId);
-    if (!node) return;
-    event.preventDefault();
-    event.stopPropagation();
-    canvasStageRef.current?.setPointerCapture?.(event.pointerId);
-    setCanvasSelectedNodeId(nodeId);
-    setCanvasDrag({
-      type: "node",
-      nodeId,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      startNode: { x: node.x, y: node.y }
-    });
-  }
 
-  function moveCanvasDrag(event) {
-    if (!canvasDrag) return;
-    if (canvasDrag.type === "pan") {
-      setCanvasViewport({
-        ...canvasDrag.startViewport,
-        x: canvasDrag.startViewport.x + event.clientX - canvasDrag.startX,
-        y: canvasDrag.startViewport.y + event.clientY - canvasDrag.startY
-      });
-      return;
-    }
-    if (canvasDrag.type === "node") {
-      const deltaX = (event.clientX - canvasDrag.startX) / canvasViewport.scale;
-      const deltaY = (event.clientY - canvasDrag.startY) / canvasViewport.scale;
-      updateCanvasNode(canvasDrag.nodeId, {
-        x: Math.round(canvasDrag.startNode.x + deltaX),
-        y: Math.round(canvasDrag.startNode.y + deltaY)
-      });
-    }
-  }
 
-  function endCanvasDrag(event) {
-    if (!canvasDrag) return;
-    event.currentTarget.releasePointerCapture?.(canvasDrag.pointerId);
-    setCanvasDrag(null);
-  }
 
-  function beginCanvasConnection(nodeId) {
-    setCanvasConnectStart((current) => current?.nodeId === nodeId ? null : { nodeId });
-  }
 
-  function completeCanvasConnection(targetNodeId) {
-    if (!canvasConnectStart || canvasConnectStart.nodeId === targetNodeId) return;
-    patchActiveCanvas((canvas) => {
-      const exists = canvas.connections.some((connection) => (
-        connection.fromNodeId === canvasConnectStart.nodeId && connection.toNodeId === targetNodeId
-      ));
-      if (exists) return {};
-      return {
-        connections: [
-          ...canvas.connections,
-          { id: makeResultId(), fromNodeId: canvasConnectStart.nodeId, toNodeId: targetNodeId }
-        ]
-      };
-    });
-    setCanvasConnectStart(null);
-    addEvent("无限画布", "节点已连接");
-  }
 
-  function removeCanvasConnection(connectionId) {
-    patchActiveCanvas((canvas) => ({
-      connections: canvas.connections.filter((connection) => connection.id !== connectionId)
-    }));
-  }
 
-  function incomingCanvasNodes(canvas, nodeId) {
-    if (!canvas) return [];
-    return canvas.connections
-      .filter((connection) => connection.toNodeId === nodeId)
-      .map((connection) => canvas.nodes.find((node) => node.id === connection.fromNodeId))
-      .filter(Boolean);
-  }
-
-  function canvasResultItemsFromNode(node) {
-    if (!node) return [];
-    if (node.type === "image" && node.result) return [node.result];
-    if (node.type === "output" && Array.isArray(node.results)) return node.results;
-    return [];
-  }
-
-  function canvasPromptForGenerator(canvas, node) {
-    const incoming = incomingCanvasNodes(canvas, node.id);
-    const promptParts = incoming.flatMap((sourceNode) => {
-      if (sourceNode.type === "prompt") return [sourceNode.text || ""];
-      if (sourceNode.type === "image") return [sourceNode.prompt || sourceNode.result?.prompt || ""];
-      if (sourceNode.type === "output") return [sourceNode.prompt || ""];
-      return [];
-    });
-    promptParts.push(node.prompt || "");
-    return promptParts.map((part) => part.trim()).filter(Boolean).join("\n\n");
-  }
-
-  function canvasImagesForGenerator(canvas, node) {
-    return incomingCanvasNodes(canvas, node.id).flatMap(canvasResultItemsFromNode);
-  }
-
-  function canvasImageEntriesForGenerator(canvas, node) {
-    return incomingCanvasNodes(canvas, node.id).flatMap((sourceNode) => (
-      canvasResultItemsFromNode(sourceNode).map((result, index) => ({
-        result,
-        sourceNode,
-        role: sourceNode.role || (sourceNode.type === "output" ? "reference" : "auto"),
-        label: sourceNode.title || `图片 ${index + 1}`
-      }))
-    ));
-  }
-
-  function splitCanvasBatchEntries(entries) {
-    const explicitModels = entries.filter((entry) => entry.role === "model");
-    if (explicitModels.length > 0) {
-      return {
-        modelEntries: explicitModels,
-        fixedEntries: entries.filter((entry) => entry.role !== "model")
-      };
-    }
-
-    const fixedEntries = entries.filter((entry) => entry.role === "fixed" || entry.role === "reference");
-    const autoEntries = entries.filter((entry) => entry.role === "auto");
-    if (fixedEntries.length > 0) {
-      return { modelEntries: autoEntries, fixedEntries };
-    }
-    if (autoEntries.length > 1) {
-      return {
-        modelEntries: autoEntries.slice(0, -1),
-        fixedEntries: autoEntries.slice(-1)
-      };
-    }
-    return { modelEntries: autoEntries, fixedEntries };
-  }
-
-  function buildCanvasBatchPrompt(basePrompt, modelIndex, modelTotal, fixedCount) {
-    return [
-      `批量换装任务 ${modelIndex + 1}/${modelTotal}：图1是当前模特图，只处理当前这一位模特。`,
-      fixedCount > 0
-        ? "图2开始是固定服装/产品参考图，必须让图1人物穿着固定服装图里的衣服，服装款式、版型、颜色、面料纹理、袖口、纽扣、拼接结构等关键细节保持一致。"
-        : "没有标记固定服装图时，请按提示词完成当前模特的单独出图。",
-      "保持当前模特的脸部身份、体型比例和自然姿态，不要融合其它模特，不要把多位模特放进同一张图。",
-      basePrompt
-    ].filter(Boolean).join("\n");
-  }
 
   async function canvasFileFromResult(item, index) {
     const blob = await blobFromImageItem(item);
@@ -4123,138 +1706,51 @@ function App() {
   }
 
   function addDetailFiles(role, fileList) {
-    const picked = imageFilesFromList(fileList);
-    if (picked.length === 0) return;
-    const used = role === "product" ? detailProductFiles.length : detailReferenceFiles.length;
-    const remaining = MAX_DETAIL_FILES - used;
-    if (remaining <= 0) {
-      addEvent("一键详情", `${role === "product" ? "产品图" : "参考图"}最多 ${MAX_DETAIL_FILES} 张`);
-      return;
-    }
-    const accepted = picked.slice(0, remaining);
-    if (role === "product") {
-      setDetailProductFiles((current) => [...current, ...accepted]);
-    } else {
-      setDetailReferenceFiles((current) => [...current, ...accepted]);
-    }
-    addEvent("一键详情", `已添加 ${accepted.length} 张${role === "product" ? "产品图" : "参考图"}`);
+    addFilesByRole(role, fileList, role === "product" ? detailProductFiles.length : detailReferenceFiles.length,
+      MAX_DETAIL_FILES, `${role === "product" ? "产品图" : "参考图"}最多 ${MAX_DETAIL_FILES} 张`,
+      "一键详情", addEvent, setDetailProductFiles, setDetailReferenceFiles);
   }
 
   function removeDetailFile(role, index) {
-    if (role === "product") {
-      setDetailProductFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    } else {
-      setDetailReferenceFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    }
+    removeFilesByRole(role, index, setDetailProductFiles, setDetailReferenceFiles);
   }
 
-  function addReferenceRewriteFiles(role, fileList) {
-    const picked = imageFilesFromList(fileList);
-    if (picked.length === 0) return;
-    const used = referenceProductFiles.length + referenceStyleFiles.length;
-    const remaining = MAX_REFERENCE_REWRITE_FILES - used;
-    if (remaining <= 0) {
-      addEvent("参考生图", `产品图和参考图合计最多 ${MAX_REFERENCE_REWRITE_FILES} 张`);
-      return;
-    }
-    const accepted = picked.slice(0, remaining);
-    if (role === "product") {
-      setReferenceProductFiles((current) => [...current, ...accepted]);
-    } else {
-      setReferenceStyleFiles((current) => [...current, ...accepted]);
-    }
-    addEvent("参考生图", `已添加 ${accepted.length} 张${role === "product" ? "产品图" : "参考图"}`);
-  }
+  // 实现在 src/shared/dom-actions.js（两侧同一份，20 行逐字节一致）。
+  // 这里只保留闭包绑定壳：捕获本组件的 addEvent，14 处调用点因此无需改动。
+  const copyText = (text, successMessage = "已复制") =>
+    copyTextToClipboard(text, { successMessage, notify: addEvent });
 
-  function removeReferenceRewriteFile(role, index) {
-    if (role === "product") {
-      setReferenceProductFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    } else {
-      setReferenceStyleFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    }
-  }
+  const resultDownloadDeps = { quickResults, selectedIds, addEvent, quickResultDragIdRef, QUICK_RESULT_DRAG_TYPE, copyText, saveDirectory, refreshSaveDirectory, setSaveDirectory, setDirectoryDraft, setDownloadFeedbackIds, downloadFeedbackTimersRef };
+  const { blobFromImageItem, beginResultImageDrag, beginReferenceImageDrag, copyImage, downloadItem, autoSaveGeneratedItems, downloadSelected, downloadAll } = createResultDownload(resultDownloadDeps);
 
-  function appendReferenceFiles(fileList, options = {}) {
-    const picked = imageFilesFromList(fileList);
-    if (picked.length === 0) return;
-    setFiles((current) => {
-      const remaining = quickMaxReferenceFiles - current.length;
-      if (remaining <= 0) {
-        addEvent("提示", `最多上传 ${quickMaxReferenceFiles} 张参考图`);
-        return current;
-      }
-      const accepted = picked.slice(0, remaining).map(makeQuickReferenceItem);
-      addEvent(options.eventLabel || "上传", `${options.actionText || "追加"} ${accepted.length} 张参考图`);
-      return [...current, ...accepted];
-    });
-  }
-
-  function replaceReferenceFiles(index, fileList) {
-    const picked = imageFilesFromList(fileList);
-    if (picked.length === 0) return;
-    setFiles((current) => {
-      if (index < 0 || index >= current.length) return current;
-      const next = [...current];
-      next[index] = makeQuickReferenceItem(picked[0]);
-      const remaining = quickMaxReferenceFiles - next.length;
-      if (remaining > 0 && picked.length > 1) {
-        next.splice(index + 1, 0, ...picked.slice(1, remaining + 1).map(makeQuickReferenceItem));
-      }
-      addEvent("参考图", `已替换图${index + 1}`);
-      return next;
-    });
-  }
-
-  function insertReferenceFiles(index, fileList) {
-    const picked = imageFilesFromList(fileList);
-    if (picked.length === 0) return;
-    setFiles((current) => {
-      const remaining = quickMaxReferenceFiles - current.length;
-      if (remaining <= 0) {
-        addEvent("提示", `最多上传 ${quickMaxReferenceFiles} 张参考图`);
-        return current;
-      }
-      const accepted = picked.slice(0, remaining).map(makeQuickReferenceItem);
-      const next = [...current];
-      next.splice(Math.max(0, Math.min(index, next.length)), 0, ...accepted);
-      addEvent("参考图", `已插入 ${accepted.length} 张参考图`);
-      return next;
-    });
-  }
-
-  function onPickFiles(event) {
-    appendReferenceFiles(event.target.files);
-    event.target.value = "";
-  }
-
-  function isReferenceDropData(dataTransfer) {
-    const types = Array.from(dataTransfer?.types || []);
-    return types.includes("Files")
-      || types.includes("application/x-jingyin-result-id")
-      || types.includes("text/uri-list")
-      || types.includes("text/plain");
-  }
-
-  function onComposerDragOver(event) {
-    if (!isReferenceDropData(event.dataTransfer)) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
-    setIsComposerDragging(true);
-  }
-
-  function onComposerDragLeave(event) {
-    if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget)) return;
-    setIsComposerDragging(false);
-  }
-
-  function onComposerDrop(event) {
-    event.preventDefault();
-    setIsComposerDragging(false);
-    setReferenceDropTarget(null);
-    void imageFilesFromReferenceDrop(event.dataTransfer)
-      .then((droppedFiles) => appendReferenceFiles(droppedFiles))
-      .catch((err) => addEvent("拖拽上传失败", err instanceof Error ? err.message : String(err)));
-  }
+  const {
+    addReferenceRewriteFiles,
+    removeReferenceRewriteFile,
+    appendReferenceFiles,
+    moveReferenceFile,
+    onPickFiles,
+    isReferenceDropData,
+    onComposerDragOver,
+    onComposerDragLeave,
+    onComposerDrop,
+    beginReferenceDrop,
+    endReferenceDrop,
+    onReferenceDrop,
+    imageFilesFromReferenceDrop
+  } = createReferenceUpload({
+    referenceProductFiles,
+    referenceStyleFiles,
+    setReferenceProductFiles,
+    setReferenceStyleFiles,
+    setFiles,
+    quickMaxReferenceFiles,
+    addEvent,
+    setIsComposerDragging,
+    setReferenceDropTarget,
+    results,
+    detailGroups,
+    blobFromImageItem
+  });
 
   function onComposerPaste(event) {
     const pastedImages = imageFilesFromClipboard(event.clipboardData);
@@ -4271,106 +1767,31 @@ function App() {
     });
   }
 
-  function updateVideoSetting(key, value) {
-    setVideoSettings((current) => {
-      if (key === "model") {
-        const model = videoModels.find((item) => item.value === value) || activeVideoModel || videoModels[0] || {};
-        return normalizeVideoSettingValue({ ...current, model: value }, model);
-      }
-      if (key === "duration") {
-        return { ...current, duration: Number.parseInt(value, 10) || videoDefaults.duration };
-      }
-      if (key === "outputAudio") {
-        return { ...current, outputAudio: Boolean(value) };
-      }
-      return { ...current, [key]: value };
-    });
-  }
-
-  function acceptVideoReferenceFile(fileList) {
-    const picked = imageFilesFromList(fileList);
-    if (picked.length === 0) return false;
-    const file = picked[0];
-    if (file.size > VIDEO_REFERENCE_MAX_BYTES) {
-      addEvent("视频参考图", "参考图超过 10MB，请先压缩后再上传");
-      return false;
-    }
-    setVideoReferenceFile(file);
-    addEvent("视频参考图", `已添加 ${file.name}`);
-    return true;
-  }
-
-  function onPickVideoReference(event) {
-    acceptVideoReferenceFile(event.target.files);
-    event.target.value = "";
-  }
-
-  function onVideoComposerDragOver(event) {
-    if (!isReferenceDropData(event.dataTransfer)) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
-    setIsComposerDragging(true);
-  }
-
-  function onVideoComposerDrop(event) {
-    event.preventDefault();
-    setIsComposerDragging(false);
-    void imageFilesFromReferenceDrop(event.dataTransfer)
-      .then((droppedFiles) => acceptVideoReferenceFile(droppedFiles))
-      .catch((err) => addEvent("视频参考图失败", err instanceof Error ? err.message : String(err)));
-  }
-
-  function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  async function videoReferencePayload() {
-    const url = String(videoSettings.imageUrl || "").trim();
-    if (url) return url;
-    if (!videoReferenceFile) return "";
-    return dataUrlFromBlob(videoReferenceFile);
-  }
-
-  async function pollVideoUntilFinished(initialTask, requestId, runSettings, apiKey, startedAt) {
-    let task = initialTask || {};
-    for (let attempt = 0; attempt < VIDEO_STATUS_MAX_POLLS; attempt += 1) {
-      if (isVideoTaskCompleted(task)) return task;
-      if (isVideoTaskFailed(task)) {
-        throw new Error(task.error?.message || task.error || "视频生成失败");
-      }
-      setVideoTasks((current) => current.map((item) => (
-        item.id === requestId
-          ? { ...item, statusText: videoTaskStatusText(task), progress: task.progress, upstreamTaskId: task.taskId || item.upstreamTaskId }
-          : item
-      )));
-      await sleep(VIDEO_STATUS_POLL_INTERVAL_MS);
-      const previousTaskId = task.taskId || task.id;
-      const statusPayload = await getVideoStatus({
-        apiKey,
-        taskId: previousTaskId
-      });
-      const nextTask = statusPayload.task || {};
-      task = {
-        ...nextTask,
-        taskId: nextTask.taskId || nextTask.id || previousTaskId,
-        id: nextTask.id || nextTask.taskId || previousTaskId
-      };
-      setVideoTasks((current) => current.map((item) => (
-        item.id === requestId
-          ? {
-              ...item,
-              statusText: videoTaskStatusText(task),
-              progress: task.progress,
-              upstreamTaskId: task.taskId || item.upstreamTaskId,
-              elapsedMs: Date.now() - startedAt,
-              modelLabel: runSettings.modelLabel
-            }
-          : item
-      )));
-    }
-    throw new Error("视频生成等待超时，请稍后到上游任务记录中查看。");
-  }
-
+  const {
+    updateVideoSetting,
+    onPickVideoReference,
+    onVideoComposerDragOver,
+    onVideoComposerDrop,
+    videoReferencePayload,
+    pollVideoUntilFinished
+  } = createVideoComposer({
+    videoSettings,
+    setVideoSettings,
+    videoModels,
+    activeVideoModel,
+    videoDefaults,
+    normalizeVideoSettingValue,
+    VIDEO_REFERENCE_MAX_BYTES,
+    addEvent,
+    videoReferenceFile,
+    setVideoReferenceFile,
+    isReferenceDropData,
+    setIsComposerDragging,
+    imageFilesFromReferenceDrop,
+    setVideoTasks,
+    VIDEO_STATUS_MAX_POLLS,
+    VIDEO_STATUS_POLL_INTERVAL_MS
+  });
   async function generateVideoFromComposer() {
     const model = activeVideoModel || videoModels[0];
     const modelLabel = model?.label || videoSettings.model || "Seedance";
@@ -4416,7 +1837,6 @@ function App() {
     const startedAt = Date.now();
     setVideoStatus("running");
     setVideoError("");
-    setNowTick(startedAt);
     setVideoTasks((current) => [...current, {
       id: requestId,
       status: "running",
@@ -4590,166 +2010,30 @@ function App() {
     addEvent("局部编辑", "已取消局部裁剪");
   }
 
-  function beginReferenceDrop(event, type, index) {
-    if (!isReferenceDropData(event.dataTransfer)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.dataTransfer.dropEffect = "copy";
-    setReferenceDropTarget({ type, index });
-  }
+  const resultActionsDeps = { setSelectedIds, selectedIds, activeView, quickResults, setResults, setBrokenResultImages, detailInfoSelection, setDetailInfoSelection, setDetailGroups, removeHistoryResults, loadHistoryResults, hydrateDetailGroupsWithHistory, addEvent };
+  const { toggleSelected, deleteSelected, deleteResult, markResultImageBroken, refreshHistory, syncHistoryFromServer } = createResultActions(resultActionsDeps);
 
-  function endReferenceDrop() {
-    setReferenceDropTarget(null);
-  }
+  const {
+    clearQuickResultDragState,
+    handleQuickResultReplaceDragOver,
+    handleQuickResultReplaceDrop
+  } = createQuickResultReplace({
+    quickResultDragIdRef,
+    quickResultReplaceTargetId,
+    setQuickResultReplaceTargetId,
+    results,
+    setResults,
+    setSelectedIds,
+    previewResult,
+    setPreviewResult,
+    removeHistoryResults,
+    saveHistoryResults,
+    addEvent,
+    QUICK_RESULT_DRAG_TYPE
+  });
 
-  function onReferenceDrop(event, type, index) {
-    event.preventDefault();
-    event.stopPropagation();
-    setIsComposerDragging(false);
-    setReferenceDropTarget(null);
-    void imageFilesFromReferenceDrop(event.dataTransfer)
-      .then((droppedFiles) => {
-        if (type === "replace") replaceReferenceFiles(index, droppedFiles);
-        else insertReferenceFiles(index, droppedFiles);
-      })
-      .catch((err) => addEvent("拖拽上传失败", err instanceof Error ? err.message : String(err)));
-  }
 
-  function toggleSelected(id) {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
-  function clearSelection() {
-    setSelectedIds(new Set());
-  }
-
-  function deleteSelected() {
-    if (selectedIds.size === 0) return;
-    const ids = activeView === "quickgen"
-      ? quickResults.filter((item) => selectedIds.has(item.id)).map((item) => item.id)
-      : Array.from(selectedIds);
-    if (ids.length === 0) return;
-    setResults((current) => current.filter((item) => !ids.includes(item.id)));
-    removeDetailResultIds(ids);
-    void removeHistoryResults(ids);
-    clearSelection();
-    addEvent("删除", `已删除 ${ids.length} 张图片`);
-  }
-
-  function deleteResult(id) {
-    setResults((current) => current.filter((item) => item.id !== id));
-    removeDetailResultIds([id]);
-    void removeHistoryResults([id]);
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      next.delete(id);
-      return next;
-    });
-    setBrokenResultImages((current) => {
-      if (!current[id]) return current;
-      const next = { ...current };
-      delete next[id];
-      return next;
-    });
-    if (detailInfoSelection?.resultId === id) setDetailInfoSelection(null);
-    addEvent("删除", "已删除当前图片");
-  }
-
-  /**
-   * P1 缺图自愈：图片真的加载失败时记下来，卡片改为显示可读原因，
-   * 并且不再对同一个地址重复请求（避免每次打开页面都刷 404/502）。
-   * 记录里带上失败时的地址，重刷换图后自动失效。
-   */
-  function markResultImageBroken(item) {
-    const src = imageSourceFromResult(item?.image);
-    if (!item?.id || !src) return;
-    setBrokenResultImages((current) => (
-      current[item.id]?.src === src
-        ? current
-        : { ...current, [item.id]: { src, reason: brokenImageReason() } }
-    ));
-  }
-
-  function quickResultDragId(event) {
-    const fromEvent = event.dataTransfer?.getData?.(QUICK_RESULT_DRAG_TYPE) || "";
-    return fromEvent || quickResultDragIdRef.current || "";
-  }
-
-  function canReplaceQuickResult(source, target) {
-    return Boolean(
-      source?.id
-      && target?.id
-      && source.id !== target.id
-      && (!source.source || source.source === "quickgen")
-      && (!target.source || target.source === "quickgen")
-      && imageSourceFromResult(source.image)
-      && imageSourceFromResult(target.image)
-    );
-  }
-
-  function clearQuickResultDragState() {
-    quickResultDragIdRef.current = "";
-    setQuickResultReplaceTargetId("");
-  }
-
-  function handleQuickResultReplaceDragOver(event, target) {
-    const sourceId = quickResultDragId(event);
-    const source = results.find((item) => item.id === sourceId);
-    if (!canReplaceQuickResult(source, target)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.dataTransfer.dropEffect = "move";
-    if (quickResultReplaceTargetId !== target.id) setQuickResultReplaceTargetId(target.id);
-  }
-
-  function handleQuickResultReplaceDrop(event, target) {
-    const sourceId = quickResultDragId(event);
-    if (!sourceId || sourceId === target?.id) {
-      clearQuickResultDragState();
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    clearQuickResultDragState();
-    const source = results.find((item) => item.id === sourceId);
-    const latestTarget = results.find((item) => item.id === target.id);
-    if (!canReplaceQuickResult(source, latestTarget)) return;
-    const nextTarget = {
-      ...source,
-      id: latestTarget.id,
-      replacedFromResultId: source.id,
-      submittedAt: latestTarget.submittedAt ?? latestTarget.createdAt ?? source.submittedAt,
-      createdAt: latestTarget.createdAt ?? source.createdAt
-    };
-    setResults((current) => current
-      .map((item) => item.id === latestTarget.id ? nextTarget : item)
-      .filter((item) => item.id !== source.id));
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      next.delete(source.id);
-      return next;
-    });
-    if (previewResult?.id === source.id || previewResult?.id === latestTarget.id) {
-      setPreviewResult(nextTarget);
-    }
-    void removeHistoryResults([source.id, latestTarget.id]).then(() => saveHistoryResults([nextTarget]));
-    addEvent("结果覆盖", "已用拖拽图片覆盖目标图片，原位置已移除");
-  }
-
-  function removeDetailResultIds(ids) {
-    setDetailGroups((current) => current.map((group) => ({
-      ...group,
-      prompts: group.prompts.map((prompt) => ({
-        ...prompt,
-        results: (prompt.results || []).filter((result) => !ids.includes(result.id))
-      }))
-    })));
-  }
 
   function clearAll() {
     const targetResults = activeView === "reference-remix" ? referenceResults : quickResults;
@@ -4781,67 +2065,25 @@ function App() {
     void removeHistoryResults(ids);
   }
 
-  async function refreshHistory() {
-    const storedResults = await loadHistoryResults();
-    setResults(storedResults);
-    setDetailGroups((current) => hydrateDetailGroupsWithHistory(current, storedResults));
-    clearSelection();
-    addEvent("刷新", `已载入 ${storedResults.length} 张历史图片`);
-  }
-
-  async function syncHistoryFromServer() {
-    const storedResults = await loadHistoryResults();
-    setResults(storedResults);
-    setDetailGroups((current) => hydrateDetailGroupsWithHistory(current, storedResults));
-  }
-
-  async function refreshSaveDirectory() {
-    try {
-      const payload = await getSaveDirectory();
-      setSaveDirectory(payload.directory);
-      setDirectoryDraft(payload.directory);
-      return payload.directory;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      addEvent("保存目录", message);
-      return "";
-    }
-  }
-
-  function openDirectoryModal() {
-    setDirectoryDraft(saveDirectory);
-    setIsDirectoryModalOpen(true);
-  }
-
-  async function confirmSaveDirectory() {
-    try {
-      const payload = await setSaveDirectoryRequest(directoryDraft);
-      setSaveDirectory(payload.directory);
-      setDirectoryDraft(payload.directory);
-      setIsDirectoryModalOpen(false);
-      addEvent("保存目录", "目录已更新");
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      addEvent("保存目录失败", message);
-    }
-  }
-
-  async function pickSaveDirectory() {
-    if (isPickingDirectory) return;
-    setIsPickingDirectory(true);
-    try {
-      const payload = await pickSaveDirectoryRequest(directoryDraft || saveDirectory);
-      if (!payload.cancelled && payload.directory) {
-        setDirectoryDraft(payload.directory);
-        addEvent("保存目录", "已选择目录，点击确定后生效");
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      addEvent("目录选择失败", message);
-    } finally {
-      setIsPickingDirectory(false);
-    }
-  }
+  // 保存目录域：实现在 src/features/savedir/save-directory.js（两侧同一份，语义等价）。
+  // 这里只保留同名薄壳：每次 render 重建 deps，捕获最新的 state / setter / addEvent。
+  const saveDirectoryDeps = {
+    getSaveDirectory,
+    setSaveDirectoryRequest,
+    pickSaveDirectoryRequest,
+    setSaveDirectory,
+    setDirectoryDraft,
+    setIsDirectoryModalOpen,
+    setIsPickingDirectory,
+    saveDirectory,
+    directoryDraft,
+    isPickingDirectory,
+    notify: addEvent
+  };
+  async function refreshSaveDirectory() { return loadSaveDirectory(saveDirectoryDeps); }
+  function openDirectoryModal() { openSaveDirectoryModal(saveDirectoryDeps); }
+  async function confirmSaveDirectory() { return commitSaveDirectory(saveDirectoryDeps); }
+  async function pickSaveDirectory() { return chooseSaveDirectory(saveDirectoryDeps); }
 
   function openSaveDirectory() {
     const sendOpenRequest = (directory) => {
@@ -4904,248 +2146,51 @@ function App() {
     return count > 0 ? `，已自动保存 ${count} 张` : "";
   }
 
-  async function copyText(text, successMessage = "已复制") {
-    if (!text) return;
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const field = document.createElement("textarea");
-        field.value = text;
-        field.style.position = "fixed";
-        field.style.opacity = "0";
-        document.body.appendChild(field);
-        field.select();
-        document.execCommand("copy");
-        document.body.removeChild(field);
-      }
-      addEvent("复制", successMessage);
-    } catch {
-      addEvent("复制失败", "浏览器没有允许剪贴板权限");
-    }
-  }
-
-  async function blobFromImageItem(item) {
-    const src = imageSourceFromResult(item?.image);
-    if (!src) throw new Error("图片地址无效");
-    return fetchImageBlob(src, "图片下载失败");
-  }
-
-  function dataUrlFromBlob(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(reader.error || new Error("长图编码失败"));
-      reader.readAsDataURL(blob);
-    });
-  }
-
-  function findGeneratedResultById(id) {
-    if (!id) return null;
-    return results.find((item) => item.id === id)
-      || detailGroups.flatMap((group) => group.prompts || []).flatMap((prompt) => prompt.results || []).find((item) => item.id === id)
-      || null;
-  }
-
-  async function fileFromImageUrl(url, name = `drag-${Date.now()}`) {
-    const blob = await fetchImageBlob(url, "图片读取失败");
-    return new File([blob], `${fileBaseName(name)}.${imageExtension(blob.type)}`, {
-      type: blob.type || "image/png",
-      lastModified: Date.now()
-    });
-  }
-
-  async function imageFilesFromReferenceDrop(dataTransfer) {
-    const resultId = dataTransfer?.getData?.("application/x-jingyin-result-id") || "";
-    if (resultId) {
-      const item = findGeneratedResultById(resultId);
-      if (item) {
-        const blob = await blobFromImageItem(item);
-        return [new File([blob], `${fileBaseName(item.modelLabel || "result")}-${Date.now()}.${imageExtension(blob.type)}`, {
-          type: blob.type || "image/png",
-          lastModified: Date.now()
-        })];
-      }
-    }
-
-    const directFiles = imageFilesFromList(dataTransfer?.files);
-    if (directFiles.length > 0) return directFiles;
-
-    const uri = String(dataTransfer?.getData?.("text/uri-list") || dataTransfer?.getData?.("text/plain") || "")
-      .split(/\r?\n/)
-      .find((line) => line && !line.startsWith("#"));
-    if (uri && (/^https?:\/\//i.test(uri) || uri.startsWith("/") || uri.startsWith("data:"))) {
-      return [await fileFromImageUrl(uri, "drag-image")];
-    }
-    return [];
-  }
-
-  function imageMimeFromSource(src, image = null) {
-    const explicit = String(image?.mimeType || image?.archiveMime || "").trim();
-    if (explicit) return explicit;
-    const dataMatch = String(src || "").match(/^data:([^;,]+)/i);
-    if (dataMatch?.[1]) return dataMatch[1];
-    if (/\.jpe?g(?:$|[?#])/i.test(src)) return "image/jpeg";
-    if (/\.webp(?:$|[?#])/i.test(src)) return "image/webp";
-    if (/\.gif(?:$|[?#])/i.test(src)) return "image/gif";
-    return "image/png";
-  }
-
-  function imageExtensionFromSource(src, mimeType) {
-    if (/jpe?g/i.test(mimeType)) return "jpg";
-    if (/webp/i.test(mimeType)) return "webp";
-    if (/gif/i.test(mimeType)) return "gif";
-    const pathMatch = String(src || "").match(/\.([a-z0-9]{2,5})(?:$|[?#])/i);
-    if (pathMatch && /^(png|jpe?g|webp|gif)$/i.test(pathMatch[1])) {
-      return pathMatch[1].toLowerCase().replace("jpeg", "jpg");
-    }
-    return "png";
-  }
-
-  function safeDownloadFileName(name, ext = "png") {
-    const base = fileBaseName(name)
-      .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, "_")
-      .replace(/\s+/g, " ")
-      .trim() || "image";
-    return `${base}.${ext}`;
-  }
-
-  function padDragDownloadNumber(value, length = 2) {
-    return String(Math.max(0, Number.parseInt(value, 10) || 0)).padStart(length, "0");
-  }
-
-  function dragDownloadDateStamp(value) {
-    const timestamp = Number(value);
-    const date = new Date(Number.isFinite(timestamp) && timestamp > 0 ? timestamp : Date.now());
-    const day = [
-      date.getFullYear(),
-      padDragDownloadNumber(date.getMonth() + 1),
-      padDragDownloadNumber(date.getDate())
-    ].join("");
-    const time = [
-      padDragDownloadNumber(date.getHours()),
-      padDragDownloadNumber(date.getMinutes()),
-      padDragDownloadNumber(date.getSeconds())
-    ].join("");
-    return `${day}-${time}`;
-  }
-
-  function resultDragDownloadName(item, fallbackIndex = null) {
-    const savedName = item?.savedFilename || item?.filename;
-    if (savedName) return savedName;
-    // 拖拽下载无法读取目标文件夹序号，使用生成日期时间+列表序号避免模型名反复重名。
-    const createdAt = Number(item?.createdAt || item?.submittedAt || Date.now());
-    const sequence = Number.isFinite(fallbackIndex)
-      ? fallbackIndex + 1
-      : Math.max(1, Math.round(createdAt % 100000));
-    return `静音AI绘画-${dragDownloadDateStamp(createdAt)}-${padDragDownloadNumber(sequence, 4)}`;
-  }
-
-  function absoluteDownloadUrl(src) {
-    const requestUrl = displayImageRequestUrl(src);
-    if (!requestUrl || /^(data|blob):/i.test(requestUrl)) return requestUrl || "";
-    try {
-      return new URL(requestUrl, window.location.href).href;
-    } catch {
-      return requestUrl;
-    }
-  }
-
-  function beginImageDownloadDrag(event, src, name = "静音AI绘画", image = null) {
-    if (!src) return;
-    event.stopPropagation?.();
-    const mimeType = imageMimeFromSource(src, image);
-    const filename = safeDownloadFileName(name, imageExtensionFromSource(src, mimeType));
-    const downloadUrl = absoluteDownloadUrl(src);
-    event.dataTransfer.effectAllowed = "copy";
-    event.dataTransfer.setData("DownloadURL", `${mimeType}:${filename}:${downloadUrl}`);
-    event.dataTransfer.setData("application/x-jingyin-download-url", downloadUrl);
-    event.dataTransfer.setData("text/uri-list", src);
-    event.dataTransfer.setData("text/plain", src);
-  }
-
-  function beginResultImageDrag(event, item, fallbackIndex = null) {
-    const src = imageSourceFromResult(item?.image);
-    if (!src) return;
-    beginImageDownloadDrag(event, src, resultDragDownloadName(item, fallbackIndex), item?.image);
-    event.dataTransfer.setData("application/x-jingyin-result-id", item.id || "");
-    event.dataTransfer.setData(QUICK_RESULT_DRAG_TYPE, item.id || "");
-    event.dataTransfer.effectAllowed = "copyMove";
-    quickResultDragIdRef.current = item.id || "";
-  }
-
-  function beginReferenceImageDrag(event, reference, index = 0) {
-    const src = referenceSource(reference);
-    beginImageDownloadDrag(event, src, reference?.name || reference?.label || `参考图-${index + 1}`);
-  }
-
-  async function bitmapFromBlob(blob) {
-    if (window.createImageBitmap) {
-      return window.createImageBitmap(blob);
-    }
-    return new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(blob);
-      const img = new Image();
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        resolve(img);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error("长图素材读取失败"));
-      };
-      img.src = url;
-    });
-  }
-
-  async function stitchDetailGroupBlob(group) {
-    const items = detailResultItemsForGroup(group);
-    if (items.length === 0) throw new Error("暂无可拼接的分屏图片");
-    const bitmaps = [];
-    try {
-      for (const { result } of items) {
-        const blob = await blobFromImageItem(result);
-        bitmaps.push(await bitmapFromBlob(blob));
-      }
-      const maxSourceWidth = Math.max(...bitmaps.map((bitmap) => bitmap.width || bitmap.naturalWidth || 1));
-      const sourceHeights = bitmaps.map((bitmap) => bitmap.height || bitmap.naturalHeight || 1);
-      let targetWidth = Math.min(1600, maxSourceWidth);
-      let targetHeights = bitmaps.map((bitmap, index) => {
-        const width = bitmap.width || bitmap.naturalWidth || targetWidth;
-        return Math.max(1, Math.round(sourceHeights[index] * (targetWidth / width)));
-      });
-      let totalHeight = targetHeights.reduce((sum, height) => sum + height, 0);
-      if (totalHeight > 30000) {
-        targetWidth = Math.max(720, Math.round(targetWidth * (30000 / totalHeight)));
-        targetHeights = bitmaps.map((bitmap, index) => {
-          const width = bitmap.width || bitmap.naturalWidth || targetWidth;
-          return Math.max(1, Math.round(sourceHeights[index] * (targetWidth / width)));
-        });
-        totalHeight = targetHeights.reduce((sum, height) => sum + height, 0);
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = targetWidth;
-      canvas.height = totalHeight;
-      const ctx = canvas.getContext("2d", { alpha: false });
-      if (!ctx) throw new Error("长图画布创建失败");
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      let y = 0;
-      bitmaps.forEach((bitmap, index) => {
-        ctx.drawImage(bitmap, 0, y, targetWidth, targetHeights[index]);
-        y += targetHeights[index];
-      });
-      return await canvasToBlob(canvas, "image/jpeg", 0.92);
-    } finally {
-      bitmaps.forEach((bitmap) => bitmap.close?.());
-    }
-  }
+  const {
+    stitchDetailGroupBlob,
+    detailResultItemsForGroup,
+    selectDetailResult,
+    beginDetailScreenDrag,
+    endDetailScreenDrag,
+    dropDetailScreen,
+    openStitchPreview,
+    closeStitchPreview,
+    handleStitchWheel,
+    beginStitchDrag,
+    moveStitchDrag,
+    endStitchDrag,
+    updateDetailPrompt,
+    toggleDetailPrompt,
+    saveDetailPreset,
+    loadDetailPreset,
+    deleteDetailPreset,
+  } = createDetailGroup({
+    blobFromImageItem,
+    detailForwardSort,
+    setDetailInfoSelection,
+    detailDragScreen,
+    setDetailDragScreen,
+    setDetailGroups,
+    setStitchPreview,
+    setStitchZoom,
+    setStitchPan,
+    stitchPan,
+    setStitchContextMenu,
+    stitchDragRef,
+    detailSettings,
+    setDetailSettings,
+    setDetailPresets,
+    setIsDetailPresetOpen,
+    addEvent,
+    makeResultId,
+    normalizeDetailSettings
+  });
 
   async function downloadStitchPreview(group) {
     try {
       const directory = saveDirectory || await refreshSaveDirectory();
       const blob = await stitchDetailGroupBlob(group);
-      const dataUrl = await dataUrlFromBlob(blob);
+      const dataUrl = await dataUrlFromBlob(blob, "长图编码失败");
       const response = await fetch("/api/save-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -5170,105 +2215,6 @@ function App() {
       const message = err instanceof Error ? err.message : String(err);
       addEvent("拼图下载失败", message);
     }
-  }
-
-  async function copyImage(item) {
-    const src = imageSourceFromResult(item?.image);
-    try {
-      const blob = await blobFromImageItem(item);
-      if (navigator.clipboard?.write && window.ClipboardItem) {
-        await navigator.clipboard.write([new window.ClipboardItem({ [blob.type || "image/png"]: blob })]);
-        addEvent("复制", "图片已复制到剪贴板");
-        return;
-      }
-      await copyText(src, "图片地址已复制");
-    } catch {
-      await copyText(src, "图片地址已复制");
-    }
-  }
-
-  async function downloadItem(item, _index = 0) {
-    try {
-      const directory = saveDirectory || await refreshSaveDirectory();
-      const response = await fetch("/api/save-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          directory,
-          item
-        })
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload?.ok) throw new Error(payload?.message || "保存图片失败");
-      setSaveDirectory(payload.directory);
-      setDirectoryDraft(payload.directory);
-      flashDownloadFeedback(item.id);
-      addEvent("下载", `已保存到 ${payload.filename}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      addEvent("下载失败", message);
-    }
-  }
-
-  async function autoSaveGeneratedItems(items) {
-    if (!items?.length) return 0;
-    let savedCount = 0;
-    try {
-      const directory = saveDirectory || await refreshSaveDirectory();
-      for (const item of items) {
-        const response = await fetch("/api/save-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            directory,
-            item
-          })
-        });
-        const payload = await response.json().catch(() => null);
-        if (!response.ok || !payload?.ok) throw new Error(payload?.message || "保存图片失败");
-        setSaveDirectory(payload.directory);
-        setDirectoryDraft(payload.directory);
-        savedCount += 1;
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      addEvent("自动保存失败", message);
-    }
-    return savedCount;
-  }
-
-  function flashDownloadFeedback(id) {
-    if (!id) return;
-    setDownloadFeedbackIds((current) => {
-      const next = new Set(current);
-      next.add(id);
-      return next;
-    });
-    const previousTimer = downloadFeedbackTimersRef.current.get(id);
-    if (previousTimer) window.clearTimeout(previousTimer);
-    const timer = window.setTimeout(() => {
-      setDownloadFeedbackIds((current) => {
-        const next = new Set(current);
-        next.delete(id);
-        return next;
-      });
-      downloadFeedbackTimersRef.current.delete(id);
-    }, 1300);
-    downloadFeedbackTimersRef.current.set(id, timer);
-  }
-
-  async function downloadSelected() {
-    let saved = 0;
-    for (const [index, item] of quickResults.entries()) {
-      if (selectedIds.has(item.id)) void downloadItem(item, index);
-      if (selectedIds.has(item.id)) saved += 1;
-    }
-    if (saved > 0) addEvent("下载选中", `已提交 ${saved} 张保存任务`);
-  }
-
-  async function downloadAll() {
-    quickResults.forEach((item, index) => void downloadItem(item, index));
-    if (quickResults.length > 0) addEvent("下载全部", `已提交 ${quickResults.length} 张保存任务`);
   }
 
   async function optimizePrompt() {
@@ -5332,63 +2278,40 @@ function App() {
     }
   }
 
-  function applyPromptPreset(preset) {
-    updateSetting("prompt", preset.content);
-    setIsPromptAssistantOpen(false);
-    addEvent("提示词", `已应用「${preset.title}」`);
-  }
-
-  function promptFallbackCategory(excluded = "") {
-    return promptCategories.find((category) => category !== "全部" && category !== excluded) || "常用";
-  }
-
-  function editPromptPreset(preset) {
-    setEditingPrompt({ ...preset });
-  }
-
-  function addPromptCategory() {
-    const input = window.prompt("请输入新分类名称", "");
-    const name = normalizePromptCategoryName(input);
-    if (!name) return;
-    if (name === "全部") {
-      addEvent("提示词分类", "「全部」是系统分类，不能新建同名分类");
-      return;
-    }
-    if (promptCategories.includes(name)) {
-      setPromptCategory(name);
-      addEvent("提示词分类", `「${name}」已存在`);
-      return;
-    }
-    setPromptCategories((current) => normalizePromptCategories([...current, name]));
-    setPromptCategory(name);
-    addEvent("提示词分类", `已新建「${name}」`);
-  }
-
-  function renamePromptCategory(category) {
-    if (!category || category === "全部") return;
-    const input = window.prompt("修改分类名称", category);
-    const nextName = normalizePromptCategoryName(input);
-    if (!nextName || nextName === category) return;
-    if (nextName === "全部") {
-      addEvent("提示词分类", "不能改成系统分类「全部」");
-      return;
-    }
-    if (promptCategories.includes(nextName)) {
-      addEvent("提示词分类", `「${nextName}」已存在`);
-      return;
-    }
-    setPromptCategories((current) => current.map((item) => item === category ? nextName : item));
-    setPromptPresets((current) => current.map((preset) => (
-      preset.category === category ? { ...preset, category: nextName } : preset
-    )));
-    if (promptCategory === category) setPromptCategory(nextName);
-    if (editingPrompt?.category === category) updateEditingPrompt("category", nextName);
-    addEvent("提示词分类", `已改名为「${nextName}」`);
-  }
+  const {
+    applyPromptPreset,
+    editPromptPreset,
+    addPromptCategory,
+    renamePromptCategory,
+    deletePromptPreset,
+    beginPromptDrag,
+    endPromptDrag,
+    dropPromptOnCategory,
+    dropPromptOnPreset,
+    openNewPromptEditor,
+    updateEditingPrompt,
+    saveEditingPrompt
+  } = usePromptLibrary({
+    categories: promptCategories,
+    setCategories: setPromptCategories,
+    activeCategory: promptCategory,
+    setActiveCategory: setPromptCategory,
+    setPresets: setPromptPresets,
+    editing: editingPrompt,
+    setEditing: setEditingPrompt,
+    draggedId: draggedPromptId,
+    setDraggedId: setDraggedPromptId,
+    setDropCategory: setPromptDropCategory,
+    promptText: settings.prompt.trim(),
+    updateSetting,
+    makePresetId: makeResultId,
+    notify: addEvent,
+    onApplyPreset: () => setIsPromptAssistantOpen(false)
+  });
 
   function deletePromptCategory(category) {
     if (!category || category === "全部") return;
-    const fallback = promptFallbackCategory(category);
+    const fallback = promptFallbackCategory(promptCategories, category);
     const shouldDelete = window.confirm(`删除分类「${category}」？里面的提示词会移动到「${fallback}」。`);
     if (!shouldDelete) return;
     setPromptCategories((current) => normalizePromptCategories(current.filter((item) => item !== category)));
@@ -5398,27 +2321,6 @@ function App() {
     if (promptCategory === category) setPromptCategory(fallback);
     if (editingPrompt?.category === category) updateEditingPrompt("category", fallback);
     addEvent("提示词分类", `已删除「${category}」，提示词已移动到「${fallback}」`);
-  }
-
-  function deletePromptPreset(preset) {
-    setPromptPresets((current) => current.filter((item) => item.id !== preset.id));
-    if (editingPrompt?.id === preset.id) setEditingPrompt(null);
-    addEvent("提示词", "已删除提示词");
-  }
-
-  function beginPromptDrag(event, presetId) {
-    setDraggedPromptId(presetId);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", presetId);
-  }
-
-  function endPromptDrag() {
-    setDraggedPromptId(null);
-    setPromptDropCategory("");
-  }
-
-  function promptIdFromDrag(event) {
-    return draggedPromptId || event.dataTransfer.getData("text/plain");
   }
 
   function promptCategoryFromDrag(event) {
@@ -5489,89 +2391,12 @@ function App() {
     return true;
   }
 
-  function dropPromptOnCategory(event, category) {
-    const promptId = promptIdFromDrag(event);
-    if (!promptId || category === "全部") return;
-    event.preventDefault();
-    setPromptPresets((current) => current.map((preset) => (
-      preset.id === promptId ? { ...preset, category } : preset
-    )));
-    setPromptDropCategory("");
-    setDraggedPromptId(null);
-    addEvent("提示词", `已移动到「${category}」`);
-  }
-
   function dropOnPromptCategory(event, category) {
     if (isPromptCategoryDrag(event)) {
       dropPromptCategoryOnCategory(event, category);
       return;
     }
     dropPromptOnCategory(event, category);
-  }
-
-  function dropPromptOnPreset(event, targetId) {
-    const promptId = promptIdFromDrag(event);
-    if (!promptId || promptId === targetId) return;
-    event.preventDefault();
-    setPromptPresets((current) => {
-      const next = [...current];
-      const fromIndex = next.findIndex((item) => item.id === promptId);
-      const toIndex = next.findIndex((item) => item.id === targetId);
-      if (fromIndex < 0 || toIndex < 0) return current;
-      const [moved] = next.splice(fromIndex, 1);
-      const adjustedIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
-      next.splice(adjustedIndex, 0, moved);
-      return next;
-    });
-    setDraggedPromptId(null);
-    addEvent("提示词", "顺序已更新");
-  }
-
-  function openNewPromptEditor() {
-    const content = settings.prompt.trim();
-    const category = promptCategory === "全部" ? promptFallbackCategory() : promptCategory;
-    setEditingPrompt({
-      id: "",
-      title: "",
-      category,
-      content,
-      custom: true
-    });
-  }
-
-  function updateEditingPrompt(key, value) {
-    setEditingPrompt((current) => current ? { ...current, [key]: value } : current);
-  }
-
-  function saveEditingPrompt() {
-    if (!editingPrompt) return;
-    const title = editingPrompt.title.trim();
-    const content = editingPrompt.content.trim();
-    const category = promptCategories.includes(editingPrompt.category) && editingPrompt.category !== "全部"
-      ? editingPrompt.category
-      : promptFallbackCategory();
-
-    if (!title || !content) {
-      addEvent("提示词", "分类、标题和内容都需要填写");
-      return;
-    }
-
-    const nextPreset = {
-      id: editingPrompt.id || makeResultId(),
-      title,
-      category,
-      content,
-      custom: true
-    };
-    setPromptPresets((current) => {
-      const exists = current.some((item) => item.id === nextPreset.id);
-      return exists
-        ? current.map((item) => item.id === nextPreset.id ? nextPreset : item)
-        : [nextPreset, ...current];
-    });
-    setPromptCategory(category);
-    setEditingPrompt(null);
-    addEvent("提示词", "已保存提示词");
   }
 
   function saveApiKey() {
@@ -5592,32 +2417,23 @@ function App() {
    * 连接测试：对齐 3.0 `/api/providers/test-connection` 的做法 —— 只探测 /v1/models。
    * 不发提示词、不上传图片、不调用生图接口，所以既不会出图也不会扣费。
    */
-  async function runConnectionTest() {
-    setIsConnectionTesting(true);
-    setConnectionState("running");
-    setConnectionStatus("正在探测上游模型清单…");
-    try {
-      const result = await testConnection({
-        baseUrl: settings.baseUrl || config.defaultBaseUrl || "",
-        apiKey: settings.apiKey,
-        model: settings.model,
-        channelId: settings.channelId
-      });
-      setConnectionState(result.ok ? "ok" : "error");
-      setConnectionStatus(formatConnectionResult(result));
-      addEvent(result.ok ? "连接测试" : "连接测试失败", result.message || "");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setConnectionState("error");
-      setConnectionStatus(message || "连接测试失败");
-      addEvent("连接测试失败", message || "请求失败");
-    } finally {
-      setIsConnectionTesting(false);
-    }
-  }
+  // 连通性测试的实现在 src/features/auth/api-key.js（两侧同一份，23 行逐字节一致）。
+  // 这里只保留闭包绑定壳：每次 render 重建，捕获最新的 settings / config 与各 setter。
+  const runConnectionTest = () => testApiConnection({
+    setIsConnectionTesting,
+    setConnectionState,
+    setConnectionStatus,
+    settings,
+    config,
+    testConnection,
+    formatConnectionResult,
+    addEvent
+  });
 
   function openUploadPreview(item) {
     if (!item?.url) return;
+    // 排完序松手会紧跟一次 click，这时不能开预览（同批量侧 outfit-panels 的 150ms 抑制窗口）。
+    if (suppressReferencePreviewRef.current) return;
     setUploadPreview({
       url: item.url,
       name: item.uploadName || item.file?.name || "上传图片",
@@ -5625,16 +2441,92 @@ function App() {
     });
   }
 
+  // ---- 参考图左右调顺序（pointer 版，与批量侧 outfit-panels 同一套手感）----
+  function beginReferenceSort(event, item) {
+    if (event.button !== 0) return;
+    // 移除按钮 / 裁剪 / 局部回贴这三个工具按钮不参与拖拽。
+    if (event.target instanceof Element && event.target.closest(".referenceToolRow")) return;
+    referencePointerSortRef.current = {
+      id: item.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      target: null
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveReferenceSort(event) {
+    const sort = referencePointerSortRef.current;
+    if (!sort) return;
+    // 只有 1 张图时排不了序，也不需要起步。
+    if (previewFiles.length <= 1) return;
+    const deltaX = event.clientX - sort.startX;
+    const deltaY = event.clientY - sort.startY;
+    // 8px 阈值：没超过就当作普通点击，不要抢走 click。
+    if (!sort.active && Math.hypot(deltaX, deltaY) < 8) return;
+
+    sort.active = true;
+    setDraggingReferenceId(sort.id);
+    event.preventDefault();
+    event.stopPropagation();
+
+    const under = document.elementFromPoint(event.clientX, event.clientY);
+    const wrap = under?.closest?.(".referenceThumbWrap[data-reference-id]");
+    const targetId = wrap?.dataset?.referenceId;
+    if (!wrap || !targetId || targetId === sort.id) {
+      sort.target = null;
+      setReferenceSortTarget(null);
+      return;
+    }
+
+    const rect = wrap.getBoundingClientRect();
+    // 左右分半：过中线算"放到它后面"，否则算"放到它前面"。
+    const placement = event.clientX > rect.left + rect.width / 2 ? "after" : "before";
+    sort.target = { id: targetId, placement };
+    setReferenceSortTarget(sort.target);
+  }
+
+  function endReferenceSort(event) {
+    const sort = referencePointerSortRef.current;
+    if (!sort) return;
+    if (sort.active) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (sort.target) {
+        moveReferenceFile(sort.id, sort.target.id, sort.target.placement);
+      }
+      suppressReferencePreviewRef.current = true;
+      window.setTimeout(() => {
+        suppressReferencePreviewRef.current = false;
+      }, 150);
+    }
+    referencePointerSortRef.current = null;
+    setDraggingReferenceId("");
+    setReferenceSortTarget(null);
+  }
+
+  function cancelReferenceSort() {
+    referencePointerSortRef.current = null;
+    setDraggingReferenceId("");
+    setReferenceSortTarget(null);
+  }
+
   function closeUploadPreview() {
     setUploadPreview(null);
   }
 
-  function openReferencePreview(references, index = 0) {
-    const items = (Array.isArray(references) ? references : []).filter((reference) => referenceSource(reference));
-    if (items.length === 0) return;
+  // V11-RF-043-2：共享 `ReferenceThumbTray` 的 onOpen 约定统一为 `(reference, index, items)`，
+  // 第一个实参是**被点击的那一张**，不再是整组（旧版是 `onOpen(items, index)`）。
+  // 本页预览要的是整组 ⇒ 取第三个实参 items；items 缺失时退化到被点击的这一张（放宽，不留静默失效）。
+  // 正常路径下 items 就是旧版传进来的那个数组 ⇒ 与改前**行为等价**。
+  function openReferencePreview(reference, index = 0, items = []) {
+    const source = Array.isArray(items) && items.length > 0 ? items : [reference];
+    const previewItems = source.filter((item) => referenceSource(item));
+    if (previewItems.length === 0) return;
     setReferencePreview({
-      items,
-      index: Math.max(0, Math.min(items.length - 1, index))
+      items: previewItems,
+      index: Math.max(0, Math.min(previewItems.length - 1, index))
     });
   }
 
@@ -5682,28 +2574,16 @@ function App() {
   }
 
   function beginPreviewDrag(event) {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    previewDragRef.current = {
-      active: true,
-      moved: false,
-      startX: event.clientX,
-      startY: event.clientY,
-      startPan: previewPan
-    };
+    const drag = previewDragStart(event, previewPan);
+    if (drag) previewDragRef.current = drag;
   }
 
   function movePreviewDrag(event) {
     const drag = previewDragRef.current;
     if (!drag?.active) return;
-    const deltaX = event.clientX - drag.startX;
-    const deltaY = event.clientY - drag.startY;
-    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) drag.moved = true;
-    setPreviewPan({
-      x: drag.startPan.x + deltaX,
-      y: drag.startPan.y + deltaY
-    });
+    const { pan, moved } = previewPanFromDrag(drag, event);
+    if (moved) drag.moved = true;
+    setPreviewPan(pan);
   }
 
   function endPreviewDrag(event) {
@@ -5742,7 +2622,7 @@ function App() {
       return;
     }
     try {
-      const file = await fileFromImageUrl(src, reference?.name || reference?.label || "reference");
+      const file = await imageFileFromUrl(src, reference?.name || reference?.label || "reference");
       appendReferenceFiles([file], {
         eventLabel: "参考图",
         actionText: "已发送到图片上传区"
@@ -5828,118 +2708,6 @@ function App() {
     addEvent(label, "此功能会在后续模块接入");
   }
 
-  function orderedPromptsForGroup(group) {
-    if (!group?.prompts) return [];
-    return detailForwardSort ? group.prompts : [...group.prompts].reverse();
-  }
-
-  function detailResultItemsForGroup(group) {
-    return orderedPromptsForGroup(group).flatMap((prompt) => (
-      (prompt.results || []).map((result) => ({ group, prompt, result }))
-    ));
-  }
-
-  function selectDetailResult(group, prompt, result) {
-    setDetailInfoSelection({ groupId: group.id, promptScreen: prompt.screen, resultId: result.id });
-  }
-
-  function beginDetailScreenDrag(event, groupId, screen) {
-    setDetailDragScreen({ groupId, screen });
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", JSON.stringify({ groupId, screen }));
-  }
-
-  function endDetailScreenDrag() {
-    setDetailDragScreen(null);
-  }
-
-  function dropDetailScreen(event, groupId, targetScreen) {
-    event.preventDefault();
-    const source = detailDragScreen || (() => {
-      try {
-        return JSON.parse(event.dataTransfer.getData("text/plain") || "null");
-      } catch {
-        return null;
-      }
-    })();
-    if (!source || source.groupId !== groupId || source.screen === targetScreen) {
-      setDetailDragScreen(null);
-      return;
-    }
-
-    setDetailGroups((current) => current.map((group) => {
-      if (group.id !== groupId) return group;
-      const displayOrder = detailForwardSort ? [...group.prompts] : [...group.prompts].reverse();
-      const fromIndex = displayOrder.findIndex((prompt) => prompt.screen === source.screen);
-      const toIndex = displayOrder.findIndex((prompt) => prompt.screen === targetScreen);
-      if (fromIndex < 0 || toIndex < 0) return group;
-      const [moved] = displayOrder.splice(fromIndex, 1);
-      displayOrder.splice(toIndex, 0, moved);
-      return {
-        ...group,
-        prompts: detailForwardSort ? displayOrder : [...displayOrder].reverse()
-      };
-    }));
-    setDetailDragScreen(null);
-    addEvent("一键详情", "分屏顺序已更新");
-  }
-
-  function openStitchPreview(group) {
-    const items = detailResultItemsForGroup(group);
-    if (items.length === 0) {
-      addEvent("拼图预览", "请先生成至少一张分屏图片");
-      return;
-    }
-    setStitchPreview({ groupId: group.id });
-    setStitchZoom(1);
-    setStitchPan({ x: 0, y: 0 });
-  }
-
-  function closeStitchPreview() {
-    setStitchPreview(null);
-    setStitchContextMenu(null);
-    setStitchZoom(1);
-    setStitchPan({ x: 0, y: 0 });
-    stitchDragRef.current = null;
-  }
-
-  function handleStitchWheel(event) {
-    event.preventDefault();
-    const direction = event.deltaY < 0 ? 1 : -1;
-    setStitchZoom((current) => {
-      const next = current + direction * 0.1;
-      return Math.max(0.25, Math.min(4, Number(next.toFixed(2))));
-    });
-  }
-
-  function beginStitchDrag(event) {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    stitchDragRef.current = {
-      active: true,
-      startX: event.clientX,
-      startY: event.clientY,
-      startPan: stitchPan
-    };
-  }
-
-  function moveStitchDrag(event) {
-    const drag = stitchDragRef.current;
-    if (!drag?.active) return;
-    setStitchPan({
-      x: drag.startPan.x + event.clientX - drag.startX,
-      y: drag.startPan.y + event.clientY - drag.startY
-    });
-  }
-
-  function endStitchDrag(event) {
-    const drag = stitchDragRef.current;
-    if (!drag?.active) return;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    stitchDragRef.current = null;
-  }
-
   function downloadDetailGroup(group, selectedOnly = false) {
     const items = detailResultItemsForGroup(group).filter(({ result }) => !selectedOnly || selectedIds.has(result.id));
     if (items.length === 0) {
@@ -5948,30 +2716,6 @@ function App() {
     }
     items.forEach(({ result }, index) => void downloadItem(result, index));
     addEvent("下载", `已提交 ${items.length} 张分屏图片保存任务`);
-  }
-
-  function updateDetailPrompt(groupId, screen, patch) {
-    setDetailGroups((current) => current.map((group) => {
-      if (group.id !== groupId) return group;
-      return {
-        ...group,
-        prompts: group.prompts.map((prompt) => (
-          prompt.screen === screen ? { ...prompt, ...patch } : prompt
-        ))
-      };
-    }));
-  }
-
-  function toggleDetailPrompt(groupId, screen) {
-    setDetailGroups((current) => current.map((group) => {
-      if (group.id !== groupId) return group;
-      return {
-        ...group,
-        prompts: group.prompts.map((prompt) => (
-          prompt.screen === screen ? { ...prompt, enabled: !prompt.enabled } : prompt
-        ))
-      };
-    }));
   }
 
   async function createDetailPromptPlan() {
@@ -6028,31 +2772,6 @@ function App() {
     updateSetting("prompt", prompt.text);
     setActiveView("quickgen");
     addEvent("快捷生成", `已推送第${prompt.screen}屏提示词`);
-  }
-
-  function saveDetailPreset() {
-    const name = detailSettings.productName.trim()
-      || detailSettings.userInstruction.trim().slice(0, 18)
-      || new Date().toLocaleString("zh-CN", { hour12: false });
-    const preset = {
-      id: makeResultId(),
-      name,
-      createdAt: Date.now(),
-      settings: { ...detailSettings }
-    };
-    setDetailPresets((current) => [preset, ...current.filter((item) => item.name !== name)].slice(0, 30));
-    addEvent("一键详情", `已保存预设「${name}」`);
-  }
-
-  function loadDetailPreset(preset) {
-    setDetailSettings(normalizeDetailSettings(preset.settings));
-    setIsDetailPresetOpen(false);
-    addEvent("一键详情", `已加载预设「${preset.name}」`);
-  }
-
-  function deleteDetailPreset(id) {
-    setDetailPresets((current) => current.filter((preset) => preset.id !== id));
-    addEvent("一键详情", "已删除预设");
   }
 
   async function generateDetailPrompt(group, prompt, index = 0, count = 1) {
@@ -6211,7 +2930,7 @@ function App() {
       && classifyQuickPrimaryLocalIntent(runSettings.prompt) === "outfit";
     // 2026-09-25 对齐 3.0：删除了 shouldUseExactBanana2LocalCrop 的"香蕉2 再精确重裁一次"分支。
     // 它存在的理由是当时只有香蕉2 用精确选框、其它模型用 contextRect 大图；
-    // 现在所有模型上传的都是精确选框（见 cropQuickLocalEditFile），这个特殊分支已经没有意义。
+    // 现在所有模型上传的都是精确选框（见 cropLocalEditFile），这个特殊分支已经没有意义。
     const runFiles = runItems.map((item) => quickReferenceRunUploadFile(item, localEditRunItem)).filter((file) => file instanceof File);
     // 2026-09-26：SKILL 规则已整体删除 —— 发给接口的提示词就是用户输入框里的原文。
     const apiPrompt = promptForQuickGeneration(runSettings.prompt);
@@ -6248,7 +2967,6 @@ function App() {
     setStatus("running");
     setError("");
     setTiming(null);
-    setNowTick(taskStartedAt);
     setQuickTasks((current) => [...current, {
       id: taskId,
       status: "running",
@@ -6356,7 +3074,7 @@ function App() {
         nextResults = await Promise.all(nextResults.map(async (item) => {
           const generatedBlob = await blobFromImageItem(item);
           const composedBlob = await composeQuickLocalEditBlob(originalFile, generatedBlob, localEditForRun.cropRect, localEditForRun, localCompositeOptions);
-          const dataUrl = await dataUrlFromBlob(composedBlob);
+          const dataUrl = await dataUrlFromBlob(composedBlob, "长图编码失败");
           return {
             ...item,
             image: { type: "b64_json", value: dataUrl, mimeType: "image/jpeg" },
@@ -6445,7 +3163,6 @@ function App() {
     const taskStartedAt = Date.now();
     setReferenceStatus("running");
     setReferenceError("");
-    setNowTick(taskStartedAt);
     setReferenceTasks((current) => [...current, {
       id: taskId,
       status: "running",
@@ -7084,7 +3801,7 @@ function App() {
                                 <h3>{prompt.title}</h3>
                                 <p>{prompt.summary}</p>
                                 {prompt.referenceStrategy && <small>{prompt.referenceStrategy}</small>}
-                                <textarea
+                                <StableTextarea
                                   value={prompt.text}
                                   onChange={(event) => updateDetailPrompt(activeDetailGroup.id, prompt.screen, { text: event.target.value })}
                                 />
@@ -7432,7 +4149,7 @@ function App() {
                         </header>
 
                         {node.type === "prompt" && (
-                          <textarea
+                          <StableTextarea
                             className="canvasPromptTextarea"
                             value={node.text}
                             onChange={(event) => updateCanvasNode(node.id, { text: event.target.value })}
@@ -7467,7 +4184,7 @@ function App() {
                                 ))}
                               </select>
                             </label>
-                            <textarea
+                            <StableTextarea
                               className="canvasNodePrompt"
                               value={node.prompt || ""}
                               onChange={(event) => updateCanvasNode(node.id, { prompt: event.target.value })}
@@ -7551,7 +4268,7 @@ function App() {
                                 {COUNT_OPTIONS.map((count) => <option key={count} value={count}>{count}</option>)}
                               </select>
                             </label>
-                            <textarea
+                            <StableTextarea
                               value={node.prompt || ""}
                               onChange={(event) => updateCanvasNode(node.id, { prompt: event.target.value })}
                               onPointerDown={(event) => event.stopPropagation()}
@@ -7562,7 +4279,7 @@ function App() {
                               <span>生成输出</span>
                             </button>
                             {nodeTasks.map((task) => (
-                              <small className="canvasTaskLine" key={task.id}>{task.taskLabel || "任务"} · {formatMs(nowTick - task.startedAt)} · {task.modelLabel}</small>
+                              <small className="canvasTaskLine" key={task.id}>{task.taskLabel || "任务"} · <ElapsedTimer startedAt={task.startedAt} /> · {task.modelLabel}</small>
                             ))}
                             {node.error && <strong className="canvasNodeError">{node.error}</strong>}
                             {node.generationMs && !node.error && <small className="canvasTaskLine">上次 {formatMs(node.generationMs)}</small>}
@@ -7725,7 +4442,7 @@ function App() {
                   </div>
                   <label className="detailField">
                     <span>生成要求</span>
-                    <textarea
+                    <StableTextarea
                       value={referenceSettings.prompt}
                       onChange={(event) => updateReferenceSetting("prompt", event.target.value)}
                       placeholder="例：生成一张女装主图，浅色调，干净电商质感，突出面料和版型，不要照抄参考图文字。"
@@ -7761,7 +4478,7 @@ function App() {
                       <article className="assetCard loadingCard referenceAssetCard" key={galleryItem.key}>
                         <Loader2 className="spin" size={28} />
                         <span>参考生图中</span>
-                        <strong>{formatMs(nowTick - task.startedAt)}</strong>
+                        <strong><ElapsedTimer startedAt={task.startedAt} /></strong>
                         <em>{task.modelLabel} · {task.imageSize} · {task.aspectRatio}</em>
                       </article>
                     );
@@ -7835,7 +4552,7 @@ function App() {
               <article className="assetCard loadingCard videoAssetCard" key={task.id}>
                 <Loader2 className="spin" size={28} />
                 <span>{task.statusText || "视频生成中"}</span>
-                <strong>{formatMs(nowTick - task.startedAt)}</strong>
+                <strong><ElapsedTimer startedAt={task.startedAt} /></strong>
                 <em>{task.modelLabel} · {task.resolution} · {task.aspectRatio} · {task.duration}s</em>
               </article>
             ))}
@@ -7923,7 +4640,7 @@ function App() {
               )}
             </div>
 
-            <textarea
+            <StableTextarea
               className="promptBox videoPromptBox"
               value={videoSettings.prompt}
               onChange={(event) => updateVideoSetting("prompt", event.target.value)}
@@ -7990,7 +4707,7 @@ function App() {
                   <article className="assetCard loadingCard" key={galleryItem.key}>
                     <Loader2 className="spin" size={28} />
                     <span>生成中</span>
-                    <strong>{formatMs(nowTick - task.startedAt)}</strong>
+                    <strong><ElapsedTimer startedAt={task.startedAt} /></strong>
                     <em>{task.modelLabel} · {task.imageSize} · {task.aspectRatio}</em>
                   </article>
                 );
@@ -8133,7 +4850,10 @@ function App() {
                 />
                 {previewFiles.map((item, index) => (
                   <React.Fragment key={item.id || `${item.file.name}-${item.file.lastModified}-${index}`}>
-                    <div className="referenceThumbWrap">
+                    <div
+                      className={`referenceThumbWrap ${draggingReferenceId === item.id ? "sorting" : ""} ${referenceSortTarget?.id === item.id ? (referenceSortTarget.placement === "after" ? "dropAfter" : "dropBefore") : ""}`}
+                      data-reference-id={item.id}
+                    >
                       <div
                       className={`referenceThumb ${referenceDropTarget?.type === "replace" && referenceDropTarget.index === index ? "replaceTarget" : ""} ${item.cropEdit ? "cropEditReady" : ""} ${item.localEdit ? "localEditReady" : ""}`}
                       data-reference-index={index}
@@ -8141,8 +4861,12 @@ function App() {
                       onDragOver={(event) => beginReferenceDrop(event, "replace", index)}
                       onDragLeave={endReferenceDrop}
                       onDrop={(event) => onReferenceDrop(event, "replace", index)}
+                      onPointerDown={(event) => beginReferenceSort(event, item)}
+                      onPointerMove={moveReferenceSort}
+                      onPointerUp={endReferenceSort}
+                      onPointerCancel={cancelReferenceSort}
                       onClick={() => openUploadPreview(item)}
-                      title={`${item.file.name} · ${fileSize(item.file.size)}，拖新图到这里可替换`}
+                      title={previewFiles.length > 1 ? `${item.file.name} · ${fileSize(item.file.size)}，按住可左右拖动调整顺序；拖新图到这里可替换` : `${item.file.name} · ${fileSize(item.file.size)}，拖新图到这里可替换`}
                     >
                       <b>图{index + 1}</b>
                       <img src={item.url} alt={item.file.name} draggable={false} />
@@ -8732,7 +5456,7 @@ function App() {
       )}
 
       {quickLocalEditTarget && (
-        <QuickLocalEditModal
+        <LocalEditModal
           item={quickLocalEditTarget}
           mode="local"
           ratio={settings.aspectRatio}
@@ -8740,6 +5464,10 @@ function App() {
           onClose={() => setQuickLocalEditTarget(null)}
           onApply={applyQuickLocalEdit}
           onClear={clearQuickLocalEdit}
+          resolveBaseFile={quickReferenceOriginalFile}
+          ratios={QUICK_LOCAL_EDIT_RATIOS}
+          defaultCropRect={defaultQuickLocalEditCrop}
+          fallbackToItem
         />
       )}
 
@@ -8950,4 +5678,75 @@ publicReleaseStorageResetPromise.finally(() => {
   appRoot.render(<App />);
 });
 
+// V46.1 任务计时下沉：自管 500ms 局部 tick，替换原先顶层的 setNowTick，
+// 避免「有任务在跑时每 500ms 强制巨石全树重渲染」导致的打字/交互卡顿。
+function ElapsedTimer({ startedAt }) {
+  const [tick, setTick] = useState(() => Date.now());
+  useEffect(() => {
+    setTick(Date.now());
+    const timer = window.setInterval(() => setTick(Date.now()), 500);
+    return () => window.clearInterval(timer);
+  }, [startedAt]);
+  const started = startedAt || tick;
+  return <>{formatMs(tick - started)}</>;
+}
 
+// V46.3 输入 memo 下沉：受控 textarea 用 ref 持有最新 onChange / onPointerDown，
+// 渲染时改用 useMemo([]) 产出的「稳定包装函数」，并配自定义 memo 比较器刻意忽略
+// 函数 prop 身份。这样父级（main.jsx 巨石）因其它 state 变动重渲时，value 未变的
+// 输入框可跳过重渲，缓解「别的输入框打字也拖着本框重渲」的卡顿。
+// 若只套 React.memo 而不忽略 handler 身份，inline arrow 每次都是新引用、memo 永远
+// 失效（零收益陷阱），故必须 ref + 自定义比较器双管齐下。
+const StableTextarea = React.memo(
+  function StableTextarea({
+    value,
+    onChange,
+    onPointerDown,
+    className,
+    placeholder,
+    disabled,
+    readOnly,
+    rows,
+    ...rest
+  }) {
+    const onChangeRef = useRef(onChange);
+    const onPointerDownRef = useRef(onPointerDown);
+    onChangeRef.current = onChange;
+    onPointerDownRef.current = onPointerDown;
+
+    const stableOnChange = useMemo(
+      () => (event) => { if (onChangeRef.current) onChangeRef.current(event); },
+      []
+    );
+    const stableOnPointerDown = useMemo(
+      () => (event) => { if (onPointerDownRef.current) onPointerDownRef.current(event); },
+      []
+    );
+
+    return (
+      <textarea
+        className={className}
+        placeholder={placeholder}
+        disabled={disabled}
+        readOnly={readOnly}
+        rows={rows}
+        value={value}
+        onChange={stableOnChange}
+        onPointerDown={onPointerDownRef.current ? stableOnPointerDown : undefined}
+        {...rest}
+      />
+    );
+  },
+  (prev, next) => {
+    // 仅当「非 handler 的渲染相关 prop」真正变化时才重渲；
+    // onChange / onPointerDown 身份变化被刻意忽略（已通过 ref 持有最新实现）。
+    // 其余 prop（含未来可能新增的 style / maxLength 等）一律做值比较，保证行为正确。
+    const prevKeys = Object.keys(prev);
+    if (prevKeys.length !== Object.keys(next).length) return false;
+    for (const key of prevKeys) {
+      if (key === "onChange" || key === "onPointerDown") continue;
+      if (prev[key] !== next[key]) return false;
+    }
+    return true;
+  }
+);

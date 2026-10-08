@@ -25,6 +25,10 @@ import reactHooks from "eslint-plugin-react-hooks";
 const IGNORES = [
   "node_modules/**",
   "dist/**",
+  // vite dev 预构建缓存。2026-10-02 白屏事故后从 node_modules/.vite 挪到项目根
+  // （见 server/app.js attachFrontend() 的 cacheDir），**因此它不再被 node_modules/** 覆盖**，
+  // 必须显式忽略：里面是 vite 生成的第三方依赖副本，lint 它会凭空多出几百条 no-undef。
+  ".vite-cache/**",
   "runtime/**",
   "baselines/**",
   ".codex-artifacts/**",
@@ -35,7 +39,10 @@ const IGNORES = [
   "tmp/**",
   "server/static-assets.generated.js",
   "server/skill-baselines/**",
-  "API/**"
+  "API/**",
+  // V41 归档目录：scripts/dev 一次性施工脚本的历史审计存档（见 V4.0-执行单-V41）。
+  // 与 baselines/**/tmp/** 同性质——非活跃开发代码，照出来也无法维护，故不扫。
+  "archive/**"
 ];
 
 /** 只开"能抓到 bug"的规则；规范类（缩进、引号、分号）一律不开。 */
@@ -86,7 +93,14 @@ const CORRECTNESS_RULES = {
   // —— 关键的一条：让 JSX 里用到的组件算"被使用"
   // 没有它，`<App />` 这种用法不算引用，整个报告会被"组件未使用"的假警报淹掉
   // （实测：加上之前 main.jsx 报 63 条，绝大多数是假的）。
-  "react/jsx-uses-vars": "error"
+  "react/jsx-uses-vars": "error",
+  // —— 它的孪生兄弟，补的是 no-undef 的一个**结构性盲区**：
+  // no-undef 只看 Identifier，而 JSX 标签是 JSXIdentifier ⇒ `<Modal />` 这种
+  // 「组件压根没 import」它一声不响，vite build 也照过（未定义标识符在打包期
+  // 只被当成运行期全局变量）。2026-10-05 实测事故：quick-crop-panels.jsx 里
+  // Modal / ModalHeader / Folder / ImageIcon / X / RotateCcw / Loader2 / Crop
+  // 共 8 个组件全部未定义，而 `npx eslint .` = 0 errors，带着 8 处必崩的界面发布了。
+  "react/jsx-no-undef": "error"
 };
 
 export default [

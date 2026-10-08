@@ -515,6 +515,12 @@ textarea:focus {
   position: relative;
   min-width: 0;
   overflow: hidden;
+  /* V46.4 延伸（低端机降配④补）：CSS 级虚拟化。离屏卡片跳过布局/绘制，直接削减
+     长画廊（结果/参考/视频）在低端机上的主线程开销；DOM 仍常驻，不破坏拖拽到画布。
+     contain-intrinsic-size 用 `auto` 关键字：首屏用 260px 估计占位，渲染后记住真实尺寸，
+     避免横向滚动条与行高跳动。aspect-ratio:3/4 + flex-basis 固定宽度 ⇒ 高度可确定，估计值偏差小。 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 260px;
   aspect-ratio: 3 / 4;
   border-radius: 8px;
   background: var(--panel);
@@ -942,6 +948,41 @@ textarea:focus {
   gap: 5px;
   width: 58px;
   flex: 0 0 auto;
+}
+
+/* 参考图左右调顺序（2026-10-06 补齐，机制与批量侧 .thumbCard 一致）：
+   拖起来的那张半透明，目标位的左/右侧画一条竖线表示会插在哪。 */
+.referenceThumbWrap.sorting {
+  opacity: 0.45;
+}
+
+.referenceThumbWrap.sorting .referenceThumb {
+  cursor: grabbing;
+}
+
+.referenceThumbWrap.dropBefore::before,
+.referenceThumbWrap.dropAfter::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.referenceThumbWrap.dropBefore,
+.referenceThumbWrap.dropAfter {
+  position: relative;
+}
+
+.referenceThumbWrap.dropBefore::before {
+  left: -7px;
+}
+
+.referenceThumbWrap.dropAfter::after {
+  right: -7px;
 }
 
 .referenceThumb.replaceTarget {

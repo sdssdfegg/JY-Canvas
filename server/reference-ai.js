@@ -1,11 +1,11 @@
+import { createAbortSignal } from "./core/http-client.js";
+import { renderReferencePolicy, NO_REFERENCE_NOTE } from "../src/shared/reference-policy.js";
+import { asText, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
+
 const DEFAULT_REFERENCE_TEXT_MODEL = "gpt-5.4-mini";
+const REFERENCE_MODEL_SPEC = { fields: ["detailAnalysisModel", "referenceTextModel", "textModel"], fallback: DEFAULT_REFERENCE_TEXT_MODEL };
 const REFERENCE_REWRITE_TIMEOUT_MS = 90000;
 const MAX_REFERENCE_AI_IMAGE_COUNT = 8;
-
-function asText(value, fallback = "") {
-  const text = String(value ?? "").trim();
-  return text || fallback;
-}
 
 function clampStrength(value) {
   const parsed = Number.parseInt(value, 10);
@@ -13,91 +13,6 @@ function clampStrength(value) {
   return Math.max(30, Math.min(100, rounded));
 }
 
-function modelName(input) {
-  return asText(input.detailAnalysisModel || input.referenceTextModel || input.textModel || DEFAULT_REFERENCE_TEXT_MODEL, DEFAULT_REFERENCE_TEXT_MODEL);
-}
-
-function createAbortSignal(timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return {
-    signal: controller.signal,
-    dispose: () => clearTimeout(timer)
-  };
-}
-
-function readResponse(response) {
-  return response.text().then((text) => {
-    try {
-      return { text, json: JSON.parse(text) };
-    } catch {
-      return { text, json: null };
-    }
-  });
-}
-
-function responseContent(payload) {
-  const message = payload?.choices?.[0]?.message;
-  if (!message) return "";
-  if (typeof message.content === "string") return message.content;
-  if (Array.isArray(message.content)) {
-    return message.content.map((part) => part.text || part.content || "").join("\n");
-  }
-  return "";
-}
-
-function extractJsonObject(text) {
-  const raw = String(text || "").trim();
-  if (!raw) throw new Error("参考生图文本模型没有返回内容");
-  const unfenced = raw
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-  try {
-    return JSON.parse(unfenced);
-  } catch {
-    const start = unfenced.indexOf("{");
-    const end = unfenced.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(unfenced.slice(start, end + 1));
-    throw new Error("参考生图文本模型返回的不是有效 JSON");
-  }
-}
-
-function fileMeta(file, index, role) {
-  return {
-    index,
-    role,
-    name: file.originalname || `${role}-${index + 1}`,
-    type: file.mimetype || "",
-    size: file.size || file.buffer?.length || 0
-  };
-}
-
-function safeImagePart(file) {
-  return {
-    type: "image_url",
-    image_url: {
-      url: `data:${file.mimetype || "image/png"};base64,${file.buffer.toString("base64")}`,
-      detail: "low"
-    }
-  };
-}
-
-function referenceStrengthPolicy(value) {
-  const strength = clampStrength(value);
-  const map = {
-    30: "极低参考：只判断参考图是否存在可用运营方向，最终画面主要由产品图和用户提示词主导。",
-    40: "低参考：只提取少量配色、情绪或电商氛围，必须保持明显原创。",
-    50: "轻中参考：可吸收参考图商业气质，但主体呈现、场景和镜头以重新设计为主。",
-    60: "中参考：保留参考图关键视觉策略，同时重组画面层次、卖点区和光线。",
-    70: "中高参考：较明显参考运营图风格和转化逻辑，但替换关键视觉细节。",
-    80: "高参考：强参考运营图的视觉方向和商业表达，必须重构元素、构图、场景，避免同款感。",
-    90: "极高参考：尽量靠近参考图运营策略，但必须避开相同版式、相同背景、相同文案和品牌信息。",
-    100: "满参考：最大程度吸收参考图投放策略和视觉记忆点，同时强制重绘所有可识别细节，不能复制原图。"
-  };
-  return map[strength] || map[60];
-}
 
 function referenceDimensionPolicy(value, dimension) {
   const policies = {
@@ -125,12 +40,13 @@ function referenceDimensionPolicy(value, dimension) {
 
 function localReferencePrompt(input) {
   const userPrompt = asText(input.prompt, "生成一张高质量电商商品图，突出商品真实结构、材质、颜色和核心卖点。");
+  const policyLines = Array.isArray(input.policies) && input.policies.length > 0
+    ? input.policies
+    : renderReferencePolicy({ strength: input.strength, element: input.element, composition: input.composition, scene: input.scene, styleCount: Number(input.styleCount) || 0 });
+  const policyBlock = policyLines.length > 0 ? policyLines : [NO_REFERENCE_NOTE];
   return [
     userPrompt,
-    `参考强度：${clampStrength(input.strength)}%。${referenceStrengthPolicy(input.strength)}`,
-    referenceDimensionPolicy(input.element, "元素"),
-    referenceDimensionPolicy(input.composition, "构图"),
-    referenceDimensionPolicy(input.scene, "场景主题"),
+    ...policyBlock,
     "整体风格只能选择一个稳定主调性，不要把多张参考图平均融合，不要混搭成拼贴感。",
     "产品图优先级最高：保持商品结构、颜色、材质、比例、纹理和关键细节不变。",
     "画面要求：电商主图/详情图质感，主体清晰，光线统一，背景干净，构图服务转化，商品边缘清楚。",
@@ -138,7 +54,16 @@ function localReferencePrompt(input) {
   ].join("\n");
 }
 
-function buildSkillPayload(input, files, includeImages) {
+function buildReferencePolicyText(input) {
+  if (Array.isArray(input.policies) && input.policies.length > 0) return input.policies;
+  return [
+    referenceDimensionPolicy(input.element, "元素"),
+    referenceDimensionPolicy(input.composition, "构图"),
+    referenceDimensionPolicy(input.scene, "场景主题")
+  ];
+}
+
+function buildReferenceSkillPayload(input, files, includeImages) {
   const productFiles = files.filter((file) => file.referenceRole === "product");
   const referenceFiles = files.filter((file) => file.referenceRole === "reference");
   const textPayload = {
@@ -159,8 +84,8 @@ function buildSkillPayload(input, files, includeImages) {
         `前 ${productFiles.length} 张是产品图，是真实商品事实来源。`,
         `后 ${referenceFiles.length} 张是运营参考图，只能按参考控制项抽取方向。`
       ],
-      productImages: productFiles.map((file, index) => fileMeta(file, index, "product")),
-      referenceImages: referenceFiles.map((file, index) => fileMeta(file, index, "reference"))
+      productImages: productFiles.map((file, index) => fileMeta(file, { index, role: "product" })),
+      referenceImages: referenceFiles.map((file, index) => fileMeta(file, { index, role: "reference" }))
     },
     skill: {
       priority: [
@@ -175,12 +100,9 @@ function buildSkillPayload(input, files, includeImages) {
         "如果元素、构图、场景主题的强度互相冲突，以构图稳定和商品清晰为优先，舍弃会造成缝合感的内容。",
         "提示词要像专业摄影/电商美术指导给生图模型的指令，不要像规则列表拼接。"
       ],
-      strengthPolicy: referenceStrengthPolicy(input.strength),
-      elementPolicy: referenceDimensionPolicy(input.element, "元素"),
-      compositionPolicy: referenceDimensionPolicy(input.composition, "构图"),
-      scenePolicy: referenceDimensionPolicy(input.scene, "场景主题"),
+      referencePolicy: buildReferencePolicyText(input),
       requiredOutput: {
-        prompt: "string，一段最终生图提示词，中文，150-320字，必须自然连贯，不要 Markdown。",
+        prompt: "string，一段最终生图提示词，中文，150-320字，必须自然连贯，不要 Markdown；不得包含「参考值 / 百分比 / 档位说明」，必须是可直接执行的画面描述。",
         strategy: {
           mainStyleAxis: "string，单一主调性",
           referenceUsage: ["string，说明哪些参考维度被采用"],
@@ -202,36 +124,16 @@ function buildSkillPayload(input, files, includeImages) {
         type: "text",
         text: `${role === "product" ? "产品图" : "运营参考图"} ${role}[${index}]：${file.originalname || `${role}-${index + 1}`}`
       });
-      content.push(safeImagePart(file));
+      content.push(safeImagePart(file, "low"));
       attachedCount += 1;
     }
   }
   return content;
 }
 
-function shouldRetryWithoutImages(status, text) {
-  const source = `${status} ${text}`.toLowerCase();
-  return status >= 400 && (
-    source.includes("image") ||
-    source.includes("vision") ||
-    source.includes("multimodal") ||
-    source.includes("content part") ||
-    source.includes("image_url")
-  );
-}
-
-function shouldRetryWithoutJsonFormat(status, text) {
-  const source = `${status} ${text}`.toLowerCase();
-  return status >= 400 && (
-    source.includes("response_format") ||
-    source.includes("json_object") ||
-    source.includes("unsupported")
-  );
-}
-
-function buildChatBody(input, files, includeImages, withJsonFormat) {
+function buildReferenceChatBody(input, files, includeImages, withJsonFormat) {
   const body = {
-    model: modelName(input),
+    model: modelName(input, REFERENCE_MODEL_SPEC),
     temperature: 0.15,
     messages: [
       {
@@ -244,7 +146,7 @@ function buildChatBody(input, files, includeImages, withJsonFormat) {
       },
       {
         role: "user",
-        content: buildSkillPayload(input, files, includeImages)
+        content: buildReferenceSkillPayload(input, files, includeImages)
       }
     ]
   };
@@ -252,21 +154,7 @@ function buildChatBody(input, files, includeImages, withJsonFormat) {
   return body;
 }
 
-async function postChatCompletion({ baseUrl, apiKey, input, files, includeImages, withJsonFormat, signal }) {
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(buildChatBody(input, files, includeImages, withJsonFormat)),
-    signal
-  });
-  const parsed = await readResponse(response);
-  return { response, parsed };
-}
-
-function normalizePlan(plan, input) {
+function normalizeReferencePlan(plan, input) {
   const prompt = asText(plan?.prompt, localReferencePrompt(input));
   return {
     prompt,
@@ -299,10 +187,7 @@ async function createReferencePromptRewrite({ input = {}, files = [], apiKey, ba
         const { response, parsed } = await postChatCompletion({
           baseUrl,
           apiKey,
-          input,
-          files,
-          includeImages: mode.includeImages,
-          withJsonFormat: mode.withJsonFormat,
+          body: buildReferenceChatBody(input, files, mode.includeImages, mode.withJsonFormat),
           signal: abort.signal
         });
         const message = parsed.json?.error?.message || parsed.text || `HTTP ${response.status}`;
@@ -319,11 +204,11 @@ async function createReferencePromptRewrite({ input = {}, files = [], apiKey, ba
         if (!response.ok && mode.includeImages && shouldRetryWithoutImages(response.status, message)) continue;
         if (!response.ok) break;
 
-        const plan = normalizePlan(extractJsonObject(responseContent(parsed.json)), input);
+        const plan = normalizeReferencePlan(extractJsonObject(responseContent(parsed.json), "参考生图文本模型"), input);
         return {
           ok: true,
           mode: mode.includeImages ? "ai-vision" : "ai-text",
-          model: modelName(input),
+          model: modelName(input, REFERENCE_MODEL_SPEC),
           usedBaseUrl: baseUrl,
           timing: { totalMs: Date.now() - startedAt },
           attempts,

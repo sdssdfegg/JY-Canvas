@@ -24,6 +24,16 @@ import {
   cropRectToBlob,
   resolveLocalEditBaseFile
 } from "/src/shared/local-edit-geometry.js";
+// 2026-10-02 · RF-031：本探针原有一份私有 `canvasToBlob(canvas, type = "image/png")`。
+// 意图判定（不是默认"该收口"，而是先判自包含还是陈旧副本）：本文件已从
+// `/src/shared/local-edit-geometry.js` import 另外 3 个函数 ⇒ **并不回避依赖 src/**；
+// 当年复制是因为 `canvasToBlob` 还是未导出的私有 function，根本没法 import。
+// 刀 3 之后 `src/shared/canvas-blob.js` 已导出 ⇒ 复用条件具备 ⇒ 判定为**陈旧副本**，改为复用。
+// ⚠️ shared 版**不提供默认值**（有意，见 canvas-blob.js 头注释），而本探针 3 个调用点原来
+// 一个参数都不传 ⇒ 已在 3 处**显式补参 "image/png"**，不依赖浏览器 toBlob 的缺省回落。
+// 附带的唯一差异：失败文案由「画布编码失败」变「图片压缩失败」（刀 3 的统一文案），
+// 该分支在本探针里不可达（toBlob 只在极端情况返 null），且 scripts/verify/** 无断言依赖。
+import { canvasToBlob } from "/src/shared/canvas-blob.js";
 
 const SOURCE_WIDTH = 2334;
 const SOURCE_HEIGHT = 3500;
@@ -62,12 +72,6 @@ function releaseCanvas(canvas) {
   canvas.height = 0;
 }
 
-function canvasToBlob(canvas, type = "image/png") {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("画布编码失败"))), type);
-  });
-}
-
 function fillPattern(canvas, width, height, channelAt) {
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   const imageData = ctx.createImageData(width, height);
@@ -88,7 +92,7 @@ async function buildSourceBlob() {
   const canvas = makeCanvas(SOURCE_WIDTH, SOURCE_HEIGHT);
   try {
     fillPattern(canvas, SOURCE_WIDTH, SOURCE_HEIGHT, sourceChannelAt);
-    return await canvasToBlob(canvas);
+    return await canvasToBlob(canvas, "image/png");
   } finally {
     releaseCanvas(canvas);
   }
@@ -106,7 +110,7 @@ async function buildUploadCopyBlob(sourceBlob) {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    return await canvasToBlob(canvas);
+    return await canvasToBlob(canvas, "image/png");
   } finally {
     bitmap.close?.();
     releaseCanvas(canvas);
@@ -118,7 +122,7 @@ async function buildPatchBlob(width, height) {
   const canvas = makeCanvas(width, height);
   try {
     fillPattern(canvas, width, height, patchChannelAt);
-    return await canvasToBlob(canvas);
+    return await canvasToBlob(canvas, "image/png");
   } finally {
     releaseCanvas(canvas);
   }

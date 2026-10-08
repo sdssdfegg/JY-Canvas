@@ -13,13 +13,19 @@
 // 所以本检查改成钉"谁都别想再悄悄把规则加回来"。
 //
 // 用法：node scripts/verify/reference-gate-check.mjs
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { buildOutfitPrompt } from "../../server/outfit-skill.js";
 
 const ROOT = process.cwd();
-const CLIENT = readFileSync(path.join(ROOT, "src", "outfit-workflow.jsx"), "utf8");
+// RF-082 后：4 句 hint 搬去了 features/outfit/outfit-top.js，
+// 但「上传门控」那段代码仍在 src/outfit-workflow.jsx。
+// ⇒ 两个都要读。只换成新文件，会让「上传门控」这条立刻变成新的僵尸断言。
+const CLIENT = [
+  path.join(ROOT, "src", "outfit-workflow.jsx"),
+  path.join(ROOT, "src", "features", "outfit", "outfit-top.js")
+].filter(existsSync).map((file) => readFileSync(file, "utf8")).join("\n");
 
 let failures = 0;
 const lines = [];

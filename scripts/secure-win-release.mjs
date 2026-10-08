@@ -123,6 +123,12 @@ await run(npmInvocation.command, [...npmInvocation.prefix, "run", "build"], {
   }
 });
 
+// V35：构建产物 dist/ 写一份空标记 .release-mode，使 `node server/index.js` 直接以 release 模式
+// 运行时命中 production 分支（静态托管 dist，不拉起 vite dev server）。
+console.log("1.1/8 Write .release-mode marker into dist");
+await mkdir(distDir, { recursive: true });
+await writeFile(path.join(distDir, ".release-mode"), "", "utf8");
+
 console.log("2/8 Obfuscate frontend JavaScript assets");
 const distAssetFiles = await walkFiles(path.join(rootDir, "dist"));
 for (const file of distAssetFiles.filter((item) => item.endsWith(".js"))) {
@@ -400,7 +406,7 @@ setlocal
 title Jingyin AI Diagnostics Export
 echo Exporting Jingyin AI diagnostics. Please wait...
 echo.
-set "SCRIPT=%~dp0export-diagnostics.ps1"
+set "SCRIPT=%~dp0tools\export-diagnostics.ps1"
 if not exist "%SCRIPT%" (
   echo Missing diagnostics script: %SCRIPT%
   echo Please unzip the full WIN package again and retry.
@@ -428,9 +434,10 @@ echo.
 pause
 exit /b %EXITCODE%
 `;
-await writeFile(path.join(releaseDir, "export-diagnostics.ps1"), `\uFEFF${diagnosticPowerShell}`, "utf8");
+await mkdir(path.join(releaseDir, "tools"), { recursive: true });
+await writeFile(path.join(releaseDir, "tools", "export-diagnostics.ps1"), `\uFEFF${diagnosticPowerShell}`, "utf8");
 await writeFile(path.join(releaseDir, "导出诊断日志.bat"), diagnosticBatch, "utf8");
-await writeFile(path.join(releaseDir, "导出诊断日志.cmd"), diagnosticBatch, "utf8");
+await writeFile(path.join(releaseDir, "导出诊断日志（备用）.cmd"), diagnosticBatch, "utf8");
 await writeFile(path.join(releaseDir, "使用说明.txt"), `\uFEFF${[
   `${productName} Windows 使用说明`,
   "",
@@ -461,8 +468,8 @@ await writeFile(path.join(releaseDir, "使用说明.txt"), `\uFEFF${[
   "1. 软件启动后，如果超过 5 分钟没出图、输入法打字卡、或后台没有生成记录，双击“导出诊断日志.bat”。",
   "2. 弹出的窗口会显示导出进度；桌面会生成“静音AI画板诊断日志_时间”文件夹。",
   "3. 把整个诊断文件夹发给管理员，不需要手动挑文件。",
-  "4. 如果 .bat 被电脑拦截，双击同目录的“导出诊断日志.cmd”。",
-  "5. 不要删除同目录的 export-diagnostics.ps1；bat/cmd 会调用它导出日志。",
+  "4. 如果 .bat 被电脑拦截，双击同目录的“导出诊断日志（备用）.cmd”。",
+  "5. 不要删除 tools 目录（诊断脚本在那里）；bat/cmd 会调用它导出日志。",
   "6. 手动查找日志路径：%LOCALAPPDATA%\\静音AI绘画数据\\logs\\generation.jsonl。",
   "",
   "模型、渠道、价格和限流：以 api.jingyin.online 后台当前配置为准。",
@@ -572,6 +579,11 @@ await writeFile(path.join(releaseDir, "tools", "校验和.txt"), `\uFEFF${[
   "这些只会在运行时写入数据目录（默认 %LOCALAPPDATA%\\静音AI绘画数据）。"
 ].join("\r\n")}\n`, "utf8");
 
+// V35：在 exe 同目录放置 .release-mode 标记。打包 exe 运行时 rootDir 解析到数据目录，
+// dist 不在其下，故标记须放在 exe 所在目录，server/index.js 据此置 NODE_ENV=production，
+// 命中 production 分支（静态托管/内嵌前端），彻底不拉起 vite dev server。
+await writeFile(path.join(releaseDir, ".release-mode"), "", "utf8");
+
 console.log(`Release ready: ${releaseExe}`);
 console.log(`SHA256: ${hash}`);
-console.log(`Release files: ${exeName}, version.json, 更新日志.md, 启动（推荐）.bat, 使用说明.txt, 导出诊断日志.bat/.cmd, export-diagnostics.ps1, tools/校验和.txt`);
+console.log(`Release files: ${exeName}, version.json, 更新日志.md, 启动（推荐）.bat, 使用说明.txt, 导出诊断日志.bat, 导出诊断日志（备用）.cmd, tools/export-diagnostics.ps1, tools/校验和.txt`);

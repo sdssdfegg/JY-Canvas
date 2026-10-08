@@ -11,6 +11,8 @@
 //   2. 关闭对称时必须明确禁止强行对称（保留原图真实的不对称细节）。
 //   3. 横平竖直只修正明显的拍摄摆放或线条歪扭，不把原本有意的褶裥、弧线、波浪边、不对称设计强行拉直。
 
+import { asText, pickEnum } from "./text-normalize.js";
+
 export const RETOUCH_INTENT_VERSION = 1;
 
 /** 对称：默认关闭（关闭 = 最大限度保留原图真实的左右不对称细节）。 */
@@ -91,17 +93,6 @@ export function retouchStructureLines(intent) {
 // ---------------------------------------------------------------------------
 // 归一化（旧存档 / 旧请求都必须安全：绝不抛错，绝不把对象拼成 [object Object]）
 // ---------------------------------------------------------------------------
-
-function asText(value, limit = 240) {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "object") return "";
-  return String(value).replace(/\s+/g, " ").trim().slice(0, limit);
-}
-
-function pickEnum(value, allowed, fallback) {
-  const text = asText(value, 60);
-  return allowed.includes(text) ? text : fallback;
-}
 
 /** 用户补充：保留原始换行，但去掉首尾空白；对象/数组一律当空（防止 [object Object]）。 */
 function asCustomPrompt(value) {

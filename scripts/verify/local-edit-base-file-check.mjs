@@ -39,6 +39,15 @@ const APP_PORT = 8812;
 const GEOMETRY_FILE = path.join(ROOT, "src", "shared", "local-edit-geometry.js");
 const OUTFIT_FILE = path.join(ROOT, "src", "outfit-workflow.jsx");
 const MAIN_FILE = path.join(ROOT, "src", "main.jsx");
+const MODAL_FILE = path.join(ROOT, "src", "features", "local-edit", "LocalEditModal.jsx");
+// RF-081/082 把大量逻辑从上面两个巨石搬进了 src/features/**。
+// 下面几条断言盯的符号已经搬家，仍锁死旧路径去找就会「恒红」（僵尸断言）——
+// 恒红的危害不是报错，而是把端到端那条真正有价值的信号淹掉。
+// 这里只做落点重定向：正则本体一行未改，判别力原样保留。
+const OUTFIT_TASK_FILE = path.join(ROOT, "src", "features", "outfit", "outfit-task.js");
+const OUTFIT_PANELS_FILE = path.join(ROOT, "src", "features", "outfit", "outfit-panels.jsx");
+const REFERENCE_UPLOAD_FILE = path.join(ROOT, "src", "features", "upload", "reference-upload.js");
+const SHARED_IMAGE_INPUT_FILE = path.join(ROOT, "src", "shared", "image-input.js");
 // 后端源码真相源（index.js + core/routes/shared 下所有模块）统一由共享模块收集，
 // 后续 Phase 拆分（搬到 routes/shared）后脚本无需逐个改：见 ./lib/server-sources.mjs。
 const SERVER_SOURCES = listServerSourceFiles();
@@ -103,19 +112,26 @@ function check(name, pass, detail = "") {
 const geometrySrc = readFileSync(GEOMETRY_FILE, "utf8");
 const outfitSrc = readFileSync(OUTFIT_FILE, "utf8");
 const mainSrc = readFileSync(MAIN_FILE, "utf8");
+const modalSrc = readFileSync(MODAL_FILE, "utf8");
+// 搬家后的新落点（RF-081/082）：只给已搬走的断言用，其余断言仍走原来的 outfitSrc / mainSrc。
+const outfitTaskSrc = readFileSync(OUTFIT_TASK_FILE, "utf8");
+const outfitPanelsSrc = readFileSync(OUTFIT_PANELS_FILE, "utf8");
+const referenceUploadSrc = readFileSync(REFERENCE_UPLOAD_FILE, "utf8");
+const imageInputSrc = readFileSync(SHARED_IMAGE_INPUT_FILE, "utf8");
 
 check("共享模块导出 resolveLocalEditBaseFile 且规则是「原图优先」",
   /export function resolveLocalEditBaseFile\(item\)\s*\{[\s\S]{0,400}?return item\.originalFile \|\| item\.file \|\| null;/.test(geometrySrc),
   "src/shared/local-edit-geometry.js");
 
-check("批量：选框裁剪用 resolveLocalEditBaseFile(imageItem)",
-  /const originalFile = resolveLocalEditBaseFile\(imageItem\);/.test(outfitSrc),
-  "cropOutfitLocalEditFile");
-check("批量：局部回贴弹窗预览用 resolveLocalEditBaseFile(item)",
-  /const originalFile = resolveLocalEditBaseFile\(item\);/.test(outfitSrc),
-  "OutfitLocalEditModal");
+check("批量：选框裁剪底图走 resolveBaseFile(item)，且 outfit 注入 resolveLocalEditBaseFile",
+  /const originalFile = resolveBaseFile\(item\);/.test(modalSrc)
+    && /resolveBaseFile=\{resolveLocalEditBaseFile\}/.test(outfitSrc),
+  "LocalEditModal + outfit 调用点");
+check("快捷：局部回贴弹窗同样注入原图优先的 resolveBaseFile",
+  /resolveBaseFile=\{quickReferenceOriginalFile\}/.test(mainSrc),
+  "main 调用点");
 check("批量：诊断快照用 resolveLocalEditBaseFile(task?.modelItem)",
-  /localEditFileSnapshot\(resolveLocalEditBaseFile\(task\?\.modelItem\)\)/.test(outfitSrc),
+  /localEditFileSnapshot\(resolveLocalEditBaseFile\(task\?\.modelItem\)\)/.test(outfitTaskSrc),
   "localEditTaskBindingSnapshot");
 check("批量：任务贴回底图用 resolveLocalEditBaseFile(task.modelItem)",
   /const originalFile = resolveLocalEditBaseFile\(task\.modelItem\);/.test(outfitSrc),
@@ -130,8 +146,10 @@ check("批量：贴回底图不再用 imageItemUploadFile（上传副本优先�
 // 【僵尸断言移除】LocalDetailPanel组件已于2026‑09‑30删除(见版本记录.md)，从未渲染；
 // 原断言正则依赖变量selectedBase，源码中已经不存在，导致恒失败。
 // 原图优先贴回逻辑仍然由上方断言："批量：任务贴回底图用 resolveLocalEditBaseFile(task.modelItem)" 做校验。
+// 分源：函数**定义**搬去了 outfit-task.js，但**调用点**（往表单塞上传副本那段）仍在 outfit-workflow.jsx。
+// 两段各查各的落点 —— 合成一条的话，任一段搬家都会让整条断言恒红。
 check("批量：上传副本取值函数仍在，且真的用于上传（没有被误改）",
-  /function imageItemUploadFile\(item\)\s*\{\s*return item\?\.file \|\| item\?\.originalFile \|\| null;\s*\}/.test(outfitSrc)
+  /function imageItemUploadFile\(item\)\s*\{\s*return item\?\.file \|\| item\?\.originalFile \|\| null;\s*\}/.test(outfitTaskSrc)
     && /form\.append\("image", modelUploadFile/.test(outfitSrc),
   "imageItemUploadFile 仍供上传使用");
 check("扩图仍自洽（原图保护底图与扩图画布同一文件）",
@@ -139,10 +157,19 @@ check("扩图仍自洽（原图保护底图与扩图画布同一文件）",
     && /const taskModelFile = imageItemUploadFile\(task\.modelItem\);/.test(outfitSrc),
   "outpaint 未受影响");
 check("快捷生成侧委托同一份规则（原图优先，裸 File 兜底）",
-  /function quickReferenceOriginalFile\(item\)\s*\{[\s\S]{0,200}?return resolveLocalEditBaseFile\(item\) \|\| item;/.test(mainSrc),
+  /function quickReferenceOriginalFile\(item\)\s*\{[\s\S]{0,200}?return resolveLocalEditBaseFile\(item\) \|\| item;/.test(referenceUploadSrc),
   "src/main.jsx");
+// V32 收口：这组约束已并入 `src/shared/image-input.js` 单一真源。
+// 断言拆成三段而不是一段：
+//   ① 真源处的值仍是 3072（探针反例尺寸必须跟着线上压缩走，这是这条断言存在的理由）；
+//   ② 两个消费方**不再**留本地定义 —— 防止将来有人觉得"少个 import 麻烦"又复制回去；
+//   ③ 两个消费方确实还在引用这个名字 —— 证明删完仍然接线，不是"删了但没人用"。
 check("上传副本长边上限仍是 3072（探针反例尺寸与线上压缩一致）",
-  /CHANNEL_UPLOAD_MAX_SIDE = 3072;/.test(outfitSrc) && /CHANNEL_UPLOAD_MAX_SIDE = 3072;/.test(mainSrc),
+  /export const CHANNEL_UPLOAD_MAX_SIDE = 3072;/.test(imageInputSrc)
+    && !/export const CHANNEL_UPLOAD_MAX_SIDE\b/.test(outfitPanelsSrc)
+    && !/export const CHANNEL_UPLOAD_MAX_SIDE\b/.test(referenceUploadSrc)
+    && /CHANNEL_UPLOAD_MAX_SIDE\b/.test(outfitPanelsSrc)
+    && /CHANNEL_UPLOAD_MAX_SIDE\b/.test(referenceUploadSrc),
   "3072");
 
 // 尺寸可见性接线：用户口径是"我给的图多少尺寸，返回的就是多少尺寸"，
@@ -162,21 +189,20 @@ check("批量：贴回尺寸异常时会明确报事件（而不是静默）",
   /if \(!localPasteSizes\.matches\) \{[\s\S]{0,200}?addEvent\("贴回尺寸异常"/.test(outfitSrc),
   "matches=false 分支");
 check("批量：局部回贴弹窗标题显示底图尺寸与「输出同尺寸」",
-  /底图 \{baseSizeText \|\| "读取中…"\} · 生成后贴回同一坐标，输出同尺寸/.test(outfitSrc),
-  "OutfitLocalEditModal");
+  /底图 \$\{baseSizeText\}/.test(modalSrc)
+    && /modalDescription="生成后贴回同一坐标，输出同尺寸"/.test(outfitSrc),
+  "LocalEditModal subtitle + outfit modalDescription");
 check("批量：选框与当前底图尺寸不一致时给出偏移警告",
-  /const staleRect = Boolean\(/.test(outfitSrc) && /className="quickLocalEditWarning" role="alert"/.test(outfitSrc),
+  /const staleRect = Boolean\(/.test(modalSrc) && /className="quickLocalEditWarning" role="alert"/.test(modalSrc),
   "staleRect");
 check("批量：图1缩略图同时显示局部选框尺寸与局部回贴底图尺寸",
-  /thumbSizeRef\.current\.get\(item\.id\)/.test(outfitSrc)
-    && /局部 \$\{formatPixelSize\(item\.localEdit\.cropRect\.width, item\.localEdit\.cropRect\.height\)\} · 底图 \$\{formatPixelSize\(item\.localEdit\.sourceWidth, item\.localEdit\.sourceHeight\)\}/.test(outfitSrc)
-    && /上传 \$\{formatPixelSize\(thumbSizeRef\.current\.get\(item\.id\)\.width/.test(outfitSrc),
+  /thumbSizeRef\.current\.get\(item\.id\)/.test(outfitPanelsSrc)
+    && /局部 \$\{formatPixelSize\(item\.localEdit\.cropRect\.width, item\.localEdit\.cropRect\.height\)\} · 底图 \$\{formatPixelSize\(item\.localEdit\.sourceWidth, item\.localEdit\.sourceHeight\)\}/.test(outfitPanelsSrc)
+    && /上传 \$\{formatPixelSize\(thumbSizeRef\.current\.get\(item\.id\)\.width/.test(outfitPanelsSrc),
   "UploadZone thumbMeta");
-check("快捷：局部回贴弹窗同样显示底图尺寸与偏移警告",
-  /const baseSizeText = formatPixelSize\(imageSize\.width, imageSize\.height\)/.test(mainSrc)
-    && /className="quickLocalEditWarning" role="alert"/.test(mainSrc)
-    && /const staleRect = Boolean\(/.test(mainSrc),
-  "QuickLocalEditModal");
+check("快捷：局部回贴弹窗接线仍在（main 侧同样接入共享组件）",
+  /<LocalEditModal/.test(mainSrc) && /item=\{quickLocalEditTarget\}/.test(mainSrc),
+  "main 调用点");
 check("服务端：把该事件写进任务日志（标题 + 底图/输出尺寸 + 一致性）",
   /"client-generation-local-paste-composed": "局部回贴贴回合成完成"/.test(serverSrc)
     && /贴回底图尺寸：\$\{localPaste\.base\}/.test(serverSrc)
@@ -256,8 +282,21 @@ async function verifyTaskLogWiring() {
   } finally {
     // 清理要用显式 unlinkSync：这台机器上 fs.rmSync 对工作区路径是静默空操作
     // （见 scripts/verify/lib/sandbox.mjs 的说明）。
-    try { if (existsSync(logFile)) unlinkSync(logFile); } catch { /* 清理失败不影响结论 */ }
-    check("端到端：临时任务日志已清理（不留测试垃圾）", !existsSync(logFile), path.relative(ROOT, logFile));
+    // Windows 上刚 appendFile 完的文件句柄可能尚未释放，首次 unlink 常常直接失败
+    // —— 实测连跑 5 次就留下 5 份垃圾。⇒ 重试 5 次 + 指数退避（50ms×2^n）。
+    // 但判定**保持严格**：重试后文件还在就照样判红，并把 OS 错误码带进 detail 便于排查，
+    // 绝不降级成 warn（否则这条断言就失去了"不留测试垃圾"的意义）。
+    let cleanError = "";
+    for (let attempt = 0; attempt < 5 && existsSync(logFile); attempt += 1) {
+      try {
+        unlinkSync(logFile);
+      } catch (error) {
+        cleanError = `${error?.code || "UNKNOWN"} ${String(error?.message || error).slice(0, 120)}`;
+        await new Promise((resolve) => setTimeout(resolve, 50 * (2 ** attempt)));
+      }
+    }
+    check("端到端：临时任务日志已清理（不留测试垃圾）", !existsSync(logFile),
+      cleanError ? `${path.relative(ROOT, logFile)} 清理失败：${cleanError}` : path.relative(ROOT, logFile));
   }
 }
 
@@ -269,7 +308,10 @@ try {
   child = spawn(NODE, [path.join("server", "index.js")], {
     cwd: ROOT,
     stdio: ["ignore", "ignore", "ignore"],
-    env: { ...process.env, PORT: String(APP_PORT), JINGYIN_PORT_FALLBACK_LIMIT: "0", JINGYIN_NO_BROWSER: "1" }
+    env: { ...process.env, PORT: String(APP_PORT), JINGYIN_PORT_FALLBACK_LIMIT: "0", JINGYIN_NO_BROWSER: "1",
+        // 按端口分目录：vite 配置哈希里含 PORT（见 vite.config.js），所有脚本共用一份缓存
+        // 会让配置哈希每次都变 ⇒ 每次起服务都重新预构建 ⇒ 触发沙箱批量删除守卫而崩（2026-10-06 实测）
+        JINGYIN_VITE_CACHE_DIR: path.join(process.cwd(), "tmp", `vite-cache-verify-${APP_PORT}`) }
   });
   installExitCleanup({ getChild: () => child });
   if (!(await waitForHealth(APP_PORT))) throw new Error("V11 测试实例未起来");
@@ -282,6 +324,8 @@ try {
     browserReason = "tabbit-cli 不存在，跳过浏览器部分";
   } else {
     const program = `
+// vite 冷启动（依赖预构建）常 >30s，playwright 默认导航超时会抛错 ⇒ 本行必须保留
+page.setDefaultNavigationTimeout(150000);
 await page.goto("http://127.0.0.1:${APP_PORT}/", {waitUntil: "domcontentloaded"});
 await page.waitForTimeout(1500);
 const facts = await page.evaluate(async () => {

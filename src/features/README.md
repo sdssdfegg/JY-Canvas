@@ -1,5 +1,8 @@
 # features 目录
 
+> **⚠️ 本目录下多数板块尚未落地：约定与规划在 `src/features/**/README.md`，实现代码仍在 `src/outfit-workflow.jsx`（迁移中）。**
+> 例外：`src/features/auth/` 已有真实代码（`api-key.js`）。**搜代码前先看各 README 顶部的提示行。**
+
 这里放前端功能板块。每个功能板块只负责自己的页面 UI、页面状态和页面内部交互。
 
 目标结构示例：

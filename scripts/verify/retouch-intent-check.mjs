@@ -7,7 +7,7 @@
 //
 // 用法：node scripts/verify/retouch-intent-check.mjs
 import process from "node:process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
   RETOUCH_AUTO_PROMPT_CHAR_LIMIT,
@@ -26,7 +26,13 @@ const results = [];
 function check(name, pass, detail = "") {
   results.push({ name, pass: Boolean(pass), detail: String(detail) });
 }
-const CLIENT = path.join(process.cwd(), "src", "outfit-workflow.jsx");
+// RF-082 后：精修上传区标题的几代常量（WHITE_REFINE_UPLOAD_LABELS / OUTPAINT_UPLOAD_LABELS /
+// LEGACY_* 两代迁移名单）都搬去了 features/outfit/outfit-top.js。
+// ⇒ 两个文件一起读，只盯旧页面会让这些契约变成僵尸断言。
+const CLIENT_FILES = [
+  path.join(process.cwd(), "src", "outfit-workflow.jsx"),
+  path.join(process.cwd(), "src", "features", "outfit", "outfit-top.js")
+];
 const CSS = path.join(process.cwd(), "src", "features", "outfit", "retouch-intent.css");
 const compiled = (intentPatch = {}, options = {}) => compileRetouchPrompt({
   intent: normalizeRetouchIntent(intentPatch),
@@ -206,7 +212,7 @@ check("摘要文案正确（白底精修｜对称：关闭｜衣摆：跟随原�
   JSON.stringify(summary));
 
 // ---------- 12) 前端接线（源码级契约，防止后来改坏） ----------
-const clientSource = readFileSync(CLIENT, "utf8");
+const clientSource = CLIENT_FILES.filter(existsSync).map((file) => readFileSync(file, "utf8")).join("\n");
 const cssSource = readFileSync(CSS, "utf8");
 const panelStart = clientSource.indexOf("function renderRetouchIntentPanel");
 const panelEnd = clientSource.indexOf("function renderResultQueue", panelStart);

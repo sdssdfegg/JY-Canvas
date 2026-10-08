@@ -1,0 +1,1989 @@
+# REFACTOR_TICKETS.md · 统筹枢纽（v2 · 2026-10-02）
+
+> **本文是唯一有效的派单契约**。跨会话流转只带这一份，不要带聊天记录。
+> 旧枢纽已**非破坏性留档**为 `REFACTOR-枢纽-存档-2026-10-02.md`（批次 0–4 全部关闭，含 §0.9 十九条硬约束全文）。
+> 更老的原件在 `REFACTOR-存档-2026-10-02.md`；历史工单定义在 `REFACTOR-工单明细.md`（**只读**）。
+> **硬约束（§0.9 第 1–19 条）全部继续有效**，本文 §1 只做摘要，执行前**必须整读存档文件里的 §0.9 全文**。
+
+**项目**：静音AI绘画 V11（`jingyin-internal-canvas` v11.0.0）· 工作区 `D:\源码开发\静音AI画板v4.0源码`
+**本轮定位**：后端结构已收口 100%，**本轮主线 = 前端债务收口 + 已知缺陷清零 + 后端重复消账**
+**🔴 本轮禁区**：`src/main.jsx`（8818 行）、`src/outfit-workflow.jsx`（11404 行）**不做整体搬迁、不做结构重组**。
+仅允许两种例外：① 本文点名的「**删定义 + 加 import**」式局部改动（每单 ≤ 2 个 hunk）；② 童子军原则（见 §1.4）。
+
+---
+
+## 0. 权威现状快照（2026-10-02 18:30 实测，非记忆、非转述）
+
+| 维度 | 实测值 | 判据/口径 |
+| --- | --- | --- |
+| `server/index.js` | **9 行** | 纯引导（PORT + app.js + attachFrontend） |
+| `server/app.js` | **141 行** | 装配层 |
+| `server/routes/` | **13 个模块** | 201–213 全清 |
+| `server/core/` | **33 个模块** | 批次 3 全清 |
+| 后端循环依赖 | **0** | 自写 DFS 扫描（src + server + prompts） |
+| 后端 lint 债务 | **1 条**（`outfit.routes.js\|no-unused-vars`，刻意保留的 `deferOutfitAutoSave` 标记） | `lint-baseline.json` total=20，其中后端 1 / 前端 19 |
+| `src/` 总规模 | **25093 行** | `*.js` + `*.jsx` |
+| `src/outfit-workflow.jsx` | **11404 行**（45%） | useState 96 / useEffect 46 / useCallback **0** |
+| `src/main.jsx` | **8818 行**（35%） | useState 107 / useEffect 35 / useCallback **0** |
+| 019 前端重复基线 | **1 条**（仅 `ReferenceThumbTray`） | 行首顶层函数判据，含 `src/shared/`，42 文件。**已合入 RF-001/040/041/042** |
+| 前端块级克隆 | **约 2586 行（12%）**、62 个连续块、最长 130 行 | 8 行滑窗 + 归一化哈希（**019 门禁看不见**） |
+| 前端 lint 存量 | **19 条**，全部 `react-hooks/exhaustive-deps` | main 8 / outfit 10 / image-editor 1 |
+| `auth-key-parity-check` | **knownDefectCount = 0** ✅（RF-001 已修 `7f6845b`） | 修复前为 1，复现 `'"Bearer sk-abc"'` → `"Bearersk-abc"` |
+| 当前 HEAD | **24cfa45** | 行号一律以 commit hash 为锚，不用工作区行号 |
+| `npm run check` | = `check-syntax` + `run-all.mjs` | 全套 38 项，本环境恒 27 通过 / 11 失败（见 §9.3） |
+
+> 🔴 **口径提醒（§0.9 第 13/17/19 条）**：上表每个数字都只在其判据下成立。
+> 尤其：**019 的「5 条」= 同名顶层函数层面**；它既看不见**改名克隆**（`imageExtension`↔`imageExtensionFromMime`），
+> 也看不见**成段复制的代码块**（2586 行）。**不要拿「019 只剩 5 条」当作「前端没有重复了」。**
+
+---
+
+## 0.5 ✅ 已完成存量清单（**禁止重复劳动** · 开工前先查这里）
+
+> 本项目已优化多轮。**下面这些都已经做完了，不要再开同样的单、不要再建同名的模块、不要再写同类的脚本。**
+
+### 0.5.1 后端结构 —— 已收口 100%，**不要再拆**
+`server/index.js` 9 行 / `server/app.js` 141 行 / `routes/` 13 模块 / `core/` 33 模块 / **0 循环依赖** /
+后端 lint 仅剩 1 条（`outfit.routes.js|no-unused-vars`，**刻意保留**的 `deferOutfitAutoSave` 标记，属业务决定）。
+⇒ **后端剩下的只有"重复消账"（RF-027），没有任何结构拆分工作。**
+
+### 0.5.2 前端已抽离的共享模块（搬新函数前**先 grep 这张表**）
+`src/shared/`：`text-normalize.js`（asText/pickEnum）、`numeric.js`（clamp）、`image-input.js`（isImageFile / imageFilesFromList / imageFilesFromClipboard / imageBitmapFromFile / imageBitmapFromBlob / **imageExtension**）、`canvas-blob.js`（canvasToBlob）、`file-name.js`（fileBaseName）、`video-task.js`（视频状态族 4 条）、`prompt-library.js`（normalizePromptCategoryName / normalizePromptCategories / normalizePromptPreset）、`local-edit-geometry.js`（resolveLocalEditBaseFile 等）、`local-edit-mask.js`（imageBitmapFromDataUrl）、`routing.js`（isBanana2Model）、`result-image.js`、`outfit-intent.js`、`retouch-intent.js`、`image-hosts.js`、`image-split.js`、`generation-errors.js`、`error-report.js`、`quickgen-prompt-rules.js`、`models.js`、`error-boundary.jsx`、`DebouncedTextarea.jsx`、`ui/Modal.jsx`、`ui/ChannelPicker.jsx`
+⇒ **`imageExtension` 与 `imageExtensionFromMime` 的改名克隆已在 `image-input.js:13-15` 注释里登记**（RF-032 直接引用，不用重新发现）。
+
+### 0.5.3 已有门禁（**不要再建同类门禁**，先查这张表）
+`frontend-duplication-check`(019) / `server-duplication-check` / `import-path-check` / `state-singleton-check`(监视 8 项) / `routing-check` / `auth-key-parity-check` / `lint-ratchet-check` / `run-all-check` / `local-edit-base-*` / `auth-key-*` 等，共 **38 项**（`run-all.mjs --list` 为准）。
+
+### 0.5.4 已固化的可复用测量脚本（**直接跑，不要重写**）
+`scripts/dev/`：`block-clone-lines.mjs`（块级克隆折算行数）、`cycle-scan.mjs`（循环依赖 + 扇入扇出）、
+`server-027-scope.mjs`（后端视野外重复测量）、`frontend-duplication-audit.mjs`（宽松判据审计）、
+`blade4-check-template.mjs`（**对照组范本**：旧实现抄进来当基准，逐条比对）。
+⚠️ 这些原本在 `tmp/`（**`.gitignore` 已忽略**）⇒ 已复制进 `scripts/dev/` 入库，ESLint 0 问题。
+
+### 0.5.5 已裁决事项（**不再重新讨论**，除非有新证据）
+- 刀 3 三项：`canvasToBlob` 统一到无默认值版 + 文案「图片压缩失败」；`isImageFile` **有意放宽**到支持 avif；`imageBitmapFromDataUrl` 统一到 `local-edit-mask.js` + 文案「无法读取图片」
+- 刀 5 两条 loader：**改名不合并**（`loadOutfitPromptCategories` / `loadOutfitPromptPresets`），**不动 storage key**
+- RF-031：探针第 5 份 `canvasToBlob` 判为**陈旧副本**，已改复用 + 3 处显式补 `"image/png"`
+- RF-024：`prompts/server/**` 已纳入（0 报红），顶层 `*-ai.js` **不纳入**（16 条走 RF-027 抽走，不许 `--update` 记账）
+- 白屏根因已根治（vite 预构建缓存隔离 + `JINGYIN_VITE_CACHE_DIR`），**不要再查白屏**
+
+### 0.5.6 已实测推翻的"疑似 bug"（**不要重复当成问题报**）
+`src/outfit-workflow.jsx:6951`：常被举为「闭包读旧值实锤」，实测 `modelImages` 来自 `useState(readOutfitPages)` 的**同步读档**（`:6611` lazy initializer），挂载时不是空数组 ⇒ **空依赖是有意的**，机械补依赖反而会变成"每次换图重新合并历史"。
+
+---
+
+## 1. 硬约束（摘要 · 全文见存档 §0.9）
+
+1. **一次只搬一件事；结构搬运与 bug 修复绝不混在同一次提交。**
+2. **只搬运，不改判断条件/阈值/提示词/出图参数/字段名。** 违反即拒收。
+3. 每单必须 AB-1~AB-4 全过（§9.1）；**沙盒通过 ≠ 功能正确**。
+4. 新功能一律写 `src/features/<功能名>/`；**禁止继续往两个巨石文件加代码**。
+5. 遇到「不搬就过不去」的地方，**停手开新单**，不要在同一次提交里解决。
+6. 🔒 **单一写入纪律**：**执行者不得修改本文件、任何总表/执行单/交付报告类 `.md`**。成果以**汇报**交回统筹落表。
+7. **搬前遍历待搬区间内每一个顶层标识符**，逐个搜全文件引用；两个方向都要查：① 这符号还有谁用；② **它的唯一调用方是不是也在搬走之列**（否则会留孤儿 → ESLint 判红）。
+8. 每单 diff **允许且必须**包含三类 hunk：① 删定义 ② 加本单 import ③ **清理因搬家变成孤儿的 import**。
+9. **路径保真**：搬进子目录后，内部相对导入必须按新位置重算层级（已发生两次血案，其中一次导致软件起不来）。
+10. **每次「搬出新文件」后必须回头问：被搬走的那些行还在不在门禁扫描范围内？**（拆得越干净，护栏越弱）
+11. **「有门禁/有覆盖/全绿」必须实测**，不许从体量推断；报覆盖率必须同时给判据并抽样验证。
+12. **恒真的断言等于没有断言**；任何断言先自问「它在什么情况下会失败」。
+13. 统计数字**必须同时给判据与扫描范围**；拿历史/外部数字前先核口径。
+14. **取证一律先量总数**（`grep -c`）；用 `head` 截断时必须声明「只看了前 N 条」；**全称结论必须由未截断输出支撑**。
+15. **清单类注释与行号属于代码的一部分**，改结构时必须同步（扫描目录清单、门禁监视名单、断言清单）。
+16. **禁止复制实现**：只能 import；确需复制时当场登记欠账。
+17. **分叉判定优先于统一**：先逐对 diff 判「字节一致 / 语义等价 / **已分叉**」，**已分叉一律停手报统筹，不得擅自统一**。
+18. **无真机冒烟的工单必须在 commit 里写明豁免理由**，不许假装冒过。
+19. **对照组手法（刀 3 起定型，每刀照做）**：把旧实现逐字抄进 `tmp/xxx-check.mjs` 当基准，多组入参逐条比对；
+    被测函数若含 `Date.now()`/`Math.random()`，**先固定时钟**再比，否则必然误报差异。
+
+### 1.4 童子军原则（针对两个巨石的唯一许可通道）
+- **不主动**拆 `main.jsx` / `outfit-workflow.jsx`。
+- 只有当**以后因为业务需求本来就改到某个函数**时，才顺手把它搬到 `src/shared/` 或 `src/features/<名>/`。
+- 顺手搬的前提：该次业务改动**与搬运动作分两个 commit**，搬运 commit 仍走本文全部纪律。
+
+---
+
+## 2. 全局路线与批次总览
+
+```
+A（缺陷清零 + 前端 B 收尾，可并行）→ B（后端 AI 族消账）→ C（只读审计）→ D（阶段 C 拆分）
+```
+
+| 批次 | 工单 | 类型 | 标记 | 上下文预算（执行者需读范围） | 前置 |
+| --- | --- | --- | --- | --- | --- |
+| **A** ✅ | V11-RF-001 | bug 修复（KEY 清洗顺序） | ✅ **已完成 `7f6845b`** | 极小 | 无 |
+| **A** ✅ | V11-RF-040 | 刀 5 尾：两个 loader **改名** | ✅ **已完成 `088ff5b`** | 小 | 无 |
+| **A** ✅ | V11-RF-041 | 刀 7：`diagnosticImageSourceType` | ✅ **已完成 `0c7006a`** | 小 | 无 |
+| **A** ✅ | V11-RF-042 | 刀 6 上半：`referenceSource` | ✅ **已完成 `24cfa45`**（取超集版） | 小 | 无 |
+| **A** ⏳ | V11-RF-044 | **只读定位**：本地详情链路的底图取值点 | 🟢 **待交回**（本报告未包含） | 中 | 无 |
+| **A+** ✅ | **V11-RF-045** | 🔴 **真 bug**：`image-editor.jsx:651` undo/redo 陈旧闭包把旧 `tool`/`overlayOpacity` 写回存档 | ✅ **已修 + 人工冒烟通过（`25ce21c`）** | 小 | 无 |
+| **A+** ✅ | **V11-RF-043** | 刀 6 下半：`CachedImage` + `ReferenceThumbTray`（019 最后 1 条，已分叉） | ✅ **已完成**：043-1 `9122b3c` / 043-2 `bbf4586`；🟢 **人工复核 2/2 通过（2026-10-02）⇒ 关闭** | 中 | 无 |
+| **A+** ✅ | **V11-RF-046** | 门禁加「改名克隆」档（纳组件内函数、**只报不记账**） | ✅ **已完成 `025291b`** | 小 | 无 |
+| **A+** ✅ | **V11-RF-040b/040c** | 注释锚点裁决：跨文件互指注释**只写函数名、不写行号** | ✅ **已完成 `89ca172` / `0ea8018`** | 极小 | 无 |
+| **B** ✅ | V11-RF-027-1 | 后端：`createAbortSignal` 8 处 → 1 处 | ✅ **已完成 `4fc594f`** | 中（9 个文件） | A 完成 |
+| **B** ✅ | V11-RF-027-2 / -2b | 后端：抽 `core/ai-chat-shared.js` + 消 `readResponse`↔`readTextSafely` 改名克隆 | ✅ **已完成 `4ad6461` / `b5af930`** | 大（顶层 `*-ai.js`） | **027-1 通过** |
+| **B** ✅ | V11-RF-027-3 / -4 | 参数化抽取 5 族 + 4 族「同名不同义」改名不合并 | ✅ **已完成 `84ae66c` / `28b3b35`** | 大 | **027-2 通过** |
+| **B** ✅ | V11-RF-027-4b | 收口 `compactPreserveNewlines`（改名后仍判重的最后 1 条，字节一致） | ✅ **已完成 `b45dfa4`**（定义 2→1，现只在 `ai-chat-shared.js:142`） | 极小 | **027-4 通过** |
+| **B** ✅ | V11-RF-027-5 | 把顶层 `server/*.js` **纳入门禁视野**（点名制 → 目录扫描制） | ✅ **已完成 `f394716`**：扫描 51→**64** 文件（函数 227→368），`duplicateCount` **0**，`regressions []`，**登记 0 条** | 中 | **027-4b 通过** |
+| **C** | V11-RF-032 | **只读测量**：改名克隆 + 同名不同义 | 🟢 | 大（全 `src/**` 只读） | 无（可与 A/B 并行） |
+| **C** | V11-RF-033 | **只读审计**：19 条 `exhaustive-deps` 三类判定 | 🟢 | 中（19 处区间） | 无（可与 A/B 并行） |
+| **D** ✅ | V11-RF-048 | 🆕 `PreparedResultImage`（outfit）↔ `CachedImage`（shared）改名克隆 | ✅ **已完成 `e976e85`**（取超集；真实浏览器双挂载 21/21，含缓存反证） | 中 | 043-2 完成 |
+| **D** ✅ | V11-RF-050 | 局部编辑 4 块 → `src/features/local-edit/`（含 §6.0 守卫统一） | ✅ **已全部完成**：`0a5ca4c` 守卫 / `01b2325` 块② / `250aa8d` 块① / `eb0a4be` 块③ / `26baf43` 块④；🟢 **人工冒烟通过（拖选框 + 拉滑杆，2026-10-02）** | 大 | **RF-048 完成** |
+| **D** ✅ | **V11-RF-051** | `imageMimeFromSource` / `imageExtensionFromSource` 两对改名克隆 → `src/shared/result-image.js` | ✅ **已完成 `34a376f`**（1560 条断言 0 失败 + 7/7 反证项；headless Edge 动态 import 9 组全对） | 小 | **RF-050 完成** |
+| **D** ✅ | **V11-RF-040d** | 4 条跨文件行号注释 → 只写函数名 | ✅ **已完成 `4837d49`，已合回主线 `9cfa54b`**（worktree 分支 `rf-040d`，零重叠合并） | 极小 | 无 |
+| **D** ✅ | **V11-RF-052** | **拖拽下载族 6 函数**两侧各一份（46 行字节一致 + 文案入参化）→ `src/shared/result-image.js` | ✅ **已完成 `b934ec6`** | 中 | — |
+| **D** ✅ | **V11-RF-047** | 🔴 裁剪回流底图漏走 `resolveLocalEditBaseFile`（**清单上唯一剩下的真 bug**） | ✅ **已完成 `66056fa`**（1 文件 +9/−1；🔴 **真机冒烟未豁免**，改前 bbox 被夹到原点 vs 改后吻合） | 中 | — |
+| **D** 🟡 | **V11-RF-053** | LE 几何 2 块 → `src/shared/local-edit-geometry.js` | 🟡 **部分完成 `927166c`**（#35 ✅ 已参数化收口；**#16 执行者停手 → 统筹纠正，转 RF-053b**） | 小 | — |
+| **D** ✅ | **V11-RF-054** | PL / RQ 两簇抽取方案（**只读设计**） | ✅ **已完成**（两簇**都不需新建文件**，`fileCount` +0） | 中（只读） | — |
+| **V** ✅ | **V11-RF-055** | 前端「块级克隆」advisory 门禁档（常驻化 D-2 测量） | ✅ **已完成 `87f38d2` → 合回 `6923595`**（54 块/845 行；活样本自校验 2/2） | 中 | — |
+| **V** ✅ | **V11-RF-056** | 后端 DEF 正则盲区只读测量 | ✅ **已完成 `e0159e6`**（🔴 前提已过期：RF-026 早关闭该盲区；剩余盲区 2 个定义、扩判据新增 0 族 ⇒ **不立单**） | 小（只读） | — |
+| **D** ✅ | **V11-RF-058** | RQ 最小集 2 块纯函数（预览拖拽，23 行×2）→ `result-image.js` | ✅ **已完成 `5eb35de`**（12 用例 ×2 组 + 3 反证项全检出） | 小 | — |
+| **D** ✅ | **V11-RF-057** | PL 簇抽 `usePromptLibrary`（14 块 / 138 行×2）→ `prompt-library.js`（**0 新文件**） | ✅ **已完成 `3a7bf77`**（38 用例 ×3 组 + 3 反证项；内部无 React、无 useCallback/useMemo） | 大 | — |
+| **D** 🔵 | **V11-RF-060** | **阶段 D 第三批「块级克隆清零」打包长队列单** | 🔵 **进行中**（阶段 0–3 已完成，见 §6.16） | 大 | 无 |
+
+> **派单建议**：**A 批 5 单一次性派给一个执行者**（互不重叠文件，合计上下文远低于 500K）；
+> **B 批两刀串行走**；**C 批两单只读，可与 A/B 交给另一个执行者并行**；D 批等前三个批次收口再开。
+
+---
+
+## 3. 批次 A · 缺陷清零 + 前端 B 收尾 ✅ **已交付（2026-10-02，HEAD `24cfa45`）**
+
+> **交付结果一览（统筹已验收）**
+>
+> | 单 | commit | 判定 | 对照组 | 019 | 冒烟 |
+> | --- | --- | --- | --- | --- | --- |
+> | RF-001 | `7f6845b` | 纯函数体内调顺序（三类 hunk 均无） | 46 组入参，仅 9 组不同且全属目标缺陷 | `knownDefectCount 1→0` | 🔴 **豁免**（无真实 KEY/微信来源）→ **待人类补一次粘贴冒烟才关闭** |
+> | RF-040 | `088ff5b` | 改名不合并（另同步 2 处清单类注释，§0.9 第 15 条） | 300 次比对，差异 0 | 5→3 | 真机 tab 冒烟 0 报错 |
+> | RF-041 | `0c7006a` | **字节一致** ⇒ 落点 `result-image.js`（两文件本就 import，**不新增文件 ⇒ 无漂移、无需划账**） | 40 组 × 三份实现，不一致 0 | 3→2 | tab 冒烟 0 报错 |
+> | RF-042 | `24cfa45` | 语义等价 · **超集**（outfit 多 `previewUrl`）⇒ 取超集 | 37 组；与旧 main 差异 7 条**逐条归因**到「带 previewUrl 且无 localUrl」 | 2→1 | tab 冒烟 0 报错；⚠️ 10 个调用点中 6 个需"真有参考图"，**未覆盖、未假装冒过** |
+> | RF-044 | 无提交 | **只读定位** | — | — | 见 §7 缺陷③ 改写 |
+>
+> **全局**：`run-all` 27/38（406s，失败集合与已知环境基线同类别，非回归）；`batch-prompt` 全套失败但 `--only` 2/2（再次印证属资源竞争）；lint 棘轮 20→20、`regressions=[]`；每次改 `.jsx` 均 `vite build` 通过。
+> 🔍 **对照组立功**：RF-001 的对照组抓到候选实现**一处收窄**（`"Bearer "` 由 `""` 变 `"Bearer"`），**修正后才落地** —— 这是"对照组手法"第三次避免真回归。
+>
+> 🔴 **执行者抓出工单自身两处缺陷（统筹认领，非执行者责任）**：① RF-040 裁定与禁止清单自相矛盾；② 划账授权缺失。见 §3.2 的裁决。
+
+### V11-RF-001 · `normalizeApiKeyInput` 清洗顺序导致部分粘贴来源 401
+
+- **任务类型**：【bug 修复】（**独立 commit，禁止与任何搬运动作混交**）
+- **目标文件**：
+  - `src/features/auth/api-key.js:1-7`
+  - `server/features/auth/api-key.js:1-7`（**两份必须逐字一致**，有专属门禁守护）
+- **前置依赖**：无 ｜ **标记**：🟢 可并行
+- **现状实测（2026-10-02 复核，确认未修）**：
+  - `auth-key-parity-check` 输出 **`knownDefectCount = 1`**
+  - 复现：`'"Bearer sk-abc"'`（整串带引号粘贴）→ 输出 **`"Bearersk-abc"`** ❌
+  - 根因：现有顺序是「去 Bearer → trim → 去首尾引号 → 去全部空白」；**引号在 Bearer 之前被剥掉时，`Bearer` 前缀已错过识别窗口，最后一步去空白又把 `Bearer sk` 粘成 `Bearersk`**
+  - 次要：`'""sk-abc""'` → 输出 `' "sk-abc" '`（双层引号只剥一层）
+- **禁止修改文件清单**：G 全部（§9.2）+ `scripts/verify/auth-key-parity-check.mjs`（**禁止改脚本或其 `knownDefects` 白名单** —— 修好后缺陷必须**自动消失**，改脚本即视为作弊）+ `server/core/image-error-policy.js`
+- **验收条件**：
+  1. `auth-key-parity-check` 的 **`knownDefectCount` 由 1 → 0**，且**未修改该脚本**；
+  2. 目标用例：输入 `Bearer \u200B"sk-jingyin-123456"\uFEFF ` → 输出**恰为** `sk-jingyin-123456`；
+  3. 不变量不回退（脚本 `:88-102` 已钉）：去 `Bearer`（大小写不敏感）、去首尾引号、去 `\s` 与 `\u200B-\u200D\uFEFF`、中间空格也删、空/`null`/`undefined` 返回 `""` 不抛异常；
+  4. 两份实现 `diff` 为空；**纯函数、无副作用、不改函数名/导出名/不新增依赖**；
+  5. AB-1 全套通过、AB-2 lint 棘轮**无新增**。
+- **自测校验点**：
+  - `node scripts/verify/run-all.mjs --only auth-key` → `ok:true` 且 `knownDefectCount:0`
+  - `git diff --stat` 两文件改动行数相同、内容一致
+  - 临时用例（不写进脚本）：`'"Bearer sk-x"'`、`'"Bearer  sk-x"'`、`'""sk-x""'`、`'  "sk-x"  '`
+- **真机冒烟**：**【必须】** 从微信聊天窗口复制真 KEY（首尾带不可见字符）→ 设置页粘贴 → 保存 → 出图：① 界面无引号残留 ② 请求 200 ③ 日志无 401/`invalid_api_key`。
+
+---
+
+### V11-RF-040 · 刀 5 尾：两个 loader **改名**（同名不同义，裁定为「不合并」）
+
+- **任务类型**：【结构搬运 · 极小区间】
+- **目标文件**：`src/outfit-workflow.jsx`（仅 `loadPromptCategories` / `loadPromptPresets` 两处定义与调用）
+- **前置依赖**：无 ｜ **标记**：🟢 可并行
+- **🔴 已裁定（不重新讨论，除非有新证据）**：
+  - 这两条是 **同名不同义**：main 侧兜底写死 5 项 / outfit 侧动态聚合；main 侧简单返回 / outfit 侧合并覆盖；**且 storage key 不同**。
+  - **裁定：改 outfit 侧名**（`loadOutfitPromptCategories` / `loadOutfitPromptPresets`），两侧各加互指注释。
+  - **不动 storage key**（合一是产品决策，另立单）；**不开豁免口子**（豁免机制一旦存在，迟早被用来掩盖真重复）。
+- **禁止修改文件清单**：G 全部 + 任何 `*.css` + 提示词/默认库数据
+  ⚠️ **（2026-10-02 修正）**：原写法「`src/main.jsx`（本单只改 outfit 侧）」与裁定「两侧各加互指注释」**自相矛盾**。
+  **正确口径**：**main.jsx 允许加注释行，禁止改逻辑**；搬运动作只在 outfit 侧。⇒ 未完成的 main 侧注释见 **V11-RF-040b**。
+- **验收条件**：
+  1. `frontend-duplication-check` 的 `duplicateCount` **5 → 3**（这两条从 duplicates 消失），`regressions` 为空；
+  2. 改名后 **outfit 侧调用点全部同步**（grep 新名 == grep 旧名的调用点数量）；
+  3. **零行为变化**：不改任何兜底数据、不改合并策略、不改 storage key（可用 `--only prompt` 2/2 佐证）；
+  4. `vite build` 通过；ESLint 无新增 error。
+- **自测校验点**：
+  - `node scripts/verify/frontend-duplication-check.mjs --update` 划账后复跑 → `duplicateCount:3`
+  - `node scripts/verify/run-all.mjs --only prompt` → 2/2
+  - `node_modules/.bin/vite build` 通过
+
+---
+
+### V11-RF-041 · 刀 7：`diagnosticImageSourceType`
+
+- **任务类型**：【结构搬运 · 极小区间】
+- **目标文件**：`src/main.jsx`、`src/outfit-workflow.jsx`（同名函数各一份）
+- **前置依赖**：无 ｜ **标记**：🟢 可并行
+- **开工前必做（§0.9 第 17 条）**：`diff` 两处实现，判三类：
+  - **字节一致** ⇒ 直接抽到 `src/shared/`（沿用刀 4 做法：建共享模块 + 两处「删定义 + 加 import」）
+  - **语义等价文本不同** ⇒ 抽 + 在 commit 写明取哪版及理由
+  - **已分叉** ⇒ **停手报统筹**，出对照表（照 §0.9 第 17/19 条裁决原则：放宽 > 收窄、断言优先于多数派、补全方向优先）
+- **禁止修改文件清单**：G 全部 + `scripts/verify/**`（不得为让门禁变绿而改判据或基线）+ 诊断文案（若两侧文案不同，按「断言优先」裁定后再改）
+- **验收条件**：
+  1. 若判定可搬：`duplicateCount` 相应下降、`regressions` 空、`vite build` 通过、对照组脚本 0 失败；
+  2. 若判定分叉：产出对照表交回统筹，**本单改判为「待裁决」并停止代码改动**；
+  3. 调用点零改动（除非「补齐参数」类必需，且必须在 commit 写明）。
+- **自测校验点**：同 RF-042（共用一套）。
+
+---
+
+### V11-RF-042 · 刀 6 上半：`referenceSource`
+
+- **任务类型**：【结构搬运 · 极小区间】
+- **目标文件**：`src/main.jsx`、`src/outfit-workflow.jsx`
+- **前置依赖**：无 ｜ **标记**：🟢 可并行（与 RF-041 同批，但**不得同一 commit**）
+- **开工前必做**：同上三类判定。
+- **预授权规则（统筹已给）**：**超集 ⇒ 统一到超集**；**互不包含 / UI 差异 ⇒ 停手报人**；**文案分歧 ⇒ 取最泛化且断言优先**。
+- **禁止修改文件清单**：G 全部 + `scripts/verify/**` + 任何 `*.css`
+- **验收条件**：与 RF-041 同构（可搬则搬；分叉则只交对照表）。
+- **自测校验点**：
+  - `node scripts/verify/frontend-duplication-check.mjs` → 判定字段核对
+  - 对照组脚本（旧实现抄进 `tmp/`）：≥ 30 组入参 × 每个函数，0 失败
+  - `vite build` 通过
+
+---
+
+### V11-RF-044 · **只读定位**：本地详情链路的底图取值点（已知缺陷③ 的前置单）
+
+- **任务类型**：【只读审计 · **不改任何代码**】
+- **目标**：定位「本地详情（local-detail）」链路里**取底图**的所有代码点，与共享规则 `resolveLocalEditBaseFile` 比对，确认是否存在漏走共享规则的点。
+- **🔴 事实澄清（开工前必读）**：仓库里**不存在**名为 `LocalDetailPanel` 的符号（全仓 grep 0 命中）。
+  与之相关的是 `src/outfit-workflow.jsx` 的 `isLocalDetailPageName`（:1066）、`isLocalDetailWorkflow`（:6705）等分支。
+  已知的 `resolveLocalEditBaseFile` 使用点共 5 处：`main.jsx:1045`、`outfit-workflow.jsx:3246 / 3263 / 5012 / 9350`。
+- **前置依赖**：无 ｜ **标记**：🟢 可并行（**只读**）
+- **交付物**：
+  1. 一张表：本地详情链路里**每一处**「取原始图/底图」的代码点（文件:行号 + 当前取值表达式 + 是否走了 `resolveLocalEditBaseFile`）；
+  2. 逐条标注：**漏走 / 已走 / 不适用（并说明为什么不适用）**；
+  3. 对每条「漏走」给出**风险评估**：是否会导致「编辑的是缩略图而非原图」这类用户可见后果。
+- **禁止修改文件清单**：**本单禁止修改任何文件**（包括 `.md`）。
+- **验收条件**：表格覆盖 `resolveLocalEditBaseFile` 的 5 个已知点 + 至少 3 个 local-detail 分支内的取值点；每条「已走/不适用」都有可复核的理由（不许空口断言）。
+- **自测校验点**：`grep -c "isLocalDetailWorkflow\|isLocalDetailPageName" src/outfit-workflow.jsx` 先量总数再逐条看（§0.9 第 14 条：不许用 `head` 截断下全称结论）。
+
+---
+
+---
+
+## 3.1 批次 A+ · 由 C 批报告催生的新工单
+
+### V11-RF-045 · 🔴 真 bug：undo/redo 陈旧闭包把旧 `tool`/`overlayOpacity` 写回项目存档
+
+- **任务类型**：【bug 修复】（**独立 commit，禁止与任何搬运动作混交**）
+- **目标文件**：`src/image-editor.jsx`（`:651` 的键盘 effect 依赖数组；因果链涉及 `:348` `scheduleProjectSave`、`:392` `restoreSnapshot`、`:409` `undo`）
+- **前置依赖**：无 ｜ **标记**：🔴 **优先**（唯一确认的真 bug）
+- **已确认的因果链（统筹实测，不需重复论证）**：
+  键盘 effect 依赖数组为 `[transform, canvasSize.width, canvasSize.height]`，**缺 `undo`/`redo`**
+  ⇒ 切换工具（只触发 `setTool`，`transform` 不变）后**effect 不重注册**，监听器里仍是旧版 `undo`
+  ⇒ `undo → restoreSnapshot → scheduleProjectSave`
+  ⇒ `scheduleProjectSave` 的 `setTimeout(…, 450)` 闭包写入 `tool` / `overlayOpacity` / `brush` / `zoom` / `differenceMode`（`:358-375`）
+  ⇒ **把切换工具前的旧值写回 `EDITOR_PROJECT_KEY` 存档**。
+- **开工前必做**：**先出修法方案再动手**（本单不给实现）。候选：① 用 ref 转发最新 `undo`/`redo`；② 把 `undo`/`redo` 包 `useCallback` 后入依赖；③ 把 `scheduleProjectSave` 改为读取 ref 而非闭包。
+  **裁决口径**：**不许为消除告警而机械补依赖**（补了会让 effect 每次渲染重注册监听器）；**优先选对现有调用点零改动的方案**；若必须引入 `useCallback`（全仓当前 0 个），**必须在 commit 写明这是首个引入点并说明影响面**。
+- **禁止修改文件清单**：G 全部 + `scripts/verify/**` + 存档字段结构（**不许增删 `editorSet` 的字段**）
+- **验收条件**：
+  1. 复现脚本/手工用例：切换工具 → 立即 Ctrl+Z → 等待 500ms → 读 `EDITOR_PROJECT_KEY`，`tool` 必须是**切换后**的值（修复前为旧值）；
+  2. `eslint src/image-editor.jsx` 的这条 `exhaustive-deps` **消失**（或存在且带写明理由的豁免注释）；
+  3. lint 棘轮无新增；`vite build` 通过；`run-all` 无新增失败类别。
+- **自测校验点**：`node node_modules/eslint/bin/eslint.js src/image-editor.jsx` → 0 warning；
+  真机冒烟 **【必须】**：打开本地编辑 → 画几笔 → 切换工具（画笔↔橡皮）→ Ctrl+Z 撤销 → 关闭再打开编辑器 → **工具与叠加透明度应与撤销前一致，不得回退**。
+
+> **统筹裁决（据审计表，2026-10-02）**：审计表结论"互不包含、4 处阻断项"。
+> 🔑 关键实测：**`main` 侧 4 个调用点 vs `outfit` 侧 1 个调用点**；`CachedImage` 定义在 `main.jsx:1126`、
+> 其唯一外部依赖 `emitClientDiagnosticEvent` **已在 `src/api/client.js`**（shared 层）、
+> `src/shared/ui/` **已存在**（ChannelPicker / Modal）⇒ **抽组件路径通畅，现在就能收口**。
+> **统一方向：以 main 版为基底（真超集 3 处），补 outfit 独有的 key 兜底 ⇒ 对 main 零收窄。**
+> 拆两刀：**RF-043-1 先抽 `CachedImage`**（纯搬运，可独立验证）→ **RF-043-2 再抽 `ReferenceThumbTray`**（需改 outfit 侧 1 个调用点）。
+> ⚠️ 两刀的共享位必须是 `src/shared/ui/**`，**不许 `outfit` 从 `main.jsx` import**（会造出两个巨石互相依赖）。
+>
+> ✅ **RF-043-1 已完成**（逐字一致 27/27、build 通过、ESLint errors=0、state-singleton 无新增报红、真机 7 张图正常渲染）。
+> 🆕 **统筹补充授权（基线例外，就地划账）**：新增共享组件使两条基线机械报红，**实测确认为记账位移、非新增债务**：
+> · 019：`scopeDrift` = 文件数 43 → 44（新增共享组件进视野，与刀 4/刀 5 同款）⇒ `--update` 重建，**`ReferenceThumbTray` 必须保留在基线内**
+> · lint：`src/main.jsx|react-hooks/exhaustive-deps` **8 → 7**，新增 `src/shared/ui/cached-image.jsx|react-hooks/exhaustive-deps` = 1
+>   ⇒ 同一个 warning 换了位置，**totals 19 → 19 不变**
+> 🔴 **硬判据：更新后 lint `totals` 必须仍为 19。若变了 ⇒ 是新引入的问题，停手报告，不许记账。**
+> （043-2 新增 `reference-thumb-tray.jsx` 会触发同样情形，同样适用本条授权与判据。）
+
+- **任务类型**：【先出审计表 → 等裁决 → 再统一】
+- **目标文件**：`src/main.jsx`、`src/outfit-workflow.jsx` 各一份
+- **前置依赖**：无 ｜ **标记**：🔴（**分叉项，禁止擅自统一**）
+- **第一步（本单只做这个）**：产出**分叉审计表** —— 两版的 props 签名 / 默认值 / 渲染结构 / 事件行为 / 调用点（含 `max` 传参差异）逐项对照，并标注差异是「超集/子集」还是「互不包含」。
+- **预授权规则**：超集 ⇒ 统一到超集；互不包含或 UI 差异 ⇒ **停手报统筹**；文案分歧 ⇒ 取最泛化且**断言优先**。
+- **禁止修改文件清单**：G 全部 + 任何 `*.css` + `scripts/verify/**`
+- **验收条件**：审计表交回并经统筹裁决后才允许进入代码改动阶段；`duplicateCount` 目标 **1 → 0**。
+
+### V11-RF-046 · 给 019 加一档「改名克隆」（纳组件内函数，**只报不记账**）
+
+- **任务类型**：【门禁增强 · 只读报告】｜**标记**：🟢
+- **需求来源**：RF-032 实测 **53/62 组克隆是组件内缩进函数**，019 一条也看不见。
+- **硬性约束**：
+  1. **只报不记账** —— 新档**不参与 `ok` 判定**、不写进 `duplicateCount`、不影响棘轮，纯 advisory 输出；
+  2. **必须先验证能抓到 §5 里那 4 个活样本**（抓不到就别上）；
+  3. **必须在报告里写明"L1 相同 ≠ 语义等价"的警告**（`loadPromptCategories` 是实证反例），防止后人拿它当"可合并"依据；
+  4. 输出的**基数（扫描文件数/函数数/命中数）要写进报告头**，便于下次比对。
+- **禁止修改文件清单**：G 全部；**不得改变 019 现有判定字段的语义**。
+- **验收条件**：负向验证（人工造一个改名克隆 ⇒ 新档要点名它，且 `ok`/`duplicateCount` 不变）。
+
+---
+
+### V11-RF-040b · 补 main 侧互指注释（工单矛盾的收口）
+
+- **任务类型**：【纯注释 · 零逻辑】｜**标记**：🟢 随时可做
+- **背景**：RF-040 裁定「两侧各加互指注释」，但禁止清单写了「`main.jsx` 禁改」⇒ 执行者按禁止清单执行，main 侧注释未加。**统筹确认：这是工单写错，执行者判断正确。**
+- **目标文件**：`src/main.jsx` 的两个 loader 定义处（`loadPromptCategories` / `loadPromptPresets`）各加**一行**注释，指向 outfit 侧的新名 `loadOutfitPromptCategories` / `loadOutfitPromptPresets`，并说明「同名不同义，勿合并」。
+- **禁止修改文件清单**：G 全部 + **`main.jsx` 除这两处注释外的任何内容**
+- **验收条件**：diff 只有 2 行新增注释；`vite build` 通过；ESLint 计数不变。
+
+### V11-RF-047 · 🔴 裁剪回流底图漏走 `resolveLocalEditBaseFile` ✅ **已修 `66056fa`**
+
+- **任务类型**：【bug 修复】｜**标记**：🔴（不依赖任何单；**与 RF-043 的代码阶段都碰 `outfit-workflow.jsx` ⇒ 不得同一窗口并行**）
+- ✅ **已完成 `66056fa`**（`1 file changed, 9 insertions(+), 1 deletion(-)`，**无万行 diff**）。
+  🔴 **行号已实测校正**：旧写 `:9466`（RF-044 旧快照）⇒ 提交后实际 **`:9144`**，
+  锚点串 `updateTaskRuntime(task.id, "裁剪回流合成", …)`。**今后一律改用「函数名 + 分支锚点」写法**（见 §12）。
+- **修复**：`const originalFile = imageItemUploadFile(task.modelItem)` ⇒ `resolveLocalEditBaseFile(task.modelItem)`
+  （**1 行实质改动 + 8 行因果注释**），与上方 localEdit 贴回链（`:9024`，早就是这修法）逐字对齐。
+  **非放宽**：无 `originalFile` 时兜底回 `file`，与旧行为等价。
+- ✅ **真机冒烟（未豁免，三条判据全过）**：原图 2400×1800 → 裁剪框 `(525,0,1350,1800)` →
+  改后结果图 `natural` **2400×1800**、红块 bbox `[526,0,1348,1800]` 吻合、控制台 0 异常；
+  **改前同脚本对照**：画布 `1350×1800`、bbox `[0,0,1350,1800]`（**被夹到原点**）⇒ 三条判据全部相悖，改后全部命中。
+  对照组 `tmp/rf047-check.mjs` 27 组 / 0 失败（19 组有差异 + 8 组一致，逐条归因）。
+- **观察项（按派单未动，仅登记）**：`:9093` 扩图原图保护（坐标也按副本算 ⇒ 自洽，仅尺寸降级）、
+  `:8880` 取的是给模型的输入文件而非底图。
+- **位置**（旧）：`src/outfit-workflow.jsx:9466`
+- **已确认的因果（RF-044 只读定位，统筹采纳）**：
+  `cropRect` / `sourceWidth` 由 `processImageFileWithMeta(item.originalFile)`（`:4904` + `:3718`）**按原图算**，
+  但底图取 `imageItemUploadFile`（= `item.file`，**已被裁剪结果替换**，`:4907` + `:8250`）
+  ⇒ **画布 = 裁剪图尺寸、`cropRect` 被 `constrainLocalEditRect`（`:3420`）夹断**；
+  而事件文案 `:8262` 明写「**回流到大图**」⇒ **名实不符，是 bug 不是设计**。
+- **禁止修改文件清单**：G 全部 + `src/shared/local-edit-geometry.js`（规则源不许动）+ 裁剪算法本身（`:3718`/`:4904` 的计算逻辑不许改）
+- **验收条件**：
+  1. 底图改为走 `resolveLocalEditBaseFile`（与原图坐标同源）；
+  2. 对照组脚本：以「原图尺寸 / 裁剪后尺寸 / cropRect 越界」等 ≥ 20 组入参比对改动前后，差异**逐条归因**；
+  3. `vite build` 通过；lint 棘轮无新增；
+  4. **真机冒烟【必须】**：上传大图 → 裁剪 → 触发「回流到大图」→ 确认画布尺寸为**原图**、选区位置与裁剪前一致、不被夹断。
+- **不在本单处理**：`outfit:9423`（扩图原图保护）用 `imageItemUploadFile` 但**坐标也按副本算 ⇒ 自洽**，仅输出尺寸降级到副本（≤3072），风险低-中 ⇒ **登记为观察项，不修**（改动会牵动尺寸逻辑，属业务取舍）。
+
+---
+
+## 3.2 🔨 统筹裁决（回应执行者提出的两点）
+
+**① 划账授权 —— 裁决：现在就划。**
+- 依据：RF-040/041/042 三条是**真的消失**（`improved` 形式残留会持续污染每份报告，属噪声不是债务）；
+  `duplicateCount` 应从旧基线的 5 划到 **1**（`ReferenceThumbTray` 是已知分叉、待裁决，**必须保留在基线里，不得划掉**）。
+- **授权执行者跑一次** `node scripts/verify/frontend-duplication-check.mjs --update`，
+  并**在 commit 写明「统筹明文授权划账：`improved` 三条入账，`ReferenceThumbTray` 保留」**。
+- ⚠️ 基线文件虽在 G 清单内，但 **G 的"禁改"约束的是"执行者擅自改"；经统筹明文授权并写进 commit 的划账是允许的**（本条已同步进 §9.2）。
+
+**② RF-040 的单内矛盾 —— 裁决：执行者判断正确，按禁止清单执行是对的。**
+- 冲突时以**禁止清单**为准（它更具体），裁定文字是描述性的 ⇒ 已修正 §3 的禁止清单口径，并开 **V11-RF-040b** 补注释。
+
+---
+
+## 4. 批次 B · 后端 AI 调用族消账（V11-RF-027，四刀串行）
+
+> **🔴 视野告警（RF-027-1 实测证实，统筹确认属实）**：
+> 官方 `server-duplication-check` 的视野由 `scripts/verify/lib/server-sources.mjs` 固定为
+> `index.js` + `app.js` + `core/**` + `routes/**` + `shared/**` + `prompts/server/**`，
+> **不含顶层 `server/*-ai.js`** ⇒ 官方 `duplicateCount` 恒为 0，**对批次 B 无鉴别力**。
+> 本节所有 `duplicateCount` 均为**宽口径 63 文件实测值**（`rf027-full-scope-check.mjs`，
+> 排除 `static-assets.generated.js` 与 `server/skill-baselines/`）。
+> ⇒ 因此 **RF-027-5 必须做**：消完之后把顶层 `server/*-ai.js` 纳入视野，剩余债务**登记进基线在册可见**。
+
+> **背景实测**：`server/` 顶层 9 个 `*-ai.js`（约 3081 行）各自复制一份 AI 调用辅助，
+> 新判据 + 全纳 63 文件重测后 **`duplicateCount = 16`**：`asText`×7、`createAbortSignal`×**8**（第 8 处在 `core/http-client.js`，一直在门内、旧判据看不见它）、
+> `postChatCompletion`/`readResponse`/`responseContent`/`buildChatBody`/`extractJsonObject`/`safeImagePart`/`fileMeta`/`shouldRetryWithoutJsonFormat`×6、
+> `modelName`×5、`compact`×3、`shouldRetryWithoutImages`×3、`buildSkillPayload`/`normalizePlan`/`clamp`×2。
+> 🔴 **不许用 `--update` 记账代替抽走** —— 记账是**承认**债务不是**解决**债务（会把它抹平成"永久合法"）。
+
+### V11-RF-027-1 · 第一刀：只做 `createAbortSignal`（8 处 → 1 处） ✅ **已完成（4fc594f）**
+
+- **任务类型**：【结构搬运】｜**标记**：🔴 串行（本刀的目的是**验证后端搬运流水线**）
+- **目标文件**：`server/*-ai.js`（7 个）+ `server/billing-gateway.js`；标准实现已在 `server/core/http-client.js`
+- **前置依赖**：批次 A 完成
+- **禁止修改文件清单**：G 全部 + `server/core/http-client.js`（标准实现不许动）+ 任何提示词/默认参数
+- **验收条件**：
+  1. `createAbortSignal` 全仓**只剩 1 处定义**（`core/http-client.js`），其余 7 处全部改为 import；
+  2. `server-duplication-check`：`ok=true`、`duplicateCount` **16 → 15**、`regressions` 空；
+  3. AB-4 沙盒差分：至少 3 组上游端点（正常 / 上游 500 / 缺 KEY）响应体 + HTTP 码一致；
+  4. 孤儿 import 机械核查（§0.9 第 7/8 条），ESLint `errors = 0`；
+  5. **真机启动一次**（§0.9 第 9 条：这类错唯一兜底是真机）。
+- **自测校验点**：`node scripts/verify/run-all.mjs`（失败集合与改前**同类别**）+ `node server/index.js` 打印监听地址 + `/api/health` ok。
+
+### V11-RF-027-2 · 第二刀：只抽「零风险 6 族」✅ **已完成（4ad6461）**
+
+- **任务类型**：【结构搬运】｜**标记**：🔴 串行
+- **目标文件**：`server/*-ai.js` → 新建 `server/core/ai-chat-shared.js`
+- **范围（**只这 6 族**）**：
+  - 字节一致 4 族：`asText`、`clamp`、`responseContent`、`shouldRetryWithoutImages`
+  - 语义等价 1 族：`shouldRetryWithoutJsonFormat`（tokenV=1）
+  - 纯风格 1 族：`readResponse`（`detail-ai` 的 async/await 版 vs 其余 5 处 `.then()` 版，**语义等价、可无损统一**）
+- **前置依赖**：**V11-RF-027-1 已通过** ✅
+- **禁止修改文件清单**：G 全部 + `server/core/http-client.js` + 提示词内容 + 任何请求体字段结构
+- **验收条件**：
+  1. 宽口径 `duplicateCount` **15 → 9**（6 族各归 1 处；`readResponse` 6→1、`asText` 7→1 …）
+  2. `regressions=[]`；`import-path-check` violations `[]`；ESLint `errors=0`
+  3. 对照组脚本（旧实现抄进 `tmp/` 当基准）+ **mock 上游端到端差分**（见下方裁决 3）
+  4. 三类 hunk 齐全（删定义 / 加 import / 清孤儿），孤儿以 ESLint `no-unused-vars` 实测点名为准
+
+### V11-RF-027-2b · 消 `readResponse` ↔ `readTextSafely` 改名克隆（小单）
+
+- **任务类型**：【收口 · 改名克隆】｜**标记**：🔴 串行（紧跟 027-2）
+- **由来**：执行者报备「`ai-chat-shared.js` 的 `readResponse` 与 `http-client.js` 的 `readTextSafely` 逻辑等价」。
+  **统筹实测确认：两者函数体逐字节相同，只有函数名不同**（典型的改名克隆，属门禁盲区，与 RF-032 同族）。
+- **🔑 关键实测**：`readTextSafely` 在 `server/core/http-client.js:24` **已经是 `export`** ⇒ 无需改禁止清单内的 `http-client.js`，**现在就能消**，不必等 RF-027-5。
+- **做法**：删掉 `ai-chat-shared.js` 的 `readResponse`，**6 个** `server/*-ai.js` 改为 `import { readTextSafely }` 并改调用点名。
+  🔴 **不要做转发壳**（`export { readTextSafely as readResponse }`）—— 那是把重复换个形式留着。
+  > ⚠️ 口径修正（执行者实测）：是 **6 个** `* -ai.js`，不是 7 个 —— `detail-middleware.js` 只 import `asText`/`clamp`，从未用 `readResponse`。
+- **禁止修改**：`server/core/http-client.js`（它已是标准实现，且已导出，无需动）
+- **验收**：全仓 `readResponse` 定义 0 处；ESLint `errors=0`；错误路径差分（复用 027-2 的 `rf027-2-errorpath-snapshot.mjs`）复跑结果不变
+- ✅ **已完成** `b5af930`（7 files / +25 −38）：`readResponse` 定义 1→0、调用点 6→0；`readTextSafely` 调用点 4→10；
+  宽口径 `duplicateCount` 仍 9（本族不计入）、`regressions=[]`；错误路径 12 case 字节级一致；真机 `/api/health` ok。**无冒烟豁免**
+
+### V11-RF-027-3 · 第三刀：参数化抽取 5 族（先出调用点对照表）
+
+- **任务类型**：【结构搬运 · 需先出对照表】｜**标记**：🔴 串行
+- **范围**：`extractJsonObject` / `safeImagePart` / `fileMeta` / `modelName` / `postChatCompletion`
+- **统一手法**：**参数化**，不是"选一版压过去"——差异用参数表达，各调用点传自己的值 ⇒ **零用户可见变化**
+  - `extractJsonObject(content, { modelLabel })` —— 6 句抛错文案各不同，**已核实 `scripts/verify/**` 0 断言依赖**（仅 `skill-baselines` 快照重复命中），各调用点传自己的模型名
+  - `safeImagePart(file, { detail })` —— `"low"`×3 vs `"high"`×3 是**业务差异**；取**超集**（含 `detail-ai` 的 `mimetype` 兜底）
+  - `fileMeta(file, { index, role, fallback })` —— 4 种签名 + 不同默认名；取**超集**（含 quality 版空保护）
+  - `modelName(source, paths)` —— 各入口读不同字段链，传路径
+  - `postChatCompletion` —— 形参对齐 + 返回取**超集**（`detail-ai` 多返 `url`）
+- **前置依赖**：**V11-RF-027-2 + 027-2b 通过**
+- **硬要求**：**先交调用点对照表**（每族：调用点数 / 各传入什么 / 参数化后传什么 / 是否改变行为），统筹确认后才动代码
+- **禁止**：改动任何一处现有行为（temperature / detail / 默认名 / 文案 / 返回结构）
+
+#### 🔴 统筹裁决（2026-10-02 · 对照表已交，据此施工）
+
+**① 5 族参数化签名照批，但 `fileMeta` 有 1 处会真改行为，执行者对照表判错了**
+
+`quick-prompt-ai.js:112` 是 `references: files.map(fileMeta)` —— **把函数当回调裸传**。
+`Array.map` 回调的实参是 `(element, index, array)`，所以：
+
+| | 现在 | 改成具名对象 `fileMeta(file, { index, role, fallback })` 后 |
+|---|---|---|
+| 第 2 参收到 | 数字 `index`（quick 版正好用） | **数字 `index`** ⇒ 解构 `{ index }` 得到 `undefined` |
+| 后果 | `reference-${index+1}` 正常 | **`reference-NaN`** ❌ |
+
+⇒ **必须显式改这一处调用点**为 `files.map((file, index) => fileMeta(file, { index }))`。
+这不是"改逻辑"，是**补齐参数**（与 RF-031 的显式补 `"image/png"` 同类）。其余 11 个调用点均显式传参，不受影响。
+
+**② `fileMeta` 的对照组不能只测"不抛错" —— 必须逐点比对 `name` 实际产出字符串**
+
+5 种 `name` 兜底规则各不相同（quick `reference-N` / detail·reference `${role}-N` / quality `fallback` 默认 `"image"` / master-fit `"clothing-master-image"` / pose `"model-image"`）。
+统一后必须**用原来 12 个调用点各自的入参，逐条比对产出对象的每个字段值**（含缺省字段是否被 `JSON.stringify` 省略）。
+⇒ 对照组 ≥ 12 调用点 × 多个入参形态；**只要有一条 `name` 变了就是失败，不许归因为"等价"**。
+
+**③ `postChatCompletion`：批方案 A（body 构造上移到调用点），但【必须连带抽走】**
+
+统筹实测支持方案 A 的三条依据：
+1. `postChatCompletion` 内部**只有 fetch + readTextSafely**，**没有重试逻辑** —— 重试在调用方的 `mode` 四重循环里（见 `quick-prompt-ai.js:229-254`），每次循环本来就重建 body ⇒ **上移不破坏重试路径**
+2. `buildChatBody` 在**每个文件里只有 1 个调用点**（就在 `postChatCompletion` 内）⇒ 上移是 1:1 平移，无遗漏
+3. `url` = `${baseUrl}/chat/completions` 是常量 ⇒ 统一补 `url` 属**补全方向**，不改判断分支
+
+🔴 **但方案 A 的隐藏收益必须兑现**：body 构造上移后，6 份 `postChatCompletion` 函数体**变成字节一致**
+⇒ **必须一并抽到 `server/core/ai-chat-shared.js`（定义 6 → 1）**。
+**只做 A 不抽走 ⇒ `duplicateCount` 不降，等于白做一半。**
+顺带消掉 `includeImage` / `includeImages` 的单复数不一致。
+
+**④ RF-027-4 现在可与 027-3 同窗口串行（方案 A 已解耦），但【不许拆给两个窗口】**
+两者都动 `server/*-ai.js`，同窗口串行即可；跨窗口并发会导致结果不可归因。
+
+**⑤ 踩坑固化**：改**已存在的 CRLF 行**时若脚本保留了 CRLF，会触发 `git diff --check` 的 trailing whitespace 报错。
+⇒ 改动行一律统一为 **LF**；提交前跑一次 `git diff --check`。
+
+### V11-RF-027-4 · 第四刀：4 族判定「同名不同义」→ 改名不合并
+
+- **任务类型**：【改名 · 消重复计数】｜**标记**：🔴 串行
+- **范围**：`buildSkillPayload` / `normalizePlan` / `buildChatBody` / `compact`
+- **裁定**：这 4 族**骨架相似但承载各自业务差异，合并即毁差异** ⇒ 按 RF-040 先例 **改名不合并**：
+  - `buildSkillPayload` → `buildQuickSkillPayload` / `buildReferenceSkillPayload`（两套 skill 内容完全不同）
+  - `normalizePlan` → `normalizeQuickPlan` / `normalizeReferencePlan`（fallback 源不同、签名差第三参）
+  - `buildChatBody` → 各文件加场景前缀（temperature 0.2/0.18/0.15/0.1 + system 提示词与 content 构造器各异）
+  - `compact` → `compactPreserveNewlines`（master-fit/quality 保换行）/ `compactSingleLine`（pose 压单行）
+- **前置依赖**：**V11-RF-027-3 通过**
+- **验收**：改名后该 4 族**不再被任何判据判为重复**；改名纯机械（ESLint `no-undef` 反证无漏改）；`duplicateCount` 归零
+
+> **✅ 027-3 / 027-4 已交付（`84ae66c` / `28b3b35`），统筹复核实测如下**
+>
+> | 项 | 统筹实测 | 裁决 |
+> | --- | --- | --- |
+> | 027-3 规模 | 7 文件 +176/−438；宽口径 `duplicateCount` 9→4；`regressions []` | ✅ 收 |
+> | **口径修正：`modelName` 实为 6 份** | `detail-ai.js` 那份原名 `detailModel`（**改名克隆**，按名扫描漏掉）。实测已收口：`grep -rn "detailModel" server/` = **0** | ✅ **认可**，无需回退。理由：改名克隆正是本批次要消的对象（027-2b 先例：真删真改、不许转发壳）。📌 **新发现克隆**，登记进 §0.5 存量清单 |
+> | **`pose` 的 `mode.includeImage` 保留单数** | 实测 `outfit-pose-ai.js:196` 位于 `attempts.push({…})` **内** ⇒ 确实流进响应体 | ✅ **认可，执行者判断正确**。改名会改 API 响应结构、破坏字节一致 ⇒ 属**有意保留**，027-5 纳视野时**不得误消**。⚠️ 它是**字段名不是顶层函数** ⇒ 函数级门禁永远看不见（RF-032 已坐实的字段级盲区），登记即可，不处理 |
+> | **有意放宽 1 处**：`fileMeta` 空保护 | quality 版的 `file?.` 保护提升到共享实现；旧的非 quality 实现遇 `null` 会抛 | ✅ **认可**（放宽方向，符合 §4 原则 1）。🔴 **需补**：加一组 `fileMeta(null, {…})` 对照用例并说明哪个调用点理论上可能传 `null` —— 放宽会让"抛错"变"静默兜底"，静默失败最难查，必须留证 |
+> | 027-4 规模 | 7 文件 +40/−40 纯改名，函数体一字未动 | ✅ 收 |
+> | "旧名清零"核验 | 统筹用时**误报** 3 处（`buildChatBody(`×2、`function compact(`×1），追查后**全部落在 `server/skill-baselines/` 归档快照** | ✅ 报告准确。📌 **纪律补录**：凡「旧名清零」类核验，报告必须写明「**排除 `skill-baselines/` 后为 0**」，否则下一个人会重复这场虚惊 |
+>
+> 🔴 **工单缺陷（统筹认领，非执行者责任）：027-4 的验收写「`duplicateCount` 归零」，但纯改名做不到。**
+> 与 RF-040 那次同类（裁定与判据自相矛盾）⇒ 开 **RF-027-4b** 补做。
+
+### V11-RF-027-4b · 🆕 收口 `compactPreserveNewlines`（改名后仍判重的最后 1 条）
+
+- **任务类型**：【结构搬运】｜**标记**：🔴 串行（**必须在 RF-027-5 之前**）
+- **统筹实测依据**：`outfit-master-fit-ai.js:17` 与 `outfit-quality-ai.js:9` 两份**逐字节一致**，
+  连默认参数 `limit = 1200` 也一致 ⇒ **真·字节一致，无分叉**（§0 三类判定的第一类，可直接搬）
+- **落点**：`server/core/ai-chat-shared.js`。
+  🔑 **零漂移依据**：`master-fit:10` 与 `quality:2` **已经 import 了 `ai-chat-shared.js`**
+  ⇒ 只需在既有 import 行加一项，**不新建文件、不新增 import 行** ⇒ 无 `scopeDrift` 类风险
+- **动作**：删两份定义 → import → 调用点不变（3 处 + 6 处）
+- **验收**：宽口径 `duplicateCount` **4 → 1 → 0**；`regressions []`；ESLint `no-undef` 反证无漏改；
+  错误/重试 12 case + 正常路径 6 入口与 027-4 基线**字节一致**
+- 🔴 **顺序硬约束（为什么不能留到 027-5）**：027-5 的职责是「把**消完之后剩下的真债务**登记进基线」。
+  若把这条**能消的**留到 027-5，等于让基线记一条**假债**——把可消的当债务登记，就是掩盖（违反 §0.9）。
+  ⇒ **先 4b 消干净，再让 027-5 面对真实剩余**。
+
+### V11-RF-027-5 · 第五刀：把顶层 `server/*-ai.js` 纳入门禁视野
+
+- **任务类型**：【门禁】｜**标记**：🔴 串行（**必须最后做，且在 027-4b 之后**）
+- **目标文件**：`scripts/verify/lib/server-sources.mjs`
+- **动作**：把顶层手写 `server/*.js`（排除 `static-assets.generated.js`、`server/skill-baselines/`）纳入视野
+- **验收**：剩余债务**登记进 server 基线在册可见**，`regressions` 保持 `[]`（只拦新增）；
+  报告必须写明"这是消完之后剩下的真债务，不是被抹平的"
+- **理由**：不纳视野 ⇒ 官方门禁恒绿 = 该类重复永久隐身（§0.9 第 17 条）
+- 🔴 **统筹明文授权（G 清单例外，凭本条执行）**：本单**允许** `--update` 改写
+  `scripts/verify/server-duplication-baseline.json`，用于**登记纳视野后暴露的剩余债务**。
+  授权边界（越界即违规）：
+  1. 只允许登记**经三类判定确认为「已分叉 / 不可消」**的条目，**已分叉的必须停手报统筹，不得自行登记**；
+  2. **不得**登记任何「字节一致 / 语义等价」的条目（那些是要消的债，不是要记的账）；
+  3. `regressions` 必须保持 `[]`；
+  4. commit message **必须逐条列出**新增登记的条目名 + 判定理由，并写明"统筹授权，见 RF-027-5"。
+
+---
+
+## 5. 批次 C · 只读审计（可与 A/B 并行，交给另一个执行者）
+
+### V11-RF-032 · 改名克隆 + 同名不同义的只读测量 ✅ **已完成（2026-10-02，只读，无提交）**
+
+> **交回结论（已验收）**：
+> - 手段：`@babel/parser` + 自写 tokenizer 的**两级归一化哈希**；
+> - **4 个活样本全部抓到**，判定方向与文档一致（含 `videoPromptPlaceholder` 被正确判为「文案分叉」而非克隆）⇒ **工具有效性已验证**（§5 验收条件达成）；
+> - 实测：**62 组**改名/结构克隆（**51 等价 / 11 需人工确认**）；块级 **2570 行 / 56 块 / 最长 130 行**；
+> - 🔴 **其中 53 组是组件内缩进函数 ⇒ 019 门禁一条也看不见**（同族盲区第四次坐实）；
+> - 🔴 **实证一个工具盲区**：`loadPromptCategories` 两侧 **L1（一级归一化）完全相同**但**兜底常量不同源**（main 写死 5 项 vs outfit 动态聚合）⇒ **L1 相同 ≠ 语义等价**，任何"哈希相等就合并"的自动化都会在这里翻车。
+>
+> **落账**：11 组「需人工确认」进入 §6 阶段 D 的开工前置清单；**本单关闭，不再测量**。
+>
+> ⚠️ **快照纪律**：本测量基于 `088ff5b`，期间并发窗口推进到 `24cfa45` ⇒ **后续引用本报告的组号/行号必须重算**。
+
+- **任务类型**：【只读测量 · **不改代码、不改基线、不入门禁**】｜**标记**：🟢
+- **目标**：`src/**` 全量。用离线克隆检测（`jscpd`）或「归一化 token 哈希 + 8 行滑窗」做只读测量。
+- **已发现的活样本（用来验证工具有效性）**：
+  - `imageExtension`（main）↔ `imageExtensionFromMime`（outfit）**逻辑逐字节相同、仅名字不同**
+  - `durationOptionsForVideoModel`（main）↔ `videoDurationOptions`（outfit）函数体除默认值常量外相同
+  - `videoPromptPlaceholder`（main）↔ `quickVideoPromptPlaceholder`（outfit）**已分叉**（名字与文案都不同，不是克隆）
+  - 块级克隆量级参考：**约 2586 行（12%）**、62 个连续块、最长 130 行；典型内容 = 选框缩放 130 行 / resize 手柄 40 行 / 蒙版笔刷 JSX 47 行 / 选框光标 JSX 29 行
+- **⚠️ 先查 §0.5 已完成清单**：`scripts/dev/block-clone-lines.mjs` 与 `cycle-scan.mjs` **已存在且已跑过**（块级克隆约 2586 行 / 62 块、循环依赖 0），**直接复用并在此基础上加深，不要从零重写**。
+- **交付物**：① 改名克隆清单（含文件:行号 + 相似度 + 是否真等价）② 块级克隆按「最长 20 块」的内容摘要与归属功能 ③ **建议哪些进阶段 D 的拆分范围**
+- **验收条件**：必须报告**判据**（工具名 + 参数 + 扫描文件数 + 阈值）；必须先用上面 4 个活样本**验证工具真能抓到**（抓不到说明工具/参数无效，需换手段）。
+
+### V11-RF-033 · 19 条 `react-hooks/exhaustive-deps` 三类判定 ✅ **已完成（2026-10-02，只读，无提交）**
+
+> **交回结论（统筹已抽样复核）**：**真 bug 仅 1 条 / 有意空依赖 12 条 / 需 useCallback 重构 6 条**（1+12+6 = 19 ✅ 与存量吻合）。
+> - 🔴 **唯一的真 bug** → 已立 **V11-RF-045**（`src/image-editor.jsx:651`，见 §3）。
+>   **统筹已独立复核因果链**：键盘 effect 依赖数组缺 `undo`/`redo` ⇒ 抓到旧版 `undo` ⇒
+>   `undo → restoreSnapshot → scheduleProjectSave`，而 `scheduleProjectSave` 的 `setTimeout(…, 450)` 闭包里
+>   写入 `tool` / `overlayOpacity` / `brush` / `zoom` / `differenceMode`（实测 `:358-375`）
+>   ⇒ **把切换工具之前的旧值写回项目存档**。**判定成立。**
+> - 12 条「有意空依赖」每条都给了反证（如 `diagnostic` 是内联对象 ⇒ 补了会重复 fetch；`refreshSaveDirectory` ⇒ 补了会无限循环）⇒ **维持空依赖，加豁免注释**即可（归入 V11-RF-046 后续或按条加注释）。
+> - 6 条「需 useCallback 重构」⇒ **不单独修**，随 §6 阶段 D 的组件拆分自然解决。
+> - ✅ 执行者**独立复核确认**了文档推翻的那条（`outfit:6988`，`modelImages` 确系 `useState(() => initialOutfitPage.modelImages || [])` 同步读档）⇒ 该条从"疑似 bug"永久除名。
+>
+> ⚠️ **行号已漂移**：本报告基于 `088ff5b`，而 041/042 之后 `outfit-workflow.jsx` 行号已变 ⇒
+> **12 条有意空依赖的行号必须以 `24cfa45` 重算一次**（或改用函数名锚定）后才可作为施工依据。
+
+- **任务类型**：【只读审计 · **不改代码**】｜**标记**：🟢
+- **目标**：`src/main.jsx`（8 条）、`src/outfit-workflow.jsx`（10 条）、`src/image-editor.jsx`（1 条）
+- **🔴 必读的事实**：lint 只报「依赖不一致」，**不报该往哪个方向修**。逐条必须判三类，不许机械补依赖：
+  1. **真 bug**（确实读了旧值，会静默出错）→ 记录 + 建议修法
+  2. **有意空依赖**（只跑一次是设计意图）→ 建议加豁免注释或 `// eslint-disable-next-line` 并写明意图
+  3. **需重构才能修**（要引 `useCallback`，而全仓 `useCallback` = 0）→ 归入阶段 D
+- **🔴 反例警示（实测已推翻一例）**：`src/outfit-workflow.jsx:6951`（lint 报在 6975）常被举为「实锤 bug」，但实测
+  `modelImages` 来自 `useState(readOutfitPages)` 的**同步读档**（`:6611` lazy initializer），挂载时**不是空数组**而是整页快照，
+  该 effect 的空依赖是**有意**的（挂载时 hydrate 一次历史，且有 `historyHydratingRef`/`cancelled` 守卫）⇒ **机械补依赖反而会变成「每次换图都重新合并历史」**。
+- **⚠️ 先查 §0.5.6**：`outfit-workflow.jsx:6951` 已被实测推翻（有意的同步读档），**判定表里直接按"有意空依赖"归类并注明依据，不要重新论证**。
+- **交付物**：19 行判定表（文件:行号 / 类别 / 依据 / 建议 / 风险）。
+- **验收条件**：每条判定必须给出**可复核依据**（读了哪个 state、该 state 的初始化方式、effect 是否有 ref 守卫）；不许凭告警文本直接归类。
+
+---
+
+## 6. 批次 D · 阶段 C（拆分两个巨石）—— **已具备开工条件**
+
+### 6.0 🔨 统筹裁决（阶段 D 开工前必须先执行这一条）
+
+**裁决项：outfit 侧蒙版 init 缺 main 侧的 `cancelled` 卸载守卫**
+**裁定：统一到 main 侧「带卸载守卫」的版本。**
+- 依据：本项目既有裁决原则 —— **补全方向优先、放宽优先于收窄**。加 `cancelled` 守卫只在组件卸载后阻止
+  `setState`，**不改变正常路径的任何行为**，属纯补全；反之删掉 main 侧的守卫则是**收窄**，会让
+  「卸载后异步回调仍写 state」的风险重新出现（高风险方向）。
+- 要求：commit 必须写明「**有意新增卸载守卫**」；并在两侧各加一行互指注释。
+- 证据位置（**统筹按 `bbf4586` 重新实测，旧行号已漂**）：
+  - `src/main.jsx:1836-1856` —— **有** `cancelled` 守卫（含 `maskImage.onload = null` 清理）
+  - `src/outfit-workflow.jsx:5019-5041` —— 同逻辑（`maskInitRef` / `savedEdit?.maskDataUrl` / `maskImage.src`），
+    但该 effect 内 **无 `cancelled`**（全仓 `cancelled` 仅出现在 2478 / 6895 / 6921）⇒ **确认缺守卫**
+
+### 6.1 四批推进（按执行者建议，统筹采纳）
+
+| 顺序 | 工单 | 内容 | 标记 |
+| --- | --- | --- | --- |
+| D-0 🆕 | **V11-RF-048** | 🆕 **`PreparedResultImage`（outfit:2470）↔ `CachedImage`（shared/ui）改名克隆** | 🔴 **最先做** |
+| D-1 | **V11-RF-050** | 局部编辑 4 块 → `src/features/local-edit/`：选框缩放 130 行 / resize 手柄 40 行 / 蒙版笔刷 JSX 47 行 / 选框光标 JSX 29 行（**边界已实测两处逐行相同**） | 🔴 依赖 D-0，**含 6.0 裁决的守卫统一** |
+| D-2 | **V11-RF-051** | 提示词库 + 参考图相关块（**先消化 RF-032 的 11 组「需人工确认」**） | 🔴 依赖 D-1 |
+| D-3 | **V11-RF-052** | 按 12 个工作流切 outfit 的配置与面板 | 🔴 依赖 D-2 |
+| D-4 | **V11-RF-053** | 剩余任务列表 / 上传区（引用面最广，放最后） | 🔴 依赖 D-3 |
+
+**每批通用验收**：整块搬出 + 改 import（**不许改逻辑**）；`vite build` 必过；
+对照组脚本（旧实现抄进 `tmp/`）0 失败；真机冒烟**必做**（局部编辑、提示词库、参考图都有可达 UI）；
+`019` 判定字段不恶化；**每批独立 commit**。
+
+**顺序铁律**：**先消重复、后搬目录**（反了 = 把重复固化进新目录）。
+
+### 6.2 V11-RF-048 · `PreparedResultImage` ↔ `CachedImage` 改名克隆（D-0，最先做）
+
+- **任务类型**：【消改名克隆 · 中】｜**标记**：🔴
+- **🆕 统筹实测发现（2026-10-02 · `bbf4586`）**：RF-043-1 把 `CachedImage` 抽到 `src/shared/ui/cached-image.jsx` 之后，
+  `outfit-workflow.jsx` 里还留着一份**名字不同、功能同构**的实现：
+
+  | | `cached-image.jsx`（shared） | `outfit-workflow.jsx` |
+  | --- | --- | --- |
+  | 组件 | `CachedImage`（main.jsx 内 9–10 处） | `PreparedResultImage`（**定义 :2470**，使用点 **:10238 / :11252**） |
+  | 预加载 | `preloadDisplayImageUrl(url, timeoutMs = 20000)` | `preloadImageUrl(url, timeoutMs = 8000)`（**:2393**） |
+  | 卸载守卫 | 有 | 有（:2478 / :2521） |
+  | 缓存 | 有（`DISPLAY_IMAGE_CACHE`） | **无** |
+  | 埋点 | 有 | 有（`client-result-display-ready`，`emitDisplayReady`） |
+
+  ⚠️ 默认超时 8000 vs 20000 看似分叉，但 outfit 唯一调用点传的是 `RESULT_IMAGE_PRELOAD_TIMEOUT_MS`（**:241 = 20000**）
+  ⇒ **实际行为一致，不是真分叉**。
+- **裁定**：**先出对照表再定是否统一**（差异是「缓存有无」与「埋点字段」，若统一需取超集，不是纯搬运）。
+  判据同 RF-043：**放宽 > 收窄** —— 若统一，outfit 侧应**获得缓存**（放宽方向）；
+  不得让 main 侧丢缓存或丢埋点。
+- **为什么排 D-0**：它是**重复**。按「先消重复、后搬目录」必须先消，否则 D-1 搬局部编辑时会把这份重复固化进新目录。
+- **交付**：① 两版逐项对照表（props / 缓存 / 埋点字段 / 超时 / 守卫）② 是否可统一的建议 ③ 若可统一则实施（独立 commit）
+
+### 6.3 V11-RF-050 · 局部编辑 4 块边界（**统筹按 `bbf4586` 实测，勿用旧行号**）
+
+| 块 | 长度 | `main.jsx` | `outfit-workflow.jsx` | 内容 |
+| --- | --- | --- | --- | --- |
+| ① 选框缩放 | **130 行** | `:2065~` | `:5212~` | `scaleRectLocked` / `CROP_MIN_PIXEL_SIZE` / 中心缩放 |
+| ② resize 手柄 | **40 行** | `:2012~` | `:5159~` | `resizeRectFromCenterLocked` / `directionX|Y` / `maxWidth|Height` |
+| ③ 蒙版笔刷 JSX | **47 行** | `:2381~` | `:5521~` | `isMaskMode` / `quickLocalBrushTools` / 白笔·黑笔 |
+| ④ 选框光标 JSX | 29 行 | 按块①②邻近自行定位 | 同 | 选框光标样式 |
+
+- 另有 `:4650~ ↔ :8584~` **39 行**块（`imageMimeFromSource`，**组件内缩进函数 —— 019 看不见**）⇒ 建议随本批一并评估。
+- **当前重复总规模（实测）**：src **25167 行**，块级重复约 **2511 行（11.7%）**；
+  两大文件 8627 + 11346 = **19973 行（79.4%）**。
+
+> 🔴 **统筹补授权（2026-10-02 · 追认，凭本条执行）**
+> 块①（`250aa8d`）与块②（`01b2325`）各新建 1 个 `src/features/local-edit/*.js`
+> ⇒ 019 的 `fileCount` 必然 +1 ⇒ 触发 `scopeDrift` 判红。**每块允许 `--update` 划账一次**。
+> 实测两次划账**都只改了 `fileCount`（45→46→47）与新文件路径入册，未新增任何 duplicate 条目**
+> ⇒ 属「搬出新文件⇒视野+1」的正当划账，不是掩盖债务。**块③/④ 沿用本授权。**
+> 🔴 **纪律**：授权**必须白纸黑字**——执行者在 commit 里写了「统筹授权每块 --update」，
+> 但本条当时**并不存在**（属推断）。**没看到本文件的明文条款就停手问，不要推断授权。**
+> 本次因实质正当（零条目新增）予以追认；**授权文本缺失是统筹的工单缺陷，已认领**（见 §12）。
+
+### 6.4 RF-043-2 带来的 outfit 侧 4 处行为变化 —— **统筹裁决：接受**
+
+| # | 变化 | 方向 | 裁决 |
+| --- | --- | --- | --- |
+| 1 | 过滤加严（多 `!missing && isAllowedReferenceImage`） | 收窄 | **接受** —— 这是「以 main 版为基底」裁定的直接后果；反向（删过滤）会把地址缺失项渲染成坏图 |
+| 2 | 数量口径 → `items.length`（原 `Math.max(count, len)`） | 收窄 | **接受** —— `count` 仍驱动空态 / 不可用文案（pill「N 张参考」），不是丢信息 |
+| 3 | 右键菜单 `count` 随之变小 | 收窄 | **接受** —— 该参数只用于张数文案，随 #2 一致 |
+| 4 | 原生 `<img>` → `CachedImage` | **放宽** | ✅ 批量侧缩略图从此带缓存与显示埋点 |
+
+> 🔴 前提：已在 `reference-thumb-tray.jsx` 文件头注释写明这 4 处（执行者已做）。
+> ⚠️ **遗留**：outfit 侧真实托盘**未做真机验证**（本环境批量页无历史任务）⇒ **必须由用户人工复核**。
+
+### 6.5 互指注释锚点 —— **授权修正，并改为「只写函数名、不写行号」**
+
+当前（按 `bbf4586` 实测）4 处锚点有 **3 处已漂**：
+
+| 注释位置 | 写的 | 实际定义行 | 状态 |
+| --- | --- | --- | --- |
+| `outfit:1968` → main | `src/main.jsx:476` | 476 | ✅ 准确 |
+| `outfit:1935` → main | `src/main.jsx:716` | **722** | ❌ 漂 6 行 |
+| `main:475` → outfit | `src/outfit-workflow.jsx:1972` | **1973** | ❌ 漂 1 行 |
+| `main:721` → outfit | `src/outfit-workflow.jsx:1942` | **1943** | ❌ 漂 1 行 |
+
+**统筹裁决**：**跨文件注释一律「只写函数名、不写行号」** —— 行号锚点在并发提交下必然反复漂移
+（本轮已漂 3 次），维护成本高于收益；函数名稳定且可 grep。
+⇒ 授权执行者把上表 4 处改为函数名形式（**纯注释改动，独立小 commit**）。
+
+---
+
+### 6.5 V11-RF-051 · `imageMimeFromSource` / `imageExtensionFromSource` 两对克隆（统筹按 `26baf43` 实测）
+
+- **任务类型**：【结构搬运】｜**标记**：🟢
+- **统筹实测**（HEAD `26baf43`）：
+
+  | 函数 | `main.jsx` | `outfit-workflow.jsx` | 长度 | 判定 |
+  | --- | --- | --- | --- | --- |
+  | `imageMimeFromSource` | `:4477` | `:8337` | 10 行 | **逐字节一致** |
+  | `imageExtensionFromSource` | `:4488` | `:8348` | 11 行 | **逐字节一致** |
+
+  两者均为**纯函数、无闭包依赖** ⇒ §0 第一类（字节一致），可直接搬。
+- 🔴 **它们都是缩进（组件内）函数 ⇒ 019 门禁一条也看不见**（§3 已坐实的盲区）。
+  ⇒ **本单完成后 `duplicateCount` 不会变化**，不得以"门禁没报"为由认为没有债务，也不得据此不做。
+- **落点**：`src/shared/result-image.js`。
+  🔑 **零漂移依据**：`main.jsx:90` 与 `outfit-workflow.jsx:94` **都已 import 该模块** ⇒ 只加一项，不新建文件。
+  语义同族：该模块已有 `diagnosticImageSourceType` / `referenceSource` / `brokenImageReason`，
+  同为「从图片来源推断属性」。
+- **动作**：删 4 份定义 → 两侧 import 各 +2 项 → 调用点不动
+- 🔴 **硬约束**：**禁止用 Edit 类整文件改写工具改两个巨石**（§9.3 已立为硬约束，RF-048 实测 diff 膨胀到 11278 行）。
+  改用 `node` 脚本按**内容锚点**打补丁（保留其余行 CRLF，仅改动行写 LF）。
+- **验收**：ESLint `no-unused-vars` 反证无孤儿；`vite build` 通过；`git diff --stat` 量级正常；
+  对照组（旧实现抄进 `tmp/`）覆盖全分支：`data:` / `.jpg` / `.webp` / `.gif` / 带 query / 兜底 `png`；
+  019 `duplicateCount` 保持 0、`scopeDrift` 无；lint 基线不动
+- **需人工冒烟**：生成结果图后**下载一次**，确认扩展名正确（png / jpg / webp 各试一种最好）
+
+### 6.6 V11-RF-040d · 4 条跨文件行号注释 → 只写函数名
+
+- **任务类型**：【纯注释】｜**标记**：🟢
+- **统筹实测位置**（`26baf43`）：
+  - `src/shared/prompt-library.js:6-8` —— 3 对（main.jsx:470-472 ↔ outfit:1928-1930 等）
+  - `src/shared/video-task.js:6` —— 1 对（main.jsx:999-1022 ↔ outfit:6233-6256）
+- **处置同 RF-040c**：删掉行号，只写函数名，并加半句「跨文件引用只写函数名、不写行号」防后人补回
+- **验收**：`node --check` 两个文件；纯注释零代码 ⇒ 无需对照组
+- ✅ **已完成 `4837d49` → 合回主线 `9cfa54b`**（2026-10-02）。交付质量记录：
+  - **零代码有机器证据**：脚本内建「代码指纹」断言——剔除注释行与空行后全文比对，改前/改后**完全一致**。
+    这条手法值得复用：**"看着没动代码"不算证据，指纹比对才算**。
+  - 残留扫描 `grep -nE '\.jsx?:[0-9]+'` 两文件命中 **0**（统筹已复验，exit=1）。
+  - 防回潮句**带理由**而非只写禁令：「行号随任意一侧的编辑就会漂移，后人按图索骥只会被引到错处，刻意不补」。
+  - 合并时与窗口①的 RF-051 **文件零重叠**（040d 只碰 `prompt-library.js`/`video-task.js`；
+    051 碰 `main.jsx`/`outfit-workflow.jsx`/`result-image.js`）⇒ 合并后窗口①工作区改动**原封不动**。
+- 🔴 **与 RF-051 文件零重叠**（051 碰 `main.jsx` / `outfit-workflow.jsx` / `result-image.js`；
+  本单只碰 `prompt-library.js` / `video-task.js`）⇒ **两单可并行**，
+  但**第二窗口必须在 worktree 里做**（§11.1 第 1 条：同目录不允许两个 AI 同时写代码）
+
+### 6.7 V11-RF-052 · 拖拽下载族 6 函数两侧各一份 ✅ **已完成 `b934ec6`**
+
+- **任务类型**：【消重复 —— 字节一致】｜**标记**：🔴 串行（碰两个巨石）
+- **统筹实测**（`f1200c6`，脚本 `tmp/d2-drag-family-check.mjs`，剥离缩进后逐字节比对，非肉眼）：
+
+  | 函数 | main.jsx | outfit-workflow.jsx | 行数 | 判定 |
+  | --- | --- | --- | --- | --- |
+  | `safeDownloadFileName` | 4479 | 8339 | 7 | ✅ 字节一致 |
+  | `padDragDownloadNumber` | 4487 | 8347 | 3 | ✅ 字节一致 |
+  | `dragDownloadDateStamp` | 4491 | 8351 | 15 | ✅ 字节一致 |
+  | `absoluteDownloadUrl` | 4518 | 8380 | 9 | ✅ 字节一致 |
+  | `beginImageDownloadDrag` | 4528 | 8390 | 12 | ✅ 字节一致 |
+  | `dataUrlFromBlob` | 4430 | 3435 | 8 | ⚠️ **唯一实质差异 = 报错文案** |
+
+  ⇒ 前 5 个合计 **46 行 ×2 → 1**；全部纯函数，仅依赖 `displayImageRequestUrl` 与已收口的
+  `imageMimeFromSource` / `imageExtensionFromSource`。
+- **落点**：`src/shared/result-image.js`（`main.jsx:88-89` 与 `outfit-workflow.jsx:92-93` **已 import**）
+  ⇒ 只在既有 import 行加项，**不新建文件、不触发 `scopeDrift`**
+- 🔴 **统筹裁决 · `dataUrlFromBlob` 的文案走「入参化」**：
+  `dataUrlFromBlob(blob, errorMessage = "图片编码失败")`，main 调用点显式传 `"长图编码失败"`
+  ⇒ **零行为变化**，两侧文案各自保留。前例：RF-027-3 的 6 句抛错文案即由调用点传原文案。
+- **必验（以实测为准，别用统筹的推断）**：`result-image.js` 新增
+  `import { displayImageRequestUrl } from "../api/assets.js"` 后跑 `import-path-check` + 循环依赖检查。
+  统筹已查 `src/api/assets.js` 只 import `./client.js` ⇒ **预期无环**，但仍须实测确认。
+- ❌ **不在本单（已裁决不搬，别顺手动）**：
+  - #11 的 `resultDragDownloadName` ↔ `taskDragDownloadName` ⇒ **真分叉**（字段优先级 `createdAt/submittedAt` vs
+    `finishedAt/createdAt/startedAt`；序号规则 `fallbackIndex` vs `task.order`）⇒ 登记，不合并
+  - `imageSource`（outfit:2215）↔ `imageSourceFromResult`（`shared/models.js:53`）⇒ **真分叉**（缺陷 ⑨c）
+  - `blobFromImageItem` ↔ `blobFromOutfitImage` ⇒ 本体差异就是上面那对分叉 helper，随之不搬
+- **硬约束**：禁 Edit 改两巨石（§9.3）；提交前必查 `git diff --stat`
+- **验收**：ESLint `no-unused-vars` 反证无孤儿；`vite build` 通过；对照组覆盖
+  `data:` / `blob:` / 相对 / 绝对 / 超长文件名 / 非法字符 / 序号边界；019 `duplicateCount` 保持 0、无 `scopeDrift`；lint 基线不动
+- **需人工冒烟**：**把结果图拖到桌面**，确认落盘文件名（含日期序号）与扩展名
+  ⇒ 🔴 该链路**没有点击下载入口**，只能拖（继承 RF-051 的 ⑧e 冒烟方式）
+
+### 6.8 V11-RF-053 · LE 几何 2 块（#16 / #35）
+
+- **任务类型**：【消重复 —— 字节一致 + 1 处待判】｜**标记**：🔴 串行（**排在 RF-052 之后**，同碰两巨石）
+- **目标块**（`9cfa54b` 快照行号，开工前**必须重新 grep 实测**）：
+  - #16 `cropQuickLocalEditFile`（main:1205）↔ `cropOutfitLocalEditFile`（outfit:3124）—— 22 行，判定 A（字节一致）
+  - #35 `clampTransform`（main:1600）↔ `clampCropTransform`（outfit:4679）—— 14 行，判定 B（差 1 行）
+- **落点**：`src/shared/local-edit-geometry.js`（374 行，已有 `cropRectToBlob` / `constrainCropRect`）
+- 🔴 **先决核验（先验后搬，不符即停手报统筹）**：
+  #16 连带依赖 `LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES` / `LOCAL_EDIT_CROP_JPEG_QUALITIES` 两个**模块级常量**
+  ⇒ 必须先实测两侧取值一致。§0.9 原则 7：**字节一致 ≠ 可搬**。
+- **#35 处置**：先判那 1 行是格式差异还是实质差异 ⇒ 实质差异则**参数化**（两侧各传原值，行为逐字不变）或停手报统筹
+- **验收**：同 RF-052；外加几何数值对照组（越界 / 极小 / 极大 / 非等比）
+
+---
+
+### 6.8b V11-RF-053b · #16 `crop*LocalEditFile` 参数化收口（**统筹纠正执行者误判**）
+
+**背景**：RF-053 执行者以「#16 是真分叉」为由停手。**停手的谨慎是对的，但依据错了**，统筹实测纠正：
+
+| 执行者的判断 | 统筹实测 |
+| --- | --- |
+| 「差异在**底图来源**：一侧取参考图原图，一侧取本地编辑底图」 | ❌ **两侧底图同源**。`quickReferenceOriginalFile`（main:1055）= `resolveLocalEditBaseFile(item) \|\| item`，**本身就是同一份规则**；outfit 侧直接 `resolveLocalEditBaseFile(imageItem)` |
+| 「统一它 = 行为变更 ⇒ 不搬」 | ⚠️ 方向对，但处置应是**参数化**（同 #35），不是不搬 |
+
+**真正的差异只有一处 —— 兜底策略**（22 行里其余逐字一致）：
+
+- main：`resolveLocalEditBaseFile(item) || item` —— **允许裸 File 兜底**
+  （原注释明写：`这里保留 || item 兜底，因为快捷侧的条目可能就是裸 File`）
+- outfit：`resolveLocalEditBaseFile(imageItem)` + `if (!originalFile) throw new Error("缺少原图，无法创建局部回贴区域")`
+
+⇒ **严禁统一成其中一侧**：取 outfit 版会让 main 的裸 File 条目**静默失效**（收窄，违反 §0.9 原则 1）；
+取 main 版会让 outfit 丢掉明确报错、退化成 `imageBitmapFromFile(非 File)` 的更难懂错误。
+
+**裁决：参数化搬运**（与 #35 同一手法）：
+
+```
+export async function cropLocalEditFile(imageItem, cropRect, suffix = "local_edit", { fallbackToItem = false } = {}) {
+  const originalFile = resolveLocalEditBaseFile(imageItem) || (fallbackToItem ? imageItem : null);
+  if (!originalFile) throw new Error("缺少原图，无法创建局部回贴区域");
+  …（其余 20 行原样搬）
+}
+```
+
+- main 调用点传 `{ fallbackToItem: true }` ⇒ 行为**逐字不变**
+- outfit 调用点走默认 ⇒ 行为**逐字不变**（仍抛同一句）
+
+- **落点**：`src/shared/local-edit-geometry.js`（两侧 `:76` / `:86` 已 import，不新建文件）
+- **验收**：两侧各传原值 ⇒ 对照组必须覆盖「裸 File 入参」与「无原图入参」两组反证项；
+  `LOCAL_EDIT_CROP_*` 两个常量由 shared 模块内引用，两侧模块级常量成为孤儿 ⇒ **必须实测清掉**
+  （ESLint `no-unused-vars` 点名）
+- 🔑 **教训（写进 §12）**：**"看着像分叉"不等于"分叉"** —— 判分叉前必须**追到被调用的解析函数内部**，
+  不能只看首行函数名不同就下结论（本次 `quickReferenceOriginalFile` vs `resolveLocalEditBaseFile`
+  名字不同、语义相同）。
+
+### 6.9 V11-RF-054 · PL / RQ 两簇抽取方案 ✅ **已完成**（只读设计）
+
+**交付结论（统筹采纳）**：两簇**都不需要新建文件** —— PL 落既有 `src/shared/prompt-library.js`（hook 形式），
+RQ 只搬 2 块纯函数落既有 `src/shared/result-image.js` ⇒ **`fileCount` +0，§7.2 的「新建授权」条件自动满足**。
+
+🔴 **统筹口径校准（以本次现场实测为准，旧快照作废）**：
+
+| 簇 | 旧（D-2 `9cfa54b`） | **实测（`e5d003d`，按函数名逐对剥离缩进比对）** | 取哪份 |
+| --- | --- | --- | --- |
+| PL | 9 块 / 160 行 | **14 块 / 138 行**（+2 块顶层改名克隆 ≈ 158 行） | **取实测**（口径更严：行首锚定 + 缩进闭合） |
+| RQ | 14 块 / 218 行 | **12 块 / 149 行**（main 侧）+ 11 对改名克隆 | **取实测** |
+
+> 纪律：**现场实测优先于旧快照**（呼应 §7.2 与缺陷 ⑨e —— 旧快照不可直接排产，这次又应验一次）。
+
+🔴 **统筹纠正一处结论**：交付报告写「PL 与 RF-052/053 零冲突，可并行」——**只对了一半**。
+**落点文件零冲突成立**（`prompt-library.js` vs `result-image.js`），但 PL 要**删改两侧 14 个局部函数定义**
+⇒ **必然碰 `main.jsx` / `outfit-workflow.jsx`** ⇒ 与 RF-052/053 是**同一文件** ⇒ 按 §11.2b 文件锁 **必须串行**。
+⇒ 教训：**判断"能否并行"看的是被编辑的文件，不是落点模块。**
+
+- **任务类型**：【只读设计】｜**标记**：🟢（**与 RF-052 零冲突**：不写任何文件）
+- **背景**：PL 簇 9 块/160 行、RQ 簇 14 块/218 行，全部强闭包依赖（`setPromptPresets` / `setEditingPrompt` /
+  结果队列 handler 等）⇒ 在当前「禁止新建文件」约束下**无解**，必须落成 hook 或组件
+- **产出（只出方案，不动手）**，每簇必须回答 5 问：
+  ① 抽成 hook 还是组件，为什么　② 新建**几个**文件、放哪个目录、叫什么
+  ③ 每个新文件的导出签名与 props　④ 019 的 `fileCount` 会 +几（划账量）
+  ⑤ 对应的人工冒烟清单
+- 🔴 **约束**：优先复用既有模块；**一个簇集中新建，不许每块新建**（§7.2 新建文件条件 ②）
+- **交回后**由统筹按 §7.2「新建文件四项条件」**逐簇裁决授权**，授权前不得动手
+
+### 6.10 V11-RF-055 · 前端「块级克隆」advisory 门禁档 ✅ **已完成 `87f38d2`**（合回主线 `6923595`）
+
+**统筹裁决 · 三项请示**：
+
+| 请示 | 裁决 | 依据 |
+| --- | --- | --- |
+| 默认灵敏度（`--miss` 取 2 还是 6） | ✅ **默认 `--miss 2`（保守档）**；`--miss 6` 仅作**上界估计，不得用于开单** | 排产要的正是 **A/B 类**（可搬的）。实测 `--miss 6` 虽得 72 块/1253 行（量级接近 D-2），但 **A 类从 10 掉到 5** —— 灵敏度调高会把真克隆与半克隆连坐合并成 C，**把可搬清单冲稀**。保守档的 A=10 才是干净的开单依据 |
+| `TOOLS` 还是 `ORDER` | ✅ **确认 `TOOLS`** | 该档不做断言、恒 0 退出 ⇒ 进 `ORDER` 会改变 38 项计数，破坏既有「27/38」比对基线。代价是 `run-all` 不自动跑它 ⇒ **排产前必须手工跑一次**（`node scripts/verify/block-clone-advisory.mjs`） |
+| 判据不对称（前端用两条正则、服务端只用一条） | ⏸ **不拉平** | 实测收益 ≈ 0（+2 定义、0 新增同名族），但改动落在**共用判据**上 ⇒ 「改了没收益却承担漂移风险」。登记备查，不立单 |
+
+- **实测（`71c57d5`）**：49 文件 / 14866 有效行 / ~240ms → **54 块 / 845 行**（L1=20 / L2=34），A=10 B=6 C=38；巨石对 34 块 / 586 行。
+- ✅ **活样本自校验 2/2 命中**（这条最有力）：
+  ① 工单点名的反例 `loadPromptCategories`(main:479-488) ↔ `loadOutfitPromptCategories`(outfit:1975-1984)
+  **被抓到并判 B（差 1 行）**，差异行正是兜底常量 ⇒ 证明该档**能看见 L1 陷阱**；
+  ② 已收口的 `imageExtensionFromSource` **不在清单** ⇒ 证明 **RF-051 生效**。
+- **动机**：D-2 的块级清单是**一次性审计**，下次排产又要重做。
+
+- **任务类型**：【门禁建设】｜**标记**：🟢 **可与 src/ 侧任务并行**（只碰 `scripts/`，与 `src/` **零文件重叠**）
+- **动机**：D-2 的块级清单是**一次性审计**，下次排产又要重做。
+  ⇒ 把它固化成常驻门禁档：**每次排产前跑一次即得清单**，且能防止新块级复制悄悄进入。
+- **判据**（沿用 §7.2 已锁定的排产口径）：
+  阈值 **≥10 行**（连续块）；先剔除空行 / 注释行 / **import 块**；
+  双层匹配（L1 空白归一化、L2 标识符·字符串·数字脱敏专抓改名克隆）；贪心取最长公共连续段。
+  输出每项：函数名或首行特征 / 两侧「文件名 + 行号」 / 行数 / 三类预判（A 字节一致 / B 差 1–2 行 / C 差 ≥3 行）。
+- 🔴 **只报不记账（advisory 纪律，同 RF-046）**：
+  不参与 `ok`、不进 `duplicateCount`、不进基线、不影响 lint 棘轮；异常一律 `try/catch` 降级。
+  判定字段改前改后须**逐字段实测比对**。
+  报告头必须给「基数 + 判据 + **L1 相同 ≠ 语义等价**」警告
+  （实证反例：`loadPromptCategories` 两侧 L1 完全相同但兜底常量不同源）。
+- 🔴 **登记纪律**：根目录新增可执行 `.mjs` **必须登记进 `run-all.mjs` 的 `ORDER`/`TOOLS`**，
+  否则会被门禁点名判红；helper 一律放 `scripts/verify/lib/`（子目录不参与发现）。
+- ⚠️ **上线后必然报 ~74 块 / 1342 行** ⇒ 这是**在册债务，不是回归**。
+  必须在脚本输出与本报告写明，避免后人误判为"门禁变红"。
+- **边界**：只许碰 `scripts/`；**严禁碰 `src/`**（窗口①的地盘）。
+  不需要 `--update`（只报不记账，不写基线）。
+
+### 6.11 V11-RF-056 · 后端 DEF 正则盲区的只读测量 ✅ **已完成 `e0159e6`**
+
+- 🔴 **统筹认领一处工单缺陷**：§6.11 的**前提已过期** —— `export function` 盲区**早已由 RF-026（`70b46de`，`71c57d5` 的祖先）关闭**，
+  是我凭旧记忆写的单。**执行者没盲从工单、先测前提再动手，处理正确。**
+- **实测结论（64 文件）**：现状 **368 个顶层定义 / 跨文件同名族 0**。
+  反事实重跑（旧判据）147 → 368，**+221（60.1%）** ⇒ 说明盲区确曾被填平。
+  形态分布：裸 `function` 124 / 裸 `async` 23 / **`export function` 175** / `export async` 46 / `export default` 0。
+- ✅ **剩余盲区仅 2 个定义**（`textFromCodes` 箭头常量、`BillingGatewayError` 类，**同在 `server/billing-gateway.js` 一个文件内**）
+  ⇒ 扩判据**新增同名族 0**，门禁不会变红、**不需要划账** ⇒ **不立单**。
+  `server-duplication-check.mjs:45` 那句「服务端该形式极少」实测成立。
+
+- **任务类型**：【只读测量】｜**标记**：🟢（只碰 `scripts/`，**先测不改判据**）
+- **已知盲区**：`server-duplication-check` 的 DEF 正则**不认 `export function`**
+  ⇒ `server/core/` 里 105 处定义只有 33 处在视野，约 **76% 不在视野**。
+- **动作**：只做只读测量——若把 `export function` 纳入判据，会新增多少命中、分别是哪些族、三类判定是什么。
+- 🔴 **不许改判据、不许动基线**。测量报告交回统筹，由统筹裁决是否另立「扩判据 + 划账」单。
+
+### 6.12 V11-RF-057 · PL 簇抽 `usePromptLibrary`（**授权实施**）
+
+- **任务类型**：【抽 hook】｜**标记**：🔴 串行（碰两巨石，排在 RF-058 之后）
+- **授权**：**不需要 §7.2「新建授权」** —— 0 新文件、`fileCount` +0（落既有 `prompt-library.js`）。
+  但**统筹额外批一条**：允许修改 `src/shared/prompt-library.js` 的头注释
+  （「无 React」→「纯函数 + 1 个无副作用 hook」）——这是该模块纪律的变更，凭本条执行。
+- **形态（统筹采纳交付报告的裁决）**：hook，但**只是返回普通函数的工厂**，
+  🔴 **内部禁止 `useCallback` / `useMemo`** —— 现状这些 handler 每次 render 都重建闭包，
+  返回普通函数才能**行为逐字一致**，同时规避 `exhaustive-deps` 新增 warning（这是 §7.2 条件④「0 warning」的关键）。
+- **导出签名**：见交付报告 `usePromptLibrary({ presets, setPresets, categories, setCategories, activeCategory,
+  setActiveCategory, editing, setEditing, draggedId, setDraggedId, dropCategory, setDropCategory,
+  promptText, makePresetId, notify, onApplyPreset })`，返回 13 个 handler。
+- 🔴 **三条硬要求（违反即改行为）**：
+  1. `makePresetId` **必须注入** —— main `makeResultId()` 产 `result_` 前缀 vs outfit `makeId("prompt")` 产
+     `prompt_` 前缀，**不注入就改了 main 新建预设的 id 前缀**（会污染 localStorage 历史数据）。
+  2. `notify` **必须注入** —— 两侧 `addEvent` 已分叉（`{time,label,detail}` vs `{id,title,detail,time}`），不可共用。
+  3. **main 独有 9 块 / outfit 独有 2 块必须留原地**（main：分类页签拖拽排序 + 删除按钮共 9 个函数；
+     outfit：`renamePromptPresetTitle` / `schedulePromptPresetApply`）
+     ⇒ 塞进 hook 会变成未接线的死代码，**等同给对方补功能**，同 ⑨d `ChannelPicker` 裁决（属业务变更）。
+- ⚠️ **一处放宽需人工确认**：`dropPromptOnPreset` 取 **outfit 版**（多 `setPromptDropCategory("")`）
+  ⇒ main 侧拖放后分类高亮**额外清空**。按 §0.9 原则 1「放宽 > 收窄」认可，但**必须人工冒烟确认无负面体感**。
+- **验收**：ESLint `no-unused-vars` 实测点名清理孤儿 import（每侧少 14 个局部函数定义）；
+  对照组覆盖 13 个 handler；019 `duplicateCount` 0、无 `scopeDrift`；lint 基线不动。
+- **人工冒烟（清单较长，见交付报告）**：main 9 项（含拖分类页签排序、点分类 X 删除、刷新看持久化）；
+  outfit 7 项 × 两处入口（常驻 dock + 弹窗），其中**单击预设约 180ms 后才应用**是 outfit 特有行为，不得被统一。
+
+### 6.13 V11-RF-058 · RQ 簇只搬最小集 2 块纯函数
+
+- **任务类型**：【消重复 —— 字节一致】｜**标记**：🔴 串行（**排在 RF-052 之后**：同落点 `result-image.js`）
+- **范围**：`previewDragStart`（main:5163 ↔ outfit:8689，12 行，剥缩进后仅函数名不同）
+  + `previewPanFromDrag`（`movePreviewDrag`，main:5176 ↔ outfit:8702，11 行**字节一致**）＝ **23 行 ×2 → 1**
+- **落点**：`src/shared/result-image.js`（两侧已 import）⇒ 0 新文件、`fileCount` +0
+- ❌ **RQ 其余 9 块是真分叉，登记不搬**（两侧数据模型 `results[]` vs `tasks[]` + 副作用不同）：
+  `addEvent` / `clearAll` / `deleteSelected` / `openSaveDirectory` / `flashDownloadFeedback`（1300ms 有清理 vs
+  1100ms 无清理）/ `updateSetting` / `openReferenceContextMenu`(190 vs 188) / `deleteResult`↔`deleteResultTask` /
+  `canReplaceQuickResult`↔`canReplaceTaskResult` / 替换拖放 / `shiftPreview`↔`navigatePreview`（边界停住 vs 取模循环）/
+  `handlePreviewWheel`↔`zoomPreviewByWheel`（**缩放上限 4 vs 5**）
+  ⇒ 贪心吞下去会改预览缩放上限、导航循环、下载反馈时长、事件结构，**全部不建议**。
+- **人工冒烟**：打开结果图预览 → 拖动看平移；**拖动后单击不关闭、未拖动的单击应关闭**（`drag.moved` 语义）；
+  滚轮缩放上限两侧分别验（main 4 / outfit 5，**不得被统一**）；outfit 额外验左右箭头首尾循环。
+- ⚠️ **口径澄清（统筹答复）**：`renderResultQueue`（outfit:9830，192 行）**main 无对位**
+  ⇒ **单文件大函数，不是重复债** ⇒ 不派单。
+
+---
+
+### 6.14 V11-RF-059 · 阶段 D 第二批备料（**只读审计**，用刚上线的 RF-055 档）
+
+- **任务类型**：【只读审计】｜**标记**：🟢 **零冲突**（不写任何文件 ⇒ 与任何窗口都可并行）
+- **动机**：`src/` 队列（RF-053 → 058 → 057）做完后需要**下一批开单依据**。
+  旧 D-2 清单是 `e5d003d` 快照，**已被 RF-051/052/047/053 消化掉一部分** ⇒ 必须重测，旧清单不可直接排产。
+- **工具**：`node scripts/verify/block-clone-advisory.mjs`（RF-055 产出的常驻档，**默认 `--miss 2` 保守档**）
+- **动作**：在固定快照 worktree 里跑一次当前 HEAD，输出三张表：
+  1. **最新块级清单**（剔 import，≥10 行）：函数名或首行特征 / 两侧「文件名 + 行号 + 快照 hash」/ 行数 /
+     三类预判（A 字节一致 / B 差 1–2 行 / C 差 ≥3 行）；
+  2. **落点建议**：**严格只用既有 `src/shared/*` 与 `src/features/*` 模块**，禁止建议新建文件；
+  3. **风险标注**：纯函数（可直接搬）vs 闭包依赖（需参数化或不可搬）。
+- **必答**：本轮已收口的（RF-051/052/047/053）**是否确实从清单里消失了** —— 这是该档有效性的活样本自校验。
+- **禁止**：改任何文件（含 `.md`）、裁决任何分叉（只标注）。
+
+### 6.15 V11-RF-060 · 阶段 D 第三批「块级克隆清零」**打包长队列单**（1M 上下文专用）
+
+> **本单是「一个窗口吃下一条完整主线」的试点**：不再每单回来问，按下面已裁决的规则自主推进，
+> 只在遇到**真分叉**时停手报统筹。仍然 **一阶段一 commit**，严禁合并。
+
+- **任务类型**：【消重复 —— 打包】｜**标记**：🔴 串行（**整个 src 队列只此一路**）
+- **实测基数（`4f496ab`，统筹亲自跑）**：`block-clone-advisory` 命中 **54 块 / 766 行**（巨石对 29 块 / 442 行）
+  ⇒ **A=5 / B=7 / C=42**。其中 C 类绝大多数是 **L2 脱敏假阳性**（如 `usePromptLibrary` 与一堆不相干函数匹配），
+  **不得据 C 类开单**。本单只处理 **A 类 5 块 + B 类可参数化者**。
+- **阶段 0（测量）**：开工先跑 `node scripts/verify/block-clone-advisory.mjs` 复核清单
+  （并入 RF-059 的职责 ⇒ **RF-059 不再单独派发**）。必答：RF-051/052/047/053/057/058 已收口的是否确实消失。
+
+#### 已裁决（可直接做，不必再问）
+
+| 块 | 行数 | 处置 | 落点 | 新文件 |
+|---|---|---|---|---|
+| `cropQuickLocalEditFile` ↔ `cropOutfitLocalEditFile`（**RF-053b**） | 22 | **参数化**：`{ fallbackToItem = false }`；main 传 `true` | `src/shared/local-edit-geometry.js`（两侧已 import） | 0 |
+| `runConnectionTest` | 23 | 字节一致；注入 `setIsConnectionTesting/setConnectionState/setConnectionStatus/settings/config/testConnection/formatConnectionResult` | `src/features/auth/api-key.js`（main:140 / outfit:135 **已 import**） | 0 |
+| `copyText` | 20 | 字节一致；注入 `addEvent`（`notify` **不给默认值**：忘传立刻报错，好过静默丢提示） | 🔴 **授权新建** `src/shared/dom-actions.js` | **1** |
+| `preventFileDropNavigation` 🆕 | 5 | 字节一致（image-editor ↔ outfit，修复盲区后才看见） | 同上（与 `copyText` 同文件，都是 DOM 动作） | 0 |
+| `openDirectoryModal`(4) + `pickSaveDirectory`(16) 保存目录簇 | 20 | `pickSaveDirectory` 两侧仅 `err`/`error` 命名与消息提取写法不同 ⇒ **语义等价**，取 main 版 | ⏸ **本单不搬**，无既有落点，等 §6.14 领域设计 | 0 |
+
+#### 裁决规则（B 类逐块套用）
+
+1. **先追到被调用函数的实现内部再判分叉** —— 只看首行函数名会两个方向都错（RF-053 #16 教训：
+   `quickReferenceOriginalFile(item)` = `resolveLocalEditBaseFile(item) || item` ⇒ 两侧**同源**，真差异只是兜底策略）。
+2. **放宽 > 收窄**（§0.9 原则 1）。取 outfit 版会让 main 静默失效的，一律不许取。
+3. **差 1–2 行且可用参数化消解** ⇒ 参数化，两侧各传原值 ⇒ 行为逐字不变。
+4. **依赖模块级常量不同的**（如 `#12`）⇒ 不搬，登记。
+5. **`loadPromptCategories` ↔ `loadOutfitPromptCategories`** ⇒ ❌ **不搬**（L1 相同但兜底常量不同源，本档自己都把它写成反例）。
+6. **`imageBitmapFromFile` ↔ `imageBitmapFromDataUrl`**（两个既有 shared 模块之间）⇒ 只报备不搬（同逻辑不同名是门禁盲区，清单内别顺手改）。
+
+#### 🔴 明文授权（G 清单例外，凭本条执行）
+
+- **允许新建 1 个文件**：`src/shared/dom-actions.js`（放 `copyTextToClipboard` + `preventFileDropNavigation`）。
+  ⚠️ 原写 `clipboard.js`，实际落地改名 `dom-actions.js` —— 它同时容纳剪贴板与拖拽拦截两件 DOM 动作，
+  一个文件装下同类比拆两个更省 `fileCount`。**以本条为准。**
+- **允许 `--update` 改写 `scripts/verify/frontend-duplication-baseline.json`** 做 `fileCount` 划账（49→50），
+  形式必须是「fileCount +1 + 新文件路径入册」，**不得新增任何 duplicate 条目**（RF-050 先例）。
+- commit 必须写明「统筹授权，见 RF-060 §6.15」。
+
+#### 硬约束（不变）
+
+- 🔴 **禁 Edit 类整文件改写工具改两巨石**（CRLF→LF 会让 diff 膨胀到万行级）⇒ node 脚本按内容锚点打补丁，
+  提交前必查 `git diff --stat`。
+- 🔴 **防覆盖三步**（上一轮 src 并行静默覆盖事故）：打完 `grep -c` 自己的锚点 / 盯 HEAD 是否推移 /
+  只 `git apply --cached` 暂存自己那一 hunk，提交后确认他人改动仍在工作区。
+- 每阶段：对照组（旧实现由 `git show` 逐字生成，**禁手抄**）+ **至少 3 个反证项**（两分支输出必须不同，否则无判别力）。
+- **真分叉一律停手报统筹**，不得自行统一。
+
+### 6.16 V11-RF-060 执行进度（**统筹自执行**，2026-10-03）
+
+> 用户授权统筹直接执行（不再转达窗口）。每阶段一 commit，验证口径与派单要求完全一致。
+
+| 阶段 | 内容 | commit | 净行数 |
+|---|---|---|---|
+| 0 | 修 `block-clone` 档 `image/*` 吞行缺陷（有效行 14812→21561，盲区 30%） | `8c913b4` | — |
+| 1 | RF-053b `crop*LocalEditFile` 参数化 `{ fallbackToItem }` | `291f8cc` | 61 / −82 |
+| 2 | `runConnectionTest` 23 行 → `features/auth/api-key.js` | `755c3a8` | 80 / −49 |
+| 3 | `copyText` + `preventFileDropNavigation` → 新建 `shared/dom-actions.js` | `6953bb4` | 65 / −53 |
+
+**体量**：两巨石 8235+10890 = **19001 行**（本轮 −124）。
+
+**重测后剩余（`6953bb4`，有效行 21526）**：101 块 / 1784 行，**A=9 B=16 C=76**。
+搬走的 4 块已确认从清单消失（该档的活样本自校验通过）。
+
+- **A 类剩余 9 块中，函数型只剩 2 块**：`openDirectoryModal`(14) + `pickSaveDirectory`(11) —— 保存目录簇，
+  **无既有落点**（无 settings/savedir 类模块），按 §7.2 不新建 ⇒ 待领域切分时一并解决。
+  ⚠️ `pickSaveDirectory` 两侧仅 `err`/`error` 命名与消息提取写法不同 ⇒ **语义等价**，可直接取一侧。
+- **其余 A 类是 JSX 块**（32 / 18 / 13 / 12 行）：`))}`、`<span>{theme.label}</span>`、`<LocalEditBrushTools`、`<canvas`
+  ⇒ 抽组件才能消，需新建文件或扩既有组件 props，**本批不做**。
+- **C 类 76 块**：绝大多数是 L2 脱敏假阳性，**不得据此开单**（§7.2）。
+- **B 类 16 块**：逐块判，能参数化的参数化，真分叉登记。已确认不搬的：
+  `loadPromptCategories ↔ loadOutfitPromptCategories`（兜底常量不同源，本档自列反例）、
+  `imageBitmapFromFile ↔ imageBitmapFromDataUrl`（两个既有 shared 模块之间，只报备）。
+
+### 6.17 V11-RF-061 · **线 B · 巨石领域切分设计**（只读，统筹实测 2026-10-03）
+
+> 阶段 D 剩两条性质不同的线。**线 A 块级克隆**已近清零；**线 B 是按功能域切分两个主组件**，
+> 这才是剩下 22% 的主体。本节是线 B 的排产依据，全部数字为统筹实测（快照 `f1f1c25`）。
+
+#### 一、结构事实（实测，非推断）
+
+| 文件 | 总行 | 主组件 | 主组件占比 | 主组件内 handler |
+|---|---|---|---|---|
+| `main.jsx` | 8175 | **`App` 2248–8164 = 5916 行** | **72%** | 180 个 / 2758 行 |
+| `outfit-workflow.jsx` | 10828 | **`OutfitWorkflow` 6248–10828 = 4580 行** | **42%** | 114 个 / 2585 行 |
+
+⇒ **两个主组件合计 10496 行，占两巨石 19001 行的 55%**。线 B 的实质就是拆这两个组件体。
+其余是顶层纯函数/子组件（`QuickLocalEditModal` 544、`OutfitLocalEditModal` 496、
+`UploadZone` 361、`BatchResizePanel` 540、`WorkflowQuickVideoPanel` 337 等），那些**不是重复债**。
+
+#### 二、域分布（按 handler 名字归类，启发式，行区间为实测）
+
+| 域 | main 函数/行 | outfit 函数/行 | 对称性 |
+|---|---|---|---|
+| 结果队列 result | 15 / 152 | **26 / 940** | 共有（outfit 侧最大域） |
+| 无限画布 canvas | **35 / 534** | 0 | **main 独有** |
+| 详情页 detail | **29 / 453** | 0 | **main 独有** |
+| 参考图 reference | **24 / 411** | 4 / 36 | 准 main 独有 |
+| 视频 video | 7 / 192 | 0 | main 独有 |
+| 提示词库 prompt | 12 / 193 | 4 / 31 | 共有（RF-057 已抽 138 行，剩这些） |
+| 上传 upload | 18 / 202 | 7 / 119 | 共有 |
+| 局部编辑 localEdit | 6 / 66 | 4 / 71 | 共有 |
+| 保存目录 directory | 5 / 62 | 7 / 72 | 共有 |
+| 预览/灯箱 preview | 13 / 64 | 9 / 259 | 共有 |
+| 存储/历史 storage | 5 / 44 | 1 / 13 | 共有 |
+| 设置/连接 settings | 3 / 19 | 3 / 24 | 共有 |
+| 未归类 misc | 28 / 573 | 53 / 942 | 编排层 |
+
+#### 三、🔑 核心判据：抽 hook 的可行性 = **域内耦合度**
+
+统计每个域的 handler 体内引用了多少个**其他域**的 state/setter：
+
+| 域 | 侧 | 函数/行 | 平均引用域数 | 只碰本域的函数 | 结论 |
+|---|---|---|---|---|---|
+| **保存目录** | main | 5 / 62 | 1.00 | **5/5（62/62 行）** | ✅✅ 最优先，100% 纯 |
+| **保存目录** | outfit | 7 / 72 | 1.00 | **7/7（72/72 行）** | ✅✅ 最优先，100% 纯 |
+| **无限画布** | main | 35 / 534 | **0.89** | 30/35（313 行） | ✅ 纯度 59%，体量最大 |
+| **预览/灯箱** | main | 13 / 64 | 0.77 | 10/13 | ✅ |
+| **预览/灯箱** | outfit | 9 / 259 | 0.89 | 7/9 | ✅ |
+| **结果队列** | main | 15 / 152 | 0.93 | 9/15 | ✅ |
+| 提示词库 | outfit | 4 / 31 | 0.50 | 3/4 | ✅ |
+| 提示词库 | main | 12 / 193 | 1.33 | 9/12 | ⚠️ |
+| 结果队列 | outfit | 26 / 940 | 1.35 | 18/26 | ⚠️ 体量大、半纯 |
+| 上传 | 双侧 | 18 / 202、7 / 119 | 1.11–1.14 | 9/18、3/7 | ⚠️ |
+| 视频 | main | 10 / 204 | 1.20 | 5/10 | ⚠️ |
+| 详情页 | main | 29 / 453 | 1.48 | 16/29 | ⚠️ 偏难 |
+| **局部编辑** | 双侧 | 6/66、4/71 | **2.00–2.25** | **1/6、0/4** | ❌ 不抽 |
+| **存储/历史** | 双侧 | 5/44、1/13 | **2.00–3.00** | **0/5、0/1** | ❌ 不抽 |
+| **misc 编排层** | 双侧 | 28/573、53/942 | 1.43–1.57 | 16/28、18/53 | ❌ **不抽** |
+
+**判据阈值（新固化，排产按此排序）**：
+- 平均引用域数 **≤1.0** 且只碰本域的函数 **≥70%** ⇒ ✅ **可直接抽 hook**（低风险）
+- 平均 **1.0–1.5** ⇒ ⚠️ 需注入少量跨域参数（中风险，做前先列注入清单）
+- **≥1.5** 或只碰本域的函数 **<30%** ⇒ ❌ **属编排层/强耦合，不抽**
+
+#### 四、🔴 必须写明的一条：**收口后残留的闭包壳仍会被 advisory 判为重复**
+
+实测：`runConnectionTest` 收口后两侧各剩 **8 行**（5 行注释 + 3 行 `testApiConnection({...})` 绑定），
+两侧逐字节一致 ⇒ advisory 仍把 11 行判为 **A 类**。
+
+**这是预期内的壳残留，不是收口失败。** 壳是实体不是死壳：每次 render 重建闭包，
+捕获最新的 state/setter，正是原 `async function` 的语义；再抽就得把 8 个参数塞进 JSX 调用点，代价更大。
+
+⇒ **纪律**：A 类清单出现「同名 + 3–8 行 + 注释占比高」的项，**先查是不是有意保留的壳**，
+确认后再决定是否处理；**不得据"清单还在"判定收口未生效**。
+
+#### 五、分期方案
+
+**B1 · 抽 hook（不改 JSX、不动组件树，低风险）** —— 按耦合度从低到高：
+
+| 序 | 域 | 侧 | 行数 | 落点（建议） | 新文件 |
+|---|---|---|---|---|---|
+| 1 | 保存目录 | 双侧 | 62 + 72 | `src/features/savedir/use-save-directory.js` | **1** |
+| 2 | 无限画布 | main | 534 | `src/features/canvas/use-infinite-canvas.js` | **1** |
+| 3 | 预览/灯箱 | 双侧 | 64 + 259 | `src/features/preview/use-preview.js` | **1** |
+| 4 | 结果队列 | main | 152 | `src/features/result-queue/use-result-queue.js` | **1** |
+| 5 | 结果队列 | outfit | 940 | 同上（参数化后复用或另起 `use-task-queue.js`） | 0–1 |
+
+B1 预估可搬 **约 1000–1400 行**（含需注入的跨域部分）。
+
+**B2 · 抽子组件（改 JSX / 组件树，高风险）** —— main JSX 1330 行、outfit 1080 行。
+必须**逐域人工冒烟**，且每个域一个 commit。**B1 全部完成并稳定后再开 B2。**
+
+#### 六、不搬的部分（明写，防止后人误当债务）
+
+1. **编排层函数**：`generate`(222 行)、`generateCanvasNode`(110)、`generateVideoFromComposer`(107)、
+   `generateDetailPrompt`(93)、`runCanvasImageRequest`(81) 等 —— 它们**横跨几乎所有域**，
+   是"主组件存在的理由"。抽走它们等于把主组件拆成空壳，**不做**。
+2. **局部编辑 / 存储历史域**：耦合度 2.0+，只碰本域的函数占比 ≈0 ⇒ 抽 hook 要注入十几项，负收益。
+3. **顶层子组件**（`QuickLocalEditModal` / `OutfitLocalEditModal` / `UploadZone` / `BatchResizePanel` 等）：
+   已经是独立组件，**不是债**。
+
+#### 七、风险与硬约束
+
+- 🔴 **hook 持有 state 后，编排层访问 state 的方式会变** ⇒ 改动面会从"域内 handler"扩大到"编排层"。
+  ⇒ 每个域开工前必须先列出**该域 state 被哪些非本域函数引用**（用 §三 的同款脚本跑一遍）。
+- 🔴 **禁 Edit 改两巨石**（§9.3），**逐行保留原始行尾**（§6.16 踩过的坑）。
+- 🔴 **新建文件需逐域授权**（§7.2 一簇一审）：本节的 4–5 个新文件**尚未授权**，
+  开工前必须把 `fileCount` 划账数写进派单。
+- 🔴 **每个域一个 commit**，配对照组（旧实现 `git show` 逐字抽取）+ ≥3 反证项。
+
+#### 八、派单时的冒烟清单模板（每域必填）
+
+> 「点哪里 → 看什么 → 改前是什么样」三要素缺一不可；
+> **两侧共有的域必须两侧各写一份**，且写明哪些差异是**有意保留**的（如 preview 缩放上限 main 4 / outfit 5）。
+
+### 6.18 线 B 执行进度（**统筹自执行**，2026-10-03）
+
+| 阶段 | commit | 内容 | 净省 |
+|---|---|---|---|
+| B1-1 | `638f360` | 保存目录域 4 函数 → `src/features/savedir/save-directory.js` | 7 行 |
+| B1-1b | `a8dd8be` | **压缩薄壳**（deps 对象化，壳 42 → 19 行/侧） | **44 行**（累计） |
+
+两巨石 18994 → **18950 行**。
+
+#### 🔴🔴 本阶段最大的坑：`git add` 会把整个文件规范化成纯 LF
+
+现象：`git diff --stat` 显示 38/82（干净），但 `git diff --cached --stat` 显示
+**18820 增 / 18864 删** —— 全文件重写，会污染 blame。
+
+实测：索引 blob **CRLF=0**（纯 LF），而 HEAD blob 是 **mixed**（main 8069 CRLF / 8169 行，
+即 100 行是 LF）。**工作区行尾分布与 HEAD 完全一致也没用，是 `add` 这一侧在归一化。**
+
+⇒ **判据升级（写死）**：
+> 提交前一律看 **`git diff --cached --stat`**，不能只看 `git diff --stat`。
+> 前者才是真正会进 commit 的内容。
+
+⇒ 正解（RF-047 用过，本次再次验证有效）：
+```
+git diff --ignore-cr-at-eol -- <files> > tmp/p.patch
+git apply --cached --recount --ignore-whitespace tmp/p.patch
+```
+只把真实改动放进索引，blob 行尾保持 HEAD 风格。提交后 `git checkout -- <files>` 清掉工作区行尾差。
+
+#### 🔑 薄壳形态判据（线 B 能否省行数的关键）
+
+阶段 1 的壳把 11 个注入项**逐行展开** ⇒ 每侧 42 行 vs 原 44 行，**净省仅 7 行**。
+画布域（534 行）若沿用同法等于白做。
+
+**正解：注入项提成一个 `xxxDeps` 对象，每个壳压成 1 行** ⇒ 44 → 19 行/侧，净省 44 行。
+- 🔴 壳**保留 `function` 声明**，不用 `const` 箭头 —— 函数声明会提升，避免 TDZ
+  （实测 main:2663 的 useEffect 在定义之前就引用 `refreshSaveDirectory`）。
+- deps 对象每次 render 重建 ⇒ 捕获最新 state/setter，语义与原来完全一致。
+
+#### 收口后 A 类清单的读法（已实测）
+
+A 类函数型现在只剩 2 项，**且都是壳**：`refreshSaveDirectory(+4)` 19 行、`runConnectionTest` 11 行。
+⇒ **块级克隆这条线的函数型债已清零**，剩下的 A 类全是 JSX 块（要抽组件，属 B2）。
+
+#### B1-2 · 无限画布域：**只搬得动纯计算层，模型层被 `defaultState` 缠住**（`69b0e48`）
+
+**已搬（9 函数 / 85 行）** → 新建 `src/features/canvas/canvas-graph.js`：
+
+- 纯计算 7 个（69 行）：`incomingCanvasNodes` / `canvasResultItemsFromNode` /
+  `canvasPromptForGenerator` / `canvasImagesForGenerator` / `canvasImageEntriesForGenerator` /
+  `splitCanvasBatchEntries` / `buildCanvasBatchPrompt`
+  ⇒ 顶层 `export` 同名，**main 调用点一字未动**。
+- 视口换算 2 个（16 行）：`screenToCanvasPoint` / `canvasCenterPoint`
+  ⇒ 依赖（`canvasStageRef` / `canvasViewport`）提升为入参，改名为
+  `screenPointToCanvas(rect, viewport, …)` / `canvasCenterFromRect(rect, viewport, …)`；
+  main 保留 **3 行同名薄壳**传入 ⇒ 6 处调用点（含 JSX `onClick`）零改动。
+
+**🔴 试图搬但回滚：画布模型层（`createCanvasNode` 等，138 行）—— 登记为「不可搬」**
+
+- 实测：`createCanvasNode` 内部引用 app 级 **`defaultState`**（`model` / `imageSize` / `aspectRatio`）
+  与 **`clampCount`** ⇒ 它不是纯领域函数。`createInfiniteCanvas` / 两个 `normalize*` 都间接依赖它。
+- 强搬只有两条路，都不接受：① 改成工厂 `createCanvasModel({ defaults, clampCount })` ⇒ 函数体要重新缩进，
+  且 main 必须在模块级 `const {...} = createCanvasModel(...)`（放在 `clampCount` 之后），
+  引入**模块级求值顺序依赖**，脆弱；② 复制一份默认参数进 canvas 模块 ⇒ 与 app 默认值双份维护，必然漂移。
+- ⇒ **判据固化：`同域 ≠ 可搬`**。判定能否搬，看的是**函数体引用的自由标识符属不属于本域**，
+  不是看它名字像不像本域。`defaultState` 是 app 设置，不是画布概念。
+- 回滚方式：`git checkout -- src/main.jsx` + 删掉刚生成的 `canvas-model.js` / `shared/id.js`。
+
+#### B1-3 · `imageExtensionFromMime` ≡ `imageExtension`（`a90406c`）
+
+- 判定：函数体**逐字节一致**、形参同为 `(type)`，仅 `export` 前缀与函数名不同
+  （outfit:2613 ↔ `src/shared/image-input.js:25`）。
+- 零漂移：outfit **本来就从 `./shared/image-input.js` 导入** ⇒ 只在既有 import 块 +1 项。
+- 三类 hunk：删定义 6 行 / 加 import 1 项 / 无孤儿（4 处调用点原地改名）。
+
+##### 🔴 这条暴露了 advisory 档的一个盲区（判据升级）
+
+两个函数各 **5 行，低于 ≥10 行阈值** ⇒ 常驻档**一条都报不出来**。
+发现路径：B 类 `imageFilesFromReferenceDrop ↔ imageFilesFromDataTransfer`（差 1 行）
+→ 追它俩各自调用的 url→File 辅助函数 → 再追扩展名函数 → 撞见这条改名克隆。
+
+> **纪律：低阈值（≤10 行）的改名克隆必须靠「沿调用链往下追」发现，只跑清单会漏。**
+> 拿到任何「差 1–2 行」的块，都要往下追一层被调函数。
+
+#### 同批查证：`fileFromImageUrl` ↔ `imageFileFromDropUrl` —— ✅ **已由 RF-065 收口（ca91a63）**
+
+统筹裁决落点 **`src/shared/result-image.js`**（不是 `image-input.js`）：
+该文件**本来就 import `../api/assets.js`**（`displayImageRequestUrl`）⇒ 网络依赖**已存在**，
+不引入新耦合；而 `image-input.js` 是零依赖纯模块，塞进去才会污染它。
+判定：语义等价（唯一差异是空名兜底，两侧 4 个调用点全显式传名 ⇒ 实际逐字不变），
+取 main 版（多一层 `|| "image"` 兜底，属**放宽**方向）。
+
+#### 下一步（B2）—— 🔴 本轮实测：**低垂果实已摘完，B2 需重新论证**
+
+线 A 的函数型债彻底见底（A 类只剩 2 个有意保留的壳）。剩余候选逐块实测后的结论（**都不是可搬项**）：
+
+| 候选 | 实测结论 | 处置 |
+|---|---|---|
+| A 类 32 行提示词库 UI | 首行 `))}`、末行 `<button className="promptChipMain"` ⇒ **不是自闭合片段**，无法整体抽组件 | ❌ 不搬 |
+| 预览拖拽三函数（begin/move/end） | 抽成工厂后 **36 行 → 38 行（净收益为负）** —— 印证「搬一块的固定成本与块大小无关」 | ❌ 不搬 |
+| `openEditorDb` ↔ `openHistoryDb` | 错误策略**真差异**（editor `resolve(null)` 静默 / history `reject(error)` 抛错）⇒ 统一任一方向都是收窄 | ❌ 登记 |
+| `filteredPromptPresets` useMemo（10 行字节一致） | 抽成纯函数后 **净省仅 3 行** | ❌ 不值 |
+| 主题选择 18 行 | 两侧 `themeOptions`/`settings.theme` vs `THEME_OPTIONS`/`effectiveTheme` ⇒ A 类判错，实为差异 | ❌ 登记 |
+| `imageFilesFrom*Drop` | 前段能力不同（main 结果 ID 拖拽 / outfit 目录条目遍历）⇒ 真分叉 | ❌ 已登记 |
+| outfit preview 域 272 行 | 其中 235 行是 3 个 **outfit 独有**诊断面板渲染函数，main 无对位 ⇒ 不是重复债 | ❌ 非债 |
+
+🔑 **地毯式兜底扫描已做且零命中**（脚本固化 `scripts/dev/scan-missed-clones.mjs`）：
+对 **shared 全部 131 个函数** × 三文件（main / outfit / image-editor）本地函数做
+「去函数名后的函数体 L1 归一化逐字比对」⇒ **0 处漏搬克隆**。
+⇒ 这实证了 advisory 盲区里的改名克隆（RF-064 / RF-065 两条）**已被挖干净**，
+   后续再发现同类只能靠追调用链，不能指望清单。
+
+⇒ **结论：继续抠块级重复的边际收益已趋近于零。剩余 18857 行的出路只有 B3 按域新建模块
+   （把独有业务逻辑整体搬出主组件），那需要逐域出只读设计 + 统筹批新建授权，不是"搬重复"。**
+
+#### B3 · 按域新建模块（**已开工**，2026-10-03）
+
+**B3-1 / B3-2 画布域**（main 独有，耦合 1.07，只碰本域函数 24/28 ⇒ 全场最大且最干净的独有域）
+
+| 单 | commit | 内容 | 净省 |
+|---|---|---|---|
+| RF-062 | `69b0e48` | 纯计算层 9 函数 → 新建 `features/canvas/canvas-graph.js` | −85 |
+| RF-066 | `7a531a8` | **state 操作层 11 函数** → 新建 `features/canvas/canvas-actions.js`（工厂 1） | −113 |
+| RF-067 | `4f79bd7` | **交互层 9 函数** → **追加进既有** `canvas-actions.js`（工厂 2） | −114 |
+
+两巨石 `main.jsx` **8056 → 7866 行**（B3 小计 −190）。
+
+🔑 **B3 的定型形态 = 「普通工厂」而非 hook**（已连续两单验证）：
+- 导出 `createXxx(deps)`，**不 import React**，内部无 `useState`/`useCallback`/`useMemo`；
+- 函数体**从原文逐字抽取、一字未改**，只在工厂顶部加一行 `deps` 解构 ⇒ 内部互相调用
+  （`updateCanvasNode→patchActiveCanvas`、`moveCanvasDrag→updateCanvasNode`）直接引用闭包局部函数，无需改签名；
+- 调用方在组件体内**每次 render 调一次**，捕获最新 state/setter ⇒ 与原先「组件内 function 声明」
+  语义逐字相同（都是每次 render 重建闭包）；
+- **解构后保持同名** ⇒ 全部调用点（含 JSX 事件）一字未改（RF-066 计 48 处、RF-067 计 19 处）。
+
+🔑 **「一个域集中新建」实证有效**：RF-067 第二个工厂**追加进既有 `canvas-actions.js`**
+⇒ `fileCount` 不变、**不触发 019 扫描范围漂移、不需要划账**（实测 note = "没有新增跨文件同名函数"）。
+⇒ 后续同域第二批一律追加，不准每块新建文件。
+
+🔴 **B3 的前提（RF-063 回滚教训）**：判定能否搬看**函数体引用的自由标识符属不属于本域**。
+画布模型层（`createCanvasNode` 等 138 行）引用 app 级 `defaultState`/`clampCount` ⇒ 不是纯领域函数，
+强搬只能靠工厂+模块级求值顺序依赖或复制默认值，两条都不接受 ⇒ **登记不搬**。
+
+#### B3-3 / B3-4：转 result 域与 video 域（2026-10-03 完成）
+
+| 单 | 内容 | commit | main.jsx |
+|---|---|---|---|
+| **RF-068** | 结果卡拖拽替换族 5 函数（65 行）→ `src/features/result-queue/quick-result-replace.js` | `477bdd7` | 7866 → **7823**（−43） |
+| **RF-069** | 视频生成编排 8 函数（99 行，含 `sleep`）→ `src/features/video/video-composer.js` | `1e6e2ac` | 7823 → **7749**（−74） |
+
+**两单合计 −117 行。**
+⚠️ 口径更正：统筹初版报告写「−144 / −101」是错的 —— 那是**删除行数**，没扣掉新增的工厂调用
+（RF-069 删 102 / 增 28）。**净省一律用 `git show <commit>:src/main.jsx | wc -l` 逐笔核对**，
+不要用 diff 的删除数。
+
+**选域依据（重跑 `scripts/dev/domain-coupling.mjs`）**：画布域被拆后剩余耦合升至 1.75（剩下的是编排层）
+⇒ 新的最低耦合域是 **main result 0.93**；video 域则是 **main 独有**（outfit 仅 1 个同名函数无对位）。
+
+**不搬**：`generateVideoFromComposer`(107) 是视频编排入口、横跨几乎所有域 ⇒ 编排层。
+
+🔑 **B3 与「搬重复」最大的不同：搬走一个域会连带让上游 import 变孤儿。**
+RF-069 搬走 `pollVideoUntilFinished` 后，main 的 `isVideoTaskCompleted`/`isVideoTaskFailed`/
+`videoTaskStatusText`（103 行，保留 `videoResultUrl`）与 `getVideoStatus`（139 行，保留 `generateVideo`）
+全部成为孤儿 ⇒ 两行 import 需收窄。**只有 ESLint 能可靠点名**（统筹肉眼没看出来）。
+⇒ 纪律：B3 每单打完补丁，**清孤儿 import 是必做项，不是可选项**。
+
+🔑 **工厂返回值 ≠ 调用点解构清单**（连续两单应验）：
+`quickResultDragId`/`canReplaceQuickResult`/`acceptVideoReferenceFile` 只被工厂内部使用，
+main 侧解构出来会被 `no-unused-vars` 点名。工厂仍返回全部（返回对象引用了它们，不算 unused），
+调用点只解构真正有外部调用的那些 —— **以 ESLint 实测为准，不要照单全解构**。
+
+⚠️ **对照组两处环境坑**（首版均踩到）：
+① 旧模块注入的辅助函数必须与新模块 import 的**真实实现**一致 —— 首版 `imageFilesFromList` 用了简化 mock，
+   与真实实现行为不同 ⇒ 产出假差异（误报 Drop 用例）。
+② Node 无 `FileReader` ⇒ `dataUrlFromBlob` 会崩 ⇒ 需打桩。
+⇒ **反证无效时先怀疑 mock 与真实实现的差异，不是怀疑用例设计**（RF-068 已记一条，本单再应验）。
+
+#### B3-5 / B3-6：转 upload 域与 detail 域（2026-10-03 完成）
+
+| 单 | 内容 | commit | main.jsx |
+|---|---|---|---|
+| **RF-070** | 参考图上传域 16 函数（172 行）→ `src/features/upload/reference-upload.js` | `f2a9b28` | 7750 → **7600**（−149） |
+| **RF-071** | 详情页分组/拼图域 19 函数（204 行）→ `src/features/detail/detail-group.js` | `8fc0f14` | 7600 → **7418**（−182） |
+
+**两单合计 −331 行**（B3 全段累计 8063 → 7418 = **−645**）。
+
+- RF-070 搬出：`makeQuickReferenceItem`（模块级纯件，反向 import 回 main）、`MAX_REFERENCE_REWRITE_FILES`、
+  参考生图文件族、参考图上传族、拖拽族 10 个、`imageFilesFromReferenceDrop` + 其唯一调用方 `findGeneratedResultById`。
+  deps 12 项。`createVideoComposer`（RF-069）所需的 `isReferenceDropData`/`imageFilesFromReferenceDrop`
+  改由本工厂返回（同名 ⇒ 该调用点零改动）。
+- RF-071 搬出：`bitmapFromBlob` + `stitchDetailGroupBlob`、分屏顺序 6 个、拼图预览 6 个、
+  提示词编辑 2 个、预设 3 个。deps 19 项。`detailResultItemsForGroup` 在 main 仍有 2 处调用 ⇒ 由工厂返回并解构；
+  `bitmapFromBlob`/`orderedPromptsForGroup` 只在工厂内部被调用 ⇒ 不进返回值。
+- 验证：RF-070 逐字节 16/16 + 行为 40/40 + 反证 12/12；RF-071 逐字节 19/19 + 行为 36/36 + 反证 14/14
+  （RF-071 用最小 DOM 桩：`document.createElement`/`window.createImageBitmap`/`canvas.toBlob`，跑通含"超高触发缩放到 720 宽"分支）。
+- 019 划账 `fileCount` 55 → 56 → 57。
+
+🔴🔴 **本段新增的三条硬教训（已并入 `REFACTOR-冷启动.md` §5）**：
+
+1. **写回时 `\r` 被重复添加** —— `items` 存了含 `\r` 的 `t`，写回又 `t+"\r"` ⇒ 全文件 `^M^M`，只能 `git checkout` 回滚重做。
+   正解：存行时剥 `\r`、`cr` 单独记、写回再补。**干跑必须加 `CRCR=0` 自检**（改后 CRLF 数正常但 CRCR>0 就是这个错）。
+2. **插入锚点所在的那段本身也要进 drop 集合** —— RF-071 的 `bitmapFromBlob` 是工厂调用的插入锚点，
+   漏加进 drop ⇒ 旧定义残留 1 个 ⇒ `no-unused-vars` 立刻点名。
+3. **对照组脚手架禁止「先建两个 env 再跑」** —— 模块级采集缓冲会被第二个 env 重置
+   ⇒ 旧侧采到空、新侧采到两份（RF-071 J1/J2 假差异）；且 INIT 用 `name === "A3"` 全串比对永不命中
+   （case 名是 `"A3 参考生图-超限"`）⇒ 反证静默假通过。改为**建一个跑一个** + `startsWith`。
+
+🔑 **基线校正**：ESLint 全仓 warnings 实测基线是 **17，不是旧笔记的 18**（改前改后逐条零差异已复核）。
+
+🔑 **搬进新文件会让以前看不见的跨文件近克隆显形**（advisory 只做跨文件比对，同文件内不报）
+⇒ 抽完一个域后 advisory 命中数上升是**正常的债务显形**，不是新增重复。
+RF-070 后显形：`addReferenceRewriteFiles`（features/upload）↔ `addDetailFiles`（main.jsx）同构近克隆（差 42%）。
+
+#### RF-072 · 修 3 个浏览器探针脚本（`9b223ca`，2026-10-03）✅ 已完成
+
+`scripts/verify/{local-edit-base-file-check,resize-long-edge-check,modal-shell-check}.mjs`，
+每个 program 模板开头 +2 行（注释 + `page.setDefaultNavigationTimeout(150000);`），**共 +6 行**。
+
+- **根因实测坐实**：`tmp/vite-cache-verify` 下堆积 **15 个 `deps_temp_*`、始终没有成型的 `deps/` 目录**
+  ⇒ 每次都是冷编译（约 55s）> playwright 默认导航 30s ⇒ `page.goto` 抛错 ⇒ 回执 `result.value` 为 null
+  ⇒ 降级「浏览器回执无法解析（长度 ~1KB）」+ 一条恒假的「浏览器探针未执行」。
+  CLI 本身没坏（手动喂最小 program 67ms 即 `succeeded`）。
+- **实测项数**：29 / 5 / 13 项 → **36 / 9 / 37** 项；`browser: skipped → ran`。三条浏览器验证第一次真正执行。
+- 验证：`node --check` 三文件过；ESLint 进程内逐条比对 **0 新增 0 消失**，并做了**负向对照**
+  （注入 `const zzzUnused = notDefinedAnywhere;` 命中 `no-unused-vars` + `no-undef` 2 条）+ `isPathIgnored=false` 自证；
+  全仓 `errors=0 / warnings=18`。
+- 🔴 **由此固化一条判据**：**「浏览器探针未执行」在本仓应视为异常信号**，不是可接受的环境降级。
+
+🆕 **副产物（未处理，另立单 RF-075）**：`local-edit-base-file-check` 的
+「批量：选框裁剪用 `resolveLocalEditBaseFile(imageItem)`」改前改后都失败 —— `cropOutfitLocalEditFile`
+在 **全 `src/` 已不存在**（只剩 `shared/local-edit-geometry.js:430` 一句注释提及），
+且与它相邻的「局部回贴弹窗预览」用的是**同一条正则**（能通过）⇒ **恒失败的僵尸断言**，同该文件里已标注移除的那条同款。
+
+#### RF-073 · 参数化收口 `addReferenceRewriteFiles` ↔ `addDetailFiles`（✅ 已完成 `7d7f264`，2026-10-03）
+
+**交付**：`src/shared/image-input.js` 新增 `addFilesByRole(role, fileList, used, maxFiles, limitMessage, eventLabel, addEvent, setProductFiles, setReferenceFiles)`
+与 `removeFilesByRole(role, index, setProductFiles, setReferenceFiles)`；两侧原函数退化为薄壳。3 文件 **+35 / −42**。
+
+- 🔴 **真分叉按裁决保留**（统筹实测复核，未抹平）：`used` 提升为入参 ——
+  reference 侧传 `referenceProductFiles.length + referenceStyleFiles.length`（**合计**口径），
+  detail 侧传 `role === "product" ? detailProductFiles.length : detailReferenceFiles.length`（**按 role 各自**口径）。
+  **公共体零 `countMode` 类分支开关**（全仓 grep 命中 0）。
+- **落点**：`src/shared/image-input.js`（两侧本来就从它 import `imageFilesFromList`）⇒ **零新建文件**，`fileCount` 仍 **57**。
+- **净省（逐 commit 实测 `git show <commit>:file | wc -l`）**：`main.jsx` 7418→**7402**（−16）、
+  `reference-upload.js` 219→**203**（−16）、`shared/image-input.js` 119→**144**（+25）⇒ **整体 −7**。
+  `remove` 对函数体各 7 行，按 §5.2 实测净省 −6（>0）⇒ 准予抽取。
+- **对照组**：`rf073-control.mjs`（390 项全矩阵）**390 PASS / 0 FAIL**；两条**分叉反证**改前改后结果相反
+  （合计口径超限被拒 / 各自口径仍收下）⇒ 分叉未被抹平。
+- **门禁（统筹提交后复测）**：019 `ok=true / duplicateCount=0 / scannedFiles=57 / regressions=[]`；
+  `import-path ok=true / violations=[] / scannedSpecifiers=220`；全仓 ESLint **`errors=0 / warnings=18`**（基线，src 17 + server 1）；
+  `vite build` ✓ 7.59s。`block-clone-advisory` **171 块/2731 行 → 170 块/2712 行**。
+- **人工冒烟**：✅ 用户亲测上传/删除（产品图 ↔ 参考图）**正常**。
+
+⚠️ 归档缺口：对照组脚本落在 `tmp/rf073-control.mjs`（`tmp/` 被 gitignore）⇒ **未随 commit 留存**。
+⇒ 固化要求：**后续各单的对照组脚本一律落 `scripts/dev/`**（可留存、可复跑），不得再用 `tmp/`。
+
+#### RF-076 · 局部编辑交互层 只读领域设计单（✅ 已交付 `65037d5`，220 行，零 src 改动）
+
+产出 `V4.0-设计-RF-076-局部编辑交互层.md`。区域：`src/main.jsx:1739-2089`（**351** 行）↔
+`src/outfit-workflow.jsx:4831-5152`（**322** 行）= **18 个具名函数 + 5 个 `useEffect` + 1 个渲染对象**。
+
+- **判定**：可搬(**无分叉**) 12 个 + 可搬(**参数化**) 5 个；不可搬整体 2 个 ——
+  `fitRectToRatio`（outfit 侧已是 shared 薄壳 ⇒ **非重复**）、`cropDragCtx`（渲染对象）。
+- **useEffect 边界**：① 整体留组件 ×1 / ② effect 留组件但体抽进工厂 ×2 / ③ 真分叉留组件 ×2。
+  **无任何"把 useEffect 搬进工厂"的方案**（工厂不得含 hook）。
+- **预估净省 ≈180–195 行**，拆 3 单；落点追加既有 `src/shared/local-edit-mask.js`（零新建文件）。
+- 执行者**纠偏统筹 §3.2 两处**，统筹已复核确认**是我判错**：
+  - ④ mask 初始化收尾 ⇒ **实为假分叉**：main `1814 return` ⇒ `1819 setMaskPainted(false)` **不可达**，
+    与 outfit `4910 else` 行为**完全等价**（非"行为差异"）。
+  - ⑨ `constrainCropRect`(main 1186) 与 `constrainLocalEditRect`(outfit 3043) ⇒
+    **同为 `sharedConstrainCropRect` 的别名**，非"不同源"。
+
+🔑 **统筹裁决**（写进冷启动 §3.3）：
+1. 落点 = 追加既有 `src/shared/local-edit-mask.js`（🔴 与 46 字节转发壳 `src/local-edit-mask.js` **是两个文件**，后者不许删）。
+2. `fallbackToItem` **省略 ≠ true** —— 统筹实测 `shared/local-edit-geometry.js:438` `{ fallbackToItem = false } = {}`
+   ⇒ main 传 `true`、outfit **显式传 `false`**；两侧是「兜底回 item」vs「抛『缺少原图』」，**严禁统一**，对照组须有反证。
+3. effect#2/#4 体抽助手 ⇒ **暂缓**，登记 **RF-076-D**（收益 ~14 行 vs 额外对照成本，不划算）。
+4. `fitRectToRatio` **不搬**（非重复）。
+
+#### RF-076 施工单（🔵 已派单 `V4.0-执行单-V14-RF-076-全量.md`；`V13-RF-076-A.md` 作废）
+
+🔴 **2026-10-03 排产变更（用户拍板）**：**不拆多张施工单**（多单交接易出错）⇒ 改为**一张全量单一次做完**，
+**单内分 3 次阶段 commit 保留回滚点**：
+- **阶段 A** 12 个无分叉纯函数 + effect#3/#5 体（两侧逐字相同，零参数化、零行为变化，预估 ≈125 行）
+- **阶段 B** 4 个参数化函数（`enabled`/`ratios`/`isLocalMode`/`lockRatio`/`defaultCropRect`）+ `cropDragCtx.ratioLocked`（≈45 行）
+- **阶段 C** `applyLocalEdit`（`fallbackToItem`+`rectModeTag`）+ 收尾接线（≈19 行）
+
+每阶段后跑对照组 + 六道门禁，通过才 commit 下一阶段。落点仍是追加既有 `src/shared/local-edit-mask.js`（零新建文件）。
+
+✅ **已完成**：`73753f8`(A −100) → `ee30034`(B −51) → `d1996a3`(C −25) ⇒ **累计净省 −176 行**
+（main 7402→7178、outfit 10789→10574、`shared/local-edit-mask.js` 194→457，统筹逐 commit 实测）。
+六道门禁全绿；三份对照组 `scripts/dev/rf076*.mjs` ALL PASS；用户已人工冒烟通过。
+🔑 执行者对设计单的**第三处纠偏**：`onImageLoad` 的 `lockRatioForLoad` outfit 侧应传 `true`（不是设计推测的 `!isMaskMode`）——
+`defaultLocalEditCrop` 就是 `fitRectToRatioLocked(null, …)` 的一行包装，两侧本就等价。
+🔑 另一处关键坑：**ESLint 不校验 import 名**，`sharedConstrainCropRect` 不是真实导出名（真名 `constrainCropRect`）
+⇒ 照抄别名时 ESLint 全绿、**只有 vite build 会拦**（阶段 B 首次跑即 build 失败）。
+
+#### RF-077 · 合并两个局部编辑弹窗组件（✅ 已完成 `3f85621`→`6a54062`→`af49552`，2026-10-03 验收）
+
+- 三次阶段 commit：`3f85621`(main 侧接入) `6a54062`(outfit 侧接入) `af49552`(收尾+对照组)。
+- **净省 −239**（统筹逐 commit 实测）：main 7178→**6841**、outfit 10574→**10293**、新增 `LocalEditModal.jsx` **379**
+  （落预估 250–320 低区）。两巨石占比 **69.8% → 68.0%**。
+- 门禁：019 划账后 `ok=true/dup=0/58/[]`、import-path `ok/[]/220`、ESLint **0/17**（比基线 18 少 1）
+  、`vite build` ✓6.06s、check-syntax **203/203**、对照组 `scripts/dev/rf077-control.mjs` **22/22 PASS**。
+- 🔴 **019 基线已由统筹划账**：`frontend-duplication-baseline.json` 的 `scanScope.fileCount` 57→58
+  + `files[]` 加入新组件。执行者全程未改 baseline、未用 `--update`（合规）。
+- 🔑 统筹补验：main 的 `crop`（普通裁剪）由**独立组件 `QuickCropViewportModal`** 承载；
+  BASE 的 `QuickLocalEditModal` 从未被传 `mode="crop"` ⇒ 其 crop 分支本就是死代码，新组件保留无害。
+- 🔑 执行者补正：§3.5 第 9 项 `fitRectToRatio` 未独立成 prop（改为组件内局部函数 + `lockRatioForLoad` 回退），
+  统筹复核**与两侧原实现逐字等价**，成立。
+- ⚠️ **副产物**：该单删掉 `OutfitLocalEditModal`/`QuickLocalEditModal` 后，`local-edit-base-file-check`
+  由 1 条僵尸断言恶化为 **5 条失配** ⇒ **RF-075 已升优先级**（见下）。
+
+#### RF-075 · `local-edit-base-file-check` 断言失配修复（🔵 已派单 `V4.0-执行单-V16-RF-075.md`，`scripts/` 路）
+
+🔴 **从「1 条僵尸」升级为「5 条失配」**：4 条是 RF-077 把组件搬进 `LocalEditModal.jsx` 后**断言目标文件失效**，
+1 条是 `cropOutfitLocalEditFile` 真僵尸。**总裁决：重定位，不删除**（这些是 2026-09-26 事故的防回归护栏）。
+修完必须做**负向对照**：把组件内 `resolveBaseFile(item)` 改成 `item?.file`，相关断言必须转 FAIL，否则打回。
+对照表见 `REFACTOR-冷启动.md` §3.8。
+
+#### RF-078 · 提示词预设面板 + 编辑弹窗（✅ **已关单 `802f50b`：维持既有裁决「不抽组件」**）
+
+- 只读设计单已交付（167 行，零 src 改动）。**停手条件 #1 触发**：这块**早就裁决过了**。
+- 🔴 **裁决不在契约文档，而在 `src/shared/prompt-library.js` 文件头**（V11-RF-057，2026-10-02）：
+  ① **不能抽组件** —— 两侧编辑弹窗 JSX 是真分叉（main 有删除按钮、outfit 无；main chip 点击立即 `applyPromptPreset`
+  vs outfit `schedulePromptPresetApply` 防抖；main 富 tab 带拖拽排序 vs outfit 简 tab）⇒ 参数化 props 等于改视觉；
+  ② **单侧独有的块不许塞进来**（main 独有分类页签拖拽排序、outfit 独有 `renamePromptPresetTitle`/`schedulePromptPresetApply`）。
+- 执行者复核纠正统筹三处误判：
+  ① 「13+ state 要带走」**高估** —— 9 个 handler 已由 `usePromptLibrary` 共享（`main:3534` / `outfit:6671` 均调用），最贵的部分早已做完；
+  ② advisory 的「32 行逐字 + 58 行差 1 行」是**过期快照**，当前块是真分叉，唯一差 1 行只是 `aria-label`（假分叉）；
+  ③ 标识符计数不等的根因是 **outfit 面板渲染了两次**（9311 停靠 + 9992 模态）。
+- 若强行抽：必新建 `src/features/prompt/*.jsx` ⇒ `fileCount` 58→59 需划账、props ≥14、**净省仅 ≈+96 行**
+  ⇒ **收益/风险比低，不做**。对照表见 `REFACTOR-冷启动.md` §3.7。
+- 🔴 **方法论修正**（已写进冷启动 §4.1）：**「三处契约文档 grep 零命中 ⇒ 从未被裁决」这条判据作废** ——
+  裁决可能写在 `src/shared/**/*.js` **文件头注释**里。**派单前必须四处 grep**（含 `src/shared/`），否则会把已裁决的债当新债重开一单。
+
+#### RF-074 · main.result/download 域（✅ 设计 `ec66dc9` ｜ ✅ **施工已完成 `9d45283`+`a5f07d0`+`33a4527`**）
+
+> 📌 **施工单要点**（单里已写全，此处留索引）：stage 1 `createResultDownload`（download 族 10 fn ≈121 行）
+> → stage 2 `createResultActions`（result/history 族 7 fn + 内部 `removeDetailResultIds`，≈76 行）；
+> 薄壳必须插在 `copyText`（3255，const 箭头无提升）**之后**、`createDetailGroup` 调用（3308）**之前**；
+> A ≈ **195**、B ≈ **+68**（单侧拆分单，判 A 不判 B）。**与 V21（RF-079 只读设计）并行，零抢文件。**
+
+- `src/main.jsx:3036-3459`，**21 函数 / 371 行**（统筹实测，逐函数行数见冷启动 §3.10）。
+  ⚠️ 修订旧登记：此前记为「10 fn / 123 行、耦合 0.90」是**旧快照且域划小了**。
+- ✅ **设计单结论（2026-10-03 `ec66dc9`，零 src 改动）**：
+  - 可搬 **18/21**（✅14 + 🟡4，86%）；❌3 = `clearAll`（编排层，18 项注入 + `window.confirm` 用户交互，
+    净省趋近 0）/ `saveProcessedImageFile`（savedir 域且作为 prop 传出，**建议与 `openSaveDirectory`
+    合并另开 savedir 第二单**，合计 40 行 < 100 ⇒ 当前不派）/ `downloadStitchPreview`（跨工厂真循环）。
+  - 注入 22 项；🔴 禁止 import `main.jsx`，`QUICK_RESULT_DRAG_TYPE`/`loadHistoryResults` 等走 deps。
+  - 落点 = **追加进既有** `src/features/result-queue/quick-result-replace.js`（两个工厂）
+    ⇒ **零新建文件 ⇒ fileCount 仍 58 ⇒ 019 不划账**。
+  - 判据 **A（巨石减少）≈ 195 行**、B（总行数）≈ +68 净增 ⇒ **A≥100 且可搬≥2/3 ⇒ 做**，
+    建议分两阶段 commit（阶段 1 download 121 行 → 阶段 2 result/history 76 行）。
+- ⚠️ **执行者纠正统筹一处测量失真**：21 函数实测 **268 行**而非 371 行 —— 旧测法
+  「上一函数名尾行 → 下一函数名首行」的区间减法把**已抽取工厂的解构块**算成了待搬函数体。
+  ⇒ **后续排产一律用配平脚本测量**（`scripts/dev/snapshot-refresh.mjs` 同类），别用区间减法。
+- 🔑 **选它与 RF-078-b 并行的理由**：对象是 `main.jsx`，而 RF-078-b 改的是 `outfit-workflow.jsx`
+  ⇒ **零抢文件、行号不漂移**。单里因此写死：**禁止读/改 `outfit-workflow.jsx`**（此刻是中间态）。
+- 🔴 **收益口径澄清**（写进冷启动 §3.10）：本单是**单侧拆分单**，不是消重单 ⇒
+  判据是 **「main.jsx 能减多少行」（A）**，**不是「总行数净省 > 0」**（B 本就预期为负/净增）。
+  佐证：`V11-RF-070` main −172 / 总行数 +31；§6.18 曾更正过 B3-3/B3-4 净省口径，就是栽在这个混淆上。
+  ⇒ 判据：**A ≥ 100 行 且 可搬函数 ≥ 2/3 ⇒ 值得做**。
+- 落点优先追加既有 `src/features/result-queue/quick-result-replace.js`（103 行，`V11-RF-068` 已从这个域搬过 5 个函数）。
+- ⚠️ 域归属需执行者重判：`removeDetailResultIds` 可能属 detail 域、`beginReferenceImageDrag`(45 行) 可能属 upload 域、
+  `refreshHistory`/`syncHistoryFromServer` 可能属 history 域 ⇒ **不许为凑数把异域函数塞进同一工厂**。
+
+#### RF-079 · outfit.result/task 域（✅ **只读设计已完成 `c1616a5`，结论：做，A≈976**）
+
+- 对象 `src/outfit-workflow.jsx` 的 result/task 域：**统筹配平法实测 83 函数 / 1919 行**
+  （`fn-extent.mjs` + 域名正则粗筛，域归属待执行者重判）。
+- ⭐ **本轮排产最有价值的发现**：其中 **indent=0（模块顶层）42 个 / 700 行** —— 这些函数
+  **不依赖组件 state** ⇒ 搬走只需 `export` + 一条 `import`，**无需 deps 薄壳、调用点零改动**，
+  搬迁成本比 main 侧（函数全在组件内，必须走 B3 工厂）**低一个数量级**。
+  最大块：`buildTasks` 73 / `hydrateTaskUploadReferences` 62 / `sanitizeTaskHistoryItem` 60 /
+  `taskReferencePreviewItems` 45 / `cacheResultImageBlob` 42 / `persistFinishedTaskWhileDetached` 38。
+- 组件内（indent=2）37 个 / 1190 行，最大 `runSingleTask` **359 行**（整块最大单函数）。
+- **四处 grep 已代做**：`handleResultReplaceDrop`/`startBatch`/`runSingleTask`/`replaceImage`/`buildTasks`
+  **零命中**；`renderResultQueue` 仅 TICKETS 一处（需执行者二次确认）⇒ 可见范围内未被裁决，继续。
+- 🔴 已裁决的相关事项（**不阻断，只限方向**）：outfit 与 main 同名函数族已在 V11-RF-058/RF-052 判为
+  **真分叉不合并**（`flashDownloadFeedback` 1100ms vs 1300ms 等）⇒ 本单只能**单侧拆分**，严禁与 main 统一。
+- 🔴 冲突管理：`features/result-queue/quick-result-replace.js` **正被 V20（RF-074 施工）占用**；
+  设计若判定追加它 ⇒ 必须标注冲突交统筹重排。单里同时写死**禁止读/依赖 `main.jsx`**（中间态，行号会漂 −195）。
+- 附带判定（不施工）：outfit 内部还有 3 组 intra-file 克隆（31/12/11 有效行），单里要求逐组给一句话结论。
+
+#### RF-078-b · outfit 内部提示词面板 A/B 去重（✅ **已完成 `91ad725`**）
+
+- `outfit-workflow.jsx:9311-9387`（`promptAssistantDock`）↔ `9992-10068`（`promptAssistantBody`），
+  去掉容器行后 **2 × 76 行，`diff` 0 hunk、逐字相同**。
+- 落地：抽成模块顶层组件 **`PromptPresetGrid`**（定义于 5730 行，`OutfitWorkflow` 之前），
+  两处调用点在 9403 / 10020。**outfit 10293 → 10254（−39）**，符合"保守估 30–50"的预期。
+- ✅ 契约符合性实测：定义在**模块顶层**✔、**未新建文件**⇒ `fileCount` 仍 **58，019 不划账**✔。
+- 🔴 **但本单引入了一处二进制污染** ⇒ 第 5727 行的注释写进了 NUL + 非法 UTF-8，
+  导致 **grep 把整个 `outfit-workflow.jsx` 判为 binary**（整整 1 万行无法检索），
+  而专升本涉案前的「四处 grep」、worktree 对拍全依赖 grep ⇒ **审计对该巨石静默失明**。
+  已由统筹测出并修（**`9e5be71`**），同时立 `source-hygiene-check` 常驻门禁防复发。
+  ⚠️ 教训：**每次 src 交付后都要跑一次字节级扫描**，build/ESLint/浏览器探针全都抓不到这类问题。
+- props 20 个，两侧逐项同值（唯一差异是外层容器 className，容器仍留在各自调用点）。
+- 🔑 与 RF-078 **性质完全不同**：两处同属 `OutfitWorkflow`（5727 起）**同一组件的 render**，共享同一套 state
+  ⇒ **props 两侧传完全相同的值 ⇒ 零分叉、行为零变化**。
+- 🔴 **落点：定义在 `src/outfit-workflow.jsx` 模块顶层，不新建文件** ⇒ `fileCount` 仍 58 ⇒ **019 不划账**。
+- props ≈ 11–13 个（9 个 handler 整包传 `lib={promptLib}`）。**净省保守估 30–50 行，实测 ≤20 行则报「不做」**。
+  对照表见 `REFACTOR-冷启动.md` §3.9。
+
+#### 下一步（B3-7 起）
+
+**已建立冷启动入口 `REFACTOR-冷启动.md`** —— 新会话只读它 + `MEMORY.md` 即可恢复，不依赖聊天记录。
+
+当前状态（**2026-10-03 V20/V21 双单完成、统筹实测复核，快照 `33a4527`**）：
+
+> 🔑 **阶段已切换：转入功能开发，重构降为低优先的慢车道。**
+> 依据 = 冷启动 §1.6 的六道门禁全绿（019 dup0/fileCount58、check-syntax 全过、
+> ESLint 16 ≤ 基线、vite build ✓、run-all 全套浏览器探针）；**V20/V21 收工后统筹重跑六道门禁仍全绿**
+> （含 vite build 重验、字节卫生 dirtyFiles=0、RF-074 两份对照组共 **120 项 ALL PASS**）。
+> 下面是**有空再做**的存量，**不再是阻塞项**。
+
+**✅ 已完成（两条并行，零抢文件，均过统筹实测复核）**
+
+| 单 | 对象 | 性质 | 实测收益 |
+|---|---|---|---|
+| **V20 · RF-074 施工** | `src/main.jsx` + 追加既有 `features/result-queue/quick-result-replace.js` | B3 单侧拆分（两阶段 commit `9d45283`+`a5f07d0`+`33a4527`） | **A = −211 行**（main 6841→6630）；零新建文件；对照组 120 项 ALL PASS |
+| **V21 · RF-079 只读设计** | `src/outfit-workflow.jsx` result/task 域 | 只读出设计，**不施工**（文档 `c1616a5`） | 结论：**做**，A≈976 行；落点改 `src/features/outfit/outfit-task.js`（fileCount 58→59 划账） |
+| **RF-079 施工** | 同 V21 落点 | 普通模块导出（`0c14169`） | **A = −988**（outfit 10256→9268，优于预估 976）；新建 `outfit-task.js` 1069 行；对照组 `rf079-control.mjs` **58/58 ALL PASS**；**019 `fileCount` 58→59 已由统筹划账** |
+| **V22 · RF-080 只读设计** | `src/outfit-workflow.jsx` 5 个独立组件 | 只读出设计，**不施工**（`790eae3`，src 零改动） | 结论：**做**，可搬 5/5；**A ≈ −2082**（统筹纠偏，设计单误写 −2110）；循环依赖已定性（随迁闭包 ⇒ 环保持 0）；**落点甲已批，fileCount 59→60** |
+
+**🟢 当前主线（功能侧 · 2026-10-04 用户实测反馈，优先于重构）**
+
+| 编号 | 问题 | 定性 | 状态 |
+|---|---|---|---|
+| **BUG-01** | **局部回帖选框缩放「回弹」**：慢慢拖时框忽然变大/变小一块 | 功能缺陷。**已排除与 RF-080 的因果关系**（见下） | ✅ **已修复 `b378239`**；探针验收 角柄 **41→2px** / 中心 **81→4px**（标准 ≤6px）、比例与越界失真 **0**；**用户实测确认恢复正常** |
+
+> **根因**（统筹用真实模块跑出，非推测）：`src/shared/local-edit-geometry.js` 的
+> `resizeRectFromCornerLocked` / `resizeRectFromCenterLocked` 用 `Math.abs(deltaX) >= Math.abs(deltaY)`
+> 选驱动轴 ⇒ `driven` 是**分段函数，在 `|dx|==|dy|` 处跳变**。
+> 实测：相邻两帧鼠标只差 2px ⇒ 框 350×525 → 366×549（**宽跳 16px**）；200 帧慢抖轨迹**最大跳变 41px**；
+> **比例失真帧数 = 0** ⇒ 比例约束没问题，**病根纯粹是连续性**（不是取整累积：`drag.rect` 在 `beginCropDrag` 一次性冻结）。
+>
+> **修法＝方案丙（锁轴）为主 + 方案乙（连续投影）兜底**：
+> - `local-edit-geometry.js`：两函数新增 `drivingAxis` 参数。默认（`undefined`）走**沿比例对角线连续投影**（单一连续公式，彻底消除分段跳变，向后兼容）；`"x"`/`"y"` 走纯轴响应（100% 跟手）。
+> - `crop-rect-resize.js`：透传 `drivingAxis`（**仅 `ratioLocked` 锁定分支**；自由矩形分支 `ratioLocked=false` 未改动）。
+> - `crop-drag.js`：`moveCropDrag` 累计位移超 **3px 死区**时首次定轴并写入 `dragRef`，**单次拖拽内不翻转**。
+>
+> 🔑 方案甲 `max(宽驱动,高驱动)` **已被实测否决**：纯水平向内拖 `dy=0` 时框**完全不缩小**（400→400，应 340）。
+> 验收探针落地 `scripts/dev/bug01-bounce-probe.mjs`（103 行）。门禁：`check-syntax` **222/222**、`ESLint` **0/16**、
+> `source-hygiene` dirtyFiles=0、`vite build` ✓、**019 零新建文件故不划账**（仍 `ok=true / dup=0 / 60`）。
+
+> **因果排除证据**：施工单 `e5b0f68` 只改了 2 个文件（新建 `outfit-panels.jsx` + 改 `outfit-workflow.jsx`），
+> **没碰任何 crop / local-edit 文件**；选框相关两个文件最后改动停在 `01b2325`(V11-RF-050) 与
+> `291f8cc`(V11-RF-053b)，均为老提交 ⇒ **确为历史遗留问题**。
+
+**候选队列（重构侧，RF-080 完工后从这里取）**
+
+1. ✅ **RF-078-b 已完成 `91ad725`**（outfit −39；引入的二进制污染已由统筹修于 `9e5be71`）。
+2. ✅ **RF-079 施工已完成 `0c14169`**：A = **−988**（outfit 10256→9268，优于预估 976）；落点 `src/features/outfit/outfit-task.js`（1069 行，普通模块导出）；对照组 **58/58 ALL PASS**；**019 `fileCount` 58→59 已由统筹划账（2026-10-04），现 `ok=true / duplicateCount=0 / scannedFiles=59`**。
+3. ✅ **RF-080 只读设计已完成 `790eae3`**（V22，文档 `V4.0-设计-RF-080-outfit独立组件.md`，20 KB / 320 行，src 零改动）。
+   结论：**做**，可搬 **5/5 = 100%**。
+   - 对象＝`outfit-workflow.jsx` 模块顶层 **5 个独立组件 ≈1511 行**（`BatchResizePanel`527 / `UploadZone`360 /
+     `WorkflowQuickVideoPanel`336 / `CropModal`201 / `PromptPresetGrid`87），零外部引用、均未 export，
+     **AST 判定全部真顶层**（`parent === Program`；统筹独立复核：5 个区间全在 4904 之前，与 AST 一致）。
+   - 🔴 **循环依赖已定性**：现状 `cycle-scan` 实测 **环数量 = 0**（108 文件）。
+     只搬组件 ⇒ 新文件须反向 import 原文件 21 个名字 ⇒ **环 0→1，不可接受**；
+     **组件 + 52 个闭包（585 行）一起随迁 ⇒ 零反向 import，环保持 0**（采用）。
+   - 🔧 **统筹复核纠偏**：设计单 A 写 −2110 有误（把"回填 import +23"当成减少项）⇒
+     正确 **A ≈ −2082**，outfit **9269 → ≈7187**（非 7159）。结论不变。
+   ✅ **V23 施工已完成 `e5b0f68`**（2026-10-04）：
+   - 实测 **outfit 9268 → 7185，A = −2083**（统筹纠偏后的预估 2082，仅差 1 行）；
+     新建 `src/features/outfit/outfit-panels.jsx` **2166 行**（预估 2182）。
+   - 落点甲已落地；**`fileCount` 59→60 已由统筹划账**（递增实测 **+1 / −0** 后才动基线）。
+   - 门禁全绿：`cycle-scan` **环数量 0** ✅、`vite build` ✓、`ESLint` **0/16**、
+     `check-syntax` 221/221、`source-hygiene` dirtyFiles=0、019 `ok=true / dup=0 / 60`。
+   - 🔑 **设计单预言被验证**：「outfit 7 条 warning 里 2 条会跟着搬到新文件」⇒
+     实测 `outfit-workflow.jsx` **5** + `outfit-panels.jsx` **2** = 7，全仓总数仍 **16** ✅。
+   - 🎉 两巨石 **13815 行 / 54.4%**（起点 74.6%，上一步 62.8%）⇒ **首次跌破 55%**。
+4. 🆕 **跨巨石块克隆 11 组 / ≈176 有效行**（本轮新工具扫出的债，见下方债登记第 7 条）。
+5. ⚠️ **【已被实测推翻并升级】main.prompt 域 11 fn / 190 行 / outfit misc 域 53 fn / 942 行**
+   —— 这两条旧登记**规模严重低估**。2026-10-04 统筹用 `measure-top.mjs` 重测（快照 `b378239`）：
+
+   | 巨石 | 行数 | 组件本体 | 真顶层（剔除本体与伪顶层） | 扣除已裁决不可搬 |
+   |---|---|---|---|---|
+   | `outfit-workflow.jsx` | 7186 | `OutfitWorkflow` 4365（2820-7184） | **≈87 个 / ≈1643 行** | ≈1643 |
+   | `main.jsx` | 6631 | `App` 4946（1677-6622） | **≈59 个 / ≈1134 行** | **≈1011**（扣画布模型层 123） |
+
+   ⇒ 已分别升级为 **RF-081（outfit 侧）** 与 **RF-082（main 侧）** 两张只读设计单（见下 🟢）。
+6. **RF-076-D**（effect#2/#4 体抽助手，已裁决暂缓，可选 ~14 行）。
+
+🟢 **⇒ 当前主线（重构侧）：RF-081 / RF-082 —— 设计已完成，施工单已派**
+
+**阶段一：只读设计（均已完成，src 零改动）**
+
+| 单 | 对象 | 设计结论 | 提交 |
+|---|---|---|---|
+| **V24 · RF-081** | `outfit-workflow.jsx` 剩余顶层函数域 | **87 真顶层 / 1638 行**；可搬 **84/87 = 96.6%**；**A ≈ 2048**（outfit 7185→≈5137）；**环保持 0** | `59a706c`（339 行） |
+| **V25 · RF-082** | `main.jsx` 剩余顶层函数域 | **59 候选**；可搬 **50/59 = 84.7%**；**A ≈ 1096**（设计值）；环保持 0 | `3223c74`（276 行） |
+
+两份设计**算术均已正确**（回填 import 正确记为减项，吸取 RF-080 教训）：
+- RF-081：1599（函数）+ 475（常量）− 25（删孤儿）− 1（回填）= **2048** ✅
+- RF-082：971（函数）+ 137（常量）− 0（删孤儿，babel 实测）− 12（回填）= **1096** ✅
+
+**阶段二：施工单（V26 / V27 —— ✅ 均已完成 2026-10-05）**
+
+| 单 | 施工对象 | 预期 A | 实测 A | 提交 |
+|---|---|---|---|---|
+| **V26 · RF-081 施工** | `outfit-workflow.jsx` + 新建 `outfit-top.js` | −2048 | **−2384**（outfit 7185→4801，超预期 336） | `4342bf2`；新文件 2146 行 |
+| **V27 · RF-082 施工** | `main.jsx` + 新建 3 + 追加 4 | −1042 | **−1020**（main 6630→5610） | `29adeeb`…`e69595e` + `e31a71a` |
+
+- 🎉 **两巨石 13815 → 10411，占比 54.3% → 40.8%**（起点 18867 / 74.6%）。
+- 新增 src 文件 **+4 / −0**（`outfit-top.js` 2146 ／ `app-defaults.js` 147 ／ `storage-store.js` 272 ／ `quick-crop-panels.jsx` 239）。
+- 门禁：`cycle-scan` **环 0** ／ check-syntax **239/239** ／ import-path 220/0 ／ hygiene dirtyFiles=0 ／ `vite build` ✓。
+- **019 `fileCount` 60→64 已由统筹划账**（时序合规：两单全提交、工作区无未跟踪 src 文件后才一次性 `--update`）。
+
+**阶段三：V28 补单（🔵 已派，收尾阻塞项）**
+
+🔴 **RF-082 留下 22 个孤儿 import 在 `main.jsx`** —— ESLint `no-unused-vars` 实测 22 条（施工前 main 仅 5 条 warning）。
+**门禁盲区**：`no-unused-vars` 是 warning 非 error，而 `lint-ratchet` 在本环境恒失败（`spawnSync` EBUSY）⇒ 无人拦住。
+⇒ 补单 `V4.0-执行单-V28-RF-082-清孤儿import.md`：只动 `main.jsx`，按行号**降序**删 22 个 specifier。
+验收：`main.jsx` 26→**4**（且 `no-unused-vars`=0）／ src 合计 37→**15** ／ 全仓 45→**23**。
+
+### 🔧 统筹对 RF-082 的裁决：**新建文件 11 → 3**
+
+设计单要新建 11 个文件（`fileCount` 60→71）。**不批准，削减为 3 新建 + 4 追加**（`fileCount` 60→63）。
+
+理由：① 多个落点过小（`S6` 37 行、`S10` 59 行、`S5` 48 行）；② `features/` 已有 9 子目录可承接同域批次；
+③ `fileCount` 每增一文件多一次划账成本。符合 RF-074「追加既有文件、不划账」先例。
+
+| 处置 | 内容 |
+|---|---|
+| **新建 3** | `shared/app-defaults.js`(125) ／ `features/storage/storage-store.js`(S1+S7 合并 ≈209) ／ `features/crop/quick-crop-panels.jsx`(S8+S9 合并 ≈232) |
+| **追加 4** | `detail/detail-group.js`(←S2 101) ／ `upload/reference-upload.js`(←S3+S4 273) ／ `local-edit/crop-rect-resize.js`(←S5 48) ／ `video/video-composer.js`(←S6 37) |
+| **排除 1** | **S10 `main-helpers` 59 行不搬** —— 低于阈值且「main-helpers」不是领域概念，放 `shared/` 语义不清 |
+
+代价：A 从 1096 → **1042**（少 54 行），换来 `fileCount` 少增 8 个（此取舍划算）。
+✅ S0 共享层批准（12 常量 125 行），**必须最先搬**（S1–S9 全依赖它）。
+
+### 🟢 统筹对 RF-081 的裁决：`defaultLocalEditCrop` **可搬**（设计单列为"待确认"）
+- 理由：搬入 `outfit-top.js` 后，与 main 侧 `defaultQuickLocalEditCrop` **分属不同文件、无合并路径**；只 relocation 不改语义。
+- 强制：在 `outfit-top.js` 文件头写**禁止统一注释**（两侧语义不同 + 常量不同源）。
+- `loadOutfitPromptPresets` / `loadOutfitPromptCategories` 同理：**可搬但 storage key 必须随迁**，禁与 main 侧合并（刀 5 裁决）。
+
+🔴 **已裁决不可搬项（派单必须排除，统筹四处 grep 已确认）**
+- **main 画布模型层 ≈138 行**：`createCanvasNode`(60) / `createInfiniteCanvas`(27) / `normalizeInfiniteCanvasState`(36)。
+  原文见 `REFACTOR_TICKETS.md:1234`「**试图搬但回滚** …… 登记为『不可搬』」；
+  原因＝内部引用 app 级 **`defaultState`**（`model`/`imageSize`/`aspectRatio`）与 **`clampCount`** ⇒ 不是纯领域函数。
+- **outfit `buildTasks`(73，4950-5022)**：**伪顶层** —— 写在 column 0 但**落在 `OutfitWorkflow` 组件区间内**，
+  RF-079 已判其依赖 `activeModels`/`settings`/`referenceImages` ⇒ 需注入 14 项，不属本轮真顶层。
+- ⚠️ **`processImageFileWithMeta`**（outfit）／**`defaultQuickLocalEditCrop`**（main）：均涉**真分叉裁定**，
+  可搬但**禁止与另一侧同名物合并**，搬前须确认另一侧不受影响。
+- ⚠️ **`loadOutfitPromptPresets`**：刀 5 裁决「改名不合并」，**storage key 不动**。
+
+📌 **本轮排产的实测事实**（用新工具 `fn-extent` / `self-clone-scan` / `cross-clone-scan` 得出，替代旧估算）：
+- **同文件块克隆已近枯竭**：outfit 最大组仅 31 有效行、main 最大 12 ⇒ 低垂果实确已摘完，
+  后续只能靠**单侧域拆分**（RF-074/079 路线）拿收益，不要再指望"再抽一块重复"。
+- **真正没开垦的是 outfit 的模块顶层函数**：42 个 / 700 行不依赖组件 state ⇒ 零 deps 薄壳就能搬（见 RF-079 条目）。
+7. 🆕 **跨巨石块级克隆 11 组 / ≈176 有效行**（2026-10-03 统筹实测，工具 `scripts/dev/cross-clone-scan.mjs`。
+   019 的 `renameCloneAdvisory` 只比「顶层同名定义」，对**既不同名也不在同文件**的复制粘贴块结构失明，
+   这批就是它看不见的债）。最大一组 **33 有效行**：main 6517-6549 ↔ outfit 10042-10074
+   （提示词编辑弹窗的**三个 label：分类/标题/提示词内容**，两侧**逐字相同**）。
+   ⚠️ **不立即派单，原因**：该组恰好落在 **RF-078 已裁决区域**（两侧编辑弹窗判为真分叉、不抽组件）之内 ——
+   但裁决对象是「整个弹窗」，而这 33 行是其中**零分叉的子块**，两者是否等价需先核对裁决原文再定性
+   （RF-078 停手#1 的裁决写在 `src/shared/prompt-library.js:16-52` 文件头）。
+   ⇒ 且这批抽取必然**跨文件共享 ⇒ 需新建 `src/` 文件（58→59 划账）**，收益/风险比待评估。
+   **行动**：待 V20/V21 收工后再单独派一张只读定性单。
+8. 📌 **其它技术债（不派单，知悉即可）**：`outfit-workflow.jsx` 有 98 行 LF 混在 CRLF 中
+   （BASE `98d6178` 同为此数 ⇒ 历史遗留）；分支 `batch3-rf101-103` 领先 `main` 157 提交、main 无分叉，
+   随时可快进合并 —— **是否合并属产品决策，需用户拍板**。
+
+⚠️ main 侧 `misc` 24 fn/546 行耦合已升至 **1.50**、`detail` 残余 12 fn/288 行升至 **2.08**、
+`canvas` 残余 8 fn/257 行 1.63 ⇒ **这三簇属编排层，不要按域抽**。
+
+---
+
+## 7. 已知缺陷清单（录入 + 状态）
+
+| ID | 缺陷 | 状态 | 证据 | 归属工单 |
+| --- | --- | --- | --- | --- |
+| ① | `normalizeApiKeyInput` 清洗顺序（带引号整串 → `Bearersk-x`） | ✅ **已修 `7f6845b`** | `knownDefectCount` 1 → **0**（实测） | V11-RF-001 |
+| ② | `ReferenceThumbTray` 两份实现分叉 | ✅ **已收口 `bbf4586` + 🟢 人工复核通过** | 019 `duplicateCount` **1 → 0**（实测） | V11-RF-043-2 ✅ |
+| ②b | RF-043-2 带来的 **outfit 侧 4 处行为变化**（3 收窄 + 1 放宽） | ✅ **裁决接受 + 🟢 人工复核通过** | 见 §6.4 | V11-RF-043-2 ✅ |
+| ②c 🆕 | `CachedImage` 同 `src` 去重路径（模块级 `DISPLAY_IMAGE_CACHE`） | ✅ **人工复核通过（2026-10-02）** | 用户实测：同一图片 URL 多次出现的界面显示正常 | V11-RF-043-1 ✅ |
+| ⑧ | `PreparedResultImage`（outfit）↔ `CachedImage`（shared）改名克隆 | ✅ **已修 `e976e85`** | 真实浏览器双挂载 21/21，含**缓存反证**（二次挂载即带 src）；埋点业务字段逐项一致。两处"看似分叉"经查为**假分叉**（超时 8000 vs 20000：outfit 唯一调用点固定传 20000；endpoint 默认值：两个调用点都显式传） | V11-RF-048 ✅ |
+| ⑧b 🆕 | RF-050 四块的交互层（拖选框 / 拉滑杆 / 白笔黑笔） | ✅ **人工冒烟通过（2026-10-02）** | 自动化侧 11.6 万条断言 + 浏览器 DOM 对照；本环境历史数据被并发清空致弹窗打不开，交互改由人工补验 | V11-RF-050 ✅ |
+| ⑧c | `imageMimeFromSource` / `imageExtensionFromSource` 两对克隆（019 看不见：组件内缩进函数） | ✅ **已修 `34a376f`** | `Buffer.compare` 实测两份定义差异为 0（496B / 442B）；1560 条断言 0 失败 | **V11-RF-051** ✅ |
+| ⑧d 🆕 | lint 棘轮基线 **多记 1 条**（outfit `exhaustive-deps` 记 10 / 实测 9） | ✅ **已修 `ea64c48`**（收紧方向） | 4 条基线**逐条实测**，只此一条不符；修正后全仓实测 `errors 0 / warnings 18 / total 18` 与基线逐项吻合 | 统筹处置 |
+| ⑧e | 拖拽落盘的扩展名（`imageMimeFromSource` / `imageExtensionFromSource` 的真实链路） | ✅ **人工冒烟通过（2026-10-02）** | 用户实测：结果图拖到桌面，png / jpg / webp 落盘扩展名均正确 | — 注销 |
+| ③ | ~~「本地详情未走 `resolveLocalEditBaseFile`」~~ **已证伪 + 改判** | ✅ **已修 `66056fa`** | 真漏走在**裁剪回流链**：`cropRect` 按 `item.originalFile`（原图）算，底图却取 `item.file`（已被裁剪结果替换）⇒ 画布尺寸错 + `cropRect` 被夹到 `(0,0)`。改走 `resolveLocalEditBaseFile`，**真机冒烟三条判据全过**（改前 bbox `[0,0,…]` 被夹到原点，改后 `[526,0,1348,1800]` 吻合） | **V11-RF-047** ✅ |
+| ④ | 🔴 **undo/redo 陈旧闭包把旧 `tool`/`overlayOpacity` 写回项目存档** | ✅ **已修 + 人工冒烟通过** | `image-editor.jsx:651`；统筹已复核 `scheduleProjectSave:358-375` 写入字段 | **V11-RF-045** ✅ `25ce21c` |
+| ④b | 残留：`restoreSnapshot` 在 `await` 解码后才调 `scheduleProjectSave`，数毫秒窗口内改 `tool` 仍可能写旧值 | ⏸ **暂缓至阶段 D** | 彻底修法需把 5 个 state 镜像成 ref，改动面大；主路径已修 | **V11-RF-045b** |
+| ⑤ | 前端 19 条 `exhaustive-deps` | ✅ **已判定完毕** | 真 bug 1 / 有意 12 / 需重构 6 | RF-033 ✅ + V11-RF-045 |
+| ⑥ | 后端 16 条 AI 调用族重复（`createAbortSignal` ×8） | ✅ **已清零（后端主线闭环）** | `f394716` 纳视野后实测：64 文件 · 368 函数 · **`duplicateCount` 0** · `regressions []`。🔴 **反证**：`git worktree` 检出 027-1 之前的 `25ce21c` + 纳视野收集器 ⇒ **16 条报红、退出码 1** ⇒ 0 是真抽走，**不是被基线记账掩盖**；基线 git 历史仅 2 次提交，本次 diff 只 1 行 `generatedAt`，`duplicates` 自创建起始终 `{}` | V11-RF-027-1/-2/-2b/-3/-4/-4b/-5 ✅ |
+| ⑥b 🆕 | `detailModel`（detail-ai.js）是 `modelName` 的**改名克隆** | ✅ **已收口 `84ae66c`** | `grep -rn "detailModel" server/` = 0；新发现克隆，已登记存量清单 | V11-RF-027-3 |
+| ⑥c 🆕 | `pose` 的 `mode.includeImage`（单数）与 detail 的 `includeImages`（复数） | ✅ **有意保留**（不得消） | 实测 `outfit-pose-ai.js:196` 在 `attempts.push({…})` 内 ⇒ 流进 API 响应体，改名破坏字节一致；且是**字段名**非顶层函数 ⇒ 门禁永远看不见 | — 登记备查 |
+| ⑦ | 块级克隆 **2570 行 / 56 块**；改名/结构克隆 **62 组**（51 等价 / **11 需人工确认**） | 🔵 **口径已锁定（D-2 审计）** | 见 §7.2 排产口径 | RF-032 ✅ → 归入 D-2 |
+| ⑨ 🆕 | **拖拽下载族 5 函数两侧各一份**（`safeDownloadFileName` / `padDragDownloadNumber` / `dragDownloadDateStamp` / `absoluteDownloadUrl` / `beginImageDownloadDrag`） | ✅ **已修 `b934ec6`** | 统筹实测 `f1200c6`：去重缩进后**逐字节一致**（7+3+15+9+12 = **46 行 ×2**）；纯函数、仅依赖 `displayImageRequestUrl` 与已收口的 `imageMime/ExtensionFromSource`。两巨石残留定义实测 **0** | **V11-RF-052**（§6.6）✅ |
+| ⑨b 🆕 | `dataUrlFromBlob` 两侧差 1 行报错文案（「长图编码失败」vs「图片编码失败」） | ✅ **已修**（文案入参化） | 统筹实测：去缩进后**唯一实质差异**即该文案；签名 `(blob, errorMessage = "图片编码失败")`，main 调用点显式传「长图编码失败」⇒ 零行为变化 | **V11-RF-052**（§6.6）✅ |
+| ⑨c 🆕 | `imageSource`（outfit:2215）↔ `imageSourceFromResult`（`shared/models.js:53`）**是真分叉，不是改名克隆** | ⏸ **不搬（登记）** | outfit 版多 `image.cachedUrl` 优先、取值顺序也不同（cachedUrl→localUrl→b64→url vs localUrl→url→b64）⇒ 统一会改行为 | — 登记备查 |
+| ⑨d 🆕 | `ChannelPicker` 在 `main.jsx` 出现 5 次、`outfit-workflow.jsx` 出现 **0 次** | ⏸ **不派单（非重构债）** | 给批量页补这个组件 = **业务变更**，违反「只搬运/抽模块/修 bug、不改业务」 | — 转产品需求 |
+| ⑨e 🆕 | D-2 审计基于 `9cfa54b`，其中 **#1 `imageMimeFromSource`（46 行）已被 RF-051 收口** | ✅ **过期债，已剔除** | 排产前必须重新测量，旧快照清单不可直接排产 | — 口径校准 |
+
+### 7.2 D-2 排产口径（统筹裁决，2026-10-02）
+
+| 项 | 裁决 | 理由 |
+| --- | --- | --- |
+| **阈值** | 主表取 **≥10 行**（75 块 / 1388 行，剔 import 后 **69 块 / 1297 行**）；≥5 的 2138 行只作**观察池，不排产** | 搬一块的固定成本（一单 commit + 对照组 + 人工冒烟 + 门禁复核）**与块大小无关**，5 行块净收益为负；75 块已足够排到阶段 D 结束 |
+| **扣减** | 剔除 #1（RF-051 已收口 46 行）⇒ **实际剩余 74 块 / 1342 行** | 见缺陷 ⑨e |
+| **不搬（登记）** | DATA 簇 9 块/133 行（`rawSame=0`，疑似两页产品口径不同）、IMPORT 簇 6 块/91 行（非债务）、`#12`（依赖模块级常量不同）、`#11` 的 `resultDragDownloadName`↔`taskDragDownloadName` | `#12` 依 §0.9 原则 7：**字节一致 ≠ 可搬**，还要查引用的模块级常量；`#11` 字段优先级与序号规则是**真分叉** |
+| **行号写法** | 报告一律写「**函数名 + 行号 + 快照 hash**」，**每次排产前重新测量** | 行号会漂（RF-040c/040d 已因此立过两单） |
+| **新建文件** | **一簇一审，不 blanket 授权**。允许新建，但必须同时满足 ①②③④ | ① 工单明文授权；② 一个批次**集中**新建、不许每块新建；③ 019 划账（`fileCount` +N）在 commit 写明；④ 新文件**必须 0 warning**（否则要动 lint 基线，属禁止区） |
+
+> 🔴 **最重要的口径修正**：用仓库既有判据（行首顶层函数、名长 ≥4）实测，两巨石之间的**同名顶层定义 = 0**。
+> ⇒ 剩余债务 **100% 是 019 看不见的三类**（匿名块复制 / 改名克隆 / 缩进内层函数）。
+> ⇒ **阶段 D 继续用「同名函数」清单开会开不出单，必须换成块级清单。**
+
+### 7.1 人工复核记录（2026-10-02 · 用户实测）
+
+| # | 复核项 | 场景 | 结果 | 结论 |
+| --- | --- | --- | --- | --- |
+| ① | outfit 侧参考图托盘（有历史任务时） | 批量生成页**带历史任务** → 看缩略图数量 / 右键菜单 / 点击预览 | ✅ 正常 | RF-043-2 的「main 版为基底 + outfit key 兜底」裁决成立；§6.4 的 4 处行为变化**未见负面体感** ⇒ **关闭** |
+| ② | `CachedImage` 同 `src` 去重 | 同一图片 URL 多次出现的界面 | ✅ 正常显示 | 模块级 `DISPLAY_IMAGE_CACHE` 去重路径未破坏渲染 ⇒ **关闭**（缺陷 ②c 注销） |
+
+> 🔴 **019 归零的账由此坐实**：`duplicateCount = 0` 是门禁实测，②/②b/②c 是人工实测，两条腿都齐了。
+> 后续阶段 D 再动 `src/shared/ui/` 下的组件时，**仍必须按 §0.9 重跑一遍人工复核**（自动化门禁看不到视觉回归）。
+
+---
+
+## 8. 待决策项（需人类拍板，本文不擅自开单）
+
+1. **storage key 是否合一**：`loadPromptCategories`/`loadPromptPresets` 两侧 key 不同。**合一 ⇒ 两页共享同一份提示词库，属产品决策。**
+   🔴 新证据（RF-032）：这两条 **L1 归一化哈希完全相同**但**兜底常量不同源** ⇒ **任何"哈希相等就自动合并"的做法都会在这里翻车**，人工裁决不可省略。
+2. ✅ **`ReferenceThumbTray` 统一到哪一版** → **已裁决**：以 main 版为基底（4 调用点 vs 1，且是真超集），
+   补 outfit 独有的 key 兜底；拆 **RF-043-1（抽 `CachedImage` → shared/ui）→ RF-043-2（抽 `ReferenceThumbTray` → shared/ui）**。
+   **它是 019 最后 1 条，在 043-2 完成前必须保留在基线内，不得划掉。**
+3. **RF-027 的 16 条是否先纳入门禁视野**：**已裁定 —— 不纳、不 `--update`**，直接抽走（见 §4）。
+4. **护栏形态**：**已裁定 —— 继续扩展 `scripts/verify/`，不引入 vitest**（不加依赖）。
+5. **`exhaustive-deps` 是否从 `warn` 升 `error`**：**现在具备升级条件了** —— 19 条已判完（1 真 bug → RF-045；12 条有意 → 加豁免注释；6 条随阶段 D 解决）。
+   ⇒ **待 RF-045 完成 + 12 条豁免注释补齐后，由统筹另立「升级」单**。在此之前**不要擅自改 `eslint.config.mjs:88`**。
+6. 🆕 **12 条「有意空依赖」是否逐条加豁免注释**：建议**加**（否则它们永远以 warning 形式污染报告）。可与 RF-045 同批做，但**必须分 commit**。
+7. ✅ **D-2 排产阈值取 5 行还是 10 行** → **已裁定：取 ≥10 行**（75 块 / 1388 行，剔 import 后 69 块 / 1297 行；
+   剔除 RF-051 已收口的 46 行后为 74 块 / 1342 行）。≥5 的 2138 行只作**观察池，不排产**。
+   理由：搬一块的固定成本（一单 commit + 对照组 + 人工冒烟 + 门禁复核）**与块大小无关**，5 行块净收益为负。
+8. ✅ **是否 blanket 授权新建文件（PL / RQ 两簇无既有落点）** → **已裁定：一簇一审，不 blanket 授权**。
+   先派 **RF-054 只读出方案**，统筹据 §7.2 的四项条件**逐簇裁决**。
+   允许新建，但同时必须满足：① 工单明文授权 ② 一个批次集中新建 ③ `fileCount` 划账写进 commit ④ 新文件 0 warning。
+9. ⏸ **`ChannelPicker` 在批量页完全没用上**（main 5 次 / outfit 0 次）→ **不派单**。
+   给 outfit 补这个组件属**业务变更**，违反「只搬运/抽模块/修 bug、不改业务」⇒ 转产品需求，由用户决定。
+
+---
+
+## 9. 通用基线（每张工单默认适用）
+
+### 9.1 AB 验收基线
+- **AB-1**：`node scripts/verify/run-all.mjs` 通过（本环境恒 27/38，见 §9.3）
+- **AB-2**：lint 棘轮不恶化：`node scripts/verify/lint-ratchet-check.mjs`（本环境需进程内 ESLint 代理，见 §9.3）
+- **AB-3**：`node --check <改动文件>` 语法自检
+- **AB-4**：沙盒差分（改动端点前后响应体 + HTTP 码一致；**易变字段必须剔除**：`now`/`uptimeSec`/`latencyMs`/`checkedAt`/`memory`/`requestId`/`generatedAt`；**日志比对必须先排序**）
+
+### 9.2 G 通用禁止修改清单
+`scripts/verify/lib/def-patterns.mjs`（判据唯一真相源）、`eslint.config.mjs`、`lint-baseline.json`、各门禁 `*-baseline.json`、
+`AGENTS.md`、`prompts/**`（提示词）、任何 `*.css`、任何发布/打包脚本。
+⚠️ **例外**：**经统筹明文授权并在 commit 写明理由的棘轮划账（`--update`）是允许的**（见 §3.2 ①）；
+G 清单约束的是「执行者为让门禁变绿而擅自改」。
+**执行者不得修改本文及任何总表/执行单/汇报类 `.md`**（§0.9 第 6 条）。
+
+### 9.3 本环境已知限制（执行者须知，别误判为回归）
+- `spawnSync` 在本沙盒**必然 EBUSY** ⇒ `lint-ratchet-check` / `run-all-check` / `check-launcher` **恒失败**，属环境限制，不是代码问题；
+  替代：用进程内 ESLint API 跑（`ESLint` 从 `node_modules/eslint/lib/api.js` 导出，Windows 下需 `pathToFileURL`）。
+- 全套 38 项本环境恒 **27 通过 / 11 失败**：8 项串行资源竞争（**单独 `--only` 重跑会通过**，集合会飘）+ 上述 3 项环境限制。
+  ⇒ **比对的是「失败类别」不是「失败名单逐字相同」**。
+- `git commit -F - <<EOF` 可能被安全策略拦截 ⇒ 改用 `git commit -F tmp/commit-xxx.txt`。
+- 前端改动 `.jsx` **必须 `vite build`**；涉及服务端 import 的前端模块要用 release 同款 esbuild 打一次 bundle 验证。
+- Windows 下 `taskkill /PID` 在 Git Bash 会被路径转换破坏 ⇒ 用 PowerShell `Stop-Process -Id`。
+- 🔴 **🔴 禁用 Edit 类整文件改写工具去改两个巨石**（`main.jsx` / `outfit-workflow.jsx`）——本条为硬约束：
+  RF-048 时实测，Edit 会把整文件 **CRLF → LF**，diff 从几十行**膨胀到 11278/11345 行**，
+  真实改动被淹没、无法复核。
+  **正确做法**：用 `node` 脚本按**内容锚点**打补丁（保留其余行 CRLF，仅改动行写 LF），
+  或直接用 `git apply` 补丁。
+  🔴 **凡改过这两个文件，提交前必查 `git diff --stat`**：真实改动行数应与设计内的 hunk 量级相当，
+  出现万行级 diff 一律不许提交。
+
+---
+
+## 10. 交付纪律（执行者汇报模板）
+
+每单完成后交回：
+1. **commit hash** + 一行为什么（取哪版 / 有没有有意的行为变化）
+2. **diff 三类 hunk 清单**（删了什么 / 加了什么 import / 清了哪些孤儿）
+3. **对照组脚本路径 + 项数/失败数**（刀 3 起定型的手法）
+4. **门禁前后对比**：`duplicateCount` / `regressions` / `violations` / lint 逐文件计数
+5. **冒烟结果**；**无冒烟的必须写明豁免理由**（§0.9 第 18 条）
+6. **遇到的分叉**（若有）：停手 + 对照表，等统筹裁决
+
+**统筹据此更新本文件的 §7 缺陷清单与批次状态；执行者不直接改本文件。**
+
+---
+
+## 11. 并行派单规则（两个窗口同时开工前必读）
+
+### 11.1 三条硬前提
+1. 🔴 **同一个工作目录不允许两个 AI 同时写代码** —— 会互相覆盖文件、`git` 冲突、且失败无法归因。
+   ⇒ 要么**串行**，要么**用 git worktree / 目录副本做物理隔离**（命令见 11.2）。
+2. 🔴 **C 批的报告带行号，会与 A 批的编辑打架**：RF-033 要列 19 处 `file:line`、RF-032 要测全 `src/**`；
+   而 A 批会改 `main.jsx` / `outfit-workflow.jsx` ⇒ **行号漂移，报告与代码对不上**。
+   ⇒ 三选一：① **先 C 后 A**（C 只读、快，先出地图）；② C 在独立 worktree 里跑；③ C 的报告**必须标注所基于的 commit hash**，并由执行者改用「函数名 + 行号（注明快照 hash）」写法。
+3. 🔴 **A 批内部 5 单必须同一个执行者串行做**（RF-040/041/042 都碰 `main.jsx` 与 `outfit-workflow.jsx`，文件重叠）；**不得拆给两个人**。
+
+### 11.2 物理隔离（若坚持并行）
+```bash
+# 在仓库内为第二个执行者开独立工作树（共享 .git，工作区互不干扰）
+git worktree add ..\jingyin-wt-batchC  HEAD
+# 第二个窗口把工作目录切到 ..\jingyin-wt-batchC 再做（需在该目录单独 npm i 或软链 node_modules）
+```
+⚠️ 两个窗口**都不要起服务抢端口**（8787 常被遗留进程占用，8788 也被占用过）；确需起服务时用不同 `PORT`。
+⚠️ 前端验证脚本已用 `JINGYIN_VITE_CACHE_DIR=tmp/vite-cache-verify` 隔离预构建缓存，**副本目录同样安全**。
+
+### 11.2b 并发数按「文件锁」分配，不按任务数堆（2026-10-02 定型）
+
+**判据只有一个：文件是否重叠。** 上下文窗口再大（1M）也不改变这条。
+
+| 地盘 | 占用者 | 能否再开一路 |
+| --- | --- | --- |
+| `src/**`（尤其两巨石 19509 行） | **串行瓶颈** —— 几乎所有阶段 D 单都碰它 | ❌ 同一时刻只准一路写 |
+| `scripts/**`（门禁/护栏） | 与 `src/` **零重叠** | ✅ 可独立开一路 |
+| 只读审计（任何目录） | 不写文件 ⇒ 天然零冲突 | ✅ 可独立开一路 |
+
+🔴 **2026-10-02 实证修订 —— 并发从 3 路降到 2 路**（RF-047 事故，用户拍板）：
+
+| 组合 | 实测结果 |
+| --- | --- |
+| `scripts/` 路 ∥ `src/` 路 | ✅ **全程零干扰**（RF-055/056 在 worktree、RF-047 在主目录，全程无覆盖）⇒ **保留** |
+| `src/` 路 ∥ `src/` 路 | 🔴 **出事故**：并行窗口**静默覆盖**了 RF-047 的补丁（打完 `grep -c` 自己的注释返回 **0** 才发现，HEAD 已被推走）⇒ **禁止，永久** |
+
+⇒ **新的并发上限 = 2 路**：① 写 `src/`（**单窗口、长队列串行**）② `scripts/` 或只读（worktree）。
+   **吞吐不降** —— `src/` 本来就是串行瓶颈，之前"3 路"里的第 3 路本就该排队而不是并行。
+
+🔴 **防覆盖三步硬检查（凡在可能被并行的目录里打补丁，必做）**：
+1. **打完补丁立刻 `grep -c` 自己的注释 / 锚点** —— 返回 0 说明已被覆盖，**不要提交**。
+2. **盯 HEAD 是否推移**（记录开工时的 hash）。被推走 ⇒ 目标行号会漂移，需**重跑 patch 脚本**（RF-047 实测漂移量 ≈ 300 行）。
+3. **只暂存自己那一 hunk**：`git show HEAD~1:f` / `git show HEAD:f` 取两端 blob 生成 patch，
+   再 `git apply --cached --recount --ignore-whitespace`；提交后必查 `git status`，
+   **确认别人的改动仍留在工作区**（不得顺手把别人的中间态一起提交）。
+
+> 🔑 **1M 上下文的正确用法**：不是"多开窗口"，而是**一个窗口吃下更长的串行队列**。
+> `src/` 队列（RF-053 → 058 → 057）一次性派给单窗口连做，中间不回来问 ⇒ 这才是 1M 的吞吐来源。
+
+🔴 **不建议加到 4 路**，三条理由：
+1. **`src/` 是串行瓶颈**：再多窗口也得排队等巨石，加窗口不加吞吐。
+2. **门禁可归因性**：并发越多，`run-all` 越不可归因（实测并发会把 11 项失败顶到 12）；
+   长门禁结果必须以 `--only` 单独复跑为准。
+3. **统筹验收带宽是真正的上限**：每个 worktree 都必须由我亲自验零重叠再 merge。
+
+🔴 **1M 上下文带来的新纪律（大上下文 ≠ 可以越界）**：
+- **禁止修改清单要写得更死** —— 上下文越大，执行者越容易"顺手多改"；
+  派单里的「❌ 不在本单」清单是硬边界，不是建议。
+- **一单一 commit 不变** —— 大上下文容易一次做多单，合并后无法按单回退。
+- **§9.3「禁止 Edit 改两巨石」与 CRLF 纪律仍然适用**，不因模型变强而放宽。
+
+### 11.3 窗口一 · A 批（5 单）开场提示词
+```
+你是执行者。工作目录：D:\源码开发\静音AI画板v4.0源码
+先整读两份文档，再动任何代码：
+  1) REFACTOR_TICKETS.md（唯一有效派单契约）
+  2) REFACTOR-枢纽-存档-2026-10-02.md 的 §0.9 十九条硬约束（全文，必读）
+本轮只做「批次 A」这 5 单，按 V11-RF-001 → 040 → 041 → 042 → 044 顺序串行：
+  V11-RF-001（KEY 清洗顺序 bug 修复）/ V11-RF-040（两个 loader 改名，不合并）
+  V11-RF-041（diagnosticImageSourceType）/ V11-RF-042（referenceSource）
+  V11-RF-044（只读定位本地详情底图取值点，不改任何代码）
+硬性要求：
+  · 一单一 commit；结构搬运与 bug 修复绝不混交
+  · 每单开工前先 diff 判三类（字节一致 / 语义等价 / 已分叉），已分叉立即停手报告，不得擅自统一
+  · 每单必须有对照组脚本（旧实现抄进 tmp/ 当基准）；改 .jsx 必须 vite build
+  · 禁止修改任何 .md（含本文档）；禁止改判据、禁止 --update 掩盖债务
+  · RF-041/042 若判为分叉：只交对照表，不动代码
+完成后按本文 §10 的模板逐单汇报。
+```
+
+### 11.4 窗口二 · C 批（2 单，只读）开场提示词
+```
+你是执行者。工作目录：D:\源码开发\静音AI画板v4.0源码（若已有人在同目录改代码，改用 git worktree 独立目录）
+先整读 REFACTOR_TICKETS.md，重点 §5。
+本轮只做「批次 C」两单，且【只读】——不改任何代码、不改基线、不入门禁：
+  V11-RF-032（改名克隆 + 块级克隆只读测量，src/** 全量）
+  V11-RF-033（19 条 react-hooks/exhaustive-deps 三类判定：真 bug / 有意空依赖 / 需重构）
+硬性要求：
+  · 报告必须在开头写明「基于 commit <hash>」；行号一律写「函数名 + 行号（快照 hash）」
+  · RF-032 必须先用文档里给的 4 个活样本验证工具真能抓到，抓不到就换手段并说明
+  · RF-033 每条判定必须给可复核依据（读了哪个 state、该 state 怎么初始化、effect 有无 ref 守卫）
+    ⚠️ 文档里已实测推翻一例（outfit-workflow.jsx:6951 常被当"实锤 bug"，实为有意的挂载时同步读档），别凭告警文本直接归类
+  · 禁止修改任何文件（含 .md）
+完成后交回两张表（RF-032 清单 / RF-033 判定表）+ 对阶段 D 的拆分建议。
+```
+
+---
+
+## 12. 统筹自省清单（工单自身的缺陷 —— 统筹认领，不计执行者责任）
+
+> 立这个清单的理由：本轮出现了**执行者三次按工单执行、却被工单自身坑到**的情况。
+> 记下来，是为了让下一轮派单前先自查这几类，而不是让执行者替我买单。
+
+| # | 工单缺陷 | 谁发现的 | 处置 |
+| --- | --- | --- | --- |
+| 1 | **RF-040 裁定与禁止清单自相矛盾**（裁定给 main 加注释，但禁止清单禁止改 main） | A 批执行者 | 以禁止清单为准，拆出 RF-040b/040c |
+| 2 | **027-4 验收写「`duplicateCount` 归零」但纯改名做不到** | 窗口② | 立 RF-027-4b 补做（§4） |
+| 3 | **口述派单文案与工单不同步**：文案沿用旧措辞「禁止 `--update`」，与工单 §4 刚写的授权矛盾 | 窗口② | 执行者按「工单是唯一派单契约」处理 ✅ 正确。**纪律：改工单授权时必须同步改派单模板** |
+| 4 | **RF-050 §6.3 缺 `--update` 授权条款**，但搬文件必然触发 `scopeDrift` 判红 | 窗口①（commit 里推断授权） | 已补授权 + 追认块①②。**纪律：授权必须白纸黑字，执行者不得推断**（§6.3） |
+
+- 🔴 **分支事实（2026-10-02 实测，别再被"主线"这个词绕晕）**：
+  当前工作分支是 **`batch3-rf101-103`**，本轮全部重构都在这上面 ⇒ **它就是工作主线**。
+  另有一个 `main` 分支，停在 `b990647`（RF-010），**落后 90 笔**；
+  实测 `main` 是 `batch3-rf101-103` 的祖先 ⇒ **可 fast-forward 合并**，无分叉风险。
+  ⇒ 收口时一次性 fast-forward 到 `main` 即可，**不要中途来回切分支**。
+
+### 12.1 由此固化的三条派单前自查
+1. **派单文案 = 工单的投影**：改了工单任何授权/禁止条款，**同步改对应派单文案**，否则两份契约打架。
+2. **凡是"必然触发判红"的动作**（新建共享文件 ⇒ `scopeDrift`），**在工单里提前把授权写死**，别让执行者临场推断。
+3. **授权边界要可验收**：写清"允许改什么文件、只准登记哪类条目、commit 必须写什么"（RF-027-5 的四条边界是范本）。

@@ -1,0 +1,482 @@
+=== 全量清单 ===
+文件总行数: 6631
+App 区间: 1677-6622
+模块级函数型定义: 60 | 模块级非函数常量: 64
+
+--- 模块级函数型定义（按起始行）---
+    407-  409     3 行  function    normalizeActiveView
+    411-  413     3 行  function    loadActiveView
+    415-  427    13 行  function    deleteIndexedDbSafely
+    429-  473    45 行  function    runPublicReleaseStorageReset
+    478-  488    11 行  function    loadPromptCategories
+    490-  549    60 行  function    createCanvasNode
+    551-  577    27 行  function    createInfiniteCanvas
+    579-  590    12 行  function    normalizeCanvasNode
+    592-  627    36 行  function    normalizeInfiniteCanvasState
+    629-  631     3 行  function    loadInfiniteCanvasState
+    633-  642    10 行  function    loadState
+    644-  653    10 行  function    normalizeDetailSettings
+    655-  677    23 行  function    referenceControlText
+    679-  692    14 行  function    referenceStrengthText
+    694-  707    14 行  function    buildReferenceRemixPrompt
+    709-  721    13 行  function    buildSmartReferencePrompt
+    724-  731     8 行  function    loadPromptPresets
+    733-  744    12 行  function    loadDetailPresets
+    746-  761    16 行  function    sanitizeStoredImage
+    763-  768     6 行  function    sanitizeDetailResultForStorage
+    770-  780    11 行  function    sanitizeDetailGroupsForStorage
+    782-  807    26 行  function    loadDetailGroups
+    809-  830    22 行  function    hydrateDetailGroupsWithHistory
+    832-  846    15 行  function    openHistoryDb
+    848-  854     7 行  function    waitForTransaction
+    856-  886    31 行  function    loadHistoryResults
+    888-  920    33 行  function    saveHistoryResults
+    922-  954    33 行  function    removeHistoryResults
+    956-  958     3 行  function    clampCount
+    960-  962     3 行  function    clampDetailCount
+    964-  966     3 行  function    clampDetailModelUsage
+    968-  970     3 行  function    clampReverseScreens
+    972-  976     5 行  function    clampReferenceStrength
+    978-  980     3 行  function    makeResultId
+    982-  990     9 行  function    durationOptionsForVideoModel
+    992-  994     3 行  function    videoPromptPlaceholder
+    996-  999     4 行  function    videoPricePerSecond
+   1001- 1004     4 行  function    videoPriceLabel
+   1006- 1022    17 行  function    normalizeVideoSettingValue
+   1024- 1037    14 行  function    normalizeQuickReferenceItem
+   1039- 1043     5 行  function    quickReferenceOriginalFile
+   1045- 1047     3 行  function    quickReferenceUploadFile
+   1049- 1051     3 行  function    quickReferenceHasLocalEdit
+   1053- 1055     3 行  function    quickReferenceUploadFiles
+   1057- 1062     6 行  function    quickReferenceRunUploadFile
+   1064- 1080    17 行  function    referenceMetaFromQuickRunItems
+   1082- 1091    10 行  function    referenceMetaFromFiles
+   1098- 1100     3 行  function    ensureQuickUploadCanvasRatio
+   1112- 1139    28 行  function    fileToCompactJpegDataUrl
+   1148- 1159    12 行  function    formatStorageSize
+   1203- 1232    30 行  function    composeQuickLocalEditBlob
+   1234- 1236     3 行  function    shouldNormalizeQuickUploadForModel
+   1238- 1299    62 行  function    compressImageForChannel
+   1301- 1331    31 行  function    prepareImageFilesForChannel
+   1342- 1352    11 行  function    normalizeGenerationErrorMessage
+   1354- 1426    73 行  function    DetailUploadZone
+   1428- 1445    18 行  function    defaultQuickLocalEditCrop
+   1447- 1515    69 行  function    cropQuickReferenceViewportFile
+   1517- 1675   159 行  function    QuickCropViewportModal
+   1677- 6622  4946 行  function    App
+
+--- 模块级非函数常量（随迁项候选）---
+    156-  156     1 行  const  STORAGE_PREFIX
+    157-  157     1 行  const  STORAGE_KEY
+    158-  158     1 行  const  LEGACY_STORAGE_KEYS
+    159-  159     1 行  const  PROMPT_LIBRARY_VERSION
+    160-  160     1 行  const  PROMPT_PRESETS_KEY
+    161-  161     1 行  const  PROMPT_CATEGORIES_KEY
+    162-  162     1 行  const  PROMPT_CATEGORY_DRAG_TYPE
+    163-  163     1 行  const  QUICK_RESULT_DRAG_TYPE
+    164-  164     1 行  const  DETAIL_PRESETS_KEY
+    165-  165     1 行  const  DETAIL_GROUPS_KEY
+    166-  166     1 行  const  INFINITE_CANVAS_KEY
+    167-  167     1 行  const  HISTORY_DB_NAME
+    168-  168     1 行  const  HISTORY_DB_VERSION
+    169-  169     1 行  const  HISTORY_STORE_NAME
+    170-  170     1 行  const  HISTORY_FALLBACK_KEY
+    171-  171     1 行  const  PUBLIC_RELEASE_MODE
+    172-  172     1 行  const  PUBLIC_RELEASE_ID
+    173-  173     1 行  const  PUBLIC_RELEASE_RESET_KEY
+    174-  174     1 行  const  ACTIVE_VIEW_KEY
+    175-  175     1 行  const  CLIENT_SESSION_ID
+    176-  176     1 行  const  DEFAULT_MAX_REFERENCE_FILES
+    177-  177     1 行  const  MAX_DETAIL_FILES
+    180-  180     1 行  const  QUICK_LOCAL_EDIT_RATIOS
+    181-  181     1 行  const  DETAIL_ANALYSIS_MODEL
+    182-  182     1 行  const  CHANNEL_UPLOAD_LIMIT_BYTES
+    183-  183     1 行  const  CHANNEL_UPLOAD_TARGET_BYTES
+    184-  184     1 行  const  CHANNEL_UPLOAD_MAX_SIDE
+    185-  185     1 行  const  LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES
+    186-  186     1 行  const  LOCAL_EDIT_OUTPUT_TARGET_BYTES
+    187-  187     1 行  const  LOCAL_EDIT_OUTPUT_JPEG_QUALITIES
+    188-  188     1 行  const  CANVAS_NODE_WIDTH
+    189-  189     1 行  const  CANVAS_NODE_HEIGHT
+    190-  190     1 行  const  CANVAS_GENERATOR_WIDTH
+    191-  191     1 行  const  CANVAS_GENERATOR_HEIGHT
+    192-  192     1 行  const  COUNT_OPTIONS
+    193-  193     1 行  const  REFERENCE_STRENGTH_OPTIONS
+    194-  194     1 行  const  SHOW_INFINITE_CANVAS
+    195-  195     1 行  const  VIDEO_STATUS_POLL_INTERVAL_MS
+    196-  196     1 行  const  VIDEO_STATUS_MAX_POLLS
+    197-  197     1 行  const  VIDEO_REFERENCE_MAX_BYTES
+    199-  210    12 行  const  defaultState
+    212-  220     9 行  const  videoDefaults
+    222-  231    10 行  const  navItems
+    232-  232     1 行  const  ACTIVE_VIEW_IDS
+    233-  233     1 行  const  DEFAULT_ACTIVE_VIEW
+    235-  247    13 行  const  referenceDefaults
+    249-  254     6 行  const  referenceControlOptions
+    256-  261     6 行  const  canvasImageRoleOptions
+    263-  266     4 行  const  canvasBatchModeOptions
+    268-  289    22 行  const  detailDefaults
+    291-  303    13 行  const  workflowOptions
+    305-  309     5 行  const  copywritingOptions
+    311-  315     5 行  const  richnessOptions
+    317-  323     7 行  const  fontStyleOptions
+    325-  328     4 行  const  modelModeOptions
+    330-  333     4 行  const  modelPoseOptions
+    335-  340     6 行  const  themeOptions
+    342-  342     1 行  const  promptCategories
+    344-  405    62 行  const  builtinPrompts
+    475-  475     1 行  const  publicReleaseStorageResetPromise
+   1142- 1142     1 行  const  JSON_IMAGE_URLS_MODELS
+   1164- 1164     1 行  const  constrainCropRect
+   6624- 6624     1 行  const  appRootElement
+   6625- 6625     1 行  const  appRoot
+
+--- 自由标识符抽测（每个函数引用的模块级名字 / import 数 / 未解析）---
+
+# normalizeActiveView (407-409, 3 行)
+   模块级依赖(2): ACTIVE_VIEW_IDS, DEFAULT_ACTIVE_VIEW
+   import 引用(0): （无）
+
+# loadActiveView (411-413, 3 行)
+   模块级依赖(3): normalizeActiveView, ACTIVE_VIEW_KEY, DEFAULT_ACTIVE_VIEW
+   import 引用(1): readJsonStorage
+
+# deleteIndexedDbSafely (415-427, 13 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# runPublicReleaseStorageReset (429-473, 45 行)
+   模块级依赖(12): PUBLIC_RELEASE_MODE, PUBLIC_RELEASE_RESET_KEY, STORAGE_KEY, ACTIVE_VIEW_KEY, PROMPT_PRESETS_KEY, PROMPT_CATEGORIES_KEY, DETAIL_PRESETS_KEY, DETAIL_GROUPS_KEY, INFINITE_CANVAS_KEY, HISTORY_FALLBACK_KEY, deleteIndexedDbSafely, HISTORY_DB_NAME
+   import 引用(3): readJsonStorage, removeStorageItem, writeJsonStorage
+
+# loadPromptCategories (478-488, 11 行)
+   模块级依赖(3): PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, promptCategories
+   import 引用(2): readJsonStorage, normalizePromptCategories
+
+# createCanvasNode (490-549, 60 行)
+   模块级依赖(9): CANVAS_GENERATOR_WIDTH, CANVAS_GENERATOR_HEIGHT, CANVAS_NODE_WIDTH, CANVAS_NODE_HEIGHT, makeResultId, defaultState, clampCount, canvasBatchModeOptions, canvasImageRoleOptions
+   import 引用(0): （无）
+
+# createInfiniteCanvas (551-577, 27 行)
+   模块级依赖(2): createCanvasNode, makeResultId
+   import 引用(0): （无）
+
+# normalizeCanvasNode (579-590, 12 行)
+   模块级依赖(1): createCanvasNode
+   import 引用(0): （无）
+
+# normalizeInfiniteCanvasState (592-627, 36 行)
+   模块级依赖(2): normalizeCanvasNode, createInfiniteCanvas
+   import 引用(0): （无）
+
+# loadInfiniteCanvasState (629-631, 3 行)
+   模块级依赖(2): normalizeInfiniteCanvasState, INFINITE_CANVAS_KEY
+   import 引用(1): readJsonStorage
+
+# loadState (633-642, 10 行)
+   模块级依赖(3): STORAGE_KEY, LEGACY_STORAGE_KEYS, defaultState
+   import 引用(2): readJsonStorage, canonicalModel
+
+# normalizeDetailSettings (644-653, 10 行)
+   模块级依赖(4): detailDefaults, clampDetailCount, clampDetailModelUsage, clampReverseScreens
+   import 引用(0): （无）
+
+# referenceControlText (655-677, 23 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# referenceStrengthText (679-692, 14 行)
+   模块级依赖(1): referenceDefaults
+   import 引用(0): （无）
+
+# buildReferenceRemixPrompt (694-707, 14 行)
+   模块级依赖(2): referenceStrengthText, referenceControlText
+   import 引用(0): （无）
+
+# buildSmartReferencePrompt (709-721, 13 行)
+   模块级依赖(2): referenceStrengthText, referenceControlText
+   import 引用(0): （无）
+
+# loadPromptPresets (724-731, 8 行)
+   模块级依赖(2): PROMPT_PRESETS_KEY, builtinPrompts
+   import 引用(2): readJsonStorage, normalizePromptPreset
+
+# loadDetailPresets (733-744, 12 行)
+   模块级依赖(2): DETAIL_PRESETS_KEY, normalizeDetailSettings
+   import 引用(1): readJsonStorage
+
+# sanitizeStoredImage (746-761, 16 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# sanitizeDetailResultForStorage (763-768, 6 行)
+   模块级依赖(1): sanitizeStoredImage
+   import 引用(0): （无）
+
+# sanitizeDetailGroupsForStorage (770-780, 11 行)
+   模块级依赖(1): sanitizeDetailResultForStorage
+   import 引用(0): （无）
+
+# loadDetailGroups (782-807, 26 行)
+   模块级依赖(3): DETAIL_GROUPS_KEY, normalizeDetailSettings, sanitizeStoredImage
+   import 引用(1): readJsonStorage
+
+# hydrateDetailGroupsWithHistory (809-830, 22 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# openHistoryDb (832-846, 15 行)
+   模块级依赖(3): HISTORY_DB_NAME, HISTORY_DB_VERSION, HISTORY_STORE_NAME
+   import 引用(0): （无）
+
+# waitForTransaction (848-854, 7 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# loadHistoryResults (856-886, 31 行)
+   模块级依赖(4): publicReleaseStorageResetPromise, openHistoryDb, HISTORY_FALLBACK_KEY, HISTORY_STORE_NAME
+   import 引用(2): getHistoryResults, readJsonStorage
+
+# saveHistoryResults (888-920, 33 行)
+   模块级依赖(5): openHistoryDb, HISTORY_FALLBACK_KEY, sanitizeStoredImage, HISTORY_STORE_NAME, waitForTransaction
+   import 引用(3): appendHistoryResults, readJsonStorage, writeJsonStorage
+
+# removeHistoryResults (922-954, 33 行)
+   模块级依赖(5): openHistoryDb, HISTORY_FALLBACK_KEY, sanitizeStoredImage, HISTORY_STORE_NAME, waitForTransaction
+   import 引用(3): deleteHistoryResults, readJsonStorage, writeJsonStorage
+
+# clampCount (956-958, 3 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# clampDetailCount (960-962, 3 行)
+   模块级依赖(1): detailDefaults
+   import 引用(0): （无）
+
+# clampDetailModelUsage (964-966, 3 行)
+   模块级依赖(1): detailDefaults
+   import 引用(0): （无）
+
+# clampReverseScreens (968-970, 3 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# clampReferenceStrength (972-976, 5 行)
+   模块级依赖(1): referenceDefaults
+   import 引用(0): （无）
+
+# makeResultId (978-980, 3 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# durationOptionsForVideoModel (982-990, 9 行)
+   模块级依赖(1): videoDefaults
+   import 引用(0): （无）
+
+# videoPromptPlaceholder (992-994, 3 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# videoPricePerSecond (996-999, 4 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# videoPriceLabel (1001-1004, 4 行)
+   模块级依赖(1): videoPricePerSecond
+   import 引用(0): （无）
+
+# normalizeVideoSettingValue (1006-1022, 17 行)
+   模块级依赖(2): durationOptionsForVideoModel, videoDefaults
+   import 引用(0): （无）
+
+# normalizeQuickReferenceItem (1024-1037, 14 行)
+   模块级依赖(0): （无）
+   import 引用(1): makeQuickReferenceItem
+
+# quickReferenceOriginalFile (1039-1043, 5 行)
+   模块级依赖(0): （无）
+   import 引用(1): resolveLocalEditBaseFile
+
+# quickReferenceUploadFile (1045-1047, 3 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# quickReferenceHasLocalEdit (1049-1051, 3 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# quickReferenceUploadFiles (1053-1055, 3 行)
+   模块级依赖(1): quickReferenceUploadFile
+   import 引用(0): （无）
+
+# quickReferenceRunUploadFile (1057-1062, 6 行)
+   模块级依赖(2): quickReferenceUploadFile, quickReferenceOriginalFile
+   import 引用(0): （无）
+
+# referenceMetaFromQuickRunItems (1064-1080, 17 行)
+   模块级依赖(2): quickReferenceRunUploadFile, quickReferenceOriginalFile
+   import 引用(0): （无）
+
+# referenceMetaFromFiles (1082-1091, 10 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# ensureQuickUploadCanvasRatio (1098-1100, 3 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# fileToCompactJpegDataUrl (1112-1139, 28 行)
+   模块级依赖(0): （无）
+   import 引用(1): imageBitmapFromFile
+
+# formatStorageSize (1148-1159, 12 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# composeQuickLocalEditBlob (1203-1232, 30 行)
+   模块级依赖(3): constrainCropRect, LOCAL_EDIT_OUTPUT_TARGET_BYTES, LOCAL_EDIT_OUTPUT_JPEG_QUALITIES
+   import 引用(6): imageBitmapFromFile, imageBitmapFromBlob, LOCAL_EDIT_MASK_MODE, imageBitmapFromDataUrl, createLocalEditAlphaMask, composeLocalPasteBlob
+
+# shouldNormalizeQuickUploadForModel (1234-1236, 3 行)
+   模块级依赖(0): （无）
+   import 引用(1): isBanana2Model
+
+# compressImageForChannel (1238-1299, 62 行)
+   模块级依赖(3): CHANNEL_UPLOAD_LIMIT_BYTES, CHANNEL_UPLOAD_MAX_SIDE, CHANNEL_UPLOAD_TARGET_BYTES
+   import 引用(3): imageBitmapFromFile, canvasToBlob, fileBaseName
+
+# prepareImageFilesForChannel (1301-1331, 31 行)
+   模块级依赖(2): CHANNEL_UPLOAD_LIMIT_BYTES, compressImageForChannel
+   import 引用(0): （无）
+
+# normalizeGenerationErrorMessage (1342-1352, 11 行)
+   模块级依赖(0): （无）
+   import 引用(2): classifyGenerationError, formatGenerationError
+
+# DetailUploadZone (1354-1426, 73 行)
+   模块级依赖(0): （无）
+   import 引用(0): （无）
+
+# defaultQuickLocalEditCrop (1428-1445, 18 行)
+   模块级依赖(1): constrainCropRect
+   import 引用(1): ratioValue
+
+# cropQuickReferenceViewportFile (1447-1515, 69 行)
+   模块级依赖(2): quickReferenceOriginalFile, CHANNEL_UPLOAD_MAX_SIDE
+   import 引用(3): imageBitmapFromFile, canvasToBlob, fileBaseName
+
+# QuickCropViewportModal (1517-1675, 159 行)
+   模块级依赖(2): quickReferenceOriginalFile, cropQuickReferenceViewportFile
+   import 引用(5): useRef, useState, ratioValue, useEffect, clampCropTransform
+
+=== 模块级依赖关系汇总（谁依赖谁）===
+  HISTORY_FALLBACK_KEY  <- 被 4 个函数依赖: runPublicReleaseStorageReset, loadHistoryResults, saveHistoryResults, removeHistoryResults
+  sanitizeStoredImage  <- 被 4 个函数依赖: sanitizeDetailResultForStorage, loadDetailGroups, saveHistoryResults, removeHistoryResults
+  HISTORY_STORE_NAME  <- 被 4 个函数依赖: openHistoryDb, loadHistoryResults, saveHistoryResults, removeHistoryResults
+  quickReferenceOriginalFile  <- 被 4 个函数依赖: quickReferenceRunUploadFile, referenceMetaFromQuickRunItems, cropQuickReferenceViewportFile, QuickCropViewportModal
+  PROMPT_PRESETS_KEY  <- 被 3 个函数依赖: runPublicReleaseStorageReset, loadPromptCategories, loadPromptPresets
+  detailDefaults  <- 被 3 个函数依赖: normalizeDetailSettings, clampDetailCount, clampDetailModelUsage
+  openHistoryDb  <- 被 3 个函数依赖: loadHistoryResults, saveHistoryResults, removeHistoryResults
+  DEFAULT_ACTIVE_VIEW  <- 被 2 个函数依赖: normalizeActiveView, loadActiveView
+  ACTIVE_VIEW_KEY  <- 被 2 个函数依赖: loadActiveView, runPublicReleaseStorageReset
+  STORAGE_KEY  <- 被 2 个函数依赖: runPublicReleaseStorageReset, loadState
+  PROMPT_CATEGORIES_KEY  <- 被 2 个函数依赖: runPublicReleaseStorageReset, loadPromptCategories
+  DETAIL_PRESETS_KEY  <- 被 2 个函数依赖: runPublicReleaseStorageReset, loadDetailPresets
+  DETAIL_GROUPS_KEY  <- 被 2 个函数依赖: runPublicReleaseStorageReset, loadDetailGroups
+  INFINITE_CANVAS_KEY  <- 被 2 个函数依赖: runPublicReleaseStorageReset, loadInfiniteCanvasState
+  HISTORY_DB_NAME  <- 被 2 个函数依赖: runPublicReleaseStorageReset, openHistoryDb
+  makeResultId  <- 被 2 个函数依赖: createCanvasNode, createInfiniteCanvas
+  defaultState  <- 被 2 个函数依赖: createCanvasNode, loadState
+  createCanvasNode  <- 被 2 个函数依赖: createInfiniteCanvas, normalizeCanvasNode
+  referenceDefaults  <- 被 2 个函数依赖: referenceStrengthText, clampReferenceStrength
+  referenceStrengthText  <- 被 2 个函数依赖: buildReferenceRemixPrompt, buildSmartReferencePrompt
+  referenceControlText  <- 被 2 个函数依赖: buildReferenceRemixPrompt, buildSmartReferencePrompt
+  normalizeDetailSettings  <- 被 2 个函数依赖: loadDetailPresets, loadDetailGroups
+  waitForTransaction  <- 被 2 个函数依赖: saveHistoryResults, removeHistoryResults
+  videoDefaults  <- 被 2 个函数依赖: durationOptionsForVideoModel, normalizeVideoSettingValue
+  quickReferenceUploadFile  <- 被 2 个函数依赖: quickReferenceUploadFiles, quickReferenceRunUploadFile
+  constrainCropRect  <- 被 2 个函数依赖: composeQuickLocalEditBlob, defaultQuickLocalEditCrop
+  CHANNEL_UPLOAD_LIMIT_BYTES  <- 被 2 个函数依赖: compressImageForChannel, prepareImageFilesForChannel
+  CHANNEL_UPLOAD_MAX_SIDE  <- 被 2 个函数依赖: compressImageForChannel, cropQuickReferenceViewportFile
+  ACTIVE_VIEW_IDS  <- 被 1 个函数依赖: normalizeActiveView
+  normalizeActiveView  <- 被 1 个函数依赖: loadActiveView
+  PUBLIC_RELEASE_MODE  <- 被 1 个函数依赖: runPublicReleaseStorageReset
+  PUBLIC_RELEASE_RESET_KEY  <- 被 1 个函数依赖: runPublicReleaseStorageReset
+  deleteIndexedDbSafely  <- 被 1 个函数依赖: runPublicReleaseStorageReset
+  promptCategories  <- 被 1 个函数依赖: loadPromptCategories
+  CANVAS_GENERATOR_WIDTH  <- 被 1 个函数依赖: createCanvasNode
+  CANVAS_GENERATOR_HEIGHT  <- 被 1 个函数依赖: createCanvasNode
+  CANVAS_NODE_WIDTH  <- 被 1 个函数依赖: createCanvasNode
+  CANVAS_NODE_HEIGHT  <- 被 1 个函数依赖: createCanvasNode
+  clampCount  <- 被 1 个函数依赖: createCanvasNode
+  canvasBatchModeOptions  <- 被 1 个函数依赖: createCanvasNode
+  canvasImageRoleOptions  <- 被 1 个函数依赖: createCanvasNode
+  normalizeCanvasNode  <- 被 1 个函数依赖: normalizeInfiniteCanvasState
+  createInfiniteCanvas  <- 被 1 个函数依赖: normalizeInfiniteCanvasState
+  normalizeInfiniteCanvasState  <- 被 1 个函数依赖: loadInfiniteCanvasState
+  LEGACY_STORAGE_KEYS  <- 被 1 个函数依赖: loadState
+  clampDetailCount  <- 被 1 个函数依赖: normalizeDetailSettings
+  clampDetailModelUsage  <- 被 1 个函数依赖: normalizeDetailSettings
+  clampReverseScreens  <- 被 1 个函数依赖: normalizeDetailSettings
+  builtinPrompts  <- 被 1 个函数依赖: loadPromptPresets
+  sanitizeDetailResultForStorage  <- 被 1 个函数依赖: sanitizeDetailGroupsForStorage
+  HISTORY_DB_VERSION  <- 被 1 个函数依赖: openHistoryDb
+  publicReleaseStorageResetPromise  <- 被 1 个函数依赖: loadHistoryResults
+  videoPricePerSecond  <- 被 1 个函数依赖: videoPriceLabel
+  durationOptionsForVideoModel  <- 被 1 个函数依赖: normalizeVideoSettingValue
+  quickReferenceRunUploadFile  <- 被 1 个函数依赖: referenceMetaFromQuickRunItems
+  LOCAL_EDIT_OUTPUT_TARGET_BYTES  <- 被 1 个函数依赖: composeQuickLocalEditBlob
+  LOCAL_EDIT_OUTPUT_JPEG_QUALITIES  <- 被 1 个函数依赖: composeQuickLocalEditBlob
+  CHANNEL_UPLOAD_TARGET_BYTES  <- 被 1 个函数依赖: compressImageForChannel
+  compressImageForChannel  <- 被 1 个函数依赖: prepareImageFilesForChannel
+  cropQuickReferenceViewportFile  <- 被 1 个函数依赖: QuickCropViewportModal
+
+=== App 组件引用的模块级名字（共享常量判定）===
+App 引用的模块级常量(39):
+  ACTIVE_VIEW_KEY, CANVAS_NODE_HEIGHT, CANVAS_NODE_WIDTH, CLIENT_SESSION_ID, COUNT_OPTIONS, DEFAULT_MAX_REFERENCE_FILES, DETAIL_ANALYSIS_MODEL, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, JSON_IMAGE_URLS_MODELS, LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES, MAX_DETAIL_FILES, PROMPT_CATEGORIES_KEY, PROMPT_CATEGORY_DRAG_TYPE, PROMPT_PRESETS_KEY, QUICK_LOCAL_EDIT_RATIOS, QUICK_RESULT_DRAG_TYPE, REFERENCE_STRENGTH_OPTIONS, SHOW_INFINITE_CANVAS, STORAGE_KEY, VIDEO_REFERENCE_MAX_BYTES, VIDEO_STATUS_MAX_POLLS, VIDEO_STATUS_POLL_INTERVAL_MS, canvasBatchModeOptions, canvasImageRoleOptions, copywritingOptions, defaultState, detailDefaults, fontStyleOptions, modelModeOptions, modelPoseOptions, navItems, referenceControlOptions, referenceDefaults, richnessOptions, themeOptions, videoDefaults, workflowOptions
+App 引用的模块级函数(43):
+  buildReferenceRemixPrompt, buildSmartReferencePrompt, clampCount, clampDetailCount, clampDetailModelUsage, clampReferenceStrength, clampReverseScreens, composeQuickLocalEditBlob, createCanvasNode, createInfiniteCanvas, defaultQuickLocalEditCrop, durationOptionsForVideoModel, ensureQuickUploadCanvasRatio, fileToCompactJpegDataUrl, formatStorageSize, hydrateDetailGroupsWithHistory, loadActiveView, loadDetailGroups, loadDetailPresets, loadHistoryResults, loadInfiniteCanvasState, loadPromptCategories, loadPromptPresets, loadState, makeResultId, normalizeDetailSettings, normalizeGenerationErrorMessage, normalizeQuickReferenceItem, normalizeVideoSettingValue, prepareImageFilesForChannel, quickReferenceHasLocalEdit, quickReferenceOriginalFile, quickReferenceRunUploadFile, quickReferenceUploadFile, quickReferenceUploadFiles, referenceMetaFromFiles, referenceMetaFromQuickRunItems, removeHistoryResults, sanitizeDetailGroupsForStorage, saveHistoryResults, shouldNormalizeQuickUploadForModel, videoPriceLabel, videoPromptPlaceholder
+
+=== 共享常量（待搬函数依赖 ∩ App 引用）⇒ 必须下沉 shared 否则环=0 ===
+  clampDetailCount → detailDefaults
+  clampDetailModelUsage → detailDefaults
+  clampReferenceStrength → referenceDefaults
+  createCanvasNode → CANVAS_NODE_HEIGHT
+  createCanvasNode → CANVAS_NODE_WIDTH
+  createCanvasNode → canvasBatchModeOptions
+  createCanvasNode → canvasImageRoleOptions
+  createCanvasNode → defaultState
+  durationOptionsForVideoModel → videoDefaults
+  loadActiveView → ACTIVE_VIEW_KEY
+  loadDetailGroups → DETAIL_GROUPS_KEY
+  loadDetailPresets → DETAIL_PRESETS_KEY
+  loadInfiniteCanvasState → INFINITE_CANVAS_KEY
+  loadPromptCategories → PROMPT_CATEGORIES_KEY
+  loadPromptCategories → PROMPT_PRESETS_KEY
+  loadPromptPresets → PROMPT_PRESETS_KEY
+  loadState → STORAGE_KEY
+  loadState → defaultState
+  normalizeDetailSettings → detailDefaults
+  normalizeVideoSettingValue → videoDefaults
+  referenceStrengthText → referenceDefaults
+  runPublicReleaseStorageReset → ACTIVE_VIEW_KEY
+  runPublicReleaseStorageReset → DETAIL_GROUPS_KEY
+  runPublicReleaseStorageReset → DETAIL_PRESETS_KEY
+  runPublicReleaseStorageReset → INFINITE_CANVAS_KEY
+  runPublicReleaseStorageReset → PROMPT_CATEGORIES_KEY
+  runPublicReleaseStorageReset → PROMPT_PRESETS_KEY
+  runPublicReleaseStorageReset → STORAGE_KEY
+
+=== import 用途分类（仅被待搬函数用 ⇒ main 中变孤儿）===
+待搬函数用到的 import 总数: 25
+  其中"仅被待搬用"（main 中变孤儿，可删）: 0
+    
+  其中"App/留存也用"（留 main，但 landing 文件需复制）: 25
+    LOCAL_EDIT_MASK_MODE, appendHistoryResults, canonicalModel, canvasToBlob, clampCropTransform, classifyGenerationError, composeLocalPasteBlob, createLocalEditAlphaMask, deleteHistoryResults, fileBaseName, formatGenerationError, getHistoryResults, imageBitmapFromBlob, imageBitmapFromDataUrl, imageBitmapFromFile, isBanana2Model, makeQuickReferenceItem, ratioValue, readJsonStorage, removeStorageItem, resolveLocalEditBaseFile, useEffect, useRef, useState, writeJsonStorage
+
+=== 行数口径（measure-top 花括号配平）===
+59 候选总行数: 1134（ticket 口径）| 实测 60 顶层含 App=6080
+已排除（7 个）: 157 行  createCanvasNode, createInfiniteCanvas, normalizeCanvasNode, normalizeInfiniteCanvasState, loadInfiniteCanvasState, loadPromptCategories, loadPromptPresets
+待搬（52 个）函数行数: 977 行
+孤儿 import 可删: 0 行
+回填 forward import ≈ 落点文件数（本设计约 10~12 个文件各 1 行）

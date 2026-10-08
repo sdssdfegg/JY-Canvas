@@ -1,18 +1,19 @@
 {
-  "note": "ESLint 棘轮基线：按「文件|规则」记条数，只用来拦新增问题。刷新方式：npm run lint:baseline",
-  "generatedAt": "2026-09-25",
+  "note": "ESLint 棘轮基线：按「文件|规则」记条数，只用来拦新增问题。刷新方式：npm run lint:baseline。2026-10-05 由统筹划账：RF-080/081/082 搬家，三条 exhaustive-deps 是跟着 useEffect 一起搬走的转移而非新增：resetTransform 搬家前在 main.jsx:752（e69595e^）→ 现 quick-crop-panels.jsx；resetCropTransform 在 outfit-workflow.jsx:3701、videoModels 那段 useEffect 在 outfit-workflow.jsx:4492（均为 e5b0f68^）→ 现 outfit-panels.jsx。该簇总数守恒 main 5→4、outfit-workflow 7→5、新入册 quick-crop-panels 1 + outfit-panels 2，合计恒为 12。同时删掉 rf081-build-doc/rf082-analyze/rf082-extract 三个一次性分析脚本的 7 条 no-unused-vars 死代码。总量 16→16，errors 恒 0，无任何新增债务。",
+  "generatedAt": "2026-10-05",
   "eslintVersion": "9.39.4",
   "totals": {
     "errors": 0,
-    "warnings": 26,
-    "total": 26
+    "warnings": 16,
+    "total": 16
   },
   "counts": {
-    "prompts/server/outfit-skill.js|no-unused-vars": 2,
-    "server/index.js|no-unused-vars": 2,
-    "src/image-editor.jsx|react-hooks/exhaustive-deps": 1,
-    "src/main.jsx|react-hooks/exhaustive-deps": 8,
-    "src/outfit-workflow.jsx|no-unused-vars": 3,
-    "src/outfit-workflow.jsx|react-hooks/exhaustive-deps": 10
+    "server/routes/outfit.routes.js|no-unused-vars": 1,
+    "src/features/crop/quick-crop-panels.jsx|react-hooks/exhaustive-deps": 1,
+    "src/features/local-edit/LocalEditModal.jsx|react-hooks/exhaustive-deps": 2,
+    "src/features/outfit/outfit-panels.jsx|react-hooks/exhaustive-deps": 2,
+    "src/main.jsx|react-hooks/exhaustive-deps": 4,
+    "src/outfit-workflow.jsx|react-hooks/exhaustive-deps": 5,
+    "src/shared/ui/cached-image.jsx|react-hooks/exhaustive-deps": 1
   }
 }
