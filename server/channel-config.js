@@ -70,6 +70,10 @@ const ROUTING_CHANNELS = Object.freeze([
   { id: "silent-tt2-line-01", label: "MC-TT-cf", price: 0.11, model: "tt-image-2" },
   { id: "silent-tt2-line-02", label: "XT2", price: 0.11, model: "tt-image-2" },
   { id: "silent-tt2-line-09", label: "速创", price: 0.11, model: "tt-image-2" },
+  // 2026-10-09：2.0 模型新增 Subdirect 渠道（上游复用 subdirect.aicodexvip.top，
+  // 上游模型 gpt-image-2）。与 2.5 的 silent-tt25-line-07 同源，作为 2.5 挂掉时的替代线；
+  // 价格 0.11 = cost 0.05 + markup 0.06，与 MC-TT-cf / XT2 / 速创口径一致。
+  { id: "silent-tt2-line-13", label: "Subdirect", price: 0.11, model: "tt-image-2" },
   { id: "silent-tt25-line-06", label: "Origin", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-01", label: "XT-image2-s", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-02", label: "XT-特殊分组", price: 0.10, model: "tt-image-2.5" },

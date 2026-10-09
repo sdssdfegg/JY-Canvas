@@ -247,7 +247,9 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     { id: "silent-tt2-line-12", label: "laoye", price: 0.1 },
     { id: "silent-tt2-line-01", label: "MC-TT-cf", price: 0.11 },
     { id: "silent-tt2-line-02", label: "XT2", price: 0.11 },
-    { id: "silent-tt2-line-09", label: "速创", price: 0.11 }
+    { id: "silent-tt2-line-09", label: "速创", price: 0.11 },
+    // 2026-10-09：2.0 模型新增 Subdirect 渠道（与 server/channel-config.js 的 ROUTING_CHANNELS 保持一致）。
+    { id: "silent-tt2-line-13", label: "Subdirect", price: 0.11 }
   ]),
   "tt-image-2.5": Object.freeze([
     { id: "silent-tt25-line-06", label: "Origin", price: 0.1 },
