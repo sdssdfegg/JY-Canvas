@@ -56,10 +56,8 @@ export const HIDDEN_CHANNEL_IDS = Object.freeze([
   "silent-tt2-line-05",
   "silent-tt2-line-06",
   "silent-tt2-line-07",
-  // 2026-09-26（按用户要求）：香蕉 2 的「云枢」只在前端隐藏，中转站线路照旧 ACTIVE，
-  // 服务端目录与服务端校验也照旧认（isForbiddenChannelId 为 false）。
-  // 隐藏后香蕉 2 前端只剩 Subdirect → Origin 两条。
-  "silent-banana-line-07"
+  // 2026-10-10（按用户要求）：香蕉 2 的「云枢」取消前端隐藏，与 PRO 云枢一起在前端显示。
+  // 中转站线路本就 ACTIVE（publicId silent-banana-line-07，上游 yunshuaiapi.com / Gemini 分组）。
 ]);
 
 const HIDDEN_CHANNEL_ID_SET = new Set(
@@ -71,9 +69,8 @@ export function isHiddenChannelId(value) {
 }
 
 // 香蕉 2 白名单三条：Subdirect → 云枢 → Origin，统一 ¥0.12/张。
-// 其中「云枢」（silent-banana-line-07）在 HIDDEN_CHANNEL_IDS 里，**只在前端隐藏**，
-// 所以前端菜单实际显示 Subdirect → Origin 两条；服务端目录与服务端校验照旧认三条。
-// 香蕉 Pro 只允许这两条线路（Subdirect / Origin）。
+// 「云枢」（silent-banana-line-07）2026-10-10 已取消前端隐藏，前端菜单显示三条。
+// 香蕉 Pro 白名单三条：Subdirect → 云枢 → Origin（2026-10-10 补齐 云枢）。
 export const MODEL_CHANNEL_ALLOWLIST = Object.freeze({
   "banana-2": Object.freeze([
     { id: "silent-banana-line-08", label: "Subdirect", price: 0.12 },
@@ -84,6 +81,9 @@ export const MODEL_CHANNEL_ALLOWLIST = Object.freeze({
   ]),
   "nano-banana-pro": Object.freeze([
     { id: "silent-pro-line-10", label: "Subdirect", price: 0.14 },
+    // 2026-10-10 补齐 PRO 云枢（上游复用 yunshuaiapi.com 的 Gemini 分组，上游模型 nano-banana-pro；
+    // 同一 apiKeyEnv LK888_SILENT_YUNSHUAI_GEMINI_API_KEY 与香蕉 2 云枢同源，价格 0.14 = cost 0.14 + markup 0）。
+    { id: "silent-pro-line-01", label: "云枢", price: 0.14 },
     { id: "silent-pro-line-09", label: "Origin", price: 0.16 }
   ])
 });

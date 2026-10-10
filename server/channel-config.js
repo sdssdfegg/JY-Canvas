@@ -92,8 +92,10 @@ const ROUTING_CHANNELS = Object.freeze([
   { id: "silent-banana-line-08", label: "Subdirect", price: 0.12, model: "banana-2" },
   { id: "silent-banana-line-07", label: "云枢", price: 0.12, model: "banana-2" },
   { id: "silent-banana-line-09", label: "Origin", price: 0.12, model: "banana-2" },
-  // 香蕉 Pro：仅展示用户指定的两条线路。
+  // 香蕉 Pro：仅展示用户指定的三条线路（Subdirect / 云枢 / Origin）；
+  // 云枢（silent-pro-line-01）上游复用 yunshuaiapi.com 的 Gemini 分组，价格 0.14 = cost 0.14 + markup 0。
   { id: "silent-pro-line-10", label: "Subdirect", price: 0.14, model: "nano-banana-pro" },
+  { id: "silent-pro-line-01", label: "云枢", price: 0.14, model: "nano-banana-pro" },
   { id: "silent-pro-line-09", label: "Origin", price: 0.16, model: "nano-banana-pro" }
 ]);
 
