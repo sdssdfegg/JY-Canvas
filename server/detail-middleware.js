@@ -14,6 +14,21 @@ import { asText, clamp } from "./core/ai-chat-shared.js";
 
 const DEFAULT_COUNT = BASE_SKILL.screenCountRule.defaultCount;
 
+// busboy 1.6.0 解析 multipart 的 filename 时，会把 UTF-8 中文名按 latin1 误解码成
+// 类似「ç¾½ç»æ...」的乱码（每个中文字节被当成一个 latin1 字符）。这里做一次安全回解码：
+// 仅当字符串里含有 latin1 高位字节字符（U+0080–U+00FF，正是 mojibake 的特征区间）且按
+// latin1→utf8 重解码后得到不含替换符的合法 UTF-8 时，才采用重解码结果；原本就是正确 UTF-8
+// （汉字在 U+4E00+ 区间，不命中本正则）或纯 ASCII 的文件名一律原样返回，避免二次破坏。
+function fixMojibakeName(name) {
+  if (typeof name !== "string" || name.length === 0) return name;
+  if (!/[\u0080-\u00FF]/.test(name)) return name;
+  const attempt = Buffer.from(name, "latin1").toString("utf8");
+  if (attempt.length > 0 && attempt !== name && !attempt.includes("�")) {
+    return attempt;
+  }
+  return name;
+}
+
 function parseList(value) {
   return String(value || "")
     .split(/\r?\n|[，,；;]/)
@@ -47,7 +62,7 @@ function assetsFromInput(inputImages, files, role) {
     return {
       index,
       role,
-      name: file.originalname || `${role}-${index + 1}`,
+      name: fixMojibakeName(file.originalname || `${role}-${index + 1}`),
       size: file.size,
       type: file.mimetype || "",
       width: dims?.width || null,
@@ -59,7 +74,7 @@ function assetsFromInput(inputImages, files, role) {
   return (Array.isArray(inputImages) ? inputImages : []).map((item, index) => ({
     index,
     role,
-    name: String(item?.name || `${role}-${index + 1}`),
+    name: fixMojibakeName(String(item?.name || `${role}-${index + 1}`)),
     size: Number(item?.size || 0),
     type: String(item?.type || ""),
     width: null,
