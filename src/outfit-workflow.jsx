@@ -1265,10 +1265,20 @@ export default function OutfitWorkflow({
     });
   }
 
+  // 中文注释：更换部位互斥规则——连衣裙是一件式，和分体（上装/下装）不能同时选。
+  // 选「连衣裙」时清掉上装/下装；选「上装」或「下装」时清掉连衣裙。鞋子独立，不受互斥影响。
   function toggleOutfitPart(part) {
-    const nextParts = outfitIntent.parts.includes(part)
-      ? outfitIntent.parts.filter((item) => item !== part)
-      : [...outfitIntent.parts, part];
+    const isAdding = !outfitIntent.parts.includes(part);
+    let nextParts;
+    if (!isAdding) {
+      nextParts = outfitIntent.parts.filter((item) => item !== part);
+    } else if (part === "dress") {
+      nextParts = [...outfitIntent.parts.filter((item) => item !== "upper" && item !== "lower"), "dress"];
+    } else if (part === "upper" || part === "lower") {
+      nextParts = [...outfitIntent.parts.filter((item) => item !== "dress"), part];
+    } else {
+      nextParts = [...outfitIntent.parts, part];
+    }
     patchOutfitIntent({ parts: nextParts });
     if (nextParts.length === 0) addEvent("换装设置", "请至少选择一个更换部位");
   }

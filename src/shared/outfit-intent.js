@@ -459,7 +459,7 @@ export function outfitWearingText(intent) {
       .filter(Boolean);
     return lines.length ? `${lines.join("；")}。` : "";
   }
-  return "穿法跟随图2，不自行改变扣合、衣摆、袖子和领口状态。";
+  return "穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。";
 }
 
 /** 【图2服装事实】：只保留本次选中部位相关的事实，且去掉已被自定义穿法覆盖的字段。 */
