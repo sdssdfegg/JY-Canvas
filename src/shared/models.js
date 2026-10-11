@@ -1,7 +1,7 @@
 // 目录未加载完成 / 接口不可用时的本地兜底模型表。
 // 真实能力以 `/api/config` 的 routing catalog capabilities 为准
 // （见 src/shared/routing.js 的 modelCapabilities）。
-// 顺序与 server/channel-config.js 的 ROUTING_MODELS 一致：2.0 → 2.5 → 香蕉 2 → 香蕉 Pro。
+// 顺序与 server/channel-config.js 的 ROUTING_MODELS 一致：2.0 → 2.5 → 香蕉 2 → 香蕉 2.1 → 香蕉 Pro。
 // 注意：这里只用于"目录还没回来"和局部回贴弹窗的静态列表；正常运行时模型顺序以
 // `/api/config` 返回的目录为准（那份顺序才是用户看到的顺序）。
 export const DEFAULT_MODELS = [
@@ -28,6 +28,16 @@ export const DEFAULT_MODELS = [
   {
     value: "banana-2",
     label: "纳米香蕉 2",
+    ratios: ["1:1", "2:3", "3:4", "4:3", "16:9", "9:16"],
+    sizes: ["1K", "2K"],
+    quality: ["auto", "low", "medium", "high"],
+    maxInputImages: 14,
+    maxPromptLength: 20000,
+    maxImageBytes: 16 * 1024 * 1024
+  },
+  {
+    value: "banana-2.1",
+    label: "纳米香蕉2.1",
     ratios: ["1:1", "2:3", "3:4", "4:3", "16:9", "9:16"],
     sizes: ["1K", "2K"],
     quality: ["auto", "low", "medium", "high"],

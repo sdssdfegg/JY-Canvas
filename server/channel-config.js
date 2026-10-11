@@ -141,21 +141,23 @@ export const ROUTING_MODELS = Object.freeze([
     maxPromptLength: DEFAULT_MAX_PROMPT_LENGTH,
     maxImageBytes: DEFAULT_MAX_IMAGE_BYTES
   },
+  // 2026-10-11：纳米香蕉2.1 移到第 4 位（紧跟「纳米香蕉 2」，在「纳米香蕉 Pro」之前）。
+  // 数组顺序 = 前端模型下拉顺序（publicChannelModels 直接透传），不要随意重排。
   {
-    value: "nano-banana-pro",
-    label: "纳米香蕉 Pro",
-    ratios: ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"],
-    sizes: ["1K", "2K", "4K"],
+    value: "banana-2.1",
+    label: "纳米香蕉2.1",
+    ratios: ["1:1", "2:3", "3:4", "4:3", "16:9", "9:16"],
+    sizes: ["1K", "2K"],
     maxInputImages: 14,
     quality: ["auto", "low", "medium", "high"],
     maxPromptLength: DEFAULT_MAX_PROMPT_LENGTH,
     maxImageBytes: DEFAULT_MAX_IMAGE_BYTES
   },
   {
-    value: "banana-2.1",
-    label: "纳米香蕉2.1",
-    ratios: ["1:1", "2:3", "3:4", "4:3", "16:9", "9:16"],
-    sizes: ["1K", "2K"],
+    value: "nano-banana-pro",
+    label: "纳米香蕉 Pro",
+    ratios: ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"],
+    sizes: ["1K", "2K", "4K"],
     maxInputImages: 14,
     quality: ["auto", "low", "medium", "high"],
     maxPromptLength: DEFAULT_MAX_PROMPT_LENGTH,
