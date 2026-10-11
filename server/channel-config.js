@@ -76,19 +76,19 @@ const ROUTING_CHANNELS = Object.freeze([
   // 上游模型 gpt-image-2）。与 2.5 的 silent-tt25-line-07 同源，作为 2.5 挂掉时的替代线；
   // 价格 0.11 = cost 0.05 + markup 0.06，与 MC-TT-cf / XT2 / 速创口径一致。
   { id: "silent-tt2-line-13", label: "Subdirect", price: 0.11, model: "tt-image-2" },
+  // 2026-10-11（晚）：TT2.5 下拉顺序 = 云枢第一（默认线路），其余按价格低→高，云枢高质量（最贵 ¥0.14）排最后。
+  { id: "silent-tt25-line-05", label: "云枢", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-08", label: "vakv", price: 0.1, model: "tt-image-2.5" },
   { id: "silent-tt25-line-06", label: "Origin", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-01", label: "XT-image2-s", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-02", label: "XT-特殊分组", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-03", label: "XT-default", price: 0.10, model: "tt-image-2.5" },
-  { id: "silent-tt25-line-05", label: "云枢", price: 0.10, model: "tt-image-2.5" },
-  // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14。
-  { id: "silent-tt25-line-09", label: "云枢高质量", price: 0.14, model: "tt-image-2.5" },
-  { id: "silent-tt25-line-04", label: "BR-default特价", price: 0.12, model: "tt-image-2.5" },
   // 2026-09-28：新增 Subdirect（上游 subdirect.aicodexvip.top，OpenAI-images 协议，
-  // 上游模型 gpt-image-2.5-flare / gpt-image-2.5-sunburst）。追加在末尾，
-  // 不改动既有排序与默认线路（默认线路仍是第一条 Origin）。
+  // 上游模型 gpt-image-2.5-flare / gpt-image-2.5-sunburst）。价格 ¥0.11。
   { id: "silent-tt25-line-07", label: "Subdirect", price: 0.11, model: "tt-image-2.5" },
+  { id: "silent-tt25-line-04", label: "BR-default特价", price: 0.12, model: "tt-image-2.5" },
+  // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，按价格排最后。
+  { id: "silent-tt25-line-09", label: "云枢高质量", price: 0.14, model: "tt-image-2.5" },
   // 香蕉 2：仅展示用户指定的三条线路，顺序固定 云枢 → Subdirect → Origin，三条统一 ¥0.12/张。
   // 2026-10-11：应要求把「云枢」排到第一位（默认线路）。
   // 数组顺序就是前端菜单顺序（channelsForModel 按白名单顺序输出），不要重排。
@@ -100,6 +100,9 @@ const ROUTING_CHANNELS = Object.freeze([
   { id: "silent-banana-line-09", label: "Origin", price: 0.12, model: "banana-2" },
   // 香蕉 2.1：云枢渠道（yunshuaiapi.com，Gemini 分组），价格 ¥0.12。
   { id: "silent-banana21-line-01", label: "云枢", price: 0.12, model: "banana-2.1" },
+  // 2026-10-11：新增 Subdirect 备用渠道（subboost.aicodexvip.top，Gemini 分组），价格 ¥0.12；
+  // 与 src/shared/routing.js 的 MODEL_CHANNEL_ALLOWLIST["banana-2.1"] 及适配器 silent-subboost-banana21 对齐。
+  { id: "silent-banana21-line-02", label: "Subdirect", price: 0.12, model: "banana-2.1" },
   // 香蕉 Pro：仅展示用户指定的三条线路（Subdirect / 云枢 / Origin）；
   // 云枢（silent-pro-line-01）上游复用 yunshuaiapi.com 的 Gemini 分组，价格 0.14 = cost 0.14 + markup 0。
   { id: "silent-pro-line-01", label: "云枢", price: 0.14, model: "nano-banana-pro" },
