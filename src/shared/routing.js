@@ -20,7 +20,9 @@ export const LEGACY_MODEL_ALIASES = Object.freeze({
   "gpt-image-2": "tt-image-2",
   "tt-image-2": "tt-image-2",
   "tt-image-2.5": "tt-image-2.5",
-  "tt-image-2-5": "tt-image-2.5"
+  "tt-image-2-5": "tt-image-2.5",
+  "banana-2.1": "banana-2.1",
+  "nano-banana-2.1": "banana-2.1"
 });
 
 // 已下线旧线路：前端目录、服务端目录、服务端校验三处都必须拒绝。
@@ -85,6 +87,9 @@ export const MODEL_CHANNEL_ALLOWLIST = Object.freeze({
     // 2026-10-10 补齐 PRO 云枢（上游复用 yunshuaiapi.com 的 Gemini 分组，上游模型 nano-banana-pro；
     // 同一 apiKeyEnv LK888_SILENT_YUNSHUAI_GEMINI_API_KEY 与香蕉 2 云枢同源，价格 0.14 = cost 0.14 + markup 0）。
     { id: "silent-pro-line-09", label: "Origin", price: 0.16 }
+  ]),
+  "banana-2.1": Object.freeze([
+    { id: "silent-banana21-line-01", label: "云枢", price: 0.12 }
   ])
 });
 
@@ -130,6 +135,17 @@ export const FALLBACK_MODEL_CAPABILITIES = Object.freeze({
     maxPromptLength: 20000,
     ratios: ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"],
     sizes: ["1K", "2K", "4K"],
+    quality: ["auto", "low", "medium", "high"],
+    backgrounds: [],
+    versions: [],
+    customSize: false
+  }),
+  "banana-2.1": Object.freeze({
+    maxInputImages: 14,
+    maxImageBytes: 16 * 1024 * 1024,
+    maxPromptLength: 20000,
+    ratios: ["1:1", "2:3", "3:4", "4:3", "16:9", "9:16"],
+    sizes: ["1K", "2K"],
     quality: ["auto", "low", "medium", "high"],
     backgrounds: [],
     versions: [],
@@ -236,16 +252,16 @@ function normalizeChannelRow(channel, model, priceOverride) {
 // 与 server/channel-config.js 的 ROUTING_CHANNELS 保持一致，且不含任何已下线线路。
 // 目录一旦加载完成，一律以目录为准。
 export const FALLBACK_MODEL_CHANNELS = Object.freeze({
-  // vakv 排第一，与 server/channel-config.js 的 ROUTING_CHANNELS 顺序一致（2026-10-11 新增）。
+  // laoye 第一 / 云枢 第二 / vakv 第三（2026-10-11 调整，vakv 价格 ¥0.099→¥0.10），与 server/channel-config.js 顺序一致。
   "tt-image-2": Object.freeze([
-    { id: "silent-tt2-line-14", label: "vakv", price: 0.099 },
-    { id: "silent-tt2-line-11", label: "Origin", price: 0.1 },
+    { id: "silent-tt2-line-12", label: "laoye", price: 0.1 },
     { id: "silent-tt2-line-10", label: "云枢", price: 0.1 },
+    { id: "silent-tt2-line-14", label: "vakv", price: 0.1 },
+    { id: "silent-tt2-line-11", label: "Origin", price: 0.1 },
     { id: "silent-tt2-line-03", label: "XT-default", price: 0.1 },
     { id: "silent-tt2-line-05", label: "ZYG-default", price: 0.1 },
     { id: "silent-tt2-line-06", label: "ZYG-svip", price: 0.1 },
     { id: "silent-tt2-line-07", label: "ZYG-vip", price: 0.1 },
-    { id: "silent-tt2-line-12", label: "laoye", price: 0.1 },
     { id: "silent-tt2-line-01", label: "MC-TT-cf", price: 0.11 },
     { id: "silent-tt2-line-02", label: "XT2", price: 0.11 },
     { id: "silent-tt2-line-09", label: "速创", price: 0.11 },
@@ -253,12 +269,13 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     { id: "silent-tt2-line-13", label: "Subdirect", price: 0.11 }
   ]),
   "tt-image-2.5": Object.freeze([
-    { id: "silent-tt25-line-08", label: "vakv", price: 0.099 },
+    { id: "silent-tt25-line-08", label: "vakv", price: 0.1 },
     { id: "silent-tt25-line-06", label: "Origin", price: 0.1 },
     { id: "silent-tt25-line-01", label: "XT-image2-s", price: 0.1 },
     { id: "silent-tt25-line-02", label: "XT-特殊分组", price: 0.1 },
     { id: "silent-tt25-line-03", label: "XT-default", price: 0.1 },
     { id: "silent-tt25-line-05", label: "云枢", price: 0.1 },
+    { id: "silent-tt25-line-09", label: "云枢高质量", price: 0.14 },
     { id: "silent-tt25-line-04", label: "BR-default特价", price: 0.12 },
     // 2026-09-28：新增 Subdirect（上游 subdirect.aicodexvip.top，OpenAI-images 协议，
     // 上游模型 gpt-image-2.5-flare / gpt-image-2.5-sunburst）。追加在末尾，
@@ -267,7 +284,8 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
   ]),
   // 香蕉 2 / 香蕉 Pro 用白名单本身兜底，不在这里重复维护。
   "banana-2": MODEL_CHANNEL_ALLOWLIST["banana-2"],
-  "nano-banana-pro": MODEL_CHANNEL_ALLOWLIST["nano-banana-pro"]
+  "nano-banana-pro": MODEL_CHANNEL_ALLOWLIST["nano-banana-pro"],
+  "banana-2.1": MODEL_CHANNEL_ALLOWLIST["banana-2.1"]
 });
 
 /**
