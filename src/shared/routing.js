@@ -73,17 +73,17 @@ export function isHiddenChannelId(value) {
 // 香蕉 Pro 白名单三条：Subdirect → 云枢 → Origin（2026-10-10 补齐 云枢）。
 export const MODEL_CHANNEL_ALLOWLIST = Object.freeze({
   "banana-2": Object.freeze([
-    { id: "silent-banana-line-08", label: "Subdirect", price: 0.12 },
     { id: "silent-banana-line-07", label: "云枢", price: 0.12 },
+    { id: "silent-banana-line-08", label: "Subdirect", price: 0.12 },
     // Origin 香蕉 2 的独立 channelId（不复用 Pro 的 silent-pro-line-09）。
     // 全仓库只允许 banana-2 使用它；其它模型带上它一律 channel_model_mismatch。
     { id: "silent-banana-line-09", label: "Origin", price: 0.12 }
   ]),
   "nano-banana-pro": Object.freeze([
+    { id: "silent-pro-line-01", label: "云枢", price: 0.14 },
     { id: "silent-pro-line-10", label: "Subdirect", price: 0.14 },
     // 2026-10-10 补齐 PRO 云枢（上游复用 yunshuaiapi.com 的 Gemini 分组，上游模型 nano-banana-pro；
     // 同一 apiKeyEnv LK888_SILENT_YUNSHUAI_GEMINI_API_KEY 与香蕉 2 云枢同源，价格 0.14 = cost 0.14 + markup 0）。
-    { id: "silent-pro-line-01", label: "云枢", price: 0.14 },
     { id: "silent-pro-line-09", label: "Origin", price: 0.16 }
   ])
 });
@@ -236,8 +236,9 @@ function normalizeChannelRow(channel, model, priceOverride) {
 // 与 server/channel-config.js 的 ROUTING_CHANNELS 保持一致，且不含任何已下线线路。
 // 目录一旦加载完成，一律以目录为准。
 export const FALLBACK_MODEL_CHANNELS = Object.freeze({
-  // Origin 排第一，与 server/channel-config.js 的 ROUTING_CHANNELS 顺序一致。
+  // vakv 排第一，与 server/channel-config.js 的 ROUTING_CHANNELS 顺序一致（2026-10-11 新增）。
   "tt-image-2": Object.freeze([
+    { id: "silent-tt2-line-14", label: "vakv", price: 0.099 },
     { id: "silent-tt2-line-11", label: "Origin", price: 0.1 },
     { id: "silent-tt2-line-10", label: "云枢", price: 0.1 },
     { id: "silent-tt2-line-03", label: "XT-default", price: 0.1 },
@@ -252,6 +253,7 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     { id: "silent-tt2-line-13", label: "Subdirect", price: 0.11 }
   ]),
   "tt-image-2.5": Object.freeze([
+    { id: "silent-tt25-line-08", label: "vakv", price: 0.099 },
     { id: "silent-tt25-line-06", label: "Origin", price: 0.1 },
     { id: "silent-tt25-line-01", label: "XT-image2-s", price: 0.1 },
     { id: "silent-tt25-line-02", label: "XT-特殊分组", price: 0.1 },
