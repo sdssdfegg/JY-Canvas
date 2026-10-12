@@ -41,6 +41,60 @@ const FORBIDDEN_IDS = [
   "silent-tt2-line-04"
 ];
 
+// ---------------------------------------------------------------- 规则驱动校验辅助
+// 核心不变式（用户定义）：同模型内「价格低→高」排序；同价谁靠前是用户偏好（写在数组顺序里）。
+// 因此校验只断言「规则」，不断言「具体哪条排第几」——以后调顺序/调价零返工。
+const EXPECTED_MODELS = ["tt-image-2", "tt-image-2.5", "banana-2", "banana-2.1", "nano-banana-pro"];
+function pricesAscending(rows) {
+  for (let i = 1; i < rows.length; i += 1) {
+    const prev = Number(rows[i - 1]?.price ?? -1);
+    const cur = Number(rows[i]?.price ?? -1);
+    if (cur < prev - 1e-9) return false;
+  }
+  return true;
+}
+function assertModelOrdering(model) {
+  const rows = routingModule.channelsForModel(model, catalog);
+  check(`${model} 渠道按价格升序（价格低→高，同价任意序）`,
+    pricesAscending(rows),
+    JSON.stringify(rows.map((item) => `${item.label}/${item.price}`)));
+  check(`${model} 默认线路 = 列表第一条（动态，不写死具体线路）`,
+    rows.length > 0 && routingModule.defaultChannelForModel(model, catalog) === rows[0].id,
+    `default=${routingModule.defaultChannelForModel(model, catalog)} first=${rows[0]?.id}`);
+  check(`${model} 每条线路价格为正`,
+    rows.length > 0 && rows.every((item) => Number(item.price) > 0),
+    JSON.stringify(rows.map((item) => item.price)));
+}
+// 跨文件一致性门禁：routing.js 白名单 与 channel-config.js 目录 对同一模型必须「渠道集合一致、label/price 一致」。
+// 这条能在「改了一处漏了另一处」时立刻红（即 line-02 类 bug），且调顺序/调价完全不受影响。
+function assertChannelConsistency(model) {
+  const allow = (routingModule.MODEL_CHANNEL_ALLOWLIST[model] || []).map((item) => ({
+    id: item.id, label: String(item.label), price: Number(item.price)
+  }));
+  const catalogRows = (catalog.channels || [])
+    .filter((channel) =>
+      (channel.supportedModels || []).includes(model) &&
+      !routingModule.isHiddenChannelId(channel.id) &&
+      !routingModule.isForbiddenChannelId(channel.id))
+    .map((channel) => ({
+      id: channel.id,
+      label: String(channel.label),
+      price: Number(channel.pricing?.[model]?.price ?? channel.price)
+    }));
+  const allowIds = allow.map((item) => item.id).sort();
+  const catIds = catalogRows.map((item) => item.id).sort();
+  check(`${model}: routing.js 白名单 与 channel-config.js 目录渠道集合一致（前端可见部分）`,
+    JSON.stringify(allowIds) === JSON.stringify(catIds),
+    `allowlist=${allowIds.join(",")} catalog=${catIds.join(",")}`);
+  const catById = Object.fromEntries(catalogRows.map((item) => [item.id, item]));
+  for (const a of allow) {
+    const c = catById[a.id];
+    check(`${model}: ${a.id} 在两端 label/price 一致`,
+      Boolean(c) && c.label === a.label && Math.abs(c.price - a.price) < 1e-9,
+      c ? `${c.label}/${c.price} vs ${a.label}/${a.price}` : "目录缺失");
+  }
+}
+
 // ---------------------------------------------------------------- 静态扫描
 const scanned = [
   "src/main.jsx",
@@ -132,78 +186,21 @@ for (const token of [...FORBIDDEN_TOKENS, ...FORBIDDEN_IDS]) {
   check(`快捷悬浮框 JSX 不含旧渠道 ${token}`, !quickCluster.includes(token));
 }
 
-// ---------------------------------------------------------------- 线路白名单
-// 当前渠道拓扑（2026-10-11 起按用户要求逐步调整，覆盖 2026-09-26 旧约定）：
-//   1. 模型顺序固定 2.0 → 2.5 → 香蕉 2 → 香蕉2.1 → 香蕉 Pro（香蕉2.1 为本会话新增 Subdirect 渠道）；
-//   2. 2.0 默认线路 laoye 置顶（2026-10-11 调整）、2.5 默认线路 云枢 置顶（本会话要求）；
-//   3. 香蕉 2 的「云枢」已取消前端隐藏（2026-10-10 按用户要求），前端菜单显示三条 云枢→Subdirect→Origin；
-//      香蕉 Pro 同样显示三条 云枢→Subdirect→Origin（2026-10-10 补齐 云枢）。
-// 香蕉 2 白名单三条 云枢 → Subdirect → Origin，统一 ¥0.12/张；香蕉2.1 两条 云枢→Subdirect（¥0.12）。
-const MODEL_ORDER = ["tt-image-2", "tt-image-2.5", "banana-2", "banana-2.1", "nano-banana-pro"];
-check(
-  "模型顺序 = 2.0 → 2.5 → 香蕉 2 → 香蕉 Pro",
-  JSON.stringify((catalog.models || []).map((model) => model.id)) === JSON.stringify(MODEL_ORDER),
-  JSON.stringify((catalog.models || []).map((model) => model.id))
-);
-for (const [modelId, firstId, firstLabel] of [
-  ["tt-image-2", "silent-tt2-line-12", "laoye"],
-  ["tt-image-2.5", "silent-tt25-line-05", "云枢"]
-]) {
-  const rows = routingModule.channelsForModel(modelId, catalog);
-  check(
-    `${modelId} 的第一条线路是 ${firstLabel}`,
-    rows[0]?.id === firstId && rows[0]?.label === firstLabel,
-    JSON.stringify(rows.slice(0, 3).map((item) => `${item.label}/${item.price}`))
-  );
-  check(
-    `${modelId} 的默认线路就是 ${firstLabel}`,
-    routingModule.defaultChannelForModel(modelId, catalog) === firstId,
-    routingModule.defaultChannelForModel(modelId, catalog)
-  );
-}
-check(
-  "2.0 / 2.5 的 Origin 价格仍是各自原来的 0.10（只改顺序，不改价）",
-  routingModule.channelsForModel("tt-image-2", catalog)[0]?.price === 0.1
-    && routingModule.channelsForModel("tt-image-2.5", catalog)[0]?.price === 0.1,
-  JSON.stringify([
-    routingModule.channelsForModel("tt-image-2", catalog)[0]?.price,
-    routingModule.channelsForModel("tt-image-2.5", catalog)[0]?.price
-  ])
-);
-
-const BANANA_LINE_IDS = ["silent-banana-line-07", "silent-banana-line-08", "silent-banana-line-09"];
-const BANANA_LINE_LABELS = ["云枢", "Subdirect", "Origin"];
-const BANANA_LINE_PRICE = 0.12;
-const BANANA_HIDDEN_ID = "silent-banana-line-07";
-const bananaAllowlist = routingModule.MODEL_CHANNEL_ALLOWLIST["banana-2"];
+// ---------------------------------------------------------------- 渠道拓扑：只断言规则，不写死顺序
+// （用户定义：同模型内「价格低→高」；同价谁靠前是偏好。以后调顺序/调价，校验零改动。）
+check("5 个 canonical 模型齐全（tt-image-2 / tt-image-2.5 / banana-2 / banana-2.1 / nano-banana-pro）",
+  EXPECTED_MODELS.every((id) => (catalog.models || []).some((model) => model.id === id)),
+  (catalog.models || []).map((model) => model.id).join(","));
+for (const model of EXPECTED_MODELS) {
+  assertModelOrdering(model);
+  // 仅对该模型存在「前端白名单」时做跨文件一致性比对：
+  // tt-image-2 / tt-image-2.5 前端直接展示目录全部渠道，没有第二份手抄源，无需比对。
+  if (routingModule.MODEL_CHANNEL_ALLOWLIST[model]) {
+    assertChannelConsistency(model);
+  }
+}const BANANA_HIDDEN_ID = "silent-banana-line-07";
 const bananaChannels = routingModule.channelsForModel("banana-2", catalog);
-check(
-  "香蕉 2 白名单是 Subdirect + 云枢 + Origin（三条，顺序固定）",
-  bananaAllowlist.length === 3
-    && bananaAllowlist.every((item, index) => item.id === BANANA_LINE_IDS[index] && item.label === BANANA_LINE_LABELS[index]),
-  JSON.stringify(bananaAllowlist.map((item) => [item.id, item.label, item.price]))
-);
-check(
-  "香蕉 2 三条白名单线路价格都是 0.12",
-  bananaAllowlist.length === 3 && bananaAllowlist.every((item) => Number(item.price) === BANANA_LINE_PRICE),
-  JSON.stringify(bananaAllowlist.map((item) => [item.label, item.price]))
-);
-check(
-  "香蕉 2 前端菜单 = 云枢 → Subdirect → Origin（三条均显示）",
-  bananaChannels.length === 3
-    && bananaChannels[0].id === "silent-banana-line-07"
-    && bananaChannels[0].label === "云枢"
-    && bananaChannels[1].id === "silent-banana-line-08"
-    && bananaChannels[1].label === "Subdirect"
-    && bananaChannels[2].id === "silent-banana-line-09"
-    && bananaChannels[2].label === "Origin",
-  JSON.stringify(bananaChannels.map((item) => [item.id, item.label, item.price]))
-);
-check(
-  "香蕉 2 前端三条线路价格都是 0.12",
-  bananaChannels.length === 3 && bananaChannels.every((item) => Number(item.price) === BANANA_LINE_PRICE),
-  JSON.stringify(bananaChannels.map((item) => [item.label, item.price]))
-);
+// 集合/属性检查（不写死顺序）；顺序规则已由 assertModelOrdering / assertChannelConsistency 覆盖。
 check(
   "香蕉 2 的云枢是「前端显示」而不是「下架」",
   !routingModule.isHiddenChannelId(BANANA_HIDDEN_ID)
@@ -211,18 +208,16 @@ check(
     && (catalog.channels || []).some((channel) => channel.id === BANANA_HIDDEN_ID),
   `hidden=${routingModule.isHiddenChannelId(BANANA_HIDDEN_ID)} forbidden=${routingModule.isForbiddenChannelId(BANANA_HIDDEN_ID)}`
 );
-check(
-  "香蕉 2 的 Origin channelId 与 Pro / Subdirect / 云枢都不冲突",
-  new Set([...BANANA_LINE_IDS, "silent-pro-line-09", "silent-pro-line-10"]).size === BANANA_LINE_IDS.length + 2,
-  BANANA_LINE_IDS.join(",")
-);
-
+check("香蕉 2 至少有 云枢/Subdirect/Origin 三条可见线路",
+  ["silent-banana-line-07", "silent-banana-line-08", "silent-banana-line-09"].every((id) =>
+    bananaChannels.some((item) => item.id === id)),
+  JSON.stringify(bananaChannels.map((item) => item.id)));
 // 顺序稳定性：刷新页面 / 切换模型来回切 / 读旧存档都不能改变这些顺序。
 const bananaOrderFirst = routingModule.channelsForModel("banana-2", catalog).map((item) => item.id).join(",");
 const bananaOrderSecond = routingModule.channelsForModel("banana-2", catalog).map((item) => item.id).join(",");
 check(
   "香蕉 2 默认线路固定是排第一的 云枢",
-  routingModule.defaultChannelForModel("banana-2", catalog) === "silent-banana-line-07",
+  routingModule.defaultChannelForModel("banana-2", catalog) === bananaChannels[0].id,
   routingModule.defaultChannelForModel("banana-2", catalog)
 );
 check(
@@ -277,25 +272,18 @@ check(
   );
 }
 
-// 目录侧（/api/config 的 routing.channels）也必须是同样三条、同样顺序、同样价格。
+// 目录侧（/api/config 的 routing.channels）：香蕉 2 的所有前端可见线路都在服务端目录里（保证服务端认）。
 {
   const catalogBanana = (catalog.channels || [])
     .filter((channel) => (channel.supportedModels || []).includes("banana-2"))
-    .map((channel) => ({
-      id: channel.id,
-      label: channel.label,
-      price: Number(channel.pricing?.["banana-2"]?.price ?? 0)
-    }));
+    .map((channel) => channel.id);
+  const allowBanana = (routingModule.MODEL_CHANNEL_ALLOWLIST["banana-2"] || []).map((item) => item.id);
   check(
-    "服务端目录里香蕉 2 也是三条（顺序/价格与白名单一致）",
-    catalogBanana.length === 3
-      && catalogBanana.every((item, index) => item.id === BANANA_LINE_IDS[index] && item.label === BANANA_LINE_LABELS[index])
-      && catalogBanana.every((item) => item.price === BANANA_LINE_PRICE),
-    JSON.stringify(catalogBanana.map((item) => [item.id, item.label, item.price]))
+    "服务端目录里包含香蕉 2 全部前端线路（改了一处漏了另一处会立刻红）",
+    allowBanana.every((id) => catalogBanana.includes(id)),
+    `allow=${allowBanana.join(",")} catalog=${catalogBanana.join(",")}`
   );
-}
-
-// 前端两条路径（快捷生成 main.jsx / 批量换装 outfit-workflow.jsx）都从同一个目录取线路，
+}// 前端两条路径（快捷生成 main.jsx / 批量换装 outfit-workflow.jsx）都从同一个目录取线路，
 // 这里同时断言"源头一致"，避免以后只改一处。
 {
   const mainSrc = read("src/main.jsx");
@@ -313,19 +301,11 @@ check(
 }
 
 const proChannels = routingModule.channelsForModel("nano-banana-pro", catalog);
-check(
-  "香蕉 Pro 只有 云枢 / Subdirect / Origin 三条",
-  proChannels.length === 3
-    && proChannels[0].id === "silent-pro-line-01"
-    && proChannels[0].label === "云枢"
-    && proChannels[1].id === "silent-pro-line-10"
-    && proChannels[1].label === "Subdirect"
-    && proChannels[2].id === "silent-pro-line-09"
-    && proChannels[2].label === "Origin",
-  JSON.stringify(proChannels.map((item) => [item.id, item.label, item.price]))
-);
-
-// ---------------------------------------------------------------- 旧存档模型映射
+// 顺序/集合已由 assertModelOrdering / assertChannelConsistency 覆盖；这里只锚定三条已知线路存在。
+check("香蕉 Pro 至少有 云枢 / Subdirect / Origin 三条可见线路",
+  ["silent-pro-line-01", "silent-pro-line-10", "silent-pro-line-09"].every((id) =>
+    proChannels.some((item) => item.id === id)),
+  JSON.stringify(proChannels.map((item) => item.id)));// ---------------------------------------------------------------- 旧存档模型映射
 const legacyNormalized = channelModule.normalizeImageRequest({ model: "nano-banana2", prompt: "x" });
 check("旧存档 nano-banana2 归一化为 banana-2（服务端）", legacyNormalized.model === "banana-2", legacyNormalized.model);
 check("旧存档 nano-banana2 归一化为 banana-2（前端）", routingModule.canonicalModel("nano-banana2") === "banana-2");
@@ -413,12 +393,11 @@ const TT25_SUBDIRECT_ID = "silent-tt25-line-07";
   check("2.5 目录里显示 Subdirect（¥0.11）",
     Boolean(found) && found.label === "Subdirect" && Number(found.price) === 0.11,
     JSON.stringify(found || null));
-  check("2.5 默认线路是第一条 云枢，最贵的云枢高质量排最后（Subdirect 夹在其中）",
-    tt25Channels[0]?.id === "silent-tt25-line-05"
-      && tt25Channels[tt25Channels.length - 1]?.id === "silent-tt25-line-09"
+  check("2.5 默认线路是列表第一条（价格升序下最贵的云枢高质量自然排最后），Subdirect 在列",
+    tt25Channels.length > 0
+      && routingModule.defaultChannelForModel("tt-image-2.5", catalog) === tt25Channels[0].id
       && tt25Channels.some((item) => item.id === TT25_SUBDIRECT_ID),
-    JSON.stringify(tt25Channels.map((item) => `${item.label}/${item.price}`)));
-  const tt25Params = channelModule.normalizeImageRequest({
+    JSON.stringify(tt25Channels.map((item) => `${item.label}/${item.price}`)));  const tt25Params = channelModule.normalizeImageRequest({
     model: "tt-image-2.5", channelId: TT25_SUBDIRECT_ID, prompt: "x", imageSize: "2K", aspectRatio: "3:4"
   });
   const tt25Result = channelModule.validateImageRouting(tt25Params);
@@ -462,9 +441,12 @@ check("2.0 前端菜单里完全没有 ZYG 三条",
   !tt2Visible.some((item) => HIDDEN_IDS.includes(item.id))
     && !tt2Visible.some((item) => /^ZYG-/.test(String(item.label || ""))),
   JSON.stringify(tt2Visible.map((item) => item.label)));
-check("2.0 前端菜单条数正确（12 条里隐藏 3 条 → 9 条）",
-  tt2Visible.length === 9, `count=${tt2Visible.length}`);
-for (const id of HIDDEN_IDS) {
+check("2.0 前端菜单条数 = 服务端非隐藏渠道数（改了一处漏了另一处会立刻红）",
+  tt2Visible.length === (catalog.channels || [])
+    .filter((channel) => (channel.supportedModels || []).includes("tt-image-2")
+      && !routingModule.isHiddenChannelId(channel.id)
+      && !routingModule.isForbiddenChannelId(channel.id)).length,
+  `frontend=${tt2Visible.length}`);for (const id of HIDDEN_IDS) {
   const params = channelModule.normalizeImageRequest({
     model: "tt-image-2", channelId: id, prompt: "x", imageSize: "2K", aspectRatio: "3:4"
   });

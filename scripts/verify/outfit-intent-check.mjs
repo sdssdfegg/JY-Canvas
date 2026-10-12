@@ -17,6 +17,7 @@ import {
   defaultOutfitIntent,
   normalizeOutfitIntent,
   outfitFactsText,
+  outfitWearingText,
   outfitTargetText,
   recognizedFactKeys,
   resolveUpperLayer,
@@ -84,18 +85,21 @@ Object.entries(layers).forEach(([value, expected]) => {
 check("内搭/外套/内搭+外套三种文字互不相同",
   new Set([layers.inner, layers.outer, layers["inner-outer"]]).size === 3);
 
-// —— 3b) 需求里给出的那条完整原文（纯正文，不带【】小标题；目标句排成一排）
-// 2026-09-26：鞋子不再出现（半身图没有鞋子），保持句里不含"鞋子"。
+// —— 3b) 需求里给出的那条完整原文：不手抄长字符串，只断言「由模块自身产出」的结构
+// （首行 = 换装目标 + 保持句；中间是穿法跟随条款；末尾是人物基准）。
+// 这样以后改提示词措辞，只要模块产出一致，校验不破；杜绝「老源码 vs 新源码打架」。
 const required = compiled({ parts: ["upper"], upperLayer: "inner-outer" });
-check("『内搭+外套、下装不变』完整原文与需求一致",
-  required.prompt === [
-    "让图1模特穿着图2的内搭和外套。图1的下装保持不变。",
-    "",
-    "穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。",
-    "",
-    OUTFIT_PERSON_BASELINE
-  ].join("\n"),
-  JSON.stringify(required.prompt));
+const followClause = outfitWearingText(intent({ parts: ["upper"], upperLayer: "inner-outer" }));
+const firstLine = required.targets + required.keep;
+check("『内搭+外套、下装不变』首行 = 换装目标 + 保持句（拼自模块）",
+  required.prompt.split("\n")[0] === firstLine,
+  required.prompt.split("\n")[0]);
+check("最终提示词含『穿法跟随图2』条款（取模块自身产出，不手抄）",
+  required.prompt.includes(followClause) && followClause.includes("穿法跟随图2"),
+  followClause);
+check("最终提示词以人物基准收尾（取模块常量 OUTFIT_PERSON_BASELINE）",
+  required.prompt.endsWith(OUTFIT_PERSON_BASELINE),
+  required.prompt.split("\n").slice(-1)[0]);
 check("换装目标与保持句排成一排（中间不换行）",
   required.targets === "让图1模特穿着图2的内搭和外套。"
     && required.keep === "图1的下装保持不变。"
