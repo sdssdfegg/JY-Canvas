@@ -100,23 +100,23 @@ check("GET /api/config 200", config.status === 200, String(config.status));
 const routing = config.payload?.routing || {};
 const modelIds = (routing.models || []).map((model) => model.id);
 check(
-  "routing catalog 有 4 个 canonical 模型",
-  ["tt-image-2", "banana-2", "tt-image-2.5", "nano-banana-pro"].every((id) => modelIds.includes(id)),
+  "routing catalog 有 5 个 canonical 模型（含香蕉2.1）",
+  ["tt-image-2", "tt-image-2.5", "banana-2", "banana-2.1", "nano-banana-pro"].every((id) => modelIds.includes(id)),
   modelIds.join(",")
 );
 check(
-  "routing catalog 的模型顺序 = 2.0 → 2.5 → 香蕉 2 → 香蕉 Pro",
-  JSON.stringify(modelIds) === JSON.stringify(["tt-image-2", "tt-image-2.5", "banana-2", "nano-banana-pro"]),
+  "routing catalog 的模型顺序 = 2.0 → 2.5 → 香蕉 2 → 香蕉2.1 → 香蕉 Pro",
+  JSON.stringify(modelIds) === JSON.stringify(["tt-image-2", "tt-image-2.5", "banana-2", "banana-2.1", "nano-banana-pro"]),
   modelIds.join(",")
 );
-for (const [modelId, originId, originLabel] of [
-  ["tt-image-2", "silent-tt2-line-11", "Origin"],
-  ["tt-image-2.5", "silent-tt25-line-06", "Origin"]
+for (const [modelId, firstId, firstLabel] of [
+  ["tt-image-2", "silent-tt2-line-12", "laoye"],
+  ["tt-image-2.5", "silent-tt25-line-05", "云枢"]
 ]) {
   const rows = (routing.channels || []).filter((channel) => (channel.supportedModels || []).includes(modelId));
   check(
-    `${modelId} 目录里 Origin 排第一位`,
-    rows[0]?.id === originId && rows[0]?.label === originLabel,
+    `${modelId} 目录里 ${firstLabel} 排第一位`,
+    rows[0]?.id === firstId && rows[0]?.label === firstLabel,
     rows.slice(0, 3).map((channel) => `${channel.id}/${channel.label}`).join(",")
   );
 }
@@ -146,10 +146,10 @@ const bananaChannelRows = (routing.channels || [])
   .filter((channel) => (channel.supportedModels || []).includes("banana-2"));
 const bananaChannels = bananaChannelRows.map((channel) => channel.id);
 check(
-  "香蕉 2 目录里只有三条线路（Subdirect → 云枢 → Origin）",
+  "香蕉 2 目录里只有三条线路（云枢 → Subdirect → Origin）",
   bananaChannels.length === 3
-    && bananaChannels[0] === "silent-banana-line-08"
-    && bananaChannels[1] === "silent-banana-line-07"
+    && bananaChannels[0] === "silent-banana-line-07"
+    && bananaChannels[1] === "silent-banana-line-08"
     && bananaChannels[2] === "silent-banana-line-09",
   bananaChannels.join(",")
 );
@@ -164,8 +164,9 @@ const proChannels = (routing.channels || [])
   .filter((channel) => (channel.supportedModels || []).includes("nano-banana-pro"))
   .map((channel) => channel.id);
 check(
-  "香蕉 Pro 目录里只有两条线路",
-  proChannels.length === 2
+  "香蕉 Pro 目录里有三条线路（云枢 / Subdirect / Origin）",
+  proChannels.length === 3
+    && proChannels.includes("silent-pro-line-01")
     && proChannels.includes("silent-pro-line-10")
     && proChannels.includes("silent-pro-line-09"),
   proChannels.join(",")
@@ -199,24 +200,25 @@ for (const [id, label] of [["silent-tt25-line-01", "XT-image2-s"], ["silent-tt25
     !frontendRows.some((channel) => hiddenIds.includes(channel.id))
       && !frontendRows.some((channel) => /^ZYG-/.test(String(channel.label || ""))),
     frontendRows.map((channel) => channel.label).join(","));
-  check("前端菜单剩余 7 条（2.0 服务端 10 条 - 隐藏 3 条）",
-    frontendRows.length === 7, `count=${frontendRows.length}`);
-  check("2.0 前端菜单第一条是 Origin（隐藏 ZYG 不影响 Origin 优先）",
-    frontendRows[0]?.id === "silent-tt2-line-11" && frontendRows[0]?.label === "Origin",
+  check("前端菜单剩余 9 条（2.0 服务端 12 条 - 隐藏 3 条）",
+    frontendRows.length === 9, `count=${frontendRows.length}`);
+  check("2.0 前端菜单第一条是 laoye（2026-10-11 调整默认线路）",
+    frontendRows[0]?.id === "silent-tt2-line-12" && frontendRows[0]?.label === "laoye",
     frontendRows.slice(0, 3).map((channel) => channel.label).join(","));
 
   // 2026-09-26（按用户要求）：香蕉 2 的「云枢」也改成前端隐藏，只在前端隐藏，服务端照旧认。
   const bananaFrontend = routingModule.channelsForModel("banana-2", routing);
-  check("香蕉 2 前端菜单 = Subdirect → Origin（云枢已隐藏）",
-    bananaFrontend.length === 2
-      && bananaFrontend[0].id === "silent-banana-line-08"
-      && bananaFrontend[1].id === "silent-banana-line-09",
+  check("香蕉 2 前端菜单 = 云枢 → Subdirect → Origin（三条均显示）",
+    bananaFrontend.length === 3
+      && bananaFrontend[0].id === "silent-banana-line-07"
+      && bananaFrontend[1].id === "silent-banana-line-08"
+      && bananaFrontend[2].id === "silent-banana-line-09",
     bananaFrontend.map((channel) => `${channel.id}/${channel.label}`).join(","));
-  check("香蕉 2 云枢是前端隐藏而不是下架（服务端目录仍在、服务端仍接受）",
-    routingModule.isHiddenChannelId("silent-banana-line-07")
+  check("香蕉 2 云枢是前端显示而不是下架（服务端目录仍在、服务端仍接受）",
+    !routingModule.isHiddenChannelId("silent-banana-line-07")
       && !routingModule.isForbiddenChannelId("silent-banana-line-07")
       && (routing.channels || []).some((channel) => channel.id === "silent-banana-line-07"),
-    "isHidden=true / isForbidden=false / 目录仍在");
+    "isHidden=false / isForbidden=false / 目录仍在");
 }
 
 // ------------------------------------------------- /api/images：旧 channelId 必须被拒
