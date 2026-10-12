@@ -10,7 +10,6 @@
 //                  （挡已退役的 http 旧中转站、协议相对地址 //host/x、javascript:/file:/ftp: 等）
 //               ② 主机不能是本地/内网地址（挡 SSRF：localhost、127.*、10.*、192.168.*、
 //                  172.16-31.*、169.254.*、0.0.0.0、无点内网名、.local）
-//               例外：仅 http://189.24.97.34 一个测试主机放行（见 isSafeRemoteImageUrl 内 ⚠️ 注释）。
 //
 // 相对本地 API 地址（/api/...）与 data:/blob: 照旧放行。
 // `/api/image-proxy?url=<原地址>` 必须**解开包装**再按上面两条判定——否则"以 /api/ 开头就放行"
@@ -72,14 +71,6 @@ export function unwrapImageProxyUrl(value) {
   return "";
 }
 
-// ⚠️ 极小范围 http 例外（仅测试用）：新服务器 189.24.97.34 暂未配 https，
-// 出图结果图是 http://189.24.97.34:3018/...。生产发布时**必须删除此例外与下方
-// gateway-target.js 的 "new" 目标**——否则 http 明文图会被任何中间人篡改。
-const LOCAL_TEST_HTTP_HOSTS = new Set(["189.24.97.34"]);
-function isLocalTestHttpHost(host) {
-  return LOCAL_TEST_HTTP_HOSTS.has(String(host || "").trim().toLowerCase());
-}
-
 function hostOf(url) {
   try {
     return new URL(url).hostname.toLowerCase();
@@ -94,11 +85,9 @@ function hostOf(url) {
  */
 export function isSafeRemoteImageUrl(value) {
   const text = String(value || "").trim();
-  const isHttps = /^https:\/\//i.test(text);
-  const isAllowedTestHttp = /^http:\/\//i.test(text) && isLocalTestHttpHost(hostOf(text));
-  if (!isHttps && !isAllowedTestHttp) return false;
+  if (!/^https:\/\//i.test(text)) return false;
   // https://user:pass@host/x 这类带凭据的地址：代理会把凭据发给目标站，统一拒绝
-  if (/^https?:\/\/[^/@]*@/i.test(text)) return false;
+  if (/^https:\/\/[^/@]*@/i.test(text)) return false;
   const host = hostOf(text);
   return Boolean(host) && !isPrivateOrLocalHost(host);
 }
@@ -139,11 +128,9 @@ export function classifyImageSource(value) {
     return { allowed: true, kind: "local", reason: "", target: "" };
   }
 
-  // 绝对地址：通常是 https，且主机不能是本地/内网（域名不限——见文件头的原因）。
-  // 例外：仅 http://189.24.97.34 一个测试主机放行（见 isSafeRemoteImageUrl 内 ⚠️ 注释）。
+  // 绝对地址：必须是 https，且主机不能是本地/内网（域名不限——见文件头的原因）
   if (/^https?:\/\//i.test(text)) {
-    const schemeAllowed = /^https:\/\//i.test(text) || isLocalTestHttpHost(hostOf(text));
-    if (!schemeAllowed) {
+    if (!/^https:\/\//i.test(text)) {
       return { allowed: false, kind: "blocked", reason: IMAGE_SOURCE_REASONS.BLOCKED_SCHEME, target: text };
     }
     return isSafeRemoteImageUrl(text)

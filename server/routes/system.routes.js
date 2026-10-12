@@ -59,11 +59,6 @@ import {
 } from "../core/runtime-config.js";
 import { imageQueueSnapshot } from "../core/image-concurrency.js";
 import { channelBaseCandidates } from "../core/image-channel-candidates.js";
-import {
-  activeGatewayBaseUrl,
-  publicGatewayTargetState,
-  setActiveGatewayTarget
-} from "../core/gateway-target.js";
 import { writeGenerationLog } from "../core/generation-logger.js";
 
 export function registerSystemRoutes(app) {
@@ -74,9 +69,8 @@ export function registerSystemRoutes(app) {
     const videoAvailable = videoPolicy.enabled || videoAvailableByGateway;
     res.json({
       ok: true,
-      defaultBaseUrl: activeGatewayBaseUrl(),
+      defaultBaseUrl: PRIMARY_CHANNEL_API_BASE_URL,
       fallbackBaseUrl: "",
-      gatewaySwitch: publicGatewayTargetState(),
       hasServerKey: false,
       channelPolicy: publicChannelPolicyConfig(),
       models: publicChannelModels(),
@@ -94,25 +88,6 @@ export function registerSystemRoutes(app) {
         ...model,
         enabled: videoAvailable
       }))
-    });
-  });
-
-  // 切换网关目标（老 / 新服务器）。只能选登记过的线路；被环境变量锁定时返回 409。
-  app.post("/api/gateway-target", (req, res) => {
-    const body = req.body && typeof req.body === "object" ? req.body : {};
-    const id = String(body.id || body.targetId || "").trim();
-    const result = setActiveGatewayTarget(id);
-    if (!result.ok) {
-      return res.status(result.error === "gateway_switch_locked" ? 409 : 400).json({
-        ok: false,
-        error: result.error,
-        message: result.message
-      });
-    }
-    res.json({
-      ok: true,
-      gatewaySwitch: publicGatewayTargetState(),
-      defaultBaseUrl: activeGatewayBaseUrl()
     });
   });
 
@@ -134,33 +109,6 @@ export function registerSystemRoutes(app) {
    *   - 上游错误信息先做脱敏（去掉 key/token 片段）再返回；
    *   - 不写入任何日志文件，也不返回完整响应体，只给结论 + 状态码 + 耗时。
    */
-  /**
-   * 把连接测试的底层错误翻译成用户能看懂的原因。
-   * 出图 / 连接测试都是服务端 node 去 fetch 上游；fetch failed 类错误通常是
-   * 网络层问题（主机不可达 / 防火墙拦截 / 目标端口没监听 / 上游未启动）。
-   * undici 的 fetch 失败会把底层 errno 放在 error.cause.code。
-   */
-  function describeConnectionFailure(error, safeMessage) {
-    const code = String(error?.cause?.code || error?.code || "");
-    const text = String(safeMessage || "");
-    if (/ECONNREFUSED/i.test(code) || /refused/i.test(text)) {
-      return "目标端口无服务监听（上游未启动或端口填错）";
-    }
-    if (/ENOTFOUND|EAI_AGAIN/i.test(code) || /getaddrinfo|dns/i.test(text)) {
-      return "域名无法解析（地址拼写有误）";
-    }
-    if (/ECONNRESET/i.test(code) || /reset/i.test(text)) {
-      return "连接被对端重置（上游启动了但中途断开）";
-    }
-    if (/ETIMEDOUT|TIMEDOUT/i.test(code) || /timed out|timeout/i.test(text)) {
-      return "连接超时（防火墙拦截或网络不通）";
-    }
-    if (/fetch failed/i.test(text) || /networkerror|network error/i.test(text)) {
-      return "无法建立连接（主机不可达 / 防火墙拦截 / 上游未运行）—— 请确认目标服务器已启动且端口对外开放";
-    }
-    return text || "未知连接错误";
-  }
-
   app.post("/api/connection-test", async (req, res) => {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const requestedBaseUrl = String(body.baseUrl || body.base_url || "").trim().replace(/\/+$/, "");
@@ -234,7 +182,7 @@ export function registerSystemRoutes(app) {
         latencyMs: Date.now() - startedAt,
         model: String(body.model || ""),
         channelId: String(body.channelId || ""),
-        message: isTimeout ? "连接超时（15 秒无响应）" : `连接失败：${describeConnectionFailure(error, safe)}`
+        message: isTimeout ? "连接超时（15 秒无响应）" : `连接失败：${safe}`
       });
     } finally {
       abort.dispose();
@@ -270,7 +218,7 @@ export function registerSystemRoutes(app) {
       ok: true,
       version: "11.0.0",
       now: new Date().toISOString(),
-      gatewayBaseUrl: activeGatewayBaseUrl(),
+      gatewayBaseUrl: PRIMARY_CHANNEL_API_BASE_URL,
       imageConcurrency: {
         limit: IMAGE_CONCURRENCY_LIMIT,
         ...imageQueueSnapshot()

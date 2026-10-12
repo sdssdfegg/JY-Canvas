@@ -3049,44 +3049,6 @@ textarea:focus {
   font-size: 12px;
 }
 
-/* 网关目标切换（老 / 新服务器）：设置弹窗顶部的分段按钮，随主题变色。 */
-.gatewaySwitch {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--panel-strong);
-}
-
-.gatewaySwitchButton {
-  padding: 4px 10px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.gatewaySwitchButton:hover:not(:disabled) {
-  color: var(--text);
-}
-
-.gatewaySwitchButton.selected {
-  background: var(--accent);
-  color: #06141a;
-  font-weight: 600;
-}
-
-.gatewaySwitchButton:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
 .iconButton {
   width: 32px;
   padding: 0;

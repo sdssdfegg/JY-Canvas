@@ -72,9 +72,7 @@ const ALLOW_CASES = [
   ["真实渠道 CDN：tos.lingkeai.vip", REAL_CDN_URLS[1]],
   ["代理包装真实渠道 CDN", `/api/image-proxy?url=${encodeURIComponent(REAL_CDN_URLS[0])}`],
   ["代理包装官方中转站", `/api/image-proxy?url=${encodeURIComponent("https://api.jingyin.online/v1/images/generated/a.png")}`],
-  ["代理包装官方中转站(带查询串)", `/api/image-proxy?url=${encodeURIComponent("https://api.jingyin.online/v1/images/generated/a.png?x=1&y=2")}`],
-  // 新服务器测试主机（189.24.97.34）暂未配 https，结果图为 http —— 仅有这一个主机放行
-  ["新服务器测试主机 http（唯一例外）", "http://189.24.97.34:3018/v1/images/generated/a.png"]
+  ["代理包装官方中转站(带查询串)", `/api/image-proxy?url=${encodeURIComponent("https://api.jingyin.online/v1/images/generated/a.png?x=1&y=2")}`]
 ];
 for (const [label, value] of ALLOW_CASES) {
   const verdict = classifyImageSource(value);
@@ -140,12 +138,6 @@ check("isSafeRemoteImageUrl：https 公网放行、http 与内网拒绝",
     && isSafeRemoteImageUrl("http://leo.yunshuaiapi.com/x.png") === false
     && isSafeRemoteImageUrl("https://10.1.2.3/x.png") === false,
   "公网 https / 非 https / 内网");
-check("isSafeRemoteImageUrl：http 例外仅限 189.24.97.34（测试主机）",
-  isSafeRemoteImageUrl("http://189.24.97.34:3018/v1/images/generated/a.png") === true
-    && isSafeRemoteImageUrl("http://189.24.97.34/flat.png") === true
-    && isSafeRemoteImageUrl("http://leo.yunshuaiapi.com/x.png") === false
-    && isSafeRemoteImageUrl("http://10.0.0.5/x.png") === false,
-  "仅 189.24.97.34 的 http 放行，其它 http/内网仍拒绝");
 
 // ---------- B. 结果卡片状态 ----------
 const resultImage = await import("../../src/shared/result-image.js");

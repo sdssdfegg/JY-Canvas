@@ -14,21 +14,23 @@
 //   ./uploads.js         — ensureFileBuffer
 //   ./file-naming.js     — mimeTypeFromFile
 
-import { upstreamModelForChannel } from "../channel-config.js";
-import { activeGatewayBaseUrl } from "./gateway-target.js";
+import {
+  PRIMARY_CHANNEL_API_BASE_URL,
+  buildChannelBaseCandidates,
+  buildImageChannelBaseCandidates,
+  upstreamModelForChannel
+} from "../channel-config.js";
 import { buildImageRequestVariants } from "../channel.js";
 import { ensureFileBuffer } from "./uploads.js";
 import { mimeTypeFromFile } from "./file-naming.js";
 
 function channelBaseCandidates() {
-  // 每次请求都走当前选中的网关目标（老 / 新服务器）；切换只改 gateway-target 这一处取值。
-  // 不做跨服务器兜底：选择权在用户，选哪台就走哪台。
-  return [activeGatewayBaseUrl()];
+  // 中文注释：每次请求都从主渠道开始；备用渠道只做当次故障兜底，不把上次成功备用缓存成下一次默认。
+  return buildChannelBaseCandidates(PRIMARY_CHANNEL_API_BASE_URL);
 }
 
-function imageChannelBaseCandidates(_model) {
-  // 形参保持与调用方一致；线路取当前活动网关目标（模型映射仍由 upstreamModelForChannel 决定）。
-  return [activeGatewayBaseUrl()];
+function imageChannelBaseCandidates(model) {
+  return buildImageChannelBaseCandidates(model);
 }
 
 const JSON_IMAGE_URLS_CHANNEL = "silent-tt25-line-07";
