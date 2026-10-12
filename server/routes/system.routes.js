@@ -59,6 +59,11 @@ import {
 } from "../core/runtime-config.js";
 import { imageQueueSnapshot } from "../core/image-concurrency.js";
 import { channelBaseCandidates } from "../core/image-channel-candidates.js";
+import {
+  activeGatewayBaseUrl,
+  publicGatewayTargetState,
+  setActiveGatewayTarget
+} from "../core/gateway-target.js";
 import { writeGenerationLog } from "../core/generation-logger.js";
 
 export function registerSystemRoutes(app) {
@@ -69,8 +74,9 @@ export function registerSystemRoutes(app) {
     const videoAvailable = videoPolicy.enabled || videoAvailableByGateway;
     res.json({
       ok: true,
-      defaultBaseUrl: PRIMARY_CHANNEL_API_BASE_URL,
+      defaultBaseUrl: activeGatewayBaseUrl(),
       fallbackBaseUrl: "",
+      gatewaySwitch: publicGatewayTargetState(),
       hasServerKey: false,
       channelPolicy: publicChannelPolicyConfig(),
       models: publicChannelModels(),
@@ -88,6 +94,25 @@ export function registerSystemRoutes(app) {
         ...model,
         enabled: videoAvailable
       }))
+    });
+  });
+
+  // 切换网关目标（老 / 新服务器）。只能选登记过的线路；被环境变量锁定时返回 409。
+  app.post("/api/gateway-target", (req, res) => {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const id = String(body.id || body.targetId || "").trim();
+    const result = setActiveGatewayTarget(id);
+    if (!result.ok) {
+      return res.status(result.error === "gateway_switch_locked" ? 409 : 400).json({
+        ok: false,
+        error: result.error,
+        message: result.message
+      });
+    }
+    res.json({
+      ok: true,
+      gatewaySwitch: publicGatewayTargetState(),
+      defaultBaseUrl: activeGatewayBaseUrl()
     });
   });
 
@@ -218,7 +243,7 @@ export function registerSystemRoutes(app) {
       ok: true,
       version: "11.0.0",
       now: new Date().toISOString(),
-      gatewayBaseUrl: PRIMARY_CHANNEL_API_BASE_URL,
+      gatewayBaseUrl: activeGatewayBaseUrl(),
       imageConcurrency: {
         limit: IMAGE_CONCURRENCY_LIMIT,
         ...imageQueueSnapshot()

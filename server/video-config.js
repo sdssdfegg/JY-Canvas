@@ -1,6 +1,8 @@
-import { PRIMARY_CHANNEL_API_BASE_URL, normalizeBaseUrl } from "./channel-config.js";
+import { normalizeBaseUrl } from "./channel-config.js";
+import { activeGatewayBaseUrl } from "./core/gateway-target.js";
 
-const JINGYIN_VIDEO_GATEWAY_BASE_URL = normalizeBaseUrl(process.env.JINGYIN_VIDEO_GATEWAY_BASE_URL || PRIMARY_CHANNEL_API_BASE_URL);
+// JINGYIN_VIDEO_GATEWAY_BASE_URL 显式覆盖优先；未设置时跟随当前活动网关目标（老 / 新服务器）。
+const JINGYIN_VIDEO_GATEWAY_BASE_URL_OVERRIDE = String(process.env.JINGYIN_VIDEO_GATEWAY_BASE_URL || "").trim();
 const ENABLE_GATEWAY_VIDEO = /^(1|true|on|yes)$/i.test(String(process.env.JINGYIN_ENABLE_GATEWAY_VIDEO || "0"));
 export const JINGYIN_VIDEO_GATEWAY_CHANNEL_ID = "jingyin-gateway-video";
 export const JINGYIN_VIDEO_GATEWAY_PROVIDER = "jingyin-gateway";
@@ -117,7 +119,9 @@ function customerPricePerSecond(_model) {
 }
 
 export function gatewayVideoBaseUrl() {
-  return JINGYIN_VIDEO_GATEWAY_BASE_URL;
+  return JINGYIN_VIDEO_GATEWAY_BASE_URL_OVERRIDE
+    ? normalizeBaseUrl(JINGYIN_VIDEO_GATEWAY_BASE_URL_OVERRIDE)
+    : activeGatewayBaseUrl();
 }
 
 export function isGatewayVideoEnabled() {

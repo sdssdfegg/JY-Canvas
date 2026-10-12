@@ -96,7 +96,7 @@ import {
 import { readJsonStorage, writeJsonStorage } from "./lib/storage/json-storage.js";
 import OutfitWorkflow from "./outfit-workflow.jsx";
 import ImageEditorPanel from "./image-editor.jsx";
-import { getAppConfig } from "./api/config.js";
+import { getAppConfig, setGatewayTarget } from "./api/config.js";
 import { formatConnectionResult, testConnection } from "./api/connection.js";
 import {
   getSaveDirectory,
@@ -752,6 +752,8 @@ function App() {
   const [apiSaveStatus, setApiSaveStatus] = useState("");
   // 2026-09-25：设置里原有的「开发诊断」区域（含传参自检按钮）已整体替换为「连接测试」。
   const [isConnectionTesting, setIsConnectionTesting] = useState(false);
+  // 网关目标（老 / 新服务器）切换中。切换是服务端全局状态，切换后本机所有请求都走新目标。
+  const [isGatewaySwitching, setIsGatewaySwitching] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("");
   const [connectionState, setConnectionState] = useState("idle");
   const [isDirectoryModalOpen, setIsDirectoryModalOpen] = useState(false);
@@ -2425,6 +2427,28 @@ function App() {
     setApiSaveStatus(cleanedKey ? `已清理格式并保存（长度 ${cleanedKey.length}）` : "已清空本机 Key");
     addEvent("设置", "API Key 已保存");
     window.setTimeout(() => setApiSaveStatus(""), 1800);
+  }
+
+  // 切换网关目标（老 / 新服务器）。切换是服务端全局状态；成功后同步 config 与 settings.baseUrl。
+  async function switchGatewayTarget(targetId) {
+    const current = config?.gatewaySwitch;
+    if (!current?.switchEnabled || current.activeId === targetId || isGatewaySwitching) return;
+    setIsGatewaySwitching(true);
+    try {
+      const data = await setGatewayTarget(targetId);
+      const nextSwitch = data?.gatewaySwitch || current;
+      setConfig((prev) => ({
+        ...prev,
+        gatewaySwitch: nextSwitch,
+        defaultBaseUrl: data?.defaultBaseUrl || prev.defaultBaseUrl
+      }));
+      setSettings((prev) => ({ ...prev, baseUrl: data?.defaultBaseUrl || prev.baseUrl }));
+      addEvent("服务器", targetId === "new" ? "已切换到新服务器" : "已切换到老服务器");
+    } catch (error) {
+      addEvent("服务器切换失败", error?.message || "请求失败");
+    } finally {
+      setIsGatewaySwitching(false);
+    }
   }
 
   function openSettingsPanel() {
@@ -5121,6 +5145,22 @@ function App() {
                 <h2>设置</h2>
                 <span>API Key 与界面皮肤</span>
               </div>
+              {config?.gatewaySwitch?.switchEnabled && (config.gatewaySwitch.targets || []).length > 1 && (
+                <div className="gatewaySwitch" role="group" aria-label="切换服务器">
+                  {(config.gatewaySwitch.targets || []).map((target) => (
+                    <button
+                      key={target.id}
+                      type="button"
+                      className={`gatewaySwitchButton ${config.gatewaySwitch.activeId === target.id ? "selected" : ""}`}
+                      disabled={isGatewaySwitching}
+                      onClick={() => void switchGatewayTarget(target.id)}
+                      title={`切换到${target.label}`}
+                    >
+                      {target.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <button className="iconButton" type="button" onClick={() => setIsSettingsOpen(false)} aria-label="关闭">
                 <X size={18} />
               </button>
