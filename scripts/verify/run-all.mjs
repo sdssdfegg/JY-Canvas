@@ -9,6 +9,8 @@
 //   node scripts/verify/run-all.mjs --skip-launcher # 跳过启动器检查（会起子进程，较慢）
 //   node scripts/verify/run-all.mjs --json          # 输出机器可读结果
 //   node scripts/verify/run-all.mjs --list          # 只打印这次会跑哪些脚本，不执行
+//   node scripts/verify/run-all.mjs --fast          # 只跑纯源码/逻辑快速子集（给提交前钩子用，
+//                                                   #   避开需起服务/VAE/网络 mock 的慢脚本）
 //
 // 注意：部分脚本需要本地 8787 在跑才能验证浏览器行为；不在跑时会自行跳过浏览器部分，
 // 不影响整体通过（会在结果里标注 skipped）。
@@ -40,6 +42,10 @@ const ORDER = [
   // shared-ui-duplication：跨文件同名组件的棘轮（存量记账、新增即失败；
   //   另外额外报告同名两份实现是否已经分叉）。
   "shared-ui-duplication-check",
+  // V4.0 规范（2026-10-13）：文档绝对路径卫生 —— 扫描 README / docs / 根目录 md
+  // 里写死的本机绝对路径，任何在本机不存在的都判红，杜绝「文档引用失效/错误位置」漂移。
+  // 纯文本扫描，跑得飞快，排在起进程的那批之前。
+  "docs-path-check",
   // V11-RF-019 交付物：前端跨文件同名**顶层函数**棘轮（camelCase 函数，与上面组件的
   //   PascalCase 判据互补；两者允许重叠，如 ReferenceThumbTray 两边都命中，重叠不代表冲突）。
   //   提取逻辑收在 lib/frontend-sources.mjs，与审计脚本共用一份，避免两套正则各自漂移。
@@ -116,6 +122,42 @@ const ORDER = [
 ];
 
 /**
+ * 快速子集（`--fast`）：只跑纯源码 / 纯逻辑、用 `spawn`（非 `spawnSync`）且不需要起本地服务、
+ * 不做 VAE / 网络 mock 的脚本。用于提交前钩子——全量 run-all 在本仓库要跑 ~8 分钟
+ * （generation-failure-path / pro-wire / http-mock / connection-test 等会起子进程或做重活），
+ * 不适合卡在每次 commit 上；而且 `lint-ratchet-check` / `run-all-check` 内部走 `spawnSync`，
+ * 在个别环境（含本沙箱）会偶发 EBUSY，故不放进提交钩子，改由完整 `npm run check` / CI 覆盖。
+ * 这里的每一项都是「改完代码立刻能发现回归」的廉价门禁；慢脚本与 lint/元检查留给 CI。
+ * 注意：FAST_ORDER 只挑快且稳定的脚本，新增快速脚本时同步加进来。
+ */
+const FAST_ORDER = [
+  "run-node-check",
+  "image-host-allowlist-check",
+  "shared-ui-duplication-check",
+  "frontend-duplication-check",
+  "source-hygiene-check",
+  "runtime-config-baseline-check",
+  "auth-key-parity-check",
+  "state-singleton-check",
+  "server-duplication-check",
+  "app-paths-check",
+  "import-path-check",
+  "docs-path-check",
+  "reference-gate-check",
+  "reference-policy-verify",
+  "tt25-subdirect-wire-check",
+  "routing-check",
+  "ui-duplication-check",
+  "quickgen-prompt-passthrough-check",
+  "outfit-intent-check",
+  "retouch-intent-check",
+  "generation-error-check",
+  "history-integrity-check",
+  "local-edit-ratio-check",
+  "white-refine-split-check"
+];
+
+/**
  * 只读取证 / 诊断工具：**不做断言**、恒以 0 退出，输出取决于跑的时候日志里恰好有什么。
  * 它们不适合当回归门禁（永远绿，等于没测），所以不进 ORDER，也不由 run-all 执行。
  * 需要时直接跑：node scripts/verify/speed-investigation.mjs
@@ -165,6 +207,7 @@ const args = process.argv.slice(2);
 const onlyIndex = args.indexOf("--only");
 const only = onlyIndex > -1 ? String(args[onlyIndex + 1] || "").trim() : "";
 const skipLauncher = args.includes("--skip-launcher");
+const fast = args.includes("--fast");
 const asJson = args.includes("--json");
 const listOnly = args.includes("--list");
 
@@ -179,6 +222,8 @@ const discovered = discoverRunnable();
 let scripts = orderScripts(only ? discovered.filter((name) => !isSelf(name)) : discovered.filter((name) => !isFixture(name)));
 if (only) scripts = scripts.filter((name) => name.includes(only));
 if (skipLauncher) scripts = scripts.filter((name) => name !== "check-launcher");
+// --fast：只保留 FAST_ORDER 里的快速脚本（提交前钩子用）。与 --only 可叠加。
+if (fast) scripts = FAST_ORDER.filter((name) => scripts.includes(name));
 
 if (scripts.length === 0) {
   console.error(`没有匹配的验证脚本（--only ${only || "-"}）`);

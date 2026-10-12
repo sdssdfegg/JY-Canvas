@@ -1,0 +1,26 @@
+#!/bin/sh
+# 提交前自动门禁（V4.0 规范，2026-10-13）。
+# 每次 git commit 自动跑：
+#   1) 语法静态检查（scripts/check-syntax.mjs）
+#   2) verify 快速子集（scripts/verify/run-all.mjs --fast）
+# 任一脚本失败即拦下提交，从机制上杜绝「代码改了但基线/文档还停留在旧位置」带病提交。
+#
+# 设计取舍：全量 run-all 在本仓库约 8 分钟（generation-failure-path / pro-wire / http-mock 等
+# 需起子进程或做 VAE/网络 mock），不适合卡每次 commit；故钩子只跑快速子集。
+# 慢脚本 + 真机出图回归留给 CI 或手工 `npm run check`。
+#
+# 启用（仓库根执行）：cp scripts/git-hooks/pre-commit .git/hooks/pre-commit
+# 停用：rm .git/hooks/pre-commit
+# 临时跳过（不推荐）：git commit --no-verify
+
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+NODE="$ROOT/runtime/node/node.exe"
+if [ ! -x "$NODE" ]; then NODE=node; fi
+
+echo "[pre-commit] 语法检查…"
+"$NODE" "$ROOT/scripts/check-syntax.mjs"
+
+echo "[pre-commit] verify 快速子集 (run-all --fast)…"
+"$NODE" "$ROOT/scripts/verify/run-all.mjs" --fast
