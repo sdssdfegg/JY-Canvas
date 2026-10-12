@@ -23,7 +23,7 @@ V11 是基于 V10 源码复制出来的正规化版本：界面布局和主要�
 4. 常见安装位置     C:\Program Files\nodejs、%LOCALAPPDATA%\Programs\nodejs、
                     nvm / fnm / volta / scoop / chocolatey / winget 的版本目录
 5. 其它程序自带     Adobe、腾讯文档、Tabbit 等程序捆绑的 node.exe（只在前面都失败时才用）
-6. 最后兜底         D:\RJ\node\node.exe
+6. 最后兜底         <源码目录>\runtime\node\node.exe（源码包自带运行时）
 ```
 
 **源码包自带 Node 运行时**
@@ -38,7 +38,7 @@ V11 是基于 V10 源码复制出来的正规化版本：界面布局和主要�
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\provision-local-node.ps1
 
 # 指定来源
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\provision-local-node.ps1 -Source "D:\somewhere\node.exe" -Force
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\provision-local-node.ps1 -Source "runtime/node/node.exe" -Force
 ```
 
 如果一个都没找到，脚本会：
@@ -115,7 +115,7 @@ dist/
 生成日志：
 
 ```text
-D:\静音AI绘画V11（源码）\logs\generation.jsonl
+logs/generation.jsonl
 ```
 
 里面的 `timing.channelWaitMs` 接近中转站/上游实际等待时间；如果 50 台电脑同时慢，优先看中转站后台的队列、限流和渠道耗时。
@@ -142,7 +142,7 @@ http://127.0.0.1:8787/api/gateways/status
 后续调整功能前，先看维护文档总索引：
 
 ```text
-D:\静音AI绘画V11（源码）\V11维护文档\00-总索引.md
+docs/V11维护文档/00-总索引.md
 ```
 
 这个文件夹专门放给后续维护用的小 MD。每次只发相关 1-3 个文档，避免一次性内容过大。
@@ -150,13 +150,13 @@ D:\静音AI绘画V11（源码）\V11维护文档\00-总索引.md
 功能目录地图：
 
 ```text
-D:\静音AI绘画V11（源码）\V11维护文档\01-目录分区与维护地图.md
+docs/V11维护文档/01-目录分区与维护地图.md
 ```
 
 重复 UI、重复功能同步检查表：
 
 ```text
-D:\静音AI绘画V11（源码）\V11维护文档\02-重复功能同步登记表.md
+docs/V11维护文档/02-重复功能同步登记表.md
 ```
 
 如果某个 UI 或逻辑还没有抽成共享组件，改动前先看这张表，避免只改一个分区导致另一个分区保持旧版本。
@@ -164,21 +164,21 @@ D:\静音AI绘画V11（源码）\V11维护文档\02-重复功能同步登记表.
 API 调用、登录/KEY、中转站链路：
 
 ```text
-D:\静音AI绘画V11（源码）\V11维护文档\04-API调用与登录系统地图.md
-D:\静音AI绘画V11（源码）\src\api\README.md
+docs/V11维护文档/04-API调用与登录系统地图.md
+src/api/README.md
 ```
 
 批量 tab 分区：
 
 ```text
-D:\静音AI绘画V11（源码）\V11维护文档\05-批量分区功能地图.md
-D:\静音AI绘画V11（源码）\src\features\outfit\workflows\README.md
+docs/V11维护文档/05-批量分区功能地图.md
+src/features/outfit/workflows/README.md
 ```
 
 默认提示词和 SKILL 规则先看：
 
 ```text
-D:\静音AI绘画V11（源码）\prompts\README.md
+prompts/README.md
 ```
 
 后端最终生图规则已集中到 `prompts/server/`，旧的 `server/outfit-skill.js` 和 `server/detail-skills.js` 只保留兼容转发。

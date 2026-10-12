@@ -129,9 +129,10 @@ const knownDefects = [];
 
 if (frontend?.normalizeApiKeyInput) {
   const n = frontend.normalizeApiKeyInput;
-  // 缺陷：清洗顺序是 去Bearer → trim → 去引号 → 删不可见字符。
-  // 删不可见字符排在最后，导致「不可见字符 + 引号」组合时引号识别被挡住残留下来。
-  // 真实场景：用户从微信/网页复制 KEY 时首尾常带零宽字符，清洗后仍带引号 → 请求被判 401。
+  // （历史缺陷，已于 2026-10-13 修复）旧顺序是 去Bearer → trim → 去引号 → 删不可见字符，
+  // 删不可见字符在最后会挡住「不可见字符 + 引号」组合的引号识别，残留脏 KEY → 401。
+  // 当前实现已把「去不可见字符」提前到去引号之前（见 api-key.js 步骤 ①），此分支不再触发；
+  // 保留作回归护栏：一旦顺序被改回旧样子，这里会重新把缺陷挂回 knownDefects。
   const combined = 'Bearer \u200B"sk-jingyin-123456"\uFEFF ';
   if (n(combined) !== "sk-jingyin-123456") {
     knownDefects.push({
