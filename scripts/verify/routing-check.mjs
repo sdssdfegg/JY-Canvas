@@ -2,7 +2,7 @@
 //
 // 覆盖验收项：
 //   1. 接口和 DOM 中旧渠道 ID / 旧渠道名称数量为 0
-//   2. 香蕉 2 只有 Subdirect / 云枢 / Origin 三条线路，顺序固定，均 ¥0.12
+//   2. 香蕉 2 有 laoye / 云枢 / Subdirect / Origin 四条线路，laoye 排第一（默认线路），均 ¥0.12
 //   3. 香蕉 Pro 只有 Subdirect 和 Origin
 //   4. 旧 nano-banana2 存档最终发出 banana-2
 //   5. 非法 channelId / 非法模型+线路组合被服务端拒绝
@@ -208,8 +208,8 @@ check(
     && (catalog.channels || []).some((channel) => channel.id === BANANA_HIDDEN_ID),
   `hidden=${routingModule.isHiddenChannelId(BANANA_HIDDEN_ID)} forbidden=${routingModule.isForbiddenChannelId(BANANA_HIDDEN_ID)}`
 );
-check("香蕉 2 至少有 云枢/Subdirect/Origin 三条可见线路",
-  ["silent-banana-line-07", "silent-banana-line-08", "silent-banana-line-09"].every((id) =>
+check("香蕉 2 至少有 laoye/云枢/Subdirect/Origin 四条可见线路",
+  ["silent-banana-line-12", "silent-banana-line-07", "silent-banana-line-08", "silent-banana-line-09"].every((id) =>
     bananaChannels.some((item) => item.id === id)),
   JSON.stringify(bananaChannels.map((item) => item.id)));
 // 顺序稳定性：刷新页面 / 切换模型来回切 / 读旧存档都不能改变这些顺序。
@@ -233,11 +233,11 @@ check(
   );
   const afterSwitch = routingModule.channelsForModel(roundTrip.model, catalog);
   check(
-    "切模型来回后香蕉 2 仍是 云枢 → Subdirect → Origin，且 Origin 这条线路被保留",
+    "切模型来回后香蕉 2 仍是 laoye → 云枢 → Subdirect → Origin，且 Origin 这条线路被保留",
     roundTrip.model === "banana-2"
       && roundTrip.channelId === "silent-banana-line-09"
-      && afterSwitch.length === 3
-      && afterSwitch[2].id === "silent-banana-line-09",
+      && afterSwitch.length === 4
+      && afterSwitch[3].id === "silent-banana-line-09",
     JSON.stringify(afterSwitch.map((item) => `${item.label}:${item.price}`))
   );
 }
@@ -256,17 +256,17 @@ check(
   check("服务端仍然接受香蕉 2 云枢（与「删除」不同）",
     channelModule.validateImageRouting(hiddenParams).ok === true,
     channelModule.validateImageRouting(hiddenParams).code);
-  // 旧存档里的未知线路 -> 收敛到第一条（Subdirect），顺序表的第一位。
+  // 旧存档里的未知线路 -> 收敛到第一条（laoye），顺序表的第一位。
   const legacyUnknown = routingModule.convergeSettingsForModel({ model: "banana-2", channelId: "silent-banana-line-99" }, catalog);
   check(
-    "旧存档里的未知香蕉 2 线路 → 收敛到第一条 云枢",
-    legacyUnknown.channelId === "silent-banana-line-07",
+    "旧存档里的未知香蕉 2 线路 → 收敛到第一条 laoye",
+    legacyUnknown.channelId === "silent-banana-line-12",
     `channelId=${legacyUnknown.channelId}`
   );
-  // 旧存档里的旧模型 ID 读回来仍旧落进同一套三条线路。
+  // 旧存档里的旧模型 ID 读回来仍旧落进同一套四条线路（含 laoye）。
   const legacyModelId = routingModule.convergeSettingsForModel({ model: "nano-banana2", channelId: "silent-banana-line-09" }, catalog);
   check(
-    "旧存档模型 ID nano-banana2 + Origin 线路 → 仍是 banana-2 的 Origin（白名单第三条）",
+    "旧存档模型 ID nano-banana2 + Origin 线路 → 仍是 banana-2 的 Origin（白名单第四条）",
     legacyModelId.model === "banana-2" && legacyModelId.channelId === "silent-banana-line-09",
     JSON.stringify({ model: legacyModelId.model, channelId: legacyModelId.channelId })
   );
@@ -301,9 +301,9 @@ check(
 }
 
 const proChannels = routingModule.channelsForModel("nano-banana-pro", catalog);
-// 顺序/集合已由 assertModelOrdering / assertChannelConsistency 覆盖；这里只锚定三条已知线路存在。
-check("香蕉 Pro 至少有 云枢 / Subdirect / Origin 三条可见线路",
-  ["silent-pro-line-01", "silent-pro-line-10", "silent-pro-line-09"].every((id) =>
+// 顺序/集合已由 assertModelOrdering / assertChannelConsistency 覆盖；这里只锚定四条已知线路存在（含 laoye）。
+check("香蕉 Pro 至少有 laoye / 云枢 / Subdirect / Origin 四条可见线路",
+  ["silent-pro-line-12", "silent-pro-line-01", "silent-pro-line-10", "silent-pro-line-09"].every((id) =>
     proChannels.some((item) => item.id === id)),
   JSON.stringify(proChannels.map((item) => item.id)));// ---------------------------------------------------------------- 旧存档模型映射
 const legacyNormalized = channelModule.normalizeImageRequest({ model: "nano-banana2", prompt: "x" });
@@ -314,9 +314,10 @@ check("旧存档 gpt-image 归一化为 tt-image-2", routingModule.canonicalMode
 // 旧存档线路归一化：即使存档里带旧 channelId，routingFields 也不会把它发出去
 const routedLegacy = routingModule.routingFields("nano-banana2", "XBS-default", catalog);
 check(
-  "旧 channelId 不会进入新请求",
+  "旧 channelId 不会进入新请求（收敛到第一条 laoye，且绝不透传 XBS-default）",
   routedLegacy.model === "banana-2"
-    && routedLegacy.channelId === "silent-banana-line-07"
+    && routedLegacy.channelId === "silent-banana-line-12"
+    && routedLegacy.channelId !== "XBS-default"
     && routedLegacy.dispatchMode === "manual",
   JSON.stringify(routedLegacy)
 );

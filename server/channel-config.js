@@ -95,16 +95,22 @@ const ROUTING_CHANNELS = Object.freeze([
   // `silent-banana-line-09` 是 Origin 香蕉 2 的客户端 channelId：它必须由静音中转站
   // 适配器侧先登记成一条 Origin 线路（上游 model=nano-banana-2）才会真正生效；
   // 本地源码只负责把这条线路发出去，不把任何上游 KEY 放进客户端。
+  // 2026-10-12：laoye 香蕉线路（luckfill 香蕉账户，对应 154 new-api 渠道 id=1「老夜的渠道」），排第一为默认线路。
+  { id: "silent-banana-line-12", label: "laoye", price: 0.12, model: "banana-2" },
   { id: "silent-banana-line-07", label: "云枢", price: 0.12, model: "banana-2" },
   { id: "silent-banana-line-08", label: "Subdirect", price: 0.12, model: "banana-2" },
   { id: "silent-banana-line-09", label: "Origin", price: 0.12, model: "banana-2" },
   // 香蕉 2.1：云枢渠道（yunshuaiapi.com，Gemini 分组），价格 ¥0.12。
+  // 2026-10-12：laoye 香蕉2.1 线路（luckfill 香蕉账户）。
+  { id: "silent-banana21-line-12", label: "laoye", price: 0.12, model: "banana-2.1" },
   { id: "silent-banana21-line-01", label: "云枢", price: 0.12, model: "banana-2.1" },
   // 2026-10-11：新增 Subdirect 备用渠道（subboost.aicodexvip.top，Gemini 分组），价格 ¥0.12；
   // 与 src/shared/routing.js 的 MODEL_CHANNEL_ALLOWLIST["banana-2.1"] 及适配器 silent-subboost-banana21 对齐。
   { id: "silent-banana21-line-02", label: "Subdirect", price: 0.12, model: "banana-2.1" },
   // 香蕉 Pro：仅展示用户指定的三条线路（Subdirect / 云枢 / Origin）；
   // 云枢（silent-pro-line-01）上游复用 yunshuaiapi.com 的 Gemini 分组，价格 0.14 = cost 0.14 + markup 0。
+  // 2026-10-12：laoye 香蕉Pro 线路（luckfill 香蕉账户）。
+  { id: "silent-pro-line-12", label: "laoye", price: 0.14, model: "nano-banana-pro" },
   { id: "silent-pro-line-01", label: "云枢", price: 0.14, model: "nano-banana-pro" },
   { id: "silent-pro-line-10", label: "Subdirect", price: 0.14, model: "nano-banana-pro" },
   { id: "silent-pro-line-09", label: "Origin", price: 0.16, model: "nano-banana-pro" }

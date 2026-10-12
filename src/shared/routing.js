@@ -75,6 +75,7 @@ export function isHiddenChannelId(value) {
 // 香蕉 Pro 白名单三条：Subdirect → 云枢 → Origin（2026-10-10 补齐 云枢）。
 export const MODEL_CHANNEL_ALLOWLIST = Object.freeze({
   "banana-2": Object.freeze([
+    { id: "silent-banana-line-12", label: "laoye", price: 0.12 },
     { id: "silent-banana-line-07", label: "云枢", price: 0.12 },
     { id: "silent-banana-line-08", label: "Subdirect", price: 0.12 },
     // Origin 香蕉 2 的独立 channelId（不复用 Pro 的 silent-pro-line-09）。
@@ -82,6 +83,7 @@ export const MODEL_CHANNEL_ALLOWLIST = Object.freeze({
     { id: "silent-banana-line-09", label: "Origin", price: 0.12 }
   ]),
   "nano-banana-pro": Object.freeze([
+    { id: "silent-pro-line-12", label: "laoye", price: 0.14 },
     { id: "silent-pro-line-01", label: "云枢", price: 0.14 },
     { id: "silent-pro-line-10", label: "Subdirect", price: 0.14 },
     // 2026-10-10 补齐 PRO 云枢（上游复用 yunshuaiapi.com 的 Gemini 分组，上游模型 nano-banana-pro；
@@ -89,6 +91,7 @@ export const MODEL_CHANNEL_ALLOWLIST = Object.freeze({
     { id: "silent-pro-line-09", label: "Origin", price: 0.16 }
   ]),
   "banana-2.1": Object.freeze([
+    { id: "silent-banana21-line-12", label: "laoye", price: 0.12 },
     { id: "silent-banana21-line-01", label: "云枢", price: 0.12 },
     { id: "silent-banana21-line-02", label: "Subdirect", price: 0.12 }
   ])
