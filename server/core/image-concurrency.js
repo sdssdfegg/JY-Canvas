@@ -13,12 +13,18 @@ function imageSlotWeight(value) {
 }
 
 function drainImageQueue() {
-  while (
-    imageRequestQueue.length > 0
-    && activeImageRequestCount + imageRequestQueue[0].weight <= IMAGE_CONCURRENCY_LIMIT
-  ) {
-    const next = imageRequestQueue.shift();
-    next.grant();
+  // V51：原实现只放行队头，一个放不下的重任务会堵死后面放得下的轻任务（头部阻塞）。
+  // 改为从头扫描第一个放得下的：跳过当前放不下的，不跳过永远放得下的。
+  // 权衡（有意接受）：持续轻任务负载下重任务可能被多次跳过而延迟——本地单用户工具队列深度有限，
+  // 且重任务在 active 归零后必然被放行，不会饿死；不做复杂公平算法，避免过度设计。
+  for (let index = 0; index < imageRequestQueue.length;) {
+    const next = imageRequestQueue[index];
+    if (activeImageRequestCount + next.weight <= IMAGE_CONCURRENCY_LIMIT) {
+      imageRequestQueue.splice(index, 1);
+      next.grant();
+    } else {
+      index += 1;
+    }
   }
 }
 
