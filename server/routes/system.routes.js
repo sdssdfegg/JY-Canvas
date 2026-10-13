@@ -36,6 +36,7 @@
 
 import {
   PRIMARY_CHANNEL_API_BASE_URL,
+  isLockedChannelBaseUrl,
   publicChannelGateways,
   publicChannelModels,
   publicChannelPolicyConfig,
@@ -126,6 +127,20 @@ export function registerSystemRoutes(app) {
     const apiKey = resolveApiKey(body.apiKey);
     if (!apiKey) {
       return res.status(400).json({ ok: false, status: 0, message: "请先填写或保存 API Key", latencyMs: 0 });
+    }
+
+    // 产品规则（src/shared/image-hosts.js 头注释）：生图 API 只允许官方中转。
+    // 连接测试带用户 KEY 出网，不收白名单就是 SSRF + KEY 外传原语。
+    // 与生图链路同源判定：isLockedChannelBaseUrl 内部已做 normalizeBaseUrl。
+    if (requestedBaseUrl && !isLockedChannelBaseUrl(requestedBaseUrl)) {
+      return res.status(400).json({
+        ok: false,
+        status: 0,
+        latencyMs: 0,
+        model: String(body.model || ""),
+        channelId: String(body.channelId || ""),
+        message: "请求地址不在已授权渠道列表，请联系管理员添加渠道"
+      });
     }
 
     // 与 3.0 一致：base 以 /v1 结尾就直接拼 /models，否则补 /v1/models。
