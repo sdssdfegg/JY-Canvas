@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { StableTextarea } from "./shared/ui/stable-textarea.jsx";
+import { ElapsedTimer } from "./shared/ui/elapsed-timer.jsx";
 import { createRoot } from "react-dom/client";
 import {
   Archive,
@@ -5732,75 +5734,7 @@ publicReleaseStorageResetPromise.finally(() => {
   appRoot.render(<App />);
 });
 
-// V46.1 任务计时下沉：自管 500ms 局部 tick，替换原先顶层的 setNowTick，
-// 避免「有任务在跑时每 500ms 强制巨石全树重渲染」导致的打字/交互卡顿。
-function ElapsedTimer({ startedAt }) {
-  const [tick, setTick] = useState(() => Date.now());
-  useEffect(() => {
-    setTick(Date.now());
-    const timer = window.setInterval(() => setTick(Date.now()), 500);
-    return () => window.clearInterval(timer);
-  }, [startedAt]);
-  const started = startedAt || tick;
-  return <>{formatMs(tick - started)}</>;
-}
+// StableTextarea / ElapsedTimer 已抽到 src/shared/ui/
+// （见 stable-textarea.jsx / elapsed-timer.jsx），main.jsx 改为 import 复用。
+// 这是 main.jsx 巨石拆分的「第一块砖」：两个零闭包依赖的顶层纯组件，先剥离出去探路。
 
-// V46.3 输入 memo 下沉：受控 textarea 用 ref 持有最新 onChange / onPointerDown，
-// 渲染时改用 useMemo([]) 产出的「稳定包装函数」，并配自定义 memo 比较器刻意忽略
-// 函数 prop 身份。这样父级（main.jsx 巨石）因其它 state 变动重渲时，value 未变的
-// 输入框可跳过重渲，缓解「别的输入框打字也拖着本框重渲」的卡顿。
-// 若只套 React.memo 而不忽略 handler 身份，inline arrow 每次都是新引用、memo 永远
-// 失效（零收益陷阱），故必须 ref + 自定义比较器双管齐下。
-const StableTextarea = React.memo(
-  function StableTextarea({
-    value,
-    onChange,
-    onPointerDown,
-    className,
-    placeholder,
-    disabled,
-    readOnly,
-    rows,
-    ...rest
-  }) {
-    const onChangeRef = useRef(onChange);
-    const onPointerDownRef = useRef(onPointerDown);
-    onChangeRef.current = onChange;
-    onPointerDownRef.current = onPointerDown;
-
-    const stableOnChange = useMemo(
-      () => (event) => { if (onChangeRef.current) onChangeRef.current(event); },
-      []
-    );
-    const stableOnPointerDown = useMemo(
-      () => (event) => { if (onPointerDownRef.current) onPointerDownRef.current(event); },
-      []
-    );
-
-    return (
-      <textarea
-        className={className}
-        placeholder={placeholder}
-        disabled={disabled}
-        readOnly={readOnly}
-        rows={rows}
-        value={value}
-        onChange={stableOnChange}
-        onPointerDown={onPointerDownRef.current ? stableOnPointerDown : undefined}
-        {...rest}
-      />
-    );
-  },
-  (prev, next) => {
-    // 仅当「非 handler 的渲染相关 prop」真正变化时才重渲；
-    // onChange / onPointerDown 身份变化被刻意忽略（已通过 ref 持有最新实现）。
-    // 其余 prop（含未来可能新增的 style / maxLength 等）一律做值比较，保证行为正确。
-    const prevKeys = Object.keys(prev);
-    if (prevKeys.length !== Object.keys(next).length) return false;
-    for (const key of prevKeys) {
-      if (key === "onChange" || key === "onPointerDown") continue;
-      if (prev[key] !== next[key]) return false;
-    }
-    return true;
-  }
-);
