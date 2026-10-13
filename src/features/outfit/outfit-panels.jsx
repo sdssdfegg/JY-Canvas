@@ -58,6 +58,10 @@ import {
 } from "../../shared/local-edit-geometry.js";
 import { imageFileFromUrl, dataUrlFromBlob } from "../../shared/result-image.js";
 import { Modal, ModalHeader } from "../../shared/ui/Modal.jsx";
+// 与 src/features/video/video-composer.js 的 durationOptionsForVideoModel 逐字等价
+// （仅默认时长常量来源不同，但 QUICK_VIDEO_DEFAULTS 与 videoDefaults 取值完全相同），
+// 故直接复用，消除 28 组近重复里的这一对改名克隆。
+import { durationOptionsForVideoModel as videoDurationOptions } from "../video/video-composer.js";
 import {
   isVideoTaskCompleted,
   isVideoTaskFailed,
@@ -1706,15 +1710,6 @@ export const QUICK_VIDEO_DEFAULTS = {
   outputAudio: false,
   imageUrl: ""
 };
-export function videoDurationOptions(model = {}) {
-  if (Array.isArray(model.durations) && model.durations.length > 0) return model.durations;
-  const min = Math.max(1, Number(model.minDuration || QUICK_VIDEO_DEFAULTS.duration));
-  const max = Math.max(min, Number(model.maxDuration || min));
-  const options = [];
-  for (let value = min; value <= max; value += 5) options.push(value);
-  if (!options.includes(max)) options.push(max);
-  return options;
-}
 export function quickVideoPromptPlaceholder(model = {}) {
   return String(model.promptPlaceholder || "输入视频画面、镜头运动、人物动作、服装展示和氛围要求").trim();
 }
