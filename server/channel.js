@@ -484,7 +484,14 @@ export function extractImagesFromResponse(payload) {
   const pushImage = (item) => {
     if (!item || typeof item !== "object") return;
     if (typeof item.url === "string" && item.url.trim()) {
-      images.push({ type: "url", value: item.url.trim() });
+      // 老夜等 OpenAI 兼容渠道可能把 base64 图以 data: URI 形式回在 url 字段，
+      // 标成 type:"url" 会被当成远程地址去代理 → 保存时抛 unsupported_protocol。
+      // 这里把 data: URI 归一为 b64_json，与 images[] 字符串分支保持一致。
+      if (/^data:image\//i.test(item.url.trim())) {
+        images.push({ type: "b64_json", value: item.url.trim() });
+      } else {
+        images.push({ type: "url", value: item.url.trim() });
+      }
       return;
     }
     if (typeof item.b64_json === "string" && item.b64_json.trim()) {
@@ -492,7 +499,11 @@ export function extractImagesFromResponse(payload) {
       return;
     }
     if (typeof item.image_url === "string" && item.image_url.trim()) {
-      images.push({ type: "url", value: item.image_url.trim() });
+      if (/^data:image\//i.test(item.image_url.trim())) {
+        images.push({ type: "b64_json", value: item.image_url.trim() });
+      } else {
+        images.push({ type: "url", value: item.image_url.trim() });
+      }
     }
   };
 

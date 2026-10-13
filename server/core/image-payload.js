@@ -24,10 +24,32 @@ import { downloadExternalImageWithFallback, remoteUrlFromImageProxyPath } from "
 import { mimeTypeFromFile } from "./file-naming.js";
 import { IMAGE_PROXY_TIMEOUT_MS } from "./runtime-config.js";
 
+// 把 data: URI 解码成 { buffer, mimeType, sourceUrl }；不是 data: 返回 null。
+// 上游（如老夜 OpenAI 兼容渠道）可能把 base64 图以 data: URI 形式塞进 `url` 字段，
+// 而 `type: "url"` 分支会把它当远程地址去代理 → 抛 `unsupported_protocol`，
+// 导致保存 / 自动保存静默失败。这里在入口处统一兜住 data:，跟 b64_json 分支等价处理。
+function decodeDataUrl(value) {
+  const text = String(value || "").trim();
+  const match = /^data:(image\/[a-z0-9.+-]+);base64,(.*)$/i.exec(text);
+  if (!match) return null;
+  const raw = match[2];
+  if (!raw) return null;
+  return {
+    buffer: Buffer.from(raw, "base64"),
+    mimeType: match[1] || "image/png",
+    sourceUrl: ""
+  };
+}
+
 export async function imageBufferFromPayload(image, timeoutMs = IMAGE_PROXY_TIMEOUT_MS) {
   if (!image || typeof image !== "object") {
     throw new Error("图片数据无效");
   }
+
+  // 入口优先兜住 data: URI（可能在 value 或 localUrl 上，任意 type 都认），
+  // 避免落入远程代理分支抛 unsupported_protocol。
+  const decodedDataUrl = decodeDataUrl(image.value) || decodeDataUrl(image.localUrl);
+  if (decodedDataUrl) return decodedDataUrl;
 
   if (image.archiveFile) {
     const file = historyImagePath(image.archiveFile);
