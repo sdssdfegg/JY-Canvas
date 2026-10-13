@@ -52,7 +52,8 @@
    - 改 `server/core/runtime-config.js` 默认值 → 先更新 `runtime-config-baseline.json` 再提交（或直接改基线并写明理由）。
    - 改 lint 规则 → 跑 `lint-ratchet-check.mjs --update`。
 2. **文档只准用仓库相对路径，禁止写死本机绝对路径。** README / `docs/` / 根目录 md 里若出现本机不存在的绝对路径，会被 `docs-path-check.mjs` 判红并拦下提交。引用其它仓库（如上游克隆源）也优先用相对路径或显式标注。
-3. **提交前门禁已自动化。** 项目提供 `scripts/git-hooks/pre-commit`：启用后每次 `git commit` 自动跑 `run-all.mjs --skip-launcher`，任一门禁失败即拦下提交。启用命令（仓库根执行）：
+3. **提交前门禁已自动化。** 项目提供 `scripts/git-hooks/pre-commit`：启用后每次 `git commit` 自动跑 `check-syntax` + `run-all.mjs --fast`（快速子集，纯源码/逻辑检查，约 40s，避开需起服务/VAE 的慢脚本），任一门禁失败即拦下提交。启用命令（仓库根执行）：
    `cp scripts/git-hooks/pre-commit .git/hooks/pre-commit`
-   停用：`rm .git/hooks/pre-commit`。CI 侧也应把 `npm run check` 作为必过门禁。
+   停用：`rm .git/hooks/pre-commit`。CI 侧应把 `npm run check`（全量）作为必过门禁；本地提交用 `--fast` 求快。
 4. **不要带"半截改动"进提交。** 代码已修、但基线 JSON 没刷新 / 文档没更新 / 起步说明没同步的情况，一律视为未完成，先收口再提交。
+5. **基线陈旧现在是硬门禁（2026-10-13 升级）。** `shared-ui` / `frontend` / `server` 三套重复棘轮，把"基线记录但代码已无"从"只报告(improved)"升级为"判红(stale)"：基线 JSON 里记的重复项，只要在代码里被消除（抽到 `src/shared/`、拆分文件），就必须跑对应脚本的 `--update` 刷新；否则 `stale` 非空 → 门禁判红、拦下提交。这正是为了杜绝"基线停留在老的不存在的位置"。`improved` 仍只报告不拦（仅指重复仍存在、但文件集/顺序与基线微变）。

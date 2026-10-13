@@ -116,6 +116,9 @@ if (existsSync(BASELINE)) {
 
 const regressions = []
 const improved = []
+// stale：基线记录的同名函数，在代码里已经完全不存在了。基线停留在老位置的典型漂移，
+// 必须跑 --update 刷新，否则判红。
+const stale = []
 
 for (const [name, filesNow] of Object.entries(currentMap)) {
   const before = baseline.duplicates?.[name]
@@ -131,10 +134,11 @@ for (const [name, filesNow] of Object.entries(currentMap)) {
   if (!sameList(filesNow, before)) improved.push({ name, before, now: filesNow })
 }
 for (const name of Object.keys(baseline.duplicates || {})) {
-  if (!(name in currentMap)) improved.push({ name, before: baseline.duplicates[name], now: [] })
+  if (!(name in currentMap)) stale.push({ name, before: baseline.duplicates[name] })
 }
 
-const ok = regressions.length === 0
+// 基线陈旧（stale）与新增/扩散（regressions）都判红：基线必须始终反映代码现状。
+const ok = regressions.length === 0 && stale.length === 0
 
 console.log(JSON.stringify({
   ok,
@@ -143,12 +147,15 @@ console.log(JSON.stringify({
   duplicateCount: duplicates.length,
   regressions,
   improved,
+  stale,
   intraFileDuplicates: intraFile,
   duplicates,
   baselineGeneratedAt: baseline.generatedAt,
   note: ok
-    ? (intraFile.length ? `没有新增跨文件同名函数；但发现 ${intraFile.length} 处同文件内重名（见 intraFileDuplicates），属异常但不拦` : "没有跨文件同名函数，也没有新增")
-    : `新增了 ${regressions.length} 处跨文件同名函数，请改为抽到共享模块后再跑；确实要接受就 --update 并说明原因`
+    ? (intraFile.length ? `没有新增跨文件同名函数；但发现 ${intraFile.length} 处同文件内重名（见 intraFileDuplicates），属异常但不拦` : "没有跨文件同名函数，也没有新增；基线与代码现状一致")
+    : (stale.length
+        ? `基线已陈旧：记录了 ${stale.length} 个跨文件同名函数，但代码里已不存在。请跑 --update 刷新基线（node scripts/verify/server-duplication-check.mjs --update），让基线追上代码，不要绕过。`
+        : `新增了 ${regressions.length} 处跨文件同名函数，请改为抽到共享模块后再跑；确实要接受就 --update 并说明原因`)
 }, null, 2))
 
 process.exit(ok ? 0 : 1)

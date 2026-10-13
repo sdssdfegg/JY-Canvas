@@ -8,7 +8,7 @@
 //   - 存量重复记账，允许存在，但不许变多；
 //   - 出现新的跨文件同名组件 → 失败；
 //   - 已有重复又扩散到一个新文件 → 失败；
-//   - 抽到 shared 消掉了某个重复 → 通过，并提示刷新基线。
+//   - 抽到 shared 消掉了某个重复 → 基线陈旧（stale）判红，必须 --update 刷新基线后再提交（禁止停留在老位置）。
 //
 // 额外的判别力：同名两份定义会比对**归一化后的实现哈希**。hash 不一致意味着
 // 「签名的契约相同、行为已经分叉」——这正是登记表想拦却拦不住的那种漂移。
@@ -157,6 +157,9 @@ if (existsSync(BASELINE)) {
 
 const regressions = [];
 const improved = [];
+// stale：基线记录的重复，在代码里已经完全不存在了。这是「基线停留在老位置」的典型漂移。
+// 必须跑 --update 刷新基线，否则门禁判红，逼人把基线同步到代码现状。
+const stale = [];
 
 for (const [name, list] of Object.entries(currentMap)) {
   const before = baseline.duplicates?.[name];
@@ -172,11 +175,12 @@ for (const [name, list] of Object.entries(currentMap)) {
   if (!sameList(list, before)) improved.push({ name, before, now: list });
 }
 for (const name of Object.keys(baseline.duplicates || {})) {
-  if (!(name in currentMap)) improved.push({ name, before: baseline.duplicates[name], now: [] });
+  if (!(name in currentMap)) stale.push({ name, before: baseline.duplicates[name] });
 }
 
 const drifted = duplicates.filter((item) => item.drifted);
-const ok = regressions.length === 0;
+// 基线陈旧（stale）与新增/扩散（regressions）都判红：基线必须始终反映代码现状。
+const ok = regressions.length === 0 && stale.length === 0;
 
 console.log(JSON.stringify({
   ok,
@@ -185,6 +189,7 @@ console.log(JSON.stringify({
   duplicateCount: duplicates.length,
   regressions,
   improved,
+  stale,
   drifted: drifted.map((item) => ({
     name: item.name,
     locations: item.locations,
@@ -194,8 +199,10 @@ console.log(JSON.stringify({
   duplicates,
   baselineGeneratedAt: baseline.generatedAt,
   note: ok
-    ? "没有新增跨文件重复组件" + (drifted.length ? `；但有 ${drifted.length} 个同名组件实现已分叉（见 drifted），这是存量，建议抽到 src/shared/ui/` : "")
-    : `新增了 ${regressions.length} 处跨文件重复，请改为抽到 src/shared/ui/ 后再跑；确实要接受就 --update 并说明原因`
+    ? "没有新增跨文件重复组件；基线与代码现状一致" + (drifted.length ? `；但有 ${drifted.length} 个同名组件实现已分叉（见 drifted），这是存量，建议抽到 src/shared/ui/` : "")
+    : (stale.length
+        ? `基线已陈旧：记录了 ${stale.length} 个跨文件重复组件，但代码里已不存在。请跑 --update 刷新基线（node scripts/verify/shared-ui-duplication-check.mjs --update），让基线追上代码，不要绕过。`
+        : `新增了 ${regressions.length} 处跨文件重复，请改为抽到 src/shared/ui/ 后再跑；确实要接受就 --update 并说明原因`)
 }, null, 2));
 
 process.exit(ok ? 0 : 1);
