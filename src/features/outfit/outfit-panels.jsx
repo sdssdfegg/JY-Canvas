@@ -1806,29 +1806,55 @@ export function WorkflowQuickVideoPanel({
     if (!task.taskId && !task.id && !videoResultUrl(task)) {
       throw new Error("视频任务没有返回任务 ID");
     }
-    for (let attempt = 0; attempt < VIDEO_STATUS_MAX_POLLS; attempt += 1) {
-      if (isVideoTaskCompleted(task)) return task;
-      if (isVideoTaskFailed(task)) throw new Error(task.error?.message || task.error || "视频生成失败");
-      setTasks((current) => current.map((item) => item.id === requestId ? {
-        ...item,
-        statusText: videoTaskStatusText(task),
-        progress: task.progress,
-        elapsedMs: Date.now() - startedAt
-      } : item));
-      await new Promise((resolve) => setTimeout(resolve, VIDEO_STATUS_POLL_INTERVAL_MS));
-      const previousTaskId = task.taskId || task.id;
-      const payload = await getVideoStatus({
-        apiKey,
-        taskId: previousTaskId
-      });
-      const nextTask = payload.task || {};
-      task = {
-        ...nextTask,
-        taskId: nextTask.taskId || nextTask.id || previousTaskId,
-        id: nextTask.id || nextTask.taskId || previousTaskId
-      };
+    // V53：页面不可见时降频（双倍间隔），切回前台立即补查一次。
+    // 不停止轮询——视频任务结果还要收；只是不空转。
+    let wakeDelay = null;
+    let resumeRequested = false;
+    const pollDelay = () => new Promise((resolve) => {
+      if (resumeRequested) {
+        resumeRequested = false;
+        return resolve();
+      }
+      const interval = document.hidden ? VIDEO_STATUS_POLL_INTERVAL_MS * 2 : VIDEO_STATUS_POLL_INTERVAL_MS;
+      const timer = setTimeout(() => { wakeDelay = null; resolve(); }, interval);
+      wakeDelay = () => { clearTimeout(timer); wakeDelay = null; resolve(); };
+    });
+    let resumePoll = () => {
+      if (wakeDelay) { const wake = wakeDelay; wakeDelay = null; wake(); } // 正睡着：立即唤醒当前等待（唤醒后该次 pollDelay 即导向查询）
+      else { resumeRequested = true; } // 轮询间隙：标记下一次 pollDelay 立即返回（切回立即补查一次）
+    };
+    const onVisibilityChange = () => {
+      if (!document.hidden) resumePoll();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    try {
+      for (let attempt = 0; attempt < VIDEO_STATUS_MAX_POLLS; attempt += 1) {
+        if (isVideoTaskCompleted(task)) return task;
+        if (isVideoTaskFailed(task)) throw new Error(task.error?.message || task.error || "视频生成失败");
+        setTasks((current) => current.map((item) => item.id === requestId ? {
+          ...item,
+          statusText: videoTaskStatusText(task),
+          progress: task.progress,
+          elapsedMs: Date.now() - startedAt
+        } : item));
+        // V53：页面不可见时降频（双倍间隔），切回前台立即补查一次。
+        await pollDelay();
+        const previousTaskId = task.taskId || task.id;
+        const payload = await getVideoStatus({
+          apiKey,
+          taskId: previousTaskId
+        });
+        const nextTask = payload.task || {};
+        task = {
+          ...nextTask,
+          taskId: nextTask.taskId || nextTask.id || previousTaskId,
+          id: nextTask.id || nextTask.taskId || previousTaskId
+        };
+      }
+      throw new Error("视频生成等待超时，请稍后到上游任务记录中查看。");
+    } finally {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     }
-    throw new Error("视频生成等待超时，请稍后到上游任务记录中查看。");
   }
 
   async function startVideoGeneration() {
