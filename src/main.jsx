@@ -824,6 +824,31 @@ function App() {
     resetDragged: setDraggedPromptCategory,
     resetDropTarget: setPromptCategoryDropTarget
   });
+
+  // 保存目录域：实现在 src/features/savedir/save-directory.js（两侧同一份，语义等价）。
+  // 这里只保留同名薄壳：每次 render 重建 deps，捕获最新的 state / setter / addEvent。
+  // 注意：必须放在首次渲染引用（resultDownloadDeps 在 ~1771 行）之前，
+  // 否则渲染期访问尚未初始化的 refreshSaveDirectory 会触发 TDZ，导致整页不挂载（黑屏）。
+  const saveDirectoryDeps = {
+    getSaveDirectory,
+    setSaveDirectoryRequest,
+    pickSaveDirectoryRequest,
+    setSaveDirectory,
+    setDirectoryDraft,
+    setIsDirectoryModalOpen,
+    setIsPickingDirectory,
+    saveDirectory,
+    directoryDraft,
+    isPickingDirectory,
+    notify: addEvent
+  };
+  const {
+    refreshSaveDirectory,
+    openDirectoryModal,
+    confirmSaveDirectory,
+    pickSaveDirectory,
+  } = useSaveDirectory(saveDirectoryDeps);
+
   const stitchDragRef = useRef(null);
   const quickResultDragIdRef = useRef("");
   const downloadFeedbackTimersRef = useRef(new Map());
@@ -2112,28 +2137,6 @@ function App() {
     setEvents([]);
     void removeHistoryResults(ids);
   }
-
-  // 保存目录域：实现在 src/features/savedir/save-directory.js（两侧同一份，语义等价）。
-  // 这里只保留同名薄壳：每次 render 重建 deps，捕获最新的 state / setter / addEvent。
-  const saveDirectoryDeps = {
-    getSaveDirectory,
-    setSaveDirectoryRequest,
-    pickSaveDirectoryRequest,
-    setSaveDirectory,
-    setDirectoryDraft,
-    setIsDirectoryModalOpen,
-    setIsPickingDirectory,
-    saveDirectory,
-    directoryDraft,
-    isPickingDirectory,
-    notify: addEvent
-  };
-  const {
-    refreshSaveDirectory,
-    openDirectoryModal,
-    confirmSaveDirectory,
-    pickSaveDirectory,
-  } = useSaveDirectory(saveDirectoryDeps);
 
   function openSaveDirectory() {
     const sendOpenRequest = (directory) => {
