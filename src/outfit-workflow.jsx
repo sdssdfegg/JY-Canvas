@@ -134,6 +134,7 @@ import "./features/outfit/retouch-intent.css";
 import { copyTextToClipboard } from "./shared/dom-actions.js";
 import { useSaveDirectory } from "./shared/hooks/useSaveDirectory.js";
 import { usePreviewDrag } from "./shared/hooks/usePreviewDrag.js";
+import { ElapsedTimer } from "./shared/ui/elapsed-timer.jsx";
 import {
   TASK_HISTORY_KEY,
   OUTFIT_DRAFT_DB_KEY,
@@ -476,7 +477,6 @@ export default function OutfitWorkflow({
   const [splitHalves, setSplitHalves] = useState(() => readSplitHalvesEnabled());
   const [splitNote, setSplitNote] = useState("");
   const [, setEvents] = useState([]);
-  const [clockNow, setClockNow] = useState(Date.now());
   const [cropTarget, setCropTarget] = useState(null);
   const [localEditTarget, setLocalEditTarget] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -605,9 +605,6 @@ export default function OutfitWorkflow({
   const failedCount = tasks.filter((task) => task.status === "failed").length;
   const runningCount = tasks.filter((task) => task.status === "running").length;
   const detachedCount = tasks.filter((task) => task.status === "detached").length;
-  // 只要列表里还有排队/生成中的任务，就让耗时秒数继续走：
-  // 切页面回来时组件自己的 running 状态已经重置，但账本恢复出来的"生成中"卡片仍要能读秒。
-  const hasPendingTasks = tasks.some((task) => task.status === "running" || task.status === "queued");
   const imageCount = completedCount;
   const visibleTasks = resultFilter === "video" ? [] : resultFilter === "image" ? tasks.filter((task) => task.result) : tasks;
   const resultPreviewTasks = visibleTasks.filter((task) => task.result);
@@ -999,13 +996,6 @@ export default function OutfitWorkflow({
   useEffect(() => {
     writeJsonStorage(PROMPT_CATEGORIES_KEY, promptCategories.filter((category) => category !== "全部"));
   }, [promptCategories]);
-
-  useEffect(() => {
-    if (!running && !hasPendingTasks) return undefined;
-    setClockNow(Date.now());
-    const timer = window.setInterval(() => setClockNow(Date.now()), 500);
-    return () => window.clearInterval(timer);
-  }, [running, hasPendingTasks]);
 
   useEffect(() => {
     if (!ratios.includes(settings.aspectRatio)) {
@@ -2722,7 +2712,6 @@ function buildTasks(countOverride = plannedGenerationCount) {
         : task.modelItem?.localEdit?.cropFile && task.modelItem?.localEdit?.cropRect
           ? task.modelItem.localEdit
           : null;
-    setClockNow(startedAt);
     const runningPatch = {
       sessionId: OUTFIT_SESSION_ID,
       status: "running",
@@ -3032,7 +3021,6 @@ function buildTasks(countOverride = plannedGenerationCount) {
       // 中文注释：普通结果先用接口返回地址显示，二次下载和 IndexedDB 缓存交给后台 effect，减少“生成完成后还要等一下”的体感。
       displayImage = resultImage;
     }
-    setClockNow(finishedAt);
     // 这一条完成后的完整任务快照：既用于 setState，也用于"组件已被卸载"时的补登记。
     const finishedTaskPatch = {
       status: "success",
@@ -3710,7 +3698,7 @@ function buildTasks(countOverride = plannedGenerationCount) {
         <div className="taskGrid" ref={taskGridRef} style={{ "--asset-card-min": `${galleryCardMin}px` }}>
           {visibleTasks.map((task, taskIndex) => {
             const selected = selectedTaskIds.has(task.id);
-            const durationMs = taskDurationMs(task, clockNow);
+            const durationMs = taskDurationMs(task);
             const fallbackReferences = taskReferencePreviewItems(task);
             const storedReferences = sanitizeTaskReferenceThumbs(task.referenceThumbs);
             const references = storedReferences.length ? storedReferences : fallbackReferences;
@@ -3738,7 +3726,7 @@ function buildTasks(countOverride = plannedGenerationCount) {
                   </button>
                   {runningTask ? <Loader2 className="spin" size={28} /> : <Sparkles size={28} />}
                   <span>{taskStatusLabel(task.status)}</span>
-                  <strong>{runningTask ? formatMs(Math.max(durationMs || 0, 1000)) : `${task.imageSize || settings.imageSize} · ${task.aspectRatio || settings.aspectRatio}`}</strong>
+                  <strong>{runningTask ? <ElapsedTimer startedAt={task.startedAt} /> : `${task.imageSize || settings.imageSize} · ${task.aspectRatio || settings.aspectRatio}`}</strong>
                   <em>{task.modelLabel || settings.model}</em>
                   {taskRuntimeStageLabel(task) && (
                     <p className="assetError runtimeStage" title={taskRuntimeStageLabel(task)}>

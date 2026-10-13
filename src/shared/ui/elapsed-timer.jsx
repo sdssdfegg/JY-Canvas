@@ -1,4 +1,4 @@
-// V46.1 任务计时下沉：自管 500ms 局部 tick，替换原先顶层的 setNowTick，
+// V49 任务计时下沉：自管 500ms 局部 tick，替换原先顶层的 setNowTick（outfit-workflow 侧的 clockNow 由 V49 收口），
 // 避免「有任务在跑时每 500ms 强制巨石全树重渲染」导致的打字/交互卡顿。
 //
 // 原定义位于 src/main.jsx（V46.1 引入）。V46 低端机降配阶段把它抽到 src/shared/ui/，
