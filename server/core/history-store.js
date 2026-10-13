@@ -17,7 +17,7 @@
 // 缺失的就标 missing，让前端能显示占位图而不是裂图。
 
 import { existsSync } from "node:fs";
-import { copyFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   dataDir,
@@ -275,13 +275,34 @@ export async function readHistoryResults() {
   return recovered;
 }
 
-export async function writeHistoryResults(results, options = {}) {
+// V47：history.json 的读-改-写必须整体串行——批量出图的 append 是即发即忘的，
+// 两个 append 交错时后写者会基于旧 current 计算，把先写者的条目静默吞掉（丢历史）。
+// 参照 server/core/asset-persist.js 的 withSaveFilenameLock 范式；失败也继续排。
+let historyWriteChain = Promise.resolve();
+
+function enqueueHistoryWrite(task) {
+  const run = historyWriteChain.then(task, task);
+  historyWriteChain = run.then(() => {}, () => {});
+  return run;
+}
+
+async function writeHistoryFileAtomic(file, text) {
+  const temporary = `${file}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+  await writeFile(temporary, text, "utf8");
+  await rename(temporary, file); // rename 覆盖已存在文件，原子替换
+}
+
+async function writeHistoryResultsUnlocked(results, options = {}) {
   const normalized = (Array.isArray(results) ? results : []).map(normalizeHistoryItem).filter(Boolean);
   await mkdir(dataDir, { recursive: true });
-  await writeFile(historyFile, JSON.stringify(normalized, null, 2), "utf8");
+  await writeHistoryFileAtomic(historyFile, JSON.stringify(normalized, null, 2));
   if (normalized.length > 0 || options.replaceBackup) {
-    await writeFile(historyBackupFile, JSON.stringify(normalized, null, 2), "utf8");
+    await writeHistoryFileAtomic(historyBackupFile, JSON.stringify(normalized, null, 2));
   }
+}
+
+export async function writeHistoryResults(results, options = {}) {
+  return enqueueHistoryWrite(() => writeHistoryResultsUnlocked(results, options));
 }
 
 export function mergeHistoryItem(existing, incoming) {
@@ -346,21 +367,23 @@ export async function archiveIncomingHistoryItem(item, timeoutMs = IMAGE_PROXY_T
 }
 
 export async function appendHistoryResults(items) {
-  const rawIncoming = Array.isArray(items) ? items.filter((item) => item?.id) : [];
-  const incoming = [];
-  for (const item of rawIncoming) {
-    const archived = await archiveIncomingHistoryItem(item);
-    if (archived) incoming.push(archived);
-  }
-  if (incoming.length === 0) return [];
-  const current = await readHistoryResults();
-  const byId = new Map(current.map((item) => [item.id, item]));
-  incoming.forEach((item) => {
-    byId.set(item.id, mergeHistoryItem(byId.get(item.id), item));
+  return enqueueHistoryWrite(async () => {
+    const rawIncoming = Array.isArray(items) ? items.filter((item) => item?.id) : [];
+    const incoming = [];
+    for (const item of rawIncoming) {
+      const archived = await archiveIncomingHistoryItem(item);
+      if (archived) incoming.push(archived);
+    }
+    if (incoming.length === 0) return [];
+    const current = await readHistoryResults();
+    const byId = new Map(current.map((item) => [item.id, item]));
+    incoming.forEach((item) => {
+      byId.set(item.id, mergeHistoryItem(byId.get(item.id), item));
+    });
+    const results = Array.from(byId.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    await writeHistoryResultsUnlocked(results);
+    return results;
   });
-  const results = Array.from(byId.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  await writeHistoryResults(results);
-  return results;
 }
 
 export async function itemWithArchivedImage(item) {
