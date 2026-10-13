@@ -14,10 +14,14 @@
 //   - ⚠️ 本次是**纯搬运**：两版字节一致 ⇒ 行为零变化，未改任何判定逻辑/正则/文案。
 //
 // 未纳入本刀的相邻族（**改名克隆**，019 按名比对看不见，属 RF-032 的只读测量范围）：
-//   - `durationOptionsForVideoModel`（main.jsx）↔ `videoDurationOptions`（outfit-workflow.jsx）：
-//     函数体除默认值常量外相同（videoDefaults.duration ↔ QUICK_VIDEO_DEFAULTS.duration），名字不同；
-//   - `videoPromptPlaceholder`（main.jsx）↔ `quickVideoPromptPlaceholder`（outfit-workflow.jsx）：
-//     名字与占位文案都不同（已分叉，不是克隆搬运）。
+//   - `durationOptionsForVideoModel`（video-composer.js，唯一真身）↔ `videoDurationOptions`（outfit-panels.jsx 的别名导入）：
+//     已在 V11-RF-018 收口——outfit-panels 改为 `import { durationOptionsForVideoModel as videoDurationOptions }`，
+//     不再有第二份定义；默认值常量 videoDefaults.duration ≡ QUICK_VIDEO_DEFAULTS.duration 同为 5，等价。
+//   - `videoPromptPlaceholder`（video-composer.js）↔ `quickVideoPromptPlaceholder`（outfit-panels.jsx）：
+//     名字与占位文案都不同（已分叉，不是克隆搬运）——**保留不合并**：兜底文案字面量不同
+//     （"输入视频画面、运动、镜头、服装和氛围要求" vs "输入视频画面、镜头运动、人物动作、服装展示和氛围要求"）。
+//   - `videoPricePerSecond`/`videoPriceLabel`（video-composer.js）↔ `quickVideoPricePerSecond`/`quickVideoPriceLabel`
+//     （outfit-panels.jsx 的别名导入）：本单（建议2）收口，字节一致，改为别名导入，无第二份定义。
 
 /** 任务对象 → 结果视频 URL（兼容多种渠道字段名）。 */
 export function videoResultUrl(task = {}) {

@@ -61,7 +61,10 @@ import { Modal, ModalHeader } from "../../shared/ui/Modal.jsx";
 // 与 src/features/video/video-composer.js 的 durationOptionsForVideoModel 逐字等价
 // （仅默认时长常量来源不同，但 QUICK_VIDEO_DEFAULTS 与 videoDefaults 取值完全相同），
 // 故直接复用，消除 28 组近重复里的这一对改名克隆。
-import { durationOptionsForVideoModel as videoDurationOptions } from "../video/video-composer.js";
+import {
+  durationOptionsForVideoModel as videoDurationOptions,
+  videoPriceLabel as quickVideoPriceLabel,
+} from "../video/video-composer.js";
 import {
   isVideoTaskCompleted,
   isVideoTaskFailed,
@@ -1713,14 +1716,6 @@ export const QUICK_VIDEO_DEFAULTS = {
 };
 export function quickVideoPromptPlaceholder(model = {}) {
   return String(model.promptPlaceholder || "输入视频画面、镜头运动、人物动作、服装展示和氛围要求").trim();
-}
-export function quickVideoPricePerSecond(model = {}, resolution = "") {
-  const price = Number(model.customerPricePerSecond?.[resolution]);
-  return Number.isFinite(price) ? price : null;
-}
-export function quickVideoPriceLabel(model = {}, resolution = "") {
-  const price = quickVideoPricePerSecond(model, resolution);
-  return price === null ? "" : `算力 ${price.toFixed(3)}/秒`;
 }
 export function normalizeQuickVideoSettings(current = {}, model = {}) {
   const durations = videoDurationOptions(model);
