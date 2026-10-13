@@ -126,6 +126,7 @@ export function LocalEditModal({
     setMaskOpacity(clampLocalEditMaskOpacity(savedEdit?.maskOpacity || LOCAL_EDIT_MASK_OPACITY_DEFAULT));
     setBrushCursor({ x: 0, y: 0, visible: false });
     maskInitRef.current = "";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id, isLocalMode]);
 
   useEffect(() => {
@@ -174,7 +175,7 @@ export function LocalEditModal({
     setMaskPainted(false);
     setMaskRevision((current) => current + 1);
     return undefined;
-  }, [activeRatio, imageSize.height, imageSize.width, isLocalMode, item?.id, savedEdit?.editMode, savedEdit?.maskDataUrl]);
+  }, [activeRatio, imageSize.height, imageSize.width, isLocalMode, item?.id, savedEdit?.editMode, savedEdit?.maskDataUrl, savedEdit?.cropRect]);
 
   useEffect(() => {
     syncCropRectFromMask();

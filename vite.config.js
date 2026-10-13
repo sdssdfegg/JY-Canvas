@@ -21,7 +21,12 @@ export default defineConfig({
           // 应用代码按功能域拆分：src/features/<域> 各自成块，入口 main + 共享模块留 index。
           // 各功能域静态 import，浏览器首屏仍会加载，但单块体积下降、不常变的域可独立缓存。
           const feat = id.match(/[\\/]src[\\/]features[\\/]([^\\/]+)/);
-          if (feat && feat[1]) return "feat-" + feat[1];
+          if (feat && feat[1]) {
+            // feat-crop 与 feat-local-edit 存在循环 import（裁剪面板与局部编辑共用交互/类型），
+            // 各自成块会让 Rollup 报 circular chunk；合并到同一块消除告警且不改变运行时。
+            if (feat[1] === "crop" || feat[1] === "local-edit") return "feat-crop-localedit";
+            return "feat-" + feat[1];
+          }
         }
       }
     }

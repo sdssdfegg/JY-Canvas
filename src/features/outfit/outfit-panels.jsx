@@ -1008,6 +1008,7 @@ export function CropModal({
     if (mode !== "crop") return undefined;
     const frame = window.requestAnimationFrame(resetCropTransform);
     return () => window.cancelAnimationFrame(frame);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageSize.height, imageSize.width, item?.id, mode, activeRatio]);
 
   useEffect(() => {
@@ -1741,7 +1742,7 @@ export function WorkflowQuickVideoPanel({
   onOpenSettings,
   onAddEvent
 }) {
-  const videoModels = Array.isArray(config?.videoModels) && config.videoModels.length ? config.videoModels : [];
+  const videoModels = useMemo(() => Array.isArray(config?.videoModels) && config.videoModels.length ? config?.videoModels : [], [config?.videoModels]);
   const [settings, setSettings] = useState(QUICK_VIDEO_DEFAULTS);
   const [referenceFile, setReferenceFile] = useState(null);
   const [results, setResults] = useState([]);
@@ -1766,7 +1767,7 @@ export function WorkflowQuickVideoPanel({
   useEffect(() => {
     if (!videoModels.length) return;
     setSettings((current) => normalizeQuickVideoSettings(current, videoModels.find((item) => item.value === current.model) || videoModels[0]));
-  }, [config?.videoModels]);
+  }, [videoModels]);
 
   useEffect(() => () => {
     if (referencePreview?.url) URL.revokeObjectURL(referencePreview.url);

@@ -3,7 +3,7 @@
 //
 // 原定义位于 src/main.jsx（V46.1 引入）。V46 低端机降配阶段把它抽到 src/shared/ui/，
 // 作为 main.jsx 巨石拆分的「第一块砖」：纯计时展示、仅依赖共享的 formatMs，零闭包依赖。
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { formatMs } from "../../lib/format/index.js";
 
 function ElapsedTimer({ startedAt }) {

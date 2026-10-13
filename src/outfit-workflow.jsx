@@ -804,12 +804,13 @@ export default function OutfitWorkflow({
       .finally(() => {
         if (!cancelled) {
           historyHydratingRef.current = false;
-          setHistoryReady(true);
-        }
-      });
+        setHistoryReady(true);
+      }
+    });
     return () => {
       cancelled = true;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -836,12 +837,13 @@ export default function OutfitWorkflow({
       .finally(() => {
         if (!cancelled) {
           draftHydratingRef.current = false;
-          setDraftReady(true);
-        }
-      });
+        setDraftReady(true);
+      }
+    });
     return () => {
       cancelled = true;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -901,6 +903,7 @@ export default function OutfitWorkflow({
 
   useEffect(() => {
     void refreshSaveDirectory();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -947,6 +950,7 @@ export default function OutfitWorkflow({
       void persistOutfitDraftState(pages, activeOutfitPageId);
     }, 350);
     return () => window.clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     draftReady,
     outfitPages,
@@ -1140,6 +1144,7 @@ export default function OutfitWorkflow({
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview, resultPreviewTasks]);
 
   function updateSetting(key, value) {

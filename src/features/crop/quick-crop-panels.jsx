@@ -115,6 +115,7 @@ export function QuickCropViewportModal({ item, ratio, onClose, onApply, onClear 
     if (!imageSize.width || !imageSize.height) return undefined;
     const frame = window.requestAnimationFrame(resetTransform);
     return () => window.cancelAnimationFrame(frame);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageSize.height, imageSize.width, item?.id, activeRatio]);
 
   function beginDrag(event) {

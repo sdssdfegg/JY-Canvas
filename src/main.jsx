@@ -813,7 +813,7 @@ function App() {
   const quickMaxReferenceFiles = Math.max(1, quickCapabilities.maxInputImages || DEFAULT_MAX_REFERENCE_FILES);
   const quickChannels = channelsForModel(settings.model, config.routing || config);
   const quickChannel = quickChannels.find((item) => item.id === settings.channelId) || quickChannels[0] || null;
-  const videoModels = Array.isArray(config.videoModels) && config.videoModels.length ? config.videoModels : [];
+  const videoModels = useMemo(() => Array.isArray(config.videoModels) && config.videoModels.length ? config.videoModels : [], [config.videoModels]);
   const activeVideoModel = videoModels.find((item) => item.value === videoSettings.model) || videoModels[0] || null;
   const videoRatios = activeVideoModel?.aspectRatios?.length ? activeVideoModel.aspectRatios : ["9:16", "16:9", "1:1"];
   const videoResolutions = activeVideoModel?.resolutions?.length ? activeVideoModel.resolutions : ["720p"];
@@ -898,12 +898,12 @@ function App() {
       ? `${activeCanvas.nodes.length} 个节点`
       : "等待新建画布";
   const activeDetailGroup = detailGroups.find((group) => group.id === activeDetailGroupId) || detailGroups[0] || null;
-  const visibleDetailPrompts = activeDetailGroup
+  const visibleDetailPrompts = useMemo(() => activeDetailGroup
     ? (detailForwardSort ? activeDetailGroup.prompts : [...activeDetailGroup.prompts].reverse())
-    : [];
-  const activeDetailResults = activeDetailGroup
+    : [], [activeDetailGroup, detailForwardSort]);
+  const activeDetailResults = useMemo(() => activeDetailGroup
     ? visibleDetailPrompts.flatMap((prompt) => (prompt.results || []).map((result) => ({ group: activeDetailGroup, prompt, result })))
-    : [];
+    : [], [activeDetailGroup, visibleDetailPrompts]);
   const detailInfoItem = detailInfoSelection
     ? activeDetailResults.find((item) => item.result.id === detailInfoSelection.resultId) || null
     : null;
@@ -1079,6 +1079,7 @@ function App() {
     }).catch(() => {});
 
     refreshSaveDirectory();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -1140,7 +1141,7 @@ function App() {
       const model = videoModels.find((item) => item.value === current.model) || videoModels[0];
       return normalizeVideoSettingValue(current, model);
     });
-  }, [config.videoModels]);
+  }, [videoModels]);
 
   useEffect(() => {
     if (detailGroups.length === 0) {
@@ -1227,6 +1228,7 @@ function App() {
     };
     window.addEventListener("keydown", onPreviewKeyDown);
     return () => window.removeEventListener("keydown", onPreviewKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewResult, previewNavigationItems]);
 
   useEffect(() => {

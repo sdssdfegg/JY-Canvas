@@ -182,6 +182,7 @@ export function CachedImage({ src, alt = "", className = "", style, draggable = 
     return () => {
       cancelled = true;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 
   // V46.5：离屏卸载已解码位图，削减长会话内存。
