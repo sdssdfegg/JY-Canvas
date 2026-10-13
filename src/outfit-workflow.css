@@ -1031,6 +1031,12 @@
   position: relative;
   min-width: 0;
   overflow: hidden;
+  /* V50 结果卡滚动性能收口：批量卡显式启用 CSS 级虚拟化。通用 .assetCard（styles.css）已含
+     content-visibility:auto + contain-intrinsic-size:auto 260px（V46.4 引入），此处按批量卡尺寸
+     把固有占位估高到 320px（更贴合批量卡实际高度，减少滚动时行高跳动），其余渲染提示沿用通用块。
+     只加渲染提示，未改布局属性与 --asset-card-min 变量逻辑。 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
   aspect-ratio: 3 / 4;
   border-radius: 8px;
   color: var(--text);
