@@ -96,8 +96,9 @@ import {
   imageFilesFromList, addFilesByRole, removeFilesByRole
 } from "./shared/image-input.js";
 import { readJsonStorage, writeJsonStorage } from "./lib/storage/json-storage.js";
-import OutfitWorkflow from "./outfit-workflow.jsx";
-import ImageEditorPanel from "./image-editor.jsx";
+// 建议3b：OutfitWorkflow / ImageEditorPanel 改为 React.lazy 懒加载（见下方 Lazy* 定义），
+// 使其脱离首屏 index 主包；feat-outfit(182KB) 等依赖仅在对应视图打开时再拉取，降低首屏 load。
+// 注意：release 模式下默认视图是 outfit，首次打开会短暂显示 VIEW_LOADING，属预期行为。
 import { getAppConfig } from "./api/config.js";
 import { formatConnectionResult, testConnection } from "./api/connection.js";
 import {
@@ -141,6 +142,17 @@ import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS
 import { SHOW_INFINITE_CANVAS, formatStorageSize, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
 import { clampDetailCount, clampDetailModelUsage, clampReferenceStrength, clampReverseScreens, hydrateDetailGroupsWithHistory, loadDetailGroups, loadDetailPresets, normalizeDetailSettings, sanitizeDetailGroupsForStorage } from "./features/detail/detail-group.js";
 import { composeQuickLocalEditBlob, defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
+
+// —— 建议3b：首屏懒加载（React.lazy）——
+// 这两个视图组件位于 src/ 根目录（原本被打进 index 主包），且会拖入 feat-outfit 等大块依赖。
+// 改为动态导入后，仅当用户切到对应视图时才拉取对应 chunk，降低首屏 JS 体积与解析耗时。
+const VIEW_LOADING = (
+  <div style={{ padding: "48px 16px", textAlign: "center", color: "#8a8a8a", fontSize: 14 }}>
+    视图加载中…
+  </div>
+);
+const LazyOutfitWorkflow = React.lazy(() => import("./outfit-workflow.jsx"));
+const LazyImageEditorPanel = React.lazy(() => import("./image-editor.jsx"));
 
 
 
@@ -3482,25 +3494,29 @@ function App() {
 
         {["outfit", "resize"].includes(activeView) ? (
           <ErrorBoundary label="批量生成">
-            <OutfitWorkflow
-              view={activeView}
-              hostTheme={settings.theme}
-              hostApiKey={settings.apiKey}
-              onOpenHostSettings={openSettingsPanel}
-            />
+            <React.Suspense fallback={VIEW_LOADING}>
+              <LazyOutfitWorkflow
+                view={activeView}
+                hostTheme={settings.theme}
+                hostApiKey={settings.apiKey}
+                onOpenHostSettings={openSettingsPanel}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         ) : activeView === "image-editor" ? (
           <ErrorBoundary label="图片编辑">
-            <ImageEditorPanel
-              incomingImage={imageEditorSeed}
-              onIncomingHandled={(id) => setImageEditorSeed((current) => current?.id === id ? null : current)}
-              resolveDroppedFiles={imageFilesFromReferenceDrop}
-              saveDirectory={saveDirectory}
-              onChooseDirectory={openDirectoryModal}
-              onOpenSaveDirectory={() => void openSaveDirectory()}
-              onSaveMergedImage={saveProcessedImageFile}
-              onAddEvent={addEvent}
-            />
+            <React.Suspense fallback={VIEW_LOADING}>
+              <LazyImageEditorPanel
+                incomingImage={imageEditorSeed}
+                onIncomingHandled={(id) => setImageEditorSeed((current) => current?.id === id ? null : current)}
+                resolveDroppedFiles={imageFilesFromReferenceDrop}
+                saveDirectory={saveDirectory}
+                onChooseDirectory={openDirectoryModal}
+                onOpenSaveDirectory={() => void openSaveDirectory()}
+                onSaveMergedImage={saveProcessedImageFile}
+                onAddEvent={addEvent}
+              />
+            </React.Suspense>
           </ErrorBoundary>
         ) : activeView === "detail-main" ? (
           <section className="detailWorkbench">
