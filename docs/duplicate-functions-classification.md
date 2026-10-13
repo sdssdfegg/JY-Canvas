@@ -4,7 +4,9 @@
 > 运行口径：`src/` 68 文件、抽取 725 个函数（含组件内缩进函数），L1 组 13 / L2 组 13，合计 26（去 L1/L2 重复后约 20 个独立关系）。
 > 核心判据（脚本头注释，已写入门禁）：**L1 相同 ≠ 语义等价**——只比 token 形状，不比标识符指向什么。实证反例 `loadPromptCategories`：两侧 L1 完全相同却兜底常量不同源。`advisory` 只是线索，能否合并必须人工判。
 >
-> 本单已落地动作：合并 2 组（价格函数），其余按"不强行合并"原则分类。其余同/改名克隆中，**闭包依赖的同名克隆**（main↔outfit-workflow 的预览拖拽族、保存目录族）需抽共享 hook，属 RFC 级重构，**本单不动**。
+> 初稿口径为 68 文件 / 26 组；**后续已抽 `useSaveDirectory` + `usePreviewDrag` 两个共享 hook 收口 9 个闭包同名克隆，复查口径现为 70 文件 / 13 组 advisory（见第五章）**，脚本 `ok=true`、regressions/stale 均为 0。
+>
+> 本单已落地动作：合并 2 组（价格函数）+ 收口 9 组（共享 hook），其余按"不强行合并"原则分类。
 
 ---
 
@@ -56,37 +58,42 @@
 
 ---
 
-## 五、闭包依赖的同名克隆（main.jsx ↔ outfit-workflow.jsx，需共享 hook 重构）
+## 五、闭包依赖的同名克隆（main.jsx ↔ outfit-workflow.jsx）—— 已于 2026-10-13 收口 ✅
 
-这些组**同名且 L1 字节一致**，是真·重复，但因定义在组件闭包内、引用组件内 state/refs/setters，无法直接抽成纯函数。正确做法是抽成**自定义 hook**（如 `usePreviewDrag`、`useSaveDirectory`）共享，属 RFC 级重构，**本单不强行合并**。
+这些组**同名且 L1 字节一致**，是真·重复，但因定义在组件闭包内、引用组件内 state/refs/setters，无法直接抽成纯函数。已抽成**自定义 hook** 共享：
 
-### 5.1 预览拖拽族（outfit-workflow 疑似从 main.jsx fork）
-| 函数 | main.jsx | outfit-workflow.jsx |
-|---|---|---|
-| `movePreviewDrag` | 2603 | 2549 |
-| `endPreviewDrag` | 2611 | 2557 |
-| `changeGalleryZoom` | 2152 | 2516 |
-| `beginPreviewDrag` / `startPreviewDrag` | 2598 | 2544 |
-| `endPromptCategoryDrag` / `endOutfitPageDrag` | 2373 | 1599 |
+- `src/shared/hooks/useSaveDirectory.js` —— 收口 5.2 的 4 个保存目录薄壳函数。
+- `src/shared/hooks/usePreviewDrag.js` —— 收口 5.1 的预览拖拽/画廊缩放/拖拽复位族。
 
-### 5.2 保存目录族
-| 函数 | main.jsx | outfit-workflow.jsx |
-|---|---|---|
-| `refreshSaveDirectory` | 2105 | 2271 |
-| `confirmSaveDirectory` | 2107 | 2273 |
-| `pickSaveDirectory` | 2108 | 2274 |
-| `openDirectoryModal` | 2106 | 2272 |
+两 hook 的函数体与改造前**逐字节一致**，闭包差异（`previewPan` / `closePreview` / 各 drag 复位 setter）通过参数化传入；调用方用解构重命名保留各自原名（`outfit` 的 `startPreviewDrag = beginPreviewDrag`、`endOutfitPageDrag = endDrag`），**零调用点改动、零运行时行为变化**。
 
-> 建议：开专项工单，先抽 `useSaveDirectory`（收口 5.2 的 4 个函数），再抽 `usePreviewDrag`（收口 5.1 的拖拽/缩放族）。收口后 `frontend-duplication-check` 的"同名顶层函数"也会减少（这些若是顶层 arrow 函数则已被 019 计入基线）。
+### 5.1 预览拖拽族（已收口到 usePreviewDrag）
+| 函数 | main.jsx | outfit-workflow.jsx | hook 真身 |
+|---|---|---|---|
+| `movePreviewDrag` | 已删 | 已删 | `usePreviewDrag.movePreviewDrag` |
+| `endPreviewDrag` | 已删 | 已删 | `usePreviewDrag.endPreviewDrag` |
+| `changeGalleryZoom` | 已删 | 已删 | `usePreviewDrag.changeGalleryZoom` |
+| `beginPreviewDrag` / `startPreviewDrag` | 已删 | 已删 | `usePreviewDrag.beginPreviewDrag`（outfit 解构别名 `startPreviewDrag`） |
+| `endPromptCategoryDrag` / `endOutfitPageDrag` | 已删 | 已删 | `usePreviewDrag.endDrag`（分别别名） |
+
+### 5.2 保存目录族（已收口到 useSaveDirectory）
+| 函数 | main.jsx | outfit-workflow.jsx | hook 真身 |
+|---|---|---|---|
+| `refreshSaveDirectory` | 已删 | 已删 | `useSaveDirectory.refreshSaveDirectory` |
+| `confirmSaveDirectory` | 已删 | 已删 | `useSaveDirectory.confirmSaveDirectory` |
+| `pickSaveDirectory` | 已删 | 已删 | `useSaveDirectory.pickSaveDirectory` |
+| `openDirectoryModal` | 已删 | 已删 | `useSaveDirectory.openDirectoryModal` |
+
+> 收口后 `frontend-duplication-check` 的 advisory 由 22 组降至 13 组（去 L1/L2 重复计入），`ok=true`、regressions/stale 均为 0。
 
 ---
 
 ## 六、结论与建议
 
-1. **本单已消 2 组**（价格函数），累计建议2 已收口 3 组（`videoDurationOptions` + 本单 2 个价格函数）。
+1. **本单已消 2 组**（价格函数）+ **收口 9 组**（共享 hook），累计建议2 已收口 12 组（`videoDurationOptions` + 2 价格函数 + 9 同名克隆）。
 2. **1 组已裁决不合并**（RF-040），**3 组 L1 陷阱不合并**，**1 组巧合不合并**，**3 组 L2 小关系 + 4 个大结构组不合并**——总计约 18 个独立关系判定为"不合并"。
-3. **9 个同名克隆**（预览拖拽 5 + 保存目录 4）需要抽共享 hook，建议开 RFC 工单，不在本单范围。
-4. 全程**未改任何运行时行为**：合并组字节一致；陷阱组/裁决组原样保留。
+3. 剩余 13 组 advisory 全部为"不强行合并"类别（RF-040 裁决组、L1 陷阱、巧合/结构克隆），无需进一步动作。
+4. 全程**未改任何运行时行为**：合并组与 hook 收口组函数体逐字节一致；陷阱组/裁决组原样保留。
 
 ---
 *生成时间：2026-10-13 · 复核人：人工（按脚本 advisory + 逐组读源码确认）*

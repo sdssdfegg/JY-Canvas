@@ -69,8 +69,6 @@ import {
   beginImageDownloadDrag,
   brokenImageReason,
   dataUrlFromBlob,
-  previewDragStart,
-  previewPanFromDrag,
   referenceSource,
   resultImageCardState
 } from "./shared/result-image.js";
@@ -134,7 +132,8 @@ import "./features/outfit/outfit-intent.css";
 import "./features/outfit/white-refine-split.css";
 import "./features/outfit/retouch-intent.css";
 import { copyTextToClipboard } from "./shared/dom-actions.js";
-import { loadSaveDirectory, openSaveDirectoryModal, commitSaveDirectory, chooseSaveDirectory } from "./features/savedir/save-directory.js";
+import { useSaveDirectory } from "./shared/hooks/useSaveDirectory.js";
+import { usePreviewDrag } from "./shared/hooks/usePreviewDrag.js";
 import {
   TASK_HISTORY_KEY,
   OUTFIT_DRAFT_DB_KEY,
@@ -504,6 +503,21 @@ export default function OutfitWorkflow({
   const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 });
   const [uploadLabels, setUploadLabels] = useState(() => normalizeUploadLabels(initialOutfitPage.uploadLabels || {}, initialOutfitPage.name));
   const previewDragRef = useRef(null);
+  const {
+    beginPreviewDrag: startPreviewDrag,
+    movePreviewDrag,
+    endPreviewDrag,
+    changeGalleryZoom,
+    endDrag: endOutfitPageDrag,
+  } = usePreviewDrag({
+    previewDragRef,
+    previewPan,
+    setPreviewPan,
+    closePreview: closePreviewModal,
+    setGalleryZoom,
+    resetDragged: setDraggedPageId,
+    resetDropTarget: setPageDropTarget
+  });
   const promptClickTimerRef = useRef(null);
   const workspaceRef = useRef(null);
   const taskGridRef = useRef(null);
@@ -1596,11 +1610,6 @@ export default function OutfitWorkflow({
     setPageDropTarget({ id: pageId, placement });
   }
 
-  function endOutfitPageDrag() {
-    setDraggedPageId("");
-    setPageDropTarget(null);
-  }
-
   function dropOutfitPage(event, targetId) {
     const sourceId = draggedPageId || event.dataTransfer.getData("text/plain");
     if (!sourceId || !targetId || sourceId === targetId) {
@@ -2268,10 +2277,12 @@ export default function OutfitWorkflow({
     isPickingDirectory,
     notify: addEvent
   };
-  async function refreshSaveDirectory() { return loadSaveDirectory(saveDirectoryDeps); }
-  function openDirectoryModal() { openSaveDirectoryModal(saveDirectoryDeps); }
-  async function confirmSaveDirectory() { return commitSaveDirectory(saveDirectoryDeps); }
-  async function pickSaveDirectory() { return chooseSaveDirectory(saveDirectoryDeps); }
+  const {
+    refreshSaveDirectory,
+    openDirectoryModal,
+    confirmSaveDirectory,
+    pickSaveDirectory,
+  } = useSaveDirectory(saveDirectoryDeps);
 
   function openSaveDirectory() {
     const directory = saveDirectory || directoryDraft;
@@ -2518,10 +2529,6 @@ export default function OutfitWorkflow({
     if (targets.length > 0) addEvent("下载全部", `已提交 ${targets.length} 张保存任务`);
   }
 
-  function changeGalleryZoom(delta) {
-    setGalleryZoom((current) => Math.max(0.75, Math.min(1.45, Number((current + delta).toFixed(2)))));
-  }
-
   // 实现在 src/shared/dom-actions.js（两侧同一份，20 行逐字节一致）。
   // 这里只保留闭包绑定壳：捕获本组件的 addEvent，14 处调用点因此无需改动。
   const copyText = (text, successMessage = "已复制") =>
@@ -2546,26 +2553,7 @@ export default function OutfitWorkflow({
     setPreviewZoom((current) => Math.max(0.35, Math.min(5, Number((current + delta).toFixed(2)))));
   }
 
-  function startPreviewDrag(event) {
-    const drag = previewDragStart(event, previewPan);
-    if (drag) previewDragRef.current = drag;
-  }
-
-  function movePreviewDrag(event) {
-    const drag = previewDragRef.current;
-    if (!drag?.active) return;
-    const { pan, moved } = previewPanFromDrag(drag, event);
-    if (moved) drag.moved = true;
-    setPreviewPan(pan);
-  }
-
-  function endPreviewDrag(event) {
-    const drag = previewDragRef.current;
-    if (!drag?.active) return;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    previewDragRef.current = null;
-    if (!drag.moved) closePreviewModal();
-  }
+  // 预览平移拖拽 / 画廊缩放 / 拖拽复位 已统一由 usePreviewDrag 提供（见上文解构），此处不再重复定义。
 
   function clothingForIndex(index) {
     if (settings.pairingMode === "fixed") return selectedFixedClothing;

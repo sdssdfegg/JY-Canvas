@@ -79,8 +79,6 @@ import {
   beginImageDownloadDrag,
   dataUrlFromBlob,
   dragDownloadDateStamp,
-  previewDragStart,
-  previewPanFromDrag,
   referenceSource,
   resultImageCardState
 } from "./shared/result-image.js";
@@ -133,7 +131,8 @@ import {
 } from "./shared/local-edit-mask.js";
 import "./styles.css";
 import { copyTextToClipboard } from "./shared/dom-actions.js";
-import { loadSaveDirectory, openSaveDirectoryModal, commitSaveDirectory, chooseSaveDirectory } from "./features/savedir/save-directory.js";
+import { useSaveDirectory } from "./shared/hooks/useSaveDirectory.js";
+import { usePreviewDrag } from "./shared/hooks/usePreviewDrag.js";
 import { incomingCanvasNodes, canvasResultItemsFromNode, canvasPromptForGenerator, canvasImagesForGenerator, canvasImageEntriesForGenerator, splitCanvasBatchEntries, buildCanvasBatchPrompt, screenPointToCanvas, canvasCenterFromRect } from "./features/canvas/canvas-graph.js";
 import { createCanvasActions, createCanvasInteractions } from "./features/canvas/canvas-actions.js";
 import { createQuickResultReplace, createResultDownload, createResultActions } from "./features/result-queue/quick-result-replace.js";
@@ -810,6 +809,21 @@ function App() {
   const canvasStageRef = useRef(null);
   const canvasFileInputRef = useRef(null);
   const previewDragRef = useRef(null);
+  const {
+    beginPreviewDrag,
+    movePreviewDrag,
+    endPreviewDrag,
+    changeGalleryZoom,
+    endDrag: endPromptCategoryDrag,
+  } = usePreviewDrag({
+    previewDragRef,
+    previewPan,
+    setPreviewPan,
+    closePreview,
+    setGalleryZoom,
+    resetDragged: setDraggedPromptCategory,
+    resetDropTarget: setPromptCategoryDropTarget
+  });
   const stitchDragRef = useRef(null);
   const quickResultDragIdRef = useRef("");
   const downloadFeedbackTimersRef = useRef(new Map());
@@ -2114,10 +2128,12 @@ function App() {
     isPickingDirectory,
     notify: addEvent
   };
-  async function refreshSaveDirectory() { return loadSaveDirectory(saveDirectoryDeps); }
-  function openDirectoryModal() { openSaveDirectoryModal(saveDirectoryDeps); }
-  async function confirmSaveDirectory() { return commitSaveDirectory(saveDirectoryDeps); }
-  async function pickSaveDirectory() { return chooseSaveDirectory(saveDirectoryDeps); }
+  const {
+    refreshSaveDirectory,
+    openDirectoryModal,
+    confirmSaveDirectory,
+    pickSaveDirectory,
+  } = useSaveDirectory(saveDirectoryDeps);
 
   function openSaveDirectory() {
     const sendOpenRequest = (directory) => {
@@ -2159,10 +2175,6 @@ function App() {
     setSaveDirectory(payload.directory);
     setDirectoryDraft(payload.directory);
     return payload;
-  }
-
-  function changeGalleryZoom(delta) {
-    setGalleryZoom((current) => Math.max(0.75, Math.min(1.45, Number((current + delta).toFixed(2)))));
   }
 
   function onQuickBoardWheel(event) {
@@ -2380,11 +2392,6 @@ function App() {
     setPromptCategoryDropTarget(null);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData(PROMPT_CATEGORY_DRAG_TYPE, category);
-  }
-
-  function endPromptCategoryDrag() {
-    setDraggedPromptCategory("");
-    setPromptCategoryDropTarget(null);
   }
 
   function dragPromptCategoryOver(event, category) {
@@ -2605,27 +2612,6 @@ function App() {
       const next = current + direction * 0.12;
       return Math.max(0.35, Math.min(4, Number(next.toFixed(2))));
     });
-  }
-
-  function beginPreviewDrag(event) {
-    const drag = previewDragStart(event, previewPan);
-    if (drag) previewDragRef.current = drag;
-  }
-
-  function movePreviewDrag(event) {
-    const drag = previewDragRef.current;
-    if (!drag?.active) return;
-    const { pan, moved } = previewPanFromDrag(drag, event);
-    if (moved) drag.moved = true;
-    setPreviewPan(pan);
-  }
-
-  function endPreviewDrag(event) {
-    const drag = previewDragRef.current;
-    if (!drag?.active) return;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    previewDragRef.current = null;
-    if (!drag.moved) closePreview();
   }
 
   async function sendResultToImageEditor(item, slot = "base") {
