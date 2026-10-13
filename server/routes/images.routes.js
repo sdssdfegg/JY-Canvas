@@ -116,6 +116,20 @@ export function registerImagesRoutes(app) {
   app.post("/api/images", wrapOutfitUpload(imageForwardUpload.array("image", IMAGE_UPLOAD_PARSE_CEILING)), async (req, res) => {
     const receivedAt = Date.now();
     const files = req.files || [];
+    // V52：交互单图——客户端断开（关页面/取消）后没有理由继续打上游。
+    // 批量链路（/api/generate-outfit）要跑完出结果，故意不加此监听。
+    let clientGone = false;
+    let attemptClientAbort = null; // 每个 attempt 重建的 AbortController，监听器据此 abort 掉「当前」attempt
+    // 断开判定必须用「底层 socket 关闭」而非 req 流关闭：req 流的 'close' 在请求体收完即触发
+    // （与客户端是否还在无关），会误判成"已断开"；只有在 res.writableEnded 仍 false 时 socket 关闭，
+    // 才是真正的客户端断开（关页面/取消）。req.on('aborted') 覆盖"上传中途断开"场景。
+    const onClientGone = () => {
+      if (res.writableEnded) return; // 响应已正常 flush，socket 关闭是正常尾流，不误伤
+      clientGone = true;
+      attemptClientAbort?.abort(); // 排队阶段 attemptClientAbort 仍为 null，可选调用；attempt 中则中断当前上游 fetch
+    };
+    req.on("aborted", onClientGone);
+    req.socket?.on("close", onClientGone);
     const deferAutoSave = String(req.body?.deferAutoSave || "") === "1";
     const params = normalizeImageRequest(req.body);
     const routing = validateImageRouting(params);
@@ -213,14 +227,22 @@ export function registerImagesRoutes(app) {
         const usesPrivateChannelKey = Boolean((candidate.usesSignedRoute && candidate.hasCredential) || (channelApiKey && channelApiKey !== apiKey));
         const requestVariants = imageRequestVariantsForCandidate(forwardParams, files, candidate);
         for (const [variantIndex, variant] of requestVariants.entries()) {
+          // V52：把「当前 attempt」的手动 abort 暴露给 onClientGone（createAbortSignal 只管超时，不暴露 abort）。
+          // 提前到首个 await 前赋值，确保断开发生在 createBody / writeGenerationLog 等待期间也能让后续 fetch 立即中止。
+          attemptClientAbort = new AbortController();
+          const abort = createAbortSignal(IMAGE_CHANNEL_ATTEMPT_TIMEOUT_MS);
+          const attemptSignal = (typeof AbortSignal !== "undefined" && typeof AbortSignal.any === "function")
+            ? AbortSignal.any([abort.signal, attemptClientAbort.signal])
+            : abort.signal;
           const url = imageUrlForCandidate(candidate, variant, files.length > 0);
           const body = await variant.createBody();
           const headers = imageHeadersForCandidate(candidate, channelApiKey, variant.headers);
 
           const forwardedAt = Date.now();
           lastForwardedAt = forwardedAt;
-          const abort = createAbortSignal(IMAGE_CHANNEL_ATTEMPT_TIMEOUT_MS);
           try {
+            // V52：进入候选后客户端已断开，立即中止本次 attempt，不再发起/等待上游。
+            if (clientGone) break baseLoop;
             await writeGenerationLog({
               time: new Date().toISOString(),
               requestId,
@@ -251,7 +273,7 @@ export function registerImagesRoutes(app) {
               method: "POST",
               headers,
               body,
-              signal: abort.signal
+              signal: attemptSignal
             });
             const responseAt = Date.now();
             const parsed = await readTextSafely(response);
@@ -351,6 +373,10 @@ export function registerImagesRoutes(app) {
                 attempts
               });
 
+              // V52：响应回写前客户端已断开，跳过 res.json（连接已不存在，回写只会写向已关闭 socket）。
+              // 上方 finalize(ok:true) 已执行——图已生成，正常记账；落盘/缓存也已在上文完成。
+              if (clientGone) return;
+
               return res.json({
                 ok: true,
                 requestId,
@@ -366,6 +392,7 @@ export function registerImagesRoutes(app) {
 
             const failureStatus = response.ok ? 502 : response.status;
             const failureMessage = response.ok ? "渠道返回成功但没有图片" : upstreamMessage;
+            if (clientGone) break baseLoop; // V52：客户端已断开，不再重试后续候选渠道/变体
             if (variantIndex < requestVariants.length - 1 && shouldTryNextImageVariant(failureStatus, failureMessage)) continue;
             if (baseIndex < imageCandidates.length - 1 && (privateChannelAuthFault || shouldTryNextChannel(failureStatus, failureMessage))) continue baseLoop;
 
@@ -436,6 +463,7 @@ export function registerImagesRoutes(app) {
               failureReason: error?.name === "AbortError" ? "channel_timeout" : "channel_error",
               upstreamError: compactLogMessage(errorMessage, 900)
             });
+            if (clientGone) break baseLoop; // V52：客户端已断开，不再重试后续候选渠道/变体
             if (variantIndex < requestVariants.length - 1 && shouldTryNextImageVariant(failureStatus, errorMessage)) continue;
             if (baseIndex < imageCandidates.length - 1 && shouldTryNextChannel(failureStatus, errorMessage)) continue baseLoop;
             const publicPayload = publicImageErrorPayload({
@@ -464,9 +492,25 @@ export function registerImagesRoutes(app) {
               timing: catchTiming
             });
           } finally {
+            attemptClientAbort?.abort();
             abort.dispose();
           }
         }
+      }
+
+      if (clientGone) {
+        // 客户端已断开：上游 attempt 已 abort，不再重试，也无需回写响应（连接已不存在，回写只会写向已关闭 socket）。
+        // 仍 finalize 计费为「失败尝试」（ok:false → 计费网关不扣成功额度），避免任务悬挂。
+        finalizeBillingInBackground(billingTask, {
+          ok: false,
+          status: 499,
+          error: "client_disconnected",
+          message: "客户端已断开，已中断上游请求",
+          usedModel: params.model,
+          timingMs: Date.now() - receivedAt,
+          attempts
+        });
+        return;
       }
 
       const publicPayload = publicImageErrorPayload({
@@ -534,11 +578,15 @@ export function registerImagesRoutes(app) {
         timingMs: timing.totalMs,
         attempts
       });
+      // V52：客户端已断开或响应已结束，不再回写（连接已不存在）。
+      if (clientGone || res.writableEnded) return;
       return res.status(publicPayload.status).json({
         ...publicPayload,
         timing
       });
     } finally {
+      req.off("aborted", onClientGone);
+      req.socket?.off("close", onClientGone);
       releaseImageSlot?.();
       await removeUploadedFiles(req.files);
     }
