@@ -30,7 +30,6 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  Save,
   Scissors,
   Settings,
   Sparkles,
@@ -60,12 +59,10 @@ import {
 } from "./shared/quickgen-prompt-rules.js";
 import DebouncedTextarea from "./shared/DebouncedTextarea.jsx";
 import { ErrorBoundary } from "./shared/error-boundary.jsx";
-import { DetailUploadZone, QuickCropViewportModal } from "./features/crop/quick-crop-panels.jsx";
-import ChannelPicker from "./shared/ui/ChannelPicker.jsx";
+import { QuickCropViewportModal } from "./features/crop/quick-crop-panels.jsx";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
-import { createDetailGroup } from "./features/detail/detail-group.js";
-import { createReferenceUpload, makeQuickReferenceItem, prepareImageFilesForChannel, quickReferenceHasLocalEdit, quickReferenceOriginalFile, quickReferenceRunUploadFile, quickReferenceUploadFile, quickReferenceUploadFiles, referenceMetaFromFiles, referenceMetaFromQuickRunItems } from "./features/upload/reference-upload.js";
+import { createReferenceUpload, makeQuickReferenceItem, prepareImageFilesForChannel, quickReferenceHasLocalEdit, quickReferenceOriginalFile, quickReferenceRunUploadFile, quickReferenceUploadFile, quickReferenceUploadFiles, referenceMetaFromQuickRunItems } from "./features/upload/reference-upload.js";
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import {
   imageFileFromUrl,
@@ -83,7 +80,7 @@ import {
   imageBitmapFromFile,
   imageExtension,
   imageFilesFromClipboard,
-  imageFilesFromList, addFilesByRole, removeFilesByRole
+  imageFilesFromList
 } from "./shared/image-input.js";
 import { readJsonStorage, writeJsonStorage } from "./lib/storage/json-storage.js";
 // 建议3b：OutfitWorkflow / ImageEditorPanel 改为 React.lazy 懒加载（见下方 Lazy* 定义），
@@ -97,10 +94,7 @@ import {
   setSaveDirectory as setSaveDirectoryRequest
 } from "./api/save.js";
 import { generateImages } from "./api/images.js";
-import {
-  createDetailPrompts,
-  rewriteQuickPrompt
-} from "./api/prompts.js";
+import { rewriteQuickPrompt } from "./api/prompts.js";
 import { uploadCanvasAssets } from "./api/assets.js";
 import {
   isAuthErrorMessage,
@@ -123,9 +117,12 @@ import { VideoView } from "./features/video/VideoView.jsx";
 import { useVideoState } from "./features/video/video-state.js";
 import { ReferenceRemixView } from "./features/reference-remix/ReferenceRemixView.jsx";
 import { useReferenceState } from "./features/reference-remix/reference-state.js";
-import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState, detailDefaults } from "./shared/app-defaults.js";
+// V60（P3-5）：一键详情/主图视图与状态抽取至 src/features/detail/
+import { DetailView } from "./features/detail/DetailView.jsx";
+import { useDetailState } from "./features/detail/detail-state.js";
+import { ACTIVE_VIEW_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState } from "./shared/app-defaults.js";
 import { SHOW_INFINITE_CANVAS, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
-import { clampDetailCount, clampDetailModelUsage, clampReverseScreens, hydrateDetailGroupsWithHistory, loadDetailGroups, loadDetailPresets, normalizeDetailSettings, sanitizeDetailGroupsForStorage } from "./features/detail/detail-group.js";
+import { hydrateDetailGroupsWithHistory } from "./features/detail/detail-group.js";
 import { composeQuickLocalEditBlob, defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
 // V56（P3-1）：设置弹窗抽取为独立 feature
 import { SettingsView } from "./features/settings/SettingsView.jsx";
@@ -171,7 +168,6 @@ const QUICK_RESULT_DRAG_TYPE = "application/x-jingyin-quick-result";
 
 const CLIENT_SESSION_ID = `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const DEFAULT_MAX_REFERENCE_FILES = 5;
-const MAX_DETAIL_FILES = 6;
 // 局部回贴可选比例。2026-09-25：补上 2:3 —— 局部回贴选框必须能锁定到用户选的比例，
 // 而 2:3 是竖版服装图最常用的比例之一，之前不在列表里会被回落到 1:1。
 const QUICK_LOCAL_EDIT_RATIOS = ["1:1", "2:3", "3:4", "4:3", "16:9", "9:16"];
@@ -220,50 +216,6 @@ const canvasBatchModeOptions = [
 ];
 
 
-
-const workflowOptions = [
-  { value: "taobao-main", label: "淘宝 / 主图" },
-  { value: "taobao-detail", label: "淘宝 / 详情页" },
-  { value: "tmall-detail", label: "天猫 / 详情页" },
-  { value: "jd-detail", label: "京东 / 详情页" },
-  { value: "douyin-detail", label: "抖音 / 详情页" },
-  { value: "redbook-detail", label: "小红书 / 种草图文" },
-  { value: "pdd-detail", label: "拼多多 / 详情页" },
-  { value: "amazon-main", label: "亚马逊 / 主图" },
-  { value: "amazon-detail", label: "亚马逊 / 详情页" },
-  { value: "shein-detail", label: "SHEIN / 详情页" },
-  { value: "temu-detail", label: "Temu / 详情页" }
-];
-
-const copywritingOptions = [
-  { value: "need", label: "需要文案" },
-  { value: "blank", label: "文案留白" },
-  { value: "poster", label: "无文案纯海报" }
-];
-
-const richnessOptions = [
-  { value: "simple", label: "精简" },
-  { value: "balanced", label: "均衡" },
-  { value: "rich", label: "丰富" }
-];
-
-const fontStyleOptions = [
-  { value: "soft", label: "柔和女性" },
-  { value: "heiti", label: "常用黑体" },
-  { value: "modern", label: "现代杂志" },
-  { value: "bold", label: "醒目电商" },
-  { value: "auto", label: "自动判断" }
-];
-
-const modelModeOptions = [
-  { value: "no-model", label: "无模特" },
-  { value: "use-model", label: "使用模特" }
-];
-
-const modelPoseOptions = [
-  { value: "regular", label: "常规姿态" },
-  { value: "special", label: "特殊姿态" }
-];
 
 const promptCategories = ["全部", "常用", "批量复刻", "批量sku", "局部迁移"];
 
@@ -635,20 +587,6 @@ function App() {
   const [promptPresets, setPromptPresets] = useState(loadPromptPresets);
   const [promptCategories, setPromptCategories] = useState(loadPromptCategories);
   const [activeView, setActiveView] = useState(loadActiveView);
-  const [detailSettings, setDetailSettings] = useState(detailDefaults);
-  const [detailPresets, setDetailPresets] = useState(loadDetailPresets);
-  const [detailProductFiles, setDetailProductFiles] = useState([]);
-  const [detailReferenceFiles, setDetailReferenceFiles] = useState([]);
-  const [detailGroups, setDetailGroups] = useState(loadDetailGroups);
-  const [detailStatus, setDetailStatus] = useState("idle");
-  const [activeDetailGroupId, setActiveDetailGroupId] = useState("");
-  const [detailInfoSelection, setDetailInfoSelection] = useState(null);
-  const [detailColumns, setDetailColumns] = useState(5);
-  const [detailForwardSort, setDetailForwardSort] = useState(true);
-  const [detailDragScreen, setDetailDragScreen] = useState(null);
-  const [stitchPreview, setStitchPreview] = useState(null);
-  const [stitchZoom, setStitchZoom] = useState(1);
-  const [stitchPan, setStitchPan] = useState({ x: 0, y: 0 });
   const [referenceProductFiles, setReferenceProductFiles] = useState([]);
   const [referenceStyleFiles, setReferenceStyleFiles] = useState([]);
   const [infiniteCanvasState, setInfiniteCanvasState] = useState(loadInfiniteCanvasState);
@@ -684,7 +622,6 @@ function App() {
   const [isDirectoryModalOpen, setIsDirectoryModalOpen] = useState(false);
   // V56（P3-1）：设置弹窗私有状态与副作用统一收口到 useSettingsState，App() 只持有共享状态。
   const settingsApi = useSettingsState({ settings, setSettings, config, addEvent, isSettingsOpen });
-  const [isDetailPresetOpen, setIsDetailPresetOpen] = useState(false);
   const [isPromptAssistantOpen, setIsPromptAssistantOpen] = useState(false);
   const [isQuickChannelMenuOpen, setIsQuickChannelMenuOpen] = useState(false);
   const [referenceDropTarget, setReferenceDropTarget] = useState(null);
@@ -706,14 +643,11 @@ function App() {
   const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 });
   const [contextMenu, setContextMenu] = useState(null);
   const [referenceContextMenu, setReferenceContextMenu] = useState(null);
-  const [stitchContextMenu, setStitchContextMenu] = useState(null);
   const [imageEditorSeed, setImageEditorSeed] = useState(null);
   const inputRef = useRef(null);
   const referencePointerSortRef = useRef(null);
   // 排序松手后会紧接着触发一次 click ⇒ 会误开预览。沿用批量侧的 150ms 抑制窗口。
   const suppressReferencePreviewRef = useRef(false);
-  const detailProductInputRef = useRef(null);
-  const detailReferenceInputRef = useRef(null);
   const canvasStageRef = useRef(null);
   const canvasFileInputRef = useRef(null);
   const previewDragRef = useRef(null);
@@ -775,7 +709,6 @@ function App() {
     pickSaveDirectory,
   } = useSaveDirectory(saveDirectoryDeps);
 
-  const stitchDragRef = useRef(null);
   const quickResultDragIdRef = useRef("");
   const downloadFeedbackTimersRef = useRef(new Map());
 
@@ -791,21 +724,6 @@ function App() {
   const quickChannels = channelsForModel(settings.model, config.routing || config);
   const quickChannel = quickChannels.find((item) => item.id === settings.channelId) || quickChannels[0] || null;
   const billingGatewayEnabled = Boolean(config.billingGatewayPolicy?.enabled);
-  const detailModel = models.find((item) => item.value === detailSettings.model) || models[0];
-  const detailRatios = detailModel.ratios || ["1:1", "3:4", "16:9"];
-  const detailSizes = modelCapabilities(detailSettings.model, config.routing || config).sizes;
-  const detailRunningCount = detailGroups.reduce((count, group) => (
-    count + group.prompts.reduce((screenCount, prompt) => screenCount + (prompt.status === "running" ? 1 : 0), 0)
-  ), 0);
-  const detailStatusText = detailStatus === "planning"
-    ? "正在生成分段提示词"
-    : detailRunningCount > 0
-      ? `详情图生成中 ${detailRunningCount} 个任务`
-      : detailStatus === "failed"
-        ? "详情任务失败"
-        : detailGroups.length > 0
-          ? "提示词已生成"
-          : "等待输入产品信息";
   const previewFiles = useMemo(
     () => files
       .map(normalizeQuickReferenceItem)
@@ -826,14 +744,6 @@ function App() {
       }),
     [files]
   );
-  const detailProductPreviews = useMemo(
-    () => detailProductFiles.map((file) => ({ file, url: URL.createObjectURL(file) })),
-    [detailProductFiles]
-  );
-  const detailReferencePreviews = useMemo(
-    () => detailReferenceFiles.map((file) => ({ file, url: URL.createObjectURL(file) })),
-    [detailReferenceFiles]
-  );
   const canvases = infiniteCanvasState.canvases;
   const activeCanvasId = infiniteCanvasState.activeId;
   const activeCanvas = canvases.find((canvas) => canvas.id === activeCanvasId) || canvases[0] || null;
@@ -843,26 +753,6 @@ function App() {
     : activeCanvas
       ? `${activeCanvas.nodes.length} 个节点`
       : "等待新建画布";
-  const activeDetailGroup = detailGroups.find((group) => group.id === activeDetailGroupId) || detailGroups[0] || null;
-  const visibleDetailPrompts = useMemo(() => activeDetailGroup
-    ? (detailForwardSort ? activeDetailGroup.prompts : [...activeDetailGroup.prompts].reverse())
-    : [], [activeDetailGroup, detailForwardSort]);
-  const activeDetailResults = useMemo(() => activeDetailGroup
-    ? visibleDetailPrompts.flatMap((prompt) => (prompt.results || []).map((result) => ({ group: activeDetailGroup, prompt, result })))
-    : [], [activeDetailGroup, visibleDetailPrompts]);
-  const detailInfoItem = detailInfoSelection
-    ? activeDetailResults.find((item) => item.result.id === detailInfoSelection.resultId) || null
-    : null;
-  const stitchGroup = stitchPreview
-    ? detailGroups.find((group) => group.id === stitchPreview.groupId) || null
-    : null;
-  const stitchContextGroup = stitchContextMenu
-    ? detailGroups.find((group) => group.id === stitchContextMenu.groupId) || null
-    : null;
-  const stitchPrompts = stitchGroup
-    ? (detailForwardSort ? stitchGroup.prompts : [...stitchGroup.prompts].reverse())
-    : [];
-  const stitchItems = stitchPrompts.flatMap((prompt) => (prompt.results || []).map((result) => ({ prompt, result })));
   const quickResults = useMemo(() => results.filter((item) => !item.source || item.source === "quickgen"), [results]);
   const quickGalleryRef = useRef(null);
   const runningQuickTasks = quickTasks.filter((task) => task.status === "running");
@@ -919,43 +809,13 @@ function App() {
       : status === "success"
         ? "当前任务已完成"
         : "等待生成";
-  const latestVideoStatusText = videoApi.runningVideoTasks.length > 0
-    ? `视频生成中 ${videoApi.runningVideoTasks.length} 个任务`
-    : videoApi.videoStatus === "failed"
-      ? "视频任务失败"
-      : videoApi.videoStatus === "success"
-        ? "视频已完成"
-        : videoApi.videoBillingRequired && !billingGatewayEnabled
-          ? "等待计费接入"
-          : "等待视频生成";
   const contextItem = contextMenu ? results.find((item) => item.id === contextMenu.itemId) : null;
   const contextIndex = contextItem ? results.findIndex((item) => item.id === contextItem.id) : -1;
   const quickGalleryTailKey = quickGalleryItems.at(-1)?.key || "";
-  const previewNavigationItems = useMemo(() => {
-    if (!previewResult) return [];
-    const previewSource = previewResult.source || "quickgen";
-    if (previewSource === "detail-main") {
-      return activeDetailResults.map((item) => item.result).filter(Boolean);
-    }
-    if (previewSource === "reference-remix") {
-      return referenceApi.referenceGalleryItems
-        .filter((item) => item.kind === "result")
-        .map((item) => item.result)
-        .filter(Boolean);
-    }
-    if (previewSource === "infinite-canvas") {
-      return results
-        .filter((item) => item.source === "infinite-canvas")
-        .sort((a, b) => (
-          (Number.isFinite(a.submittedAt) ? a.submittedAt : (Number.isFinite(a.createdAt) ? a.createdAt : 0))
-          - (Number.isFinite(b.submittedAt) ? b.submittedAt : (Number.isFinite(b.createdAt) ? b.createdAt : 0))
-        ));
-    }
-    return quickGalleryItems
-      .filter((item) => item.kind === "result")
-      .map((item) => item.result)
-      .filter(Boolean);
-  }, [previewResult, activeDetailResults, referenceApi.referenceGalleryItems, quickGalleryItems, results]);
+  // 2026-10-14（V60）：previewNavigationItems 已下移到 referenceApi 声明之后。
+  // 原因：它的 useMemo 依赖数组在渲染期就会求值，而依赖里的 detailApi.activeDetailResults /
+  // referenceApi.referenceGalleryItems 两者的 const 声明都在本行之下 ⇒ TDZ ⇒ 整页不挂载。
+  // 该 useMemo 体与依赖逐字未改，只改位置。
 
   useEffect(() => {
     getAppConfig().then((data) => {
@@ -977,7 +837,7 @@ function App() {
         const nextChannelId = channelForModel(current.model, current.channelId, routingCatalog)?.id || "";
         return nextChannelId === current.channelId ? current : { ...current, channelId: nextChannelId };
       };
-      setDetailSettings(convergePageChannel);
+      detailApi.setDetailSettings(convergePageChannel);
       referenceApi.setReferenceSettings(convergePageChannel);
     }).catch(() => {});
 
@@ -990,12 +850,14 @@ function App() {
     loadHistoryResults().then((storedResults) => {
       if (!active) return;
       setResults(storedResults);
-      setDetailGroups((current) => hydrateDetailGroupsWithHistory(current, storedResults));
+      detailApi.hydrateDetailGroups(storedResults);
       if (storedResults.length > 0) addEvent("历史记录", `已载入 ${storedResults.length} 张图片`);
     });
     return () => {
       active = false;
     };
+  // V60：detailApi 由 hook 产出（每次 render 新对象），此处是挂载期跑一次的回载，不纳入依赖。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -1008,14 +870,6 @@ function App() {
 
 
   useEffect(() => {
-    writeJsonStorage(DETAIL_PRESETS_KEY, detailPresets);
-  }, [detailPresets]);
-
-  useEffect(() => {
-    writeJsonStorage(DETAIL_GROUPS_KEY, sanitizeDetailGroupsForStorage(detailGroups));
-  }, [detailGroups]);
-
-  useEffect(() => {
     if (!writeJsonStorage(INFINITE_CANVAS_KEY, infiniteCanvasState)) {
       addEvent("无限画布", "画布内容较大，部分临时图片可能无法写入本地缓存");
     }
@@ -1026,30 +880,9 @@ function App() {
   }, [activeView]);
 
 
-  useEffect(() => {
-    if (detailGroups.length === 0) {
-      setActiveDetailGroupId("");
-      setDetailInfoSelection(null);
-      return;
-    }
-    if (!activeDetailGroupId || !detailGroups.some((group) => group.id === activeDetailGroupId)) {
-      setActiveDetailGroupId(detailGroups[0].id);
-    }
-  }, [detailGroups, activeDetailGroupId]);
-
   useEffect(() => () => {
     previewFiles.forEach((item) => URL.revokeObjectURL(item.url));
   }, [previewFiles]);
-
-  useEffect(() => () => {
-    detailProductPreviews.forEach((item) => URL.revokeObjectURL(item.url));
-  }, [detailProductPreviews]);
-
-  useEffect(() => () => {
-    detailReferencePreviews.forEach((item) => URL.revokeObjectURL(item.url));
-  }, [detailReferencePreviews]);
-
-
 
   // V46.1: 任务计时已下沉到 <ElapsedTimer>，此处不再需要全局 500ms 刷新
 
@@ -1067,19 +900,19 @@ function App() {
     const closeMenu = () => {
       setContextMenu(null);
       setReferenceContextMenu(null);
-      setStitchContextMenu(null);
+      detailApi.setStitchContextMenu(null);
     };
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
         setContextMenu(null);
         setReferenceContextMenu(null);
-        setStitchContextMenu(null);
+        detailApi.setStitchContextMenu(null);
         closeReferencePreview();
         closePreview();
         setIsPromptAssistantOpen(false);
         promptApi.setEditingPrompt(null);
         setIsDirectoryModalOpen(false);
-        setIsDetailPresetOpen(false);
+        detailApi.setIsDetailPresetOpen(false);
       }
     };
     window.addEventListener("click", closeMenu);
@@ -1090,6 +923,8 @@ function App() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("resize", closeMenu);
     };
+  // detailApi / promptApi 均为 hook 产出的每次 render 新对象，此处只注册一次全局监听，不纳入依赖。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -1101,8 +936,11 @@ function App() {
     };
     window.addEventListener("keydown", onPreviewKeyDown);
     return () => window.removeEventListener("keydown", onPreviewKeyDown);
+  // 2026-10-14（V60）：effect 体只用 shiftPreview（函数声明，调用时才读 previewNavigationItems），
+  // 不直接读该值；原依赖数组里的 previewNavigationItems 是无效依赖，且其 const 声明在本 effect
+  // 之下 ⇒ 渲染期求值触发 TDZ。依赖收敛为 [previewResult]，监听器注册时机与原先一致。
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewResult, previewNavigationItems]);
+  }, [previewResult]);
 
   useEffect(() => {
     if (!referencePreview) return undefined;
@@ -1155,28 +993,6 @@ function App() {
       return next;
     });
   }
-
-  function updateDetailSetting(key, value) {
-    setDetailSettings((current) => {
-      const next = { ...current, [key]: value };
-      if (key === "model") {
-        const nextModel = models.find((item) => item.value === value) || models[0];
-        if (!nextModel.ratios.includes(next.ratio)) next.ratio = nextModel.ratios[0];
-        // 切换模型后按现有能力目录重新校验渠道：当前渠道不支持新模型时，
-        // 沿用现有默认渠道规则（channelForModel = 该模型目录里的第一条合法渠道）。
-        next.channelId = channelForModel(next.model, next.channelId, config.routing || config)?.id || "";
-      }
-      if (key === "channelId") {
-        const channels = channelsForModel(next.model, config.routing || config);
-        next.channelId = channels.some((item) => item.id === value) ? value : (channels[0]?.id || "");
-      }
-      if (key === "count") next.count = clampDetailCount(value);
-      if (key === "modelUsage") next.modelUsage = clampDetailModelUsage(value);
-      if (key === "reverseScreens") next.reverseScreens = clampReverseScreens(value);
-      return next;
-    });
-  }
-
 
   const {
     patchActiveCanvas, patchCanvasById, updateCanvasNode, updateCanvasNodeByCanvasId,
@@ -1514,16 +1330,6 @@ function App() {
     ].slice(0, 6));
   }
 
-  function addDetailFiles(role, fileList) {
-    addFilesByRole(role, fileList, role === "product" ? detailProductFiles.length : detailReferenceFiles.length,
-      MAX_DETAIL_FILES, `${role === "product" ? "产品图" : "参考图"}最多 ${MAX_DETAIL_FILES} 张`,
-      "一键详情", addEvent, setDetailProductFiles, setDetailReferenceFiles);
-  }
-
-  function removeDetailFile(role, index) {
-    removeFilesByRole(role, index, setDetailProductFiles, setDetailReferenceFiles);
-  }
-
   // 实现在 src/shared/dom-actions.js（两侧同一份，20 行逐字节一致）。
   // 这里只保留闭包绑定壳：捕获本组件的 addEvent，14 处调用点因此无需改动。
   const copyText = (text, successMessage = "已复制") =>
@@ -1531,6 +1337,37 @@ function App() {
 
   const resultDownloadDeps = { quickResults, selectedIds, addEvent, quickResultDragIdRef, QUICK_RESULT_DRAG_TYPE, copyText, saveDirectory, refreshSaveDirectory, setSaveDirectory, setDirectoryDraft, setDownloadFeedbackIds, downloadFeedbackTimersRef };
   const { blobFromImageItem, beginResultImageDrag, beginReferenceImageDrag, copyImage, downloadItem, autoSaveGeneratedItems, downloadSelected, downloadAll } = createResultDownload(resultDownloadDeps);
+
+  // V60（P3-5）：详情主图状态与编排收口到 useDetailState。
+  // ⚠️ syncHistoryFromServer 晚绑定：它由下方 createResultActions 产出，而该工厂又依赖本 hook 的
+  // detailInfoSelection / setDetailInfoSelection / setDetailGroups ⇒ 双向引用。
+  // 用 ref 承接（工厂调用后回填），避免 TDZ（渲染期访问未初始化的 syncHistoryFromServer 会黑屏）。
+  const syncHistoryFromServerRef = useRef(null);
+  const detailApi = useDetailState({
+    settings,
+    config,
+    models,
+    setResults,
+    addEvent,
+    setError,
+    setIsSettingsOpen,
+    updateSetting,
+    setActiveView,
+    selectedIds,
+    downloadItem,
+    blobFromImageItem,
+    saveDirectory,
+    refreshSaveDirectory,
+    setSaveDirectory,
+    setDirectoryDraft,
+    setContextMenu,
+    setReferenceContextMenu,
+    clampCount,
+    makeResultId,
+    normalizeGenerationErrorMessage,
+    DETAIL_ANALYSIS_MODEL,
+    syncHistoryFromServer: () => syncHistoryFromServerRef.current?.()
+  });
 
   const {
     addReferenceRewriteFiles,
@@ -1557,7 +1394,7 @@ function App() {
     setIsComposerDragging,
     setReferenceDropTarget,
     results,
-    detailGroups,
+    detailGroups: detailApi.detailGroups,
     blobFromImageItem
   });
 
@@ -1590,6 +1427,47 @@ function App() {
     addReferenceRewriteFiles,
     removeReferenceRewriteFile
   });
+
+  // 2026-10-14（V60 浏览器实测时发现）：V58 抽 useVideoState 时把这段派生值留在了 videoApi
+  // 声明之前 ⇒ 渲染期读 const 的 TDZ ⇒ 整页不挂载（白屏，ReferenceError: Cannot access
+  // 'videoApi' before initialization）。发布版 v4.0.6（5533e84）读的是模块级 runningVideoTasks，
+  // 没有这个问题；回归由 V58 引入，与本单无关但会挡住所有浏览器验收，故一并修复：
+  // 只把派生值下移到 videoApi 声明之后，逻辑与文案逐字不变。
+  const latestVideoStatusText = videoApi.runningVideoTasks.length > 0
+    ? `视频生成中 ${videoApi.runningVideoTasks.length} 个任务`
+    : videoApi.videoStatus === "failed"
+      ? "视频任务失败"
+      : videoApi.videoStatus === "success"
+        ? "视频已完成"
+        : videoApi.videoBillingRequired && !billingGatewayEnabled
+          ? "等待计费接入"
+          : "等待视频生成";
+
+  const previewNavigationItems = useMemo(() => {
+    if (!previewResult) return [];
+    const previewSource = previewResult.source || "quickgen";
+    if (previewSource === "detail-main") {
+      return detailApi.activeDetailResults.map((item) => item.result).filter(Boolean);
+    }
+    if (previewSource === "reference-remix") {
+      return referenceApi.referenceGalleryItems
+        .filter((item) => item.kind === "result")
+        .map((item) => item.result)
+        .filter(Boolean);
+    }
+    if (previewSource === "infinite-canvas") {
+      return results
+        .filter((item) => item.source === "infinite-canvas")
+        .sort((a, b) => (
+          (Number.isFinite(a.submittedAt) ? a.submittedAt : (Number.isFinite(a.createdAt) ? a.createdAt : 0))
+          - (Number.isFinite(b.submittedAt) ? b.submittedAt : (Number.isFinite(b.createdAt) ? b.createdAt : 0))
+        ));
+    }
+    return quickGalleryItems
+      .filter((item) => item.kind === "result")
+      .map((item) => item.result)
+      .filter(Boolean);
+  }, [previewResult, detailApi.activeDetailResults, referenceApi.referenceGalleryItems, quickGalleryItems, results]);
 
   function onComposerPaste(event) {
     const pastedImages = imageFilesFromClipboard(event.clipboardData);
@@ -1711,8 +1589,11 @@ function App() {
     addEvent("局部编辑", "已取消局部裁剪");
   }
 
-  const resultActionsDeps = { setSelectedIds, selectedIds, activeView, quickResults, setResults, setBrokenResultImages, detailInfoSelection, setDetailInfoSelection, setDetailGroups, removeHistoryResults, loadHistoryResults, hydrateDetailGroupsWithHistory, addEvent };
+  // V60：详情私有状态已移入 useDetailState，此处经 detailApi 回传（见 detail/README.md 偏差③）。
+  const resultActionsDeps = { setSelectedIds, selectedIds, activeView, quickResults, setResults, setBrokenResultImages, detailInfoSelection: detailApi.detailInfoSelection, setDetailInfoSelection: detailApi.setDetailInfoSelection, setDetailGroups: detailApi.setDetailGroups, removeHistoryResults, loadHistoryResults, hydrateDetailGroupsWithHistory, addEvent };
   const { toggleSelected, deleteSelected, deleteResult, markResultImageBroken, refreshHistory, syncHistoryFromServer } = createResultActions(resultActionsDeps);
+  // 回填晚绑定 ref：详情生成完成后（2.4s 延时）用它回载历史。
+  syncHistoryFromServerRef.current = syncHistoryFromServer;
 
   const {
     clearQuickResultDragState,
@@ -1819,77 +1700,6 @@ function App() {
   function autoSaveEventText(payload, overrideCount = null) {
     const count = Number((overrideCount ?? payload?.autoSavedCount) || 0);
     return count > 0 ? `，已自动保存 ${count} 张` : "";
-  }
-
-  const {
-    stitchDetailGroupBlob,
-    detailResultItemsForGroup,
-    selectDetailResult,
-    beginDetailScreenDrag,
-    endDetailScreenDrag,
-    dropDetailScreen,
-    openStitchPreview,
-    closeStitchPreview,
-    handleStitchWheel,
-    beginStitchDrag,
-    moveStitchDrag,
-    endStitchDrag,
-    updateDetailPrompt,
-    toggleDetailPrompt,
-    saveDetailPreset,
-    loadDetailPreset,
-    deleteDetailPreset,
-  } = createDetailGroup({
-    blobFromImageItem,
-    detailForwardSort,
-    setDetailInfoSelection,
-    detailDragScreen,
-    setDetailDragScreen,
-    setDetailGroups,
-    setStitchPreview,
-    setStitchZoom,
-    setStitchPan,
-    stitchPan,
-    setStitchContextMenu,
-    stitchDragRef,
-    detailSettings,
-    setDetailSettings,
-    setDetailPresets,
-    setIsDetailPresetOpen,
-    addEvent,
-    makeResultId,
-    normalizeDetailSettings
-  });
-
-  async function downloadStitchPreview(group) {
-    try {
-      const directory = saveDirectory || await refreshSaveDirectory();
-      const blob = await stitchDetailGroupBlob(group);
-      const dataUrl = await dataUrlFromBlob(blob, "长图编码失败");
-      const response = await fetch("/api/save-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          directory,
-          item: {
-            id: `${group.id}_stitch_${Date.now()}`,
-            image: { type: "b64_json", value: dataUrl },
-            modelLabel: "详情长图",
-            imageSize: `${detailResultItemsForGroup(group).length}屏`,
-            aspectRatio: "long",
-            createdAt: Date.now()
-          }
-        })
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload?.ok) throw new Error(payload?.message || "保存长图失败");
-      setSaveDirectory(payload.directory);
-      setDirectoryDraft(payload.directory);
-      addEvent("拼图下载", `长图已保存到 ${payload.filename}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      addEvent("拼图下载失败", message);
-    }
   }
 
   async function optimizePrompt() {
@@ -2147,7 +1957,7 @@ function App() {
     const menuWidth = 176;
     const menuHeight = 476;
     setReferenceContextMenu(null);
-    setStitchContextMenu(null);
+    detailApi.setStitchContextMenu(null);
     setContextMenu({
       itemId,
       x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
@@ -2161,7 +1971,7 @@ function App() {
     const menuWidth = 190;
     const menuHeight = 52;
     setContextMenu(null);
-    setStitchContextMenu(null);
+    detailApi.setStitchContextMenu(null);
     setReferenceContextMenu({
       reference,
       index,
@@ -2171,40 +1981,15 @@ function App() {
     });
   }
 
-  function openStitchContextMenu(event, groupId) {
-    event.preventDefault();
-    event.stopPropagation();
-    const menuWidth = 176;
-    const menuHeight = 132;
-    setContextMenu(null);
-    setReferenceContextMenu(null);
-    setStitchContextMenu({
-      groupId,
-      x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
-      y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8))
-    });
-  }
-
-  function findDetailPromptByResult(resultId) {
-    for (const group of detailGroups) {
-      for (const prompt of group.prompts) {
-        if ((prompt.results || []).some((result) => result.id === resultId)) {
-          return { group, prompt };
-        }
-      }
-    }
-    return null;
-  }
-
   function rerunResult(item, count = 1) {
     if (item.source === "infinite-canvas") {
       setActiveView("infinite-canvas");
       addEvent("无限画布", "画布结果请通过生图节点继续生成");
       return;
     }
-    const detailMatch = findDetailPromptByResult(item.id);
+    const detailMatch = detailApi.findDetailPromptByResult(item.id);
     if (detailMatch) {
-      void generateDetailPrompt(detailMatch.group, detailMatch.prompt, detailMatch.prompt.screen, count);
+      void detailApi.generateDetailPrompt(detailMatch.group, detailMatch.prompt, detailMatch.prompt.screen, count);
       return;
     }
     const prompt = item.prompt || settings.prompt;
@@ -2214,205 +1999,6 @@ function App() {
 
   function markDeferredFeature(label) {
     addEvent(label, "此功能会在后续模块接入");
-  }
-
-  function downloadDetailGroup(group, selectedOnly = false) {
-    const items = detailResultItemsForGroup(group).filter(({ result }) => !selectedOnly || selectedIds.has(result.id));
-    if (items.length === 0) {
-      addEvent("下载", selectedOnly ? "请先勾选要下载的分屏图片" : "暂无可下载分屏图片");
-      return;
-    }
-    items.forEach(({ result }, index) => void downloadItem(result, index));
-    addEvent("下载", `已提交 ${items.length} 张分屏图片保存任务`);
-  }
-
-  async function createDetailPromptPlan() {
-    if (detailProductFiles.length === 0) {
-      addEvent("一键详情", "请至少上传一张产品图");
-      return;
-    }
-    const detailApiKey = normalizeApiKeyInput(settings.apiKey);
-    if (!detailApiKey && !config.hasServerKey) {
-      setError("请先在左下角设置里填写 API Key，AI 详情页分析需要调用当前 AI 模型");
-      setIsSettingsOpen(true);
-      setDetailStatus("failed");
-      return;
-    }
-
-    setDetailStatus("planning");
-    try {
-      const productUpload = await prepareImageFilesForChannel(detailProductFiles);
-      const referenceUpload = await prepareImageFilesForChannel(detailReferenceFiles);
-      if (productUpload.compressedCount + referenceUpload.compressedCount > 0) {
-        addEvent("图片压缩", `已压缩 ${productUpload.compressedCount + referenceUpload.compressedCount} 张素材到 4MB 内`);
-      }
-      const form = new FormData();
-      form.set("payload", JSON.stringify({
-        ...detailSettings,
-        analysisMode: "ai",
-        detailAnalysisModel: DETAIL_ANALYSIS_MODEL,
-        apiKey: detailApiKey,
-        baseUrl: config.defaultBaseUrl || settings.baseUrl || defaultState.baseUrl,
-        productImages: productUpload.files.map((file) => ({ name: file.name, size: file.size, type: file.type })),
-        referenceImages: referenceUpload.files.map((file) => ({ name: file.name, size: file.size, type: file.type }))
-      }));
-      productUpload.files.forEach((file) => form.append("productImage", file, file.name));
-      referenceUpload.files.forEach((file) => form.append("referenceImage", file, file.name));
-      const payload = await createDetailPrompts(form);
-      const group = {
-        ...payload.group,
-        productFiles: [...productUpload.files],
-        referenceFiles: [...referenceUpload.files]
-      };
-      setDetailGroups((current) => [group, ...current].slice(0, 20));
-      setActiveDetailGroupId(group.id);
-      setDetailInfoSelection(null);
-      setDetailStatus("ready");
-      addEvent("一键详情", `已生成 ${group.prompts.length} 屏分段提示词`);
-    } catch (err) {
-      const message = normalizeGenerationErrorMessage(err);
-      setDetailStatus("failed");
-      addEvent("一键详情失败", message);
-    }
-  }
-
-  function applyDetailPromptToQuickgen(prompt) {
-    updateSetting("prompt", prompt.text);
-    setActiveView("quickgen");
-    addEvent("快捷生成", `已推送第${prompt.screen}屏提示词`);
-  }
-
-  async function generateDetailPrompt(group, prompt, index = 0, count = 1) {
-    const pickFiles = (list, indexes) => {
-      if (!Array.isArray(indexes) || indexes.length === 0) return list.length > 0 ? [list[0]] : [];
-      return indexes.map((fileIndex) => list[fileIndex]).filter(Boolean);
-    };
-    const productFiles = group.productFiles || [];
-    const referenceFiles = group.referenceFiles || [];
-    const selectedProductFiles = pickFiles(productFiles, prompt.productFileIndexes);
-    const selectedReferenceFiles = Array.isArray(prompt.referenceFileIndexes)
-      ? prompt.referenceFileIndexes.map((fileIndex) => referenceFiles[fileIndex]).filter(Boolean)
-      : referenceFiles.slice(0, 1);
-    const runFiles = [...selectedProductFiles, ...selectedReferenceFiles].slice(0, 6);
-    const runReferenceMeta = [
-      ...referenceMetaFromFiles(selectedProductFiles, "product"),
-      ...referenceMetaFromFiles(selectedReferenceFiles, "reference", selectedProductFiles.length)
-    ].slice(0, 6);
-    const runModel = models.find((item) => item.value === group.params.model) || models[0];
-    const started = performance.now();
-    updateDetailPrompt(group.id, prompt.screen, { status: "running", error: "", generationMs: null });
-
-    const form = new FormData();
-    form.set("baseUrl", config.defaultBaseUrl || settings.baseUrl || defaultState.baseUrl);
-    form.set("apiKey", normalizeApiKeyInput(settings.apiKey));
-    const detailRoute = routingFields(group.params.model, detailSettings.channelId, config.routing);
-    form.set("model", detailRoute.model);
-    form.set("channelId", detailRoute.channelId);
-    form.set("dispatchMode", detailRoute.dispatchMode);
-    form.set("prompt", prompt.text);
-    form.set("imageSize", group.params.imageSize);
-    form.set("aspectRatio", group.params.ratio);
-    form.set("n", String(clampCount(count)));
-    form.set("source", "detail-main");
-    form.set("referenceMeta", JSON.stringify(runReferenceMeta));
-
-    try {
-      const upload = await prepareImageFilesForChannel(runFiles);
-      if (upload.compressedCount > 0) {
-        addEvent("图片压缩", `第${prompt.screen}屏已压缩 ${upload.compressedCount} 张素材到 4MB 内`);
-      }
-      upload.files.forEach((file) => form.append("image", file, file.name));
-      const payload = await generateImages(form);
-      const totalMs = Number.isFinite(payload.timing?.totalMs) ? payload.timing.totalMs : performance.now() - started;
-      const returnedItems = Array.isArray(payload.historyItems) && payload.historyItems.length > 0
-        ? payload.historyItems
-        : null;
-      const nextResults = (returnedItems || payload.images || []).map((entry, resultIndex) => {
-        const serverItem = returnedItems ? entry : null;
-        return {
-          ...serverItem,
-          id: serverItem?.id || makeResultId(),
-          image: serverItem?.image || entry,
-          prompt: prompt.text,
-          modelLabel: runModel.label,
-          imageSize: group.params.imageSize,
-          aspectRatio: group.params.ratio,
-          referenceCount: runFiles.length,
-          generationMs: totalMs,
-          source: "detail-main",
-          detailScreen: prompt.screen,
-          createdAt: serverItem?.createdAt || Date.now() + index + resultIndex
-        };
-      });
-      if (nextResults.length === 0) throw new Error("接口返回成功，但没有解析到图片");
-      setResults((current) => [...nextResults, ...current]);
-      void saveHistoryResults(nextResults);
-      window.setTimeout(() => {
-        void syncHistoryFromServer();
-      }, 2400);
-      if (nextResults[0]) {
-        setDetailInfoSelection({ groupId: group.id, promptScreen: prompt.screen, resultId: nextResults[0].id });
-      }
-      updateDetailPrompt(group.id, prompt.screen, {
-        status: "success",
-        generationMs: totalMs,
-        results: nextResults
-      });
-      addEvent("一键详情", `第${prompt.screen}屏完成，用时 ${formatMs(totalMs)}`);
-      return nextResults;
-    } catch (err) {
-      const message = normalizeGenerationErrorMessage(err);
-      if (isAuthErrorMessage(message)) {
-        setIsSettingsOpen(true);
-        setError("API Key 无效，请检查后在设置里重新保存。");
-      }
-      updateDetailPrompt(group.id, prompt.screen, {
-        status: "failed",
-        error: message,
-        generationMs: performance.now() - started
-      });
-      addEvent(`第${prompt.screen}屏失败`, message);
-      throw err;
-    }
-  }
-
-  async function generateDetailGroup(groupId) {
-    const group = detailGroups.find((item) => item.id === groupId);
-    if (!group) return;
-    if (!normalizeApiKeyInput(settings.apiKey) && !config.hasServerKey) {
-      setError("请先在左下角设置里填写 API Key");
-      setIsSettingsOpen(true);
-      setDetailStatus("failed");
-      return;
-    }
-    const enabledPrompts = group.prompts.filter((prompt) => prompt.enabled && prompt.status !== "running");
-    if (enabledPrompts.length === 0) {
-      addEvent("一键详情", "没有可提交的分屏，请先勾选未在生成中的提示词");
-      return;
-    }
-
-    setDetailStatus("generating");
-    setDetailGroups((current) => current.map((item) => (
-      item.id === groupId ? { ...item, status: "generating" } : item
-    )));
-    addEvent("一键详情", `并发提交 ${enabledPrompts.length} 个分屏任务`);
-    const settled = await Promise.allSettled(
-      enabledPrompts.map((prompt, index) => generateDetailPrompt(group, prompt, index))
-    );
-    const failed = settled.filter((item) => item.status === "rejected").length;
-    const hasAuthFailure = settled.some((item) => (
-      item.status === "rejected" && isAuthErrorMessage(item.reason instanceof Error ? item.reason.message : String(item.reason))
-    ));
-    if (hasAuthFailure) {
-      setIsSettingsOpen(true);
-      setError("API Key 无效，请检查后在设置里重新保存。");
-      addEvent("一键详情", "有分屏返回 API Key 无效，请检查 KEY");
-    }
-    setDetailGroups((current) => current.map((item) => (
-      item.id === groupId ? { ...item, status: failed ? "partial" : "success" } : item
-    )));
-    setDetailStatus(failed ? "failed" : "ready");
-    addEvent("一键详情", failed ? `完成，${failed} 屏失败` : "全部屏幕生成完成");
   }
 
   async function generate(overrides = {}) {
@@ -2749,8 +2335,8 @@ function App() {
               <button
                 className="generateButton pinnedFolderButton"
                 type="button"
-                onClick={() => activeDetailGroup && openStitchPreview(activeDetailGroup)}
-                disabled={!activeDetailGroup || activeDetailResults.length === 0}
+                onClick={() => detailApi.activeDetailGroup && detailApi.openStitchPreview(detailApi.activeDetailGroup)}
+                disabled={!detailApi.activeDetailGroup || detailApi.activeDetailResults.length === 0}
               >
                 <Layers size={15} />
                 <span>拼图预览</span>
@@ -2785,8 +2371,8 @@ function App() {
               </>
             )}
             {activeView === "detail-main" && (
-              <span className={`taskBadge task-${detailStatus === "failed" ? "failed" : detailRunningCount > 0 || detailStatus === "planning" ? "running" : "success"}`}>
-                {detailStatusText}
+              <span className={`taskBadge task-${detailApi.detailStatus === "failed" ? "failed" : detailApi.detailRunningCount > 0 || detailApi.detailStatus === "planning" ? "running" : "success"}`}>
+                {detailApi.detailStatusText}
               </span>
             )}
             {activeView === "quickgen" && (
@@ -2878,506 +2464,28 @@ function App() {
             </React.Suspense>
           </ErrorBoundary>
         ) : activeView === "detail-main" ? (
-          <section className="detailWorkbench">
-            <aside className="detailInputPanel">
-              <div className="detailPanelScroll">
-                <DetailUploadZone
-                  title="产品图（包含模特图）"
-                  subtitle={`最多 ${MAX_DETAIL_FILES} 张，优先放主商品、细节、模特图`}
-                  previews={detailProductPreviews}
-                  count={detailProductFiles.length}
-                  maxCount={MAX_DETAIL_FILES}
-                  inputRef={detailProductInputRef}
-                  onPick={(event) => {
-                    addDetailFiles("product", event.target.files);
-                    event.target.value = "";
-                  }}
-                  onAddFiles={(fileList) => addDetailFiles("product", fileList)}
-                  onRemove={(index) => removeDetailFile("product", index)}
-                  onPreview={openUploadPreview}
-                  onAssetLibrary={() => markDeferredFeature("素材库")}
-                />
-
-                <DetailUploadZone
-                  title="参考图（设计风格参考）"
-                  subtitle={`最多 ${MAX_DETAIL_FILES} 张，只参考风格、配色、版式`}
-                  previews={detailReferencePreviews}
-                  count={detailReferenceFiles.length}
-                  maxCount={MAX_DETAIL_FILES}
-                  inputRef={detailReferenceInputRef}
-                  onPick={(event) => {
-                    addDetailFiles("reference", event.target.files);
-                    event.target.value = "";
-                  }}
-                  onAddFiles={(fileList) => addDetailFiles("reference", fileList)}
-                  onRemove={(index) => removeDetailFile("reference", index)}
-                  onPreview={openUploadPreview}
-                  onAssetLibrary={() => markDeferredFeature("素材库")}
-                />
-
-                <div className="detailPresetRow">
-                  <button className="smallButton" type="button" onClick={saveDetailPreset}>
-                    <Save size={15} />
-                    <span>保存预设</span>
-                  </button>
-                  <button className="smallButton" type="button" onClick={() => setIsDetailPresetOpen(true)}>
-                    <FolderOpen size={15} />
-                    <span>加载预设</span>
-                  </button>
-                </div>
-
-                <div className="detailDivider" />
-
-                <section className="detailFormSection">
-                  {/* 2026-09-26：在「基础参数」标题行右侧加一个紧凑圆形渠道入口。
-                      入口绝对定位（见 styles.css 的 .detailFormHeader / .channelPicker），
-                      所以不新增整行控件、不改参数区高度；渠道列表走共享 ChannelPicker。 */}
-                  <div className="detailFormHeader">
-                    <h3>基础参数</h3>
-                    <ChannelPicker
-                      model={detailSettings.model}
-                      modelLabel={detailModel?.label || detailSettings.model}
-                      channelId={detailSettings.channelId}
-                      routing={config.routing || config}
-                      onChange={(channelId) => updateDetailSetting("channelId", channelId)}
-                    />
-                  </div>
-                  <div className="detailParamGrid">
-                    <label>
-                      <span>工作流</span>
-                      <select value={detailSettings.workflow} onChange={(event) => updateDetailSetting("workflow", event.target.value)}>
-                        {workflowOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>图片模型</span>
-                      <select value={detailSettings.model} onChange={(event) => updateDetailSetting("model", event.target.value)}>
-                        {models.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>图片比例</span>
-                      <select value={detailSettings.ratio} onChange={(event) => updateDetailSetting("ratio", event.target.value)}>
-                        {detailRatios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>分辨率</span>
-                      <select value={detailSettings.imageSize} onChange={(event) => updateDetailSetting("imageSize", event.target.value)}>
-                        {detailSizes.map((size) => <option key={size} value={size}>{size}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>生成数量</span>
-                      <select value={detailSettings.count} onChange={(event) => updateDetailSetting("count", event.target.value)}>
-                        {COUNT_OPTIONS.map((count) => <option key={count} value={count}>{count}张</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>文案设置</span>
-                      <select value={detailSettings.copywriting} onChange={(event) => updateDetailSetting("copywriting", event.target.value)}>
-                        {copywritingOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>画面丰富</span>
-                      <select value={detailSettings.richness} onChange={(event) => updateDetailSetting("richness", event.target.value)}>
-                        {richnessOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>字体风格</span>
-                      <select value={detailSettings.fontStyle} onChange={(event) => updateDetailSetting("fontStyle", event.target.value)}>
-                        {fontStyleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>模特设置</span>
-                      <select value={detailSettings.modelMode} onChange={(event) => updateDetailSetting("modelMode", event.target.value)}>
-                        {modelModeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>模特姿势</span>
-                      <select
-                        value={detailSettings.modelPose}
-                        disabled={detailSettings.modelMode !== "use-model"}
-                        onChange={(event) => updateDetailSetting("modelPose", event.target.value)}
-                      >
-                        {modelPoseOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>模特使用率</span>
-                      <select
-                        value={detailSettings.modelUsage}
-                        disabled={detailSettings.modelMode !== "use-model"}
-                        onChange={(event) => updateDetailSetting("modelUsage", event.target.value)}
-                      >
-                        {Array.from({ length: 12 }, (_, index) => index + 1).map((count) => (
-                          <option key={count} value={count}>{count}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span>插入反转屏</span>
-                      <select value={detailSettings.reverseScreens} onChange={(event) => updateDetailSetting("reverseScreens", event.target.value)}>
-                        {Array.from({ length: 5 }, (_, index) => index).map((count) => (
-                          <option key={count} value={count}>{count}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span>输出语种</span>
-                      <input value={detailSettings.lang} onChange={(event) => updateDetailSetting("lang", event.target.value)} />
-                    </label>
-                  </div>
-                </section>
-
-                <div className="detailDivider" />
-
-                <section className="detailFormSection">
-                  <h3>内容输入（可选）</h3>
-                  <label className="detailField">
-                    <span>产品名称</span>
-                    <input
-                      value={detailSettings.productName}
-                      onChange={(event) => updateDetailSetting("productName", event.target.value)}
-                      placeholder="例：女装假两件上衣"
-                    />
-                  </label>
-                  <label className="detailField">
-                    <span>产品特征</span>
-                    <textarea
-                      value={detailSettings.productFeature}
-                      onChange={(event) => updateDetailSetting("productFeature", event.target.value)}
-                      placeholder="产品大小，尺寸，特征信息用于锁死产品一致性（可不输入）"
-                    />
-                  </label>
-                  <label className="detailField">
-                    <span className="detailFieldTitle">
-                      <b>用户指令</b>
-                      <button type="button" onClick={() => setIsPromptAssistantOpen(true)}>
-                        <BookOpen size={13} />
-                        提示词助手
-                      </button>
-                    </span>
-                    <textarea
-                      value={detailSettings.userInstruction}
-                      onChange={(event) => updateDetailSetting("userInstruction", event.target.value)}
-                      placeholder="用户指令：屏数、风格、图1/2/3 用法等"
-                    />
-                  </label>
-                  <label className="detailField">
-                    <span>卖点</span>
-                    <textarea
-                      value={detailSettings.sellingPoints}
-                      onChange={(event) => updateDetailSetting("sellingPoints", event.target.value)}
-                      placeholder="每行一个卖点，可留空"
-                    />
-                  </label>
-                </section>
-              </div>
-
-              <div className="detailPanelFooter">
-                <button
-                  className="generateButton"
-                  type="button"
-                  disabled={detailStatus === "planning"}
-                  onClick={() => void createDetailPromptPlan()}
-                >
-                  {detailStatus === "planning" ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
-                  <span>{detailStatus === "planning" ? "分析中..." : "生成分段提示词"}</span>
-                </button>
-              </div>
-            </aside>
-
-            <section className={`detailResultBoard ${detailInfoItem ? "withInfo" : ""}`}>
-              <div className="detailBoardMain">
-                {detailGroups.length === 0 ? (
-                  <div className="detailEmpty">
-                    <FileText size={34} />
-                    <span>上传产品图后，点击「生成分段提示词」开始</span>
-                  </div>
-                ) : (
-                  <>
-                    <div className="detailGroupTabs">
-                      <div>
-                        {detailGroups.map((group, index) => (
-                          <button
-                            className={activeDetailGroup?.id === group.id ? "active" : ""}
-                            key={group.id}
-                            type="button"
-                            onClick={() => {
-                              setActiveDetailGroupId(group.id);
-                              setDetailInfoSelection(null);
-                            }}
-                          >
-                            分组 #{detailGroups.length - index}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="detailViewControls">
-                        <label>
-                          <span>每行展示</span>
-                          <select value={detailColumns} onChange={(event) => setDetailColumns(Number(event.target.value))}>
-                            {[2, 3, 4, 5, 6].map((count) => <option key={count} value={count}>{count}</option>)}
-                          </select>
-                        </label>
-                        <button
-                          className={`switchButton ${detailForwardSort ? "active" : ""}`}
-                          type="button"
-                          onClick={() => setDetailForwardSort((current) => !current)}
-                        >
-                          <span>正向排序</span>
-                          <i />
-                        </button>
-                      </div>
-                    </div>
-
-                    {activeDetailGroup && (
-                      <article className="detailGroup" key={activeDetailGroup.id}>
-                        <header className="detailGroupHeader">
-                          <div>
-                            <strong>{activeDetailGroup.label}</strong>
-                            <span>
-                              {activeDetailGroup.params.platform}{activeDetailGroup.params.pageType} ·
-                              {activeDetailGroup.params.model} · {activeDetailGroup.params.ratio} · {activeDetailGroup.params.imageSize} ·
-                              已出图 {activeDetailResults.length} 屏
-                            </span>
-                          </div>
-                          <div className="detailGroupActions">
-                            <button
-                              className="smallButton"
-                              type="button"
-                              onClick={() => markDeferredFeature("切换模型")}
-                            >
-                              <Settings size={14} />
-                              <span>切换模型</span>
-                            </button>
-                            <button className="smallButton" type="button" onClick={() => downloadDetailGroup(activeDetailGroup)}>
-                              <Download size={14} />
-                              <span>下载全部</span>
-                            </button>
-                            <button className="smallButton" type="button" disabled={selectedCount === 0} onClick={() => downloadDetailGroup(activeDetailGroup, true)}>
-                              <Download size={14} />
-                              <span>下载选中</span>
-                            </button>
-                            <button
-                              className="generateButton"
-                              type="button"
-                              onClick={() => void generateDetailGroup(activeDetailGroup.id)}
-                            >
-                              {detailRunningCount > 0 ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
-                              <span>批量生成</span>
-                            </button>
-                          </div>
-                        </header>
-
-                        <section className="detailPromptConfirm">
-                          <header>
-                            <div>
-                              <strong>分段提示词确认</strong>
-                              <span>确认每一屏内容无误后，再点击批量生成或单屏生成。</span>
-                            </div>
-                          </header>
-                          <div className="detailPromptGrid">
-                            {visibleDetailPrompts.map((prompt) => (
-                              <article className={`detailPromptCard ${prompt.status}`} key={`${activeDetailGroup.id}-${prompt.screen}`}>
-                                <header>
-                                  <label className="detailCheck">
-                                    <input
-                                      type="checkbox"
-                                      checked={prompt.enabled}
-                                      onChange={() => toggleDetailPrompt(activeDetailGroup.id, prompt.screen)}
-                                    />
-                                    <span>第{prompt.screen}屏</span>
-                                  </label>
-                                  <small>{prompt.intervention}</small>
-                                </header>
-                                <h3>{prompt.title}</h3>
-                                <p>{prompt.summary}</p>
-                                {prompt.referenceStrategy && <small>{prompt.referenceStrategy}</small>}
-                                <StableTextarea
-                                  value={prompt.text}
-                                  onChange={(event) => updateDetailPrompt(activeDetailGroup.id, prompt.screen, { text: event.target.value })}
-                                />
-                                <div className="detailPromptActions">
-                                  <button className="smallButton" type="button" onClick={() => void copyText(prompt.text, `第${prompt.screen}屏提示词已复制`)}>
-                                    <Copy size={14} />
-                                    <span>复制</span>
-                                  </button>
-                                  <button className="smallButton" type="button" onClick={() => applyDetailPromptToQuickgen(prompt)}>
-                                    <Sparkles size={14} />
-                                    <span>推送</span>
-                                  </button>
-                                  <button
-                                    className="smallButton"
-                                    type="button"
-                                    disabled={prompt.status === "running"}
-                                    onClick={() => void generateDetailPrompt(activeDetailGroup, prompt, prompt.screen)}
-                                  >
-                                    {prompt.status === "running" ? <Loader2 className="spin" size={14} /> : <Play size={14} />}
-                                    <span>生成</span>
-                                  </button>
-                                </div>
-                                {(prompt.generationMs || prompt.status === "failed") && (
-                                  <div className="detailPromptStatus">
-                                    {prompt.generationMs && <span>用时 {formatMs(prompt.generationMs)}</span>}
-                                    {prompt.error && <strong>{prompt.error}</strong>}
-                                  </div>
-                                )}
-                              </article>
-                            ))}
-                          </div>
-                        </section>
-
-                        {activeDetailResults.length > 0 && (
-                          <section className="detailImageSection">
-                            <header>
-                              <div>
-                                <strong>生成分屏</strong>
-                                <span>左键点击查看信息，按住拖拽调整拼图顺序，右键打开图片操作。</span>
-                              </div>
-                            </header>
-                            <div className="detailScreensGrid" style={{ "--detail-columns": detailColumns }}>
-                              {activeDetailResults.map(({ prompt, result }, resultIndex) => {
-                                const src = imageSourceFromResult(result.image);
-                                const selected = selectedIds.has(result.id);
-                                return (
-                                  <article
-                                    className={`detailScreenCard ${detailInfoSelection?.resultId === result.id ? "selected" : ""} ${detailDragScreen?.screen === prompt.screen ? "dragging" : ""}`}
-                                    key={result.id}
-                                    draggable
-                                    onDragStart={(event) => beginDetailScreenDrag(event, activeDetailGroup.id, prompt.screen)}
-                                    onDragOver={(event) => event.preventDefault()}
-                                    onDrop={(event) => dropDetailScreen(event, activeDetailGroup.id, prompt.screen)}
-                                    onDragEnd={endDetailScreenDrag}
-                                  >
-                                    <header>
-                                      <span>{String(resultIndex + 1).padStart(2, "0")}</span>
-                                      <i>⋮</i>
-                                    </header>
-                                    <button
-                                      className="detailScreenSelect"
-                                      type="button"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        toggleSelected(result.id);
-                                      }}
-                                      aria-label="选择分屏图片"
-                                    >
-                                      {selected ? <CheckSquare size={18} /> : <Square size={18} />}
-                                    </button>
-                                    <button
-                                      className="detailScreenImage"
-                                      type="button"
-                                      draggable={false}
-                                      onClick={() => {
-                                        selectDetailResult(activeDetailGroup, prompt, result);
-                                        openPreview(result);
-                                      }}
-                                      onContextMenu={(event) => openContextMenu(event, result.id)}
-                                    >
-                                      <CachedImage
-                                        src={src}
-                                        alt={`第${prompt.screen}屏结果`}
-                                        draggable
-                                        onDragStart={(event) => beginResultImageDrag(event, result, resultIndex)}
-                                        diagnostic={{ requestId: result.requestId || result.id, endpoint: "/api/images", module: "一键详情", placement: `detail-screen-${prompt.screen}` }}
-                                      />
-                                    </button>
-                                    <button
-                                      className="detailScreenPrompt"
-                                      type="button"
-                                      onClick={() => void copyText(prompt.text, `第${prompt.screen}屏提示词已复制`)}
-                                      title={prompt.text}
-                                    >
-                                      {prompt.text}
-                                    </button>
-                                    <div className="detailReferenceTray">
-                                      <ReferenceThumbTray references={result.references} count={result.referenceCount} max={5} onOpen={openReferencePreview} onContextMenu={openReferenceContextMenu} onImageDragStart={beginReferenceImageDrag} />
-                                      <button type="button" onClick={() => markDeferredFeature("追加参考图")}>
-                                        <Plus size={13} />
-                                      </button>
-                                    </div>
-                                  </article>
-                                );
-                              })}
-                            </div>
-                          </section>
-                        )}
-                      </article>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {detailInfoItem && (
-                <aside className="detailInfoPanel">
-                  <header>
-                    <div>
-                      <strong>生图信息</strong>
-                      <span>第{detailInfoItem.prompt.screen}屏 · {detailInfoItem.prompt.title}</span>
-                    </div>
-                    <button className="iconButton" type="button" onClick={() => setDetailInfoSelection(null)} aria-label="关闭">
-                      <X size={16} />
-                    </button>
-                  </header>
-                  <button
-                    className="detailInfoPreview"
-                    type="button"
-                    onClick={() => openPreview(detailInfoItem.result)}
-                    onContextMenu={(event) => openContextMenu(event, detailInfoItem.result.id)}
-                  >
-                    <CachedImage
-                      src={imageSourceFromResult(detailInfoItem.result.image)}
-                      alt="详情分屏预览"
-                      draggable
-                      onDragStart={(event) => beginResultImageDrag(event, detailInfoItem.result)}
-                      diagnostic={{ requestId: detailInfoItem.result.requestId || detailInfoItem.result.id, endpoint: "/api/images", module: "一键详情", placement: "detail-info" }}
-                    />
-                  </button>
-                  <div className="detailInfoMeta">
-                    <span>模型</span><strong>{detailInfoItem.result.modelLabel}</strong>
-                    <span>尺寸</span><strong>{detailInfoItem.result.imageSize} · {detailInfoItem.result.aspectRatio}</strong>
-                    <span>参考图</span><strong>{detailInfoItem.result.referenceCount} 张</strong>
-                    <span>用时</span><strong>{detailInfoItem.result.generationMs ? formatMs(detailInfoItem.result.generationMs) : "--"}</strong>
-                    <span>状态</span><strong>{detailInfoItem.prompt.status === "success" ? "已完成" : detailInfoItem.prompt.status}</strong>
-                  </div>
-                  <section className="detailInfoReferences">
-                    <span>本张参考图</span>
-                    <ReferenceThumbTray references={detailInfoItem.result.references} count={detailInfoItem.result.referenceCount} max={6} onOpen={openReferencePreview} onContextMenu={openReferenceContextMenu} onImageDragStart={beginReferenceImageDrag} />
-                  </section>
-                  <label className="detailInfoPrompt">
-                    <span>提示词</span>
-                    <textarea value={detailInfoItem.prompt.text} readOnly />
-                  </label>
-                  <div className="detailInfoActions">
-                    <button className="smallButton" type="button" onClick={() => void copyText(detailInfoItem.prompt.text, "提示词已复制")}>
-                      <Copy size={14} />
-                      <span>复制提示词</span>
-                    </button>
-                    <button className="smallButton" type="button" onClick={() => rerunResult(detailInfoItem.result, 1)}>
-                      <RotateCcw size={14} />
-                      <span>重刷</span>
-                    </button>
-                    <button className="smallButton" type="button" onClick={() => void downloadItem(detailInfoItem.result, 0)}>
-                      <Download size={14} />
-                      <span>下载</span>
-                    </button>
-                  </div>
-                </aside>
-              )}
-
-              {events.length > 0 && (
-                <div className="eventPill">
-                  <strong>{events[0].label}</strong>
-                  <span>{events[0].detail}</span>
-                </div>
-              )}
-            </section>
-          </section>
+          <DetailView
+            detailApi={detailApi}
+            events={events}
+            models={models}
+            config={config}
+            countOptions={COUNT_OPTIONS}
+            selectedIds={selectedIds}
+            selectedCount={selectedCount}
+            toggleSelected={toggleSelected}
+            openPreview={openPreview}
+            openContextMenu={openContextMenu}
+            rerunResult={rerunResult}
+            downloadItem={downloadItem}
+            copyText={copyText}
+            beginResultImageDrag={beginResultImageDrag}
+            openReferencePreview={openReferencePreview}
+            openReferenceContextMenu={openReferenceContextMenu}
+            beginReferenceImageDrag={beginReferenceImageDrag}
+            openUploadPreview={openUploadPreview}
+            markDeferredFeature={markDeferredFeature}
+            onOpenPromptAssistant={() => setIsPromptAssistantOpen(true)}
+          />
         ) : activeView === "infinite-canvas" ? (
           <section className="infiniteCanvasView">
             <aside className="canvasToolPanel">
@@ -4124,31 +3232,31 @@ function App() {
         </div>
       )}
 
-      {isDetailPresetOpen && (
-        <div className="modalLayer" onMouseDown={() => setIsDetailPresetOpen(false)}>
+      {detailApi.isDetailPresetOpen && (
+        <div className="modalLayer" onMouseDown={() => detailApi.setIsDetailPresetOpen(false)}>
           <section className="detailPresetModal" onMouseDown={(event) => event.stopPropagation()}>
             <header>
               <div>
                 <h2>加载详情预设</h2>
                 <span>恢复一键详情/主图的参数与文案</span>
               </div>
-              <button className="iconButton" type="button" onClick={() => setIsDetailPresetOpen(false)} aria-label="关闭">
+              <button className="iconButton" type="button" onClick={() => detailApi.setIsDetailPresetOpen(false)} aria-label="关闭">
                 <X size={18} />
               </button>
             </header>
             <div className="detailPresetList">
-              {detailPresets.map((preset) => (
+              {detailApi.detailPresets.map((preset) => (
                 <article className="detailPresetItem" key={preset.id}>
-                  <button type="button" onClick={() => loadDetailPreset(preset)}>
+                  <button type="button" onClick={() => detailApi.loadDetailPreset(preset)}>
                     <strong>{preset.name}</strong>
                     <span>{new Date(preset.createdAt).toLocaleString("zh-CN", { hour12: false })}</span>
                   </button>
-                  <button className="iconButton" type="button" onClick={() => deleteDetailPreset(preset.id)} title="删除预设">
+                  <button className="iconButton" type="button" onClick={() => detailApi.deleteDetailPreset(preset.id)} title="删除预设">
                     <Trash2 size={15} />
                   </button>
                 </article>
               ))}
-              {detailPresets.length === 0 && <p className="promptEmpty">还没有保存过详情预设</p>}
+              {detailApi.detailPresets.length === 0 && <p className="promptEmpty">还没有保存过详情预设</p>}
             </div>
           </section>
         </div>
@@ -4173,39 +3281,39 @@ function App() {
         promptApi={promptApi}
       />
 
-      {stitchPreview && stitchGroup && (
-        <div className="modalLayer stitchLayer" onMouseDown={closeStitchPreview}>
+      {detailApi.stitchPreview && detailApi.stitchGroup && (
+        <div className="modalLayer stitchLayer" onMouseDown={detailApi.closeStitchPreview}>
           <section className="stitchPreviewModal" onMouseDown={(event) => event.stopPropagation()}>
             <header>
               <div>
                 <h2>拼图预览</h2>
-                <span>{stitchGroup.label} · 共 {stitchItems.length} 屏</span>
+                <span>{detailApi.stitchGroup.label} · 共 {detailApi.stitchItems.length} 屏</span>
               </div>
               <div className="stitchHeaderActions">
-                <button className="darkButton" type="button" onClick={() => void downloadStitchPreview(stitchGroup)}>
+                <button className="darkButton" type="button" onClick={() => void detailApi.downloadStitchPreview(detailApi.stitchGroup)}>
                   <Download size={15} />
                   <span>下载长图</span>
                 </button>
-                <button className="iconButton" type="button" onClick={closeStitchPreview} aria-label="关闭">
+                <button className="iconButton" type="button" onClick={detailApi.closeStitchPreview} aria-label="关闭">
                   <X size={18} />
                 </button>
               </div>
             </header>
             <div
               className="stitchCanvasFrame"
-              onWheel={handleStitchWheel}
-              onPointerDown={beginStitchDrag}
-              onPointerMove={moveStitchDrag}
-              onPointerUp={endStitchDrag}
-              onPointerCancel={endStitchDrag}
-              onContextMenu={(event) => openStitchContextMenu(event, stitchGroup.id)}
+              onWheel={detailApi.handleStitchWheel}
+              onPointerDown={detailApi.beginStitchDrag}
+              onPointerMove={detailApi.moveStitchDrag}
+              onPointerUp={detailApi.endStitchDrag}
+              onPointerCancel={detailApi.endStitchDrag}
+              onContextMenu={(event) => detailApi.openStitchContextMenu(event, detailApi.stitchGroup.id)}
               title="滚轮缩放，按住拖动画面"
             >
               <div
                 className="stitchLongImage"
-                style={{ transform: `translate(${stitchPan.x}px, ${stitchPan.y}px) scale(${stitchZoom})` }}
+                style={{ transform: `translate(${detailApi.stitchPan.x}px, ${detailApi.stitchPan.y}px) scale(${detailApi.stitchZoom})` }}
               >
-                {stitchItems.map(({ prompt, result }, stitchIndex) => (
+                {detailApi.stitchItems.map(({ prompt, result }, stitchIndex) => (
                   <CachedImage
                     key={`${prompt.screen}-${result.id}`}
                     src={imageSourceFromResult(result.image)}
@@ -4399,22 +3507,22 @@ function App() {
         </div>
       )}
 
-      {stitchContextMenu && stitchContextGroup && (
+      {detailApi.stitchContextMenu && detailApi.stitchContextGroup && (
         <div
           className="imageContextMenu stitchContextMenu"
-          style={{ left: stitchContextMenu.x, top: stitchContextMenu.y }}
+          style={{ left: detailApi.stitchContextMenu.x, top: detailApi.stitchContextMenu.y }}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
-          <button type="button" onClick={() => { void downloadStitchPreview(stitchContextGroup); setStitchContextMenu(null); }}>
+          <button type="button" onClick={() => { void detailApi.downloadStitchPreview(detailApi.stitchContextGroup); detailApi.setStitchContextMenu(null); }}>
             <Download size={15} />
             <span>下载长图</span>
           </button>
-          <button type="button" onClick={() => { downloadDetailGroup(stitchContextGroup); setStitchContextMenu(null); }}>
+          <button type="button" onClick={() => { detailApi.downloadDetailGroup(detailApi.stitchContextGroup); detailApi.setStitchContextMenu(null); }}>
             <Layers size={15} />
             <span>下载分屏</span>
           </button>
-          <button type="button" onClick={() => { void openSaveDirectory(); setStitchContextMenu(null); }}>
+          <button type="button" onClick={() => { void openSaveDirectory(); detailApi.setStitchContextMenu(null); }}>
             <FolderOpen size={15} />
             <span>打开保存目录</span>
           </button>
