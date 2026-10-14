@@ -65,7 +65,7 @@ import ChannelPicker from "./shared/ui/ChannelPicker.jsx";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
 import { createDetailGroup } from "./features/detail/detail-group.js";
-import { MAX_REFERENCE_REWRITE_FILES, buildReferenceRemixPrompt, buildSmartReferencePrompt, createReferenceUpload, makeQuickReferenceItem, prepareImageFilesForChannel, quickReferenceHasLocalEdit, quickReferenceOriginalFile, quickReferenceRunUploadFile, quickReferenceUploadFile, quickReferenceUploadFiles, referenceMetaFromFiles, referenceMetaFromQuickRunItems, renderReferencePolicy } from "./features/upload/reference-upload.js";
+import { createReferenceUpload, makeQuickReferenceItem, prepareImageFilesForChannel, quickReferenceHasLocalEdit, quickReferenceOriginalFile, quickReferenceRunUploadFile, quickReferenceUploadFile, quickReferenceUploadFiles, referenceMetaFromFiles, referenceMetaFromQuickRunItems } from "./features/upload/reference-upload.js";
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import {
   imageFileFromUrl,
@@ -99,8 +99,7 @@ import {
 import { generateImages } from "./api/images.js";
 import {
   createDetailPrompts,
-  rewriteQuickPrompt,
-  rewriteReferencePrompt
+  rewriteQuickPrompt
 } from "./api/prompts.js";
 import { uploadCanvasAssets } from "./api/assets.js";
 import {
@@ -122,9 +121,11 @@ import { createCanvasActions, createCanvasInteractions } from "./features/canvas
 import { createQuickResultReplace, createResultDownload, createResultActions } from "./features/result-queue/quick-result-replace.js";
 import { VideoView } from "./features/video/VideoView.jsx";
 import { useVideoState } from "./features/video/video-state.js";
-import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState, detailDefaults, referenceDefaults } from "./shared/app-defaults.js";
+import { ReferenceRemixView } from "./features/reference-remix/ReferenceRemixView.jsx";
+import { useReferenceState } from "./features/reference-remix/reference-state.js";
+import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState, detailDefaults } from "./shared/app-defaults.js";
 import { SHOW_INFINITE_CANVAS, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
-import { clampDetailCount, clampDetailModelUsage, clampReferenceStrength, clampReverseScreens, hydrateDetailGroupsWithHistory, loadDetailGroups, loadDetailPresets, normalizeDetailSettings, sanitizeDetailGroupsForStorage } from "./features/detail/detail-group.js";
+import { clampDetailCount, clampDetailModelUsage, clampReverseScreens, hydrateDetailGroupsWithHistory, loadDetailGroups, loadDetailPresets, normalizeDetailSettings, sanitizeDetailGroupsForStorage } from "./features/detail/detail-group.js";
 import { composeQuickLocalEditBlob, defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
 // V56（P3-1）：设置弹窗抽取为独立 feature
 import { SettingsView } from "./features/settings/SettingsView.jsx";
@@ -648,13 +649,8 @@ function App() {
   const [stitchPreview, setStitchPreview] = useState(null);
   const [stitchZoom, setStitchZoom] = useState(1);
   const [stitchPan, setStitchPan] = useState({ x: 0, y: 0 });
-  const [referenceSettings, setReferenceSettings] = useState(referenceDefaults);
   const [referenceProductFiles, setReferenceProductFiles] = useState([]);
   const [referenceStyleFiles, setReferenceStyleFiles] = useState([]);
-  const [referenceTasks, setReferenceTasks] = useState([]);
-  const [referenceStatus, setReferenceStatus] = useState("idle");
-  const [referenceError, setReferenceError] = useState("");
-  const [isReferencePromptRewriting, setIsReferencePromptRewriting] = useState(false);
   const [infiniteCanvasState, setInfiniteCanvasState] = useState(loadInfiniteCanvasState);
   const [canvasViewport, setCanvasViewport] = useState({ x: 34, y: 18, scale: 1 });
   const [canvasTasks, setCanvasTasks] = useState([]);
@@ -718,8 +714,6 @@ function App() {
   const suppressReferencePreviewRef = useRef(false);
   const detailProductInputRef = useRef(null);
   const detailReferenceInputRef = useRef(null);
-  const referenceProductInputRef = useRef(null);
-  const referenceStyleInputRef = useRef(null);
   const canvasStageRef = useRef(null);
   const canvasFileInputRef = useRef(null);
   const previewDragRef = useRef(null);
@@ -799,11 +793,7 @@ function App() {
   const billingGatewayEnabled = Boolean(config.billingGatewayPolicy?.enabled);
   const detailModel = models.find((item) => item.value === detailSettings.model) || models[0];
   const detailRatios = detailModel.ratios || ["1:1", "3:4", "16:9"];
-  const referenceModel = models.find((item) => item.value === referenceSettings.model) || models[0];
-  const referenceRatios = referenceModel.ratios || ["1:1", "3:4", "16:9"];
-  // 分辨率下拉同样吃 capabilities，不再用写死的 1K/2K/4K。
   const detailSizes = modelCapabilities(detailSettings.model, config.routing || config).sizes;
-  const referenceSizes = modelCapabilities(referenceSettings.model, config.routing || config).sizes;
   const detailRunningCount = detailGroups.reduce((count, group) => (
     count + group.prompts.reduce((screenCount, prompt) => screenCount + (prompt.status === "running" ? 1 : 0), 0)
   ), 0);
@@ -844,14 +834,6 @@ function App() {
     () => detailReferenceFiles.map((file) => ({ file, url: URL.createObjectURL(file) })),
     [detailReferenceFiles]
   );
-  const referenceProductPreviews = useMemo(
-    () => referenceProductFiles.map((file) => ({ file, url: URL.createObjectURL(file) })),
-    [referenceProductFiles]
-  );
-  const referenceStylePreviews = useMemo(
-    () => referenceStyleFiles.map((file) => ({ file, url: URL.createObjectURL(file) })),
-    [referenceStyleFiles]
-  );
   const canvases = infiniteCanvasState.canvases;
   const activeCanvasId = infiniteCanvasState.activeId;
   const activeCanvas = canvases.find((canvas) => canvas.id === activeCanvasId) || canvases[0] || null;
@@ -882,10 +864,8 @@ function App() {
     : [];
   const stitchItems = stitchPrompts.flatMap((prompt) => (prompt.results || []).map((result) => ({ prompt, result })));
   const quickResults = useMemo(() => results.filter((item) => !item.source || item.source === "quickgen"), [results]);
-  const referenceResults = useMemo(() => results.filter((item) => item.source === "reference-remix"), [results]);
   const quickGalleryRef = useRef(null);
   const runningQuickTasks = quickTasks.filter((task) => task.status === "running");
-  const runningReferenceTasks = referenceTasks.filter((task) => task.status === "running");
   const imageCount = quickResults.length;
   const visibleResults = resultFilter === "image" ? quickResults : quickResults;
   // 结果去重：同一次生成的图若被重复写入 results（同 id 或「同图不同 id」），
@@ -927,35 +907,6 @@ function App() {
     });
     return galleryItems.sort((a, b) => (a.orderAt - b.orderAt) || (a.fallbackIndex - b.fallbackIndex));
   }, [visibleResults, runningQuickTasks]);
-  const referenceGalleryItems = useMemo(() => {
-    const sessionItems = [];
-    const historyItems = [];
-    referenceResults.forEach((item, index) => {
-      const entry = {
-        kind: "result",
-        key: `reference-result-${item.id}`,
-        result: item,
-        orderAt: Number.isFinite(item.submittedAt) ? item.submittedAt : (Number.isFinite(item.createdAt) ? item.createdAt : 0),
-        fallbackIndex: index
-      };
-      if (item.clientSessionId === CLIENT_SESSION_ID) {
-        sessionItems.push(entry);
-      } else {
-        historyItems.push(entry);
-      }
-    });
-    runningReferenceTasks.forEach((task, index) => {
-      sessionItems.push({
-        kind: "task",
-        key: `reference-task-${task.id}`,
-        task,
-        orderAt: task.startedAt || 0,
-        fallbackIndex: referenceResults.length + index
-      });
-    });
-    sessionItems.sort((a, b) => (a.orderAt - b.orderAt) || (a.fallbackIndex - b.fallbackIndex));
-    return [...sessionItems, ...historyItems];
-  }, [referenceResults, runningReferenceTasks]);
   const quickSelectedCount = quickResults.reduce((count, item) => count + (selectedIds.has(item.id) ? 1 : 0), 0);
   const selectedCount = selectedIds.size;
   const galleryZoomPercent = Math.round(galleryZoom * 100);
@@ -977,13 +928,6 @@ function App() {
         : videoApi.videoBillingRequired && !billingGatewayEnabled
           ? "等待计费接入"
           : "等待视频生成";
-  const referenceStatusText = runningReferenceTasks.length > 0
-    ? `运行中 ${runningReferenceTasks.length} 个任务`
-    : referenceStatus === "failed"
-      ? "参考生图失败"
-      : referenceStatus === "success"
-        ? "参考生图已完成"
-        : "等待参考生图";
   const contextItem = contextMenu ? results.find((item) => item.id === contextMenu.itemId) : null;
   const contextIndex = contextItem ? results.findIndex((item) => item.id === contextItem.id) : -1;
   const quickGalleryTailKey = quickGalleryItems.at(-1)?.key || "";
@@ -994,7 +938,7 @@ function App() {
       return activeDetailResults.map((item) => item.result).filter(Boolean);
     }
     if (previewSource === "reference-remix") {
-      return referenceGalleryItems
+      return referenceApi.referenceGalleryItems
         .filter((item) => item.kind === "result")
         .map((item) => item.result)
         .filter(Boolean);
@@ -1011,7 +955,7 @@ function App() {
       .filter((item) => item.kind === "result")
       .map((item) => item.result)
       .filter(Boolean);
-  }, [previewResult, activeDetailResults, referenceGalleryItems, quickGalleryItems, results]);
+  }, [previewResult, activeDetailResults, referenceApi.referenceGalleryItems, quickGalleryItems, results]);
 
   useEffect(() => {
     getAppConfig().then((data) => {
@@ -1034,7 +978,7 @@ function App() {
         return nextChannelId === current.channelId ? current : { ...current, channelId: nextChannelId };
       };
       setDetailSettings(convergePageChannel);
-      setReferenceSettings(convergePageChannel);
+      referenceApi.setReferenceSettings(convergePageChannel);
     }).catch(() => {});
 
     refreshSaveDirectory();
@@ -1105,13 +1049,7 @@ function App() {
     detailReferencePreviews.forEach((item) => URL.revokeObjectURL(item.url));
   }, [detailReferencePreviews]);
 
-  useEffect(() => () => {
-    referenceProductPreviews.forEach((item) => URL.revokeObjectURL(item.url));
-  }, [referenceProductPreviews]);
 
-  useEffect(() => () => {
-    referenceStylePreviews.forEach((item) => URL.revokeObjectURL(item.url));
-  }, [referenceStylePreviews]);
 
   // V46.1: 任务计时已下沉到 <ElapsedTimer>，此处不再需要全局 500ms 刷新
 
@@ -1239,92 +1177,6 @@ function App() {
     });
   }
 
-  function updateReferenceSetting(key, value) {
-    setReferenceSettings((current) => {
-      const next = { ...current, [key]: value };
-      if (key === "model") {
-        const nextModel = models.find((item) => item.value === value) || models[0];
-        if (!nextModel.ratios.includes(next.aspectRatio)) next.aspectRatio = nextModel.ratios[0];
-        // 同 updateDetailSetting：模型换了就按新模型的合法渠道重新落一次。
-        next.channelId = channelForModel(next.model, next.channelId, config.routing || config)?.id || "";
-      }
-      if (key === "channelId") {
-        const channels = channelsForModel(next.model, config.routing || config);
-        next.channelId = channels.some((item) => item.id === value) ? value : (channels[0]?.id || "");
-      }
-      if (key === "n") next.n = Math.min(clampCount(value), modelCapabilities(next.model, config).maxInputImages);
-      if (key === "strength") next.strength = clampReferenceStrength(value);
-      return next;
-    });
-  }
-
-  async function applySmartReferencePrompt() {
-    if (isReferencePromptRewriting) return;
-    const apiKey = normalizeApiKeyInput(settings.apiKey);
-    if (!apiKey && !config.hasServerKey) {
-      setReferenceError("请先在左下角设置里填写 API Key，智能扩写需要调用当前 AI 模型");
-      setIsSettingsOpen(true);
-      addEvent("参考生图", "请先保存 API Key 后再智能扩写");
-      return;
-    }
-
-    setIsReferencePromptRewriting(true);
-    setReferenceError("");
-    try {
-      const productUpload = await prepareImageFilesForChannel(referenceProductFiles);
-      const referenceUpload = await prepareImageFilesForChannel(referenceStyleFiles);
-      if (productUpload.compressedCount + referenceUpload.compressedCount > 0) {
-        addEvent("图片压缩", `智能扩写已压缩 ${productUpload.compressedCount + referenceUpload.compressedCount} 张素材到 4MB 内`);
-      }
-
-      const form = new FormData();
-      form.set("payload", JSON.stringify({
-        ...referenceSettings,
-        policies: renderReferencePolicy({
-          strength: referenceSettings.strength,
-          element: referenceSettings.element,
-          composition: referenceSettings.composition,
-          scene: referenceSettings.scene,
-          styleCount: referenceStyleFiles.length
-        }),
-        apiKey,
-        baseUrl: config.defaultBaseUrl || settings.baseUrl || defaultState.baseUrl,
-        detailAnalysisModel: DETAIL_ANALYSIS_MODEL,
-        productImages: productUpload.files.map((file) => ({ name: file.name, size: file.size, type: file.type })),
-        referenceImages: referenceUpload.files.map((file) => ({ name: file.name, size: file.size, type: file.type }))
-      }));
-      productUpload.files.forEach((file) => form.append("productImage", file, file.name));
-      referenceUpload.files.forEach((file) => form.append("referenceImage", file, file.name));
-
-      let payload = null;
-      try {
-        payload = await rewriteReferencePrompt(form);
-      } catch (requestError) {
-        payload = requestError?.payload || null;
-        const message = requestError instanceof Error ? requestError.message : "参考生图提示词扩写失败";
-        if (isAuthErrorMessage(message)) {
-          setIsSettingsOpen(true);
-          throw new Error(message);
-        }
-        const fallbackPrompt = payload?.fallbackPrompt || buildSmartReferencePrompt(referenceSettings, referenceStyleFiles.length);
-        setReferenceSettings((current) => ({ ...current, prompt: fallbackPrompt }));
-        addEvent("参考生图", "文本模型扩写失败，已使用保守 Skill 兜底");
-        throw new Error(message);
-      }
-
-      setReferenceSettings((current) => ({
-        ...current,
-        prompt: payload.prompt || current.prompt
-      }));
-      addEvent("参考生图", `文本模型扩写完成：${payload.mode === "ai-vision" ? "已读取图片" : "纯文本规划"}`);
-    } catch (err) {
-      const message = normalizeGenerationErrorMessage(err);
-      setReferenceError(message);
-      addEvent("智能扩写失败", message);
-    } finally {
-      setIsReferencePromptRewriting(false);
-    }
-  }
 
   const {
     patchActiveCanvas, patchCanvasById, updateCanvasNode, updateCanvasNodeByCanvasId,
@@ -1720,6 +1572,25 @@ function App() {
     imageFilesFromReferenceDrop
   });
 
+  const referenceApi = useReferenceState({
+    settings,
+    config,
+    models,
+    results,
+    setResults,
+    addEvent,
+    setIsSettingsOpen,
+    clientSessionId: CLIENT_SESSION_ID,
+    clampCount,
+    makeResultId,
+    normalizeGenerationErrorMessage,
+    DETAIL_ANALYSIS_MODEL,
+    referenceProductFiles,
+    referenceStyleFiles,
+    addReferenceRewriteFiles,
+    removeReferenceRewriteFile
+  });
+
   function onComposerPaste(event) {
     const pastedImages = imageFilesFromClipboard(event.clipboardData);
     if (pastedImages.length === 0) return;
@@ -1866,7 +1737,7 @@ function App() {
 
 
   function clearAll() {
-    const targetResults = activeView === "reference-remix" ? referenceResults : quickResults;
+    const targetResults = activeView === "reference-remix" ? referenceApi.referenceResults : quickResults;
     const moduleName = activeView === "reference-remix" ? "参考生图" : "快捷生成";
     const confirmed = window.confirm(`确定清空${moduleName}历史记录吗？这个操作不会影响其他模块。`);
     if (!confirmed) return;
@@ -1880,9 +1751,7 @@ function App() {
     if (activeView === "reference-remix") {
       setReferenceProductFiles([]);
       setReferenceStyleFiles([]);
-      setReferenceTasks([]);
-      setReferenceStatus("idle");
-      setReferenceError("");
+      referenceApi.resetReferenceState();
     } else {
       setFiles([]);
       setQuickLocalEditTarget(null);
@@ -2768,121 +2637,6 @@ function App() {
     }
   }
 
-  async function generateReferenceRemix(overrides = {}) {
-    const runSettings = {
-      ...referenceSettings,
-      ...overrides,
-      n: clampCount(overrides.n ?? referenceSettings.n),
-      strength: clampReferenceStrength(overrides.strength ?? referenceSettings.strength)
-    };
-    const productFiles = [...referenceProductFiles];
-    const styleFiles = [...referenceStyleFiles];
-    const runFiles = [...productFiles, ...styleFiles];
-    const runReferenceMeta = [
-      ...referenceMetaFromFiles(productFiles, "product"),
-      ...referenceMetaFromFiles(styleFiles, "style", productFiles.length)
-    ];
-    const runModel = models.find((item) => item.value === runSettings.model) || models[0];
-
-    if (!normalizeApiKeyInput(settings.apiKey) && !config.hasServerKey) {
-      setReferenceError("请先在左下角设置里填写 API Key");
-      setIsSettingsOpen(true);
-      setReferenceStatus("failed");
-      return;
-    }
-    if (productFiles.length === 0) {
-      setReferenceError("请先上传产品图，参考生图需要先锁定商品主体");
-      setReferenceStatus("failed");
-      addEvent("参考生图", "请先上传产品图");
-      return;
-    }
-
-    const expandedPrompt = buildReferenceRemixPrompt(runSettings, productFiles.length, styleFiles.length);
-    const taskId = makeResultId();
-    const taskStartedAt = Date.now();
-    setReferenceStatus("running");
-    setReferenceError("");
-    setReferenceTasks((current) => [...current, {
-      id: taskId,
-      status: "running",
-      startedAt: taskStartedAt,
-      modelLabel: runModel.label,
-      imageSize: runSettings.imageSize,
-      aspectRatio: runSettings.aspectRatio,
-      prompt: expandedPrompt
-    }]);
-    addEvent("参考生图", `${runModel.label} / 参考值 ${runSettings.strength}% / ${runSettings.imageSize}`);
-
-    const form = new FormData();
-    form.set("baseUrl", config.defaultBaseUrl || defaultState.baseUrl);
-    form.set("apiKey", normalizeApiKeyInput(settings.apiKey));
-    const route = routingFields(runSettings.model, runSettings.channelId, config.routing);
-    form.set("model", route.model);
-    form.set("channelId", route.channelId);
-    form.set("dispatchMode", route.dispatchMode);
-    form.set("prompt", expandedPrompt);
-    form.set("imageSize", runSettings.imageSize);
-    form.set("aspectRatio", runSettings.aspectRatio);
-    form.set("n", String(runSettings.n));
-    form.set("source", "reference-remix");
-    form.set("referenceMeta", JSON.stringify(runReferenceMeta));
-
-    const started = performance.now();
-    try {
-      const upload = await prepareImageFilesForChannel(runFiles);
-      if (upload.compressedCount > 0) {
-        addEvent("图片压缩", `参考生图已压缩 ${upload.compressedCount} 张素材到 4MB 内`);
-      }
-      upload.files.forEach((file) => form.append("image", file, file.name));
-      const payload = await generateImages(form);
-      if (!payload.images?.length) {
-        throw new Error("接口返回成功，但没有解析到图片");
-      }
-
-      const totalMs = Number.isFinite(payload.timing?.totalMs) ? payload.timing.totalMs : performance.now() - started;
-      const returnedItems = Array.isArray(payload.historyItems) && payload.historyItems.length > 0
-        ? payload.historyItems
-        : null;
-      const nextResults = (returnedItems || payload.images).map((entry, index) => {
-        const serverItem = returnedItems ? entry : null;
-        return {
-          ...serverItem,
-          id: serverItem?.id || makeResultId(),
-          image: serverItem?.image || entry,
-          prompt: expandedPrompt,
-          displayPrompt: runSettings.prompt,
-          modelLabel: runModel.label,
-          imageSize: runSettings.imageSize,
-          aspectRatio: runSettings.aspectRatio,
-          referenceCount: runFiles.length,
-          generationMs: totalMs,
-          source: "reference-remix",
-          referenceStrength: runSettings.strength,
-          referenceControls: {
-            element: runSettings.element,
-            composition: runSettings.composition,
-            scene: runSettings.scene
-          },
-          taskId,
-          submittedAt: taskStartedAt + index,
-          clientSessionId: CLIENT_SESSION_ID,
-          createdAt: serverItem?.createdAt || taskStartedAt + index
-        };
-      });
-      setResults((current) => [...nextResults, ...current]);
-      void saveHistoryResults(nextResults);
-      setReferenceStatus("success");
-      addEvent("参考生图", `生成 ${nextResults.length} 张，用时 ${formatMs(totalMs)}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (isAuthErrorMessage(message)) setIsSettingsOpen(true);
-      setReferenceStatus("failed");
-      setReferenceError(message);
-      addEvent("参考生图失败", message);
-    } finally {
-      setReferenceTasks((current) => current.filter((task) => task.id !== taskId));
-    }
-  }
 
   return (
     // 最外层兜底：任何一个视图在渲染期抛错，都不会变成整页白屏。
@@ -3084,10 +2838,10 @@ function App() {
             )}
             {activeView === "reference-remix" && (
               <>
-                <span className={`taskBadge task-${runningReferenceTasks.length > 0 ? "running" : referenceStatus}`}>
-                  {referenceStatusText}
+                <span className={`taskBadge task-${referenceApi.runningReferenceTasks.length > 0 ? "running" : referenceApi.referenceStatus}`}>
+                  {referenceApi.referenceStatusText}
                 </span>
-                <button className="toolbarButton" type="button" onClick={clearAll} disabled={referenceResults.length === 0}>
+                <button className="toolbarButton" type="button" onClick={clearAll} disabled={referenceApi.referenceResults.length === 0}>
                   <Trash2 size={15} />
                   <span>清空参考结果</span>
                 </button>
@@ -3970,224 +3724,26 @@ function App() {
             </section>
           </section>
         ) : activeView === "reference-remix" ? (
-          <section className="referenceWorkbench">
-            <aside className="referenceInputPanel">
-              <div className="detailPanelScroll">
-                <DetailUploadZone
-                  title="产品图（主体锁定）"
-                  subtitle={`产品图 + 参考图合计最多 ${MAX_REFERENCE_REWRITE_FILES} 张`}
-                  previews={referenceProductPreviews}
-                  count={referenceProductFiles.length + referenceStyleFiles.length}
-                  maxCount={MAX_REFERENCE_REWRITE_FILES}
-                  inputRef={referenceProductInputRef}
-                  onPick={(event) => {
-                    addReferenceRewriteFiles("product", event.target.files);
-                    event.target.value = "";
-                  }}
-                  onAddFiles={(fileList) => addReferenceRewriteFiles("product", fileList)}
-                  onRemove={(index) => removeReferenceRewriteFile("product", index)}
-                  onPreview={openUploadPreview}
-                  onAssetLibrary={() => markDeferredFeature("素材库")}
-                />
-
-                <DetailUploadZone
-                  title="参考图（运营参考）"
-                  subtitle={`元素、构图、场景方向 · 与产品图合计最多 ${MAX_REFERENCE_REWRITE_FILES} 张`}
-                  previews={referenceStylePreviews}
-                  count={referenceProductFiles.length + referenceStyleFiles.length}
-                  maxCount={MAX_REFERENCE_REWRITE_FILES}
-                  inputRef={referenceStyleInputRef}
-                  onPick={(event) => {
-                    addReferenceRewriteFiles("style", event.target.files);
-                    event.target.value = "";
-                  }}
-                  onAddFiles={(fileList) => addReferenceRewriteFiles("style", fileList)}
-                  onRemove={(index) => removeReferenceRewriteFile("style", index)}
-                  onPreview={openUploadPreview}
-                  onAssetLibrary={() => markDeferredFeature("素材库")}
-                />
-
-                <div className="detailDivider" />
-
-                <section className="detailFormSection">
-                  {/* 2026-09-26：参考生图的渠道入口与「参考控制」参数区同一行，
-                      与快捷生成/一键详情共用 src/shared/ui/ChannelPicker.jsx；
-                      渠道状态保存在本页自己的 referenceSettings.channelId 里，互不污染。 */}
-                  <div className="detailFormHeader">
-                    <h3>参考控制</h3>
-                    <ChannelPicker
-                      model={referenceSettings.model}
-                      modelLabel={referenceModel?.label || referenceSettings.model}
-                      channelId={referenceSettings.channelId}
-                      routing={config.routing || config}
-                      onChange={(channelId) => updateReferenceSetting("channelId", channelId)}
-                    />
-                  </div>
-                  <div className="detailParamGrid">
-                    <label>
-                      <span>图片模型</span>
-                      <select value={referenceSettings.model} onChange={(event) => updateReferenceSetting("model", event.target.value)}>
-                        {models.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>图片比例</span>
-                      <select value={referenceSettings.aspectRatio} onChange={(event) => updateReferenceSetting("aspectRatio", event.target.value)}>
-                        {referenceRatios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>分辨率</span>
-                      <select value={referenceSettings.imageSize} onChange={(event) => updateReferenceSetting("imageSize", event.target.value)}>
-                        {referenceSizes.map((size) => <option key={size} value={size}>{size}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>生成数量</span>
-                      <select value={referenceSettings.n} onChange={(event) => updateReferenceSetting("n", event.target.value)}>
-                        {COUNT_OPTIONS.map((count) => <option key={count} value={count}>{count}张</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>参考值</span>
-                      <select value={referenceSettings.strength} onChange={(event) => updateReferenceSetting("strength", event.target.value)}>
-                        {REFERENCE_STRENGTH_OPTIONS.map((value) => <option key={value} value={value}>{value}%</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>参考元素</span>
-                      <select value={referenceSettings.element} onChange={(event) => updateReferenceSetting("element", event.target.value)}>
-                        {referenceControlOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>参考构图</span>
-                      <select value={referenceSettings.composition} onChange={(event) => updateReferenceSetting("composition", event.target.value)}>
-                        {referenceControlOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>参考场景主题</span>
-                      <select value={referenceSettings.scene} onChange={(event) => updateReferenceSetting("scene", event.target.value)}>
-                        {referenceControlOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </label>
-                  </div>
-                </section>
-
-                <section className="detailFormSection">
-                  <div className="referencePromptHeader">
-                    <h3>整体提示词</h3>
-                    <button className="smallButton" type="button" onClick={() => void applySmartReferencePrompt()} disabled={isReferencePromptRewriting}>
-                      {isReferencePromptRewriting ? <Loader2 className="spin" size={15} /> : <Wand2 size={15} />}
-                      <span>智能扩写提示词</span>
-                    </button>
-                  </div>
-                  <label className="detailField">
-                    <span>生成要求</span>
-                    <StableTextarea
-                      value={referenceSettings.prompt}
-                      onChange={(event) => updateReferenceSetting("prompt", event.target.value)}
-                      placeholder="例：生成一张女装主图，浅色调，干净电商质感，突出面料和版型，不要照抄参考图文字。"
-                    />
-                  </label>
-                  <p className="referenceHint">
-                    30% 以下参考意义很弱，所以这里从 30% 起步；参考越高越接近运营图方向，但后台会强制避开照抄、品牌、水印和相同文字。
-                  </p>
-                </section>
-              </div>
-
-              <div className="detailPanelFooter">
-                <button className="generateButton" type="button" onClick={() => void generateReferenceRemix()}>
-                  {runningReferenceTasks.length > 0 ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
-                  <span>生成参考图</span>
-                </button>
-              </div>
-            </aside>
-
-            <section className="referenceResultBoard">
-              <header className="referenceBoardHeader">
-                <div>
-                  <strong>参考生图结果</strong>
-                  <span>结果只保存在参考生图模块，不进入快捷生成和一键详情分屏。</span>
-                </div>
-              </header>
-
-              <div className="referenceGallery">
-                {referenceGalleryItems.map((galleryItem, index) => {
-                  if (galleryItem.kind === "task") {
-                    const task = galleryItem.task;
-                    return (
-                      <article className="assetCard loadingCard referenceAssetCard" key={galleryItem.key}>
-                        <Loader2 className="spin" size={28} />
-                        <span>参考生图中</span>
-                        <strong><ElapsedTimer startedAt={task.startedAt} /></strong>
-                        <em>{task.modelLabel} · {task.imageSize} · {task.aspectRatio}</em>
-                      </article>
-                    );
-                  }
-                  const item = galleryItem.result;
-                  const src = imageSourceFromResult(item.image);
-                  const promptText = item.displayPrompt || item.prompt;
-                  return (
-                    <article
-                      className="assetCard referenceAssetCard"
-                      key={galleryItem.key}
-                      onClick={() => openPreview(item)}
-                      onContextMenu={(event) => openContextMenu(event, item.id)}
-                    >
-                      <button
-                        className={`assetDownloadButton ${downloadFeedbackIds.has(item.id) ? "downloaded" : ""}`}
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void downloadItem(item, index);
-                        }}
-                        title="下载到指定文件夹"
-                        aria-label="下载到指定文件夹"
-                      >
-                        {downloadFeedbackIds.has(item.id) ? <Check size={16} /> : <Download size={16} />}
-                      </button>
-                      {item.generationMs && <div className="assetTimeBadge">用时 {formatMs(item.generationMs)}</div>}
-                      <CachedImage src={src} alt={`参考生图 ${index + 1}`} draggable onDragStart={(event) => beginResultImageDrag(event, item, index)} diagnostic={{ requestId: item.requestId || item.id, endpoint: "/api/images", module: "参考生图", placement: "reference-card" }} />
-                      <ReferenceThumbTray references={item.references} count={item.referenceCount} className="assetReferenceTray" onOpen={openReferencePreview} onContextMenu={openReferenceContextMenu} onImageDragStart={beginReferenceImageDrag} />
-                      {promptText && (
-                        <button
-                          className="assetPrompt"
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            copyText(promptText, "提示词已复制");
-                          }}
-                          title={promptText}
-                        >
-                          {promptText}
-                        </button>
-                      )}
-                      <div className="assetMeta">
-                        <span>{item.modelLabel}</span>
-                        <strong>{item.referenceStrength || referenceSettings.strength}% · {item.imageSize}</strong>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-
-              {referenceResults.length === 0 && runningReferenceTasks.length === 0 && (
-                <div className="referenceEmpty">
-                  <Layers size={34} />
-                  <span>{referenceStatus === "failed" ? referenceError : "上传产品图和运营参考图后开始生成"}</span>
-                </div>
-              )}
-
-              {events.length > 0 && (
-                <div className="eventPill">
-                  <strong>{events[0].label}</strong>
-                  <span>{events[0].detail}</span>
-                </div>
-              )}
-            </section>
-          </section>
+          <ReferenceRemixView
+            referenceApi={referenceApi}
+            events={events}
+            downloadFeedbackIds={downloadFeedbackIds}
+            models={models}
+            config={config}
+            openPreview={openPreview}
+            openContextMenu={openContextMenu}
+            downloadItem={downloadItem}
+            copyText={copyText}
+            beginResultImageDrag={beginResultImageDrag}
+            openReferencePreview={openReferencePreview}
+            openReferenceContextMenu={openReferenceContextMenu}
+            beginReferenceImageDrag={beginReferenceImageDrag}
+            openUploadPreview={openUploadPreview}
+            markDeferredFeature={markDeferredFeature}
+            countOptions={COUNT_OPTIONS}
+            referenceStrengthOptions={REFERENCE_STRENGTH_OPTIONS}
+            referenceControlOptions={referenceControlOptions}
+          />
         ) : activeView === "quickgen" && quickMode === "video" ? (
           <VideoView
             videoApi={videoApi}
