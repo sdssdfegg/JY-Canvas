@@ -3,8 +3,6 @@ import {
   BookOpen,
   Check,
   CheckSquare,
-  ChevronDown,
-  ChevronUp,
   Crop,
   Download,
   Eye,
@@ -16,7 +14,6 @@ import {
   Maximize2,
   ImageOff,
   Minus,
-  Move,
   Palette,
   Pencil,
   Play,
@@ -28,7 +25,6 @@ import {
   Sparkles,
   Square,
   Trash2,
-  Unlock,
   Upload,
   Video,
   Wand2,
@@ -75,13 +71,7 @@ import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
-  FACT_UNRECOGNIZED,
   OUTFIT_AUTO_PROMPT_CHAR_LIMIT,
-  OUTFIT_FACT_FIELDS,
-  OUTFIT_KEEP_PART_VALUES,
-  OUTFIT_PART_OPTIONS,
-  UPPER_LAYER_OPTIONS,
-  WEARING_MODE_OPTIONS,
   compileOutfitPrompt,
   defaultOutfitIntent,
   normalizeOutfitIntent,
@@ -103,10 +93,7 @@ import { emitClientDiagnosticEvent } from "./api/client.js";
 import { normalizeApiKeyInput } from "./features/auth/api-key.js";
 import {
   RETOUCH_AUTO_PROMPT_CHAR_LIMIT,
-  RETOUCH_FIT_OPTIONS,
   RETOUCH_GOAL_TEXT,
-  RETOUCH_HEM_OPTIONS,
-  RETOUCH_SYMMETRY_OPTIONS,
   compileRetouchPrompt,
     isBuiltinRetouchPrompt,
   normalizeRetouchIntent,
@@ -200,6 +187,10 @@ import { BACKGROUND_CHANGE_DEFAULT_PROMPT, BACKGROUND_CHANGE_LEGACY_DEFAULT_PROM
 import { defaultPromptForWorkflowMode, defaultUploadLabelsForPage, ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, makeOutfitPage, mentionsOptionalReferenceImage, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabelText, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, sameUploadLabels, serializeDraftPage, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import { blobFromOutfitImage, composeCropReturnBlob, composeOutfitLocalEditBlob, composeOutpaintOriginalRegionBlob, createAsyncLimiter, createImageItem, defaultLocalEditCrop, delay, ensureOutfitUploadCanvasRatio, fileFromBlob, groupPreprocessValue, prepareOutpaintUploadCanvas, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
 import { useOutfitSettingsIntent } from "./features/outfit/use-outfit-settings-intent.js";
+import { OutfitPageRow } from "./features/outfit/panels/OutfitPageRow.jsx";
+import { ImageFactsPanel } from "./features/outfit/panels/ImageFactsPanel.jsx";
+import { OutfitIntentPanel } from "./features/outfit/panels/OutfitIntentPanel.jsx";
+import { RetouchIntentPanel } from "./features/outfit/panels/RetouchIntentPanel.jsx";
 import { CropReturnDiagnosticsPanel, LegacyModulePanel, LocalPasteDiagnosticsPanel } from "./features/outfit/outfit-panels.jsx";
 
 
@@ -3110,334 +3101,6 @@ function buildTasks(countOverride = plannedGenerationCount) {
     });
   }
 
-  function renderOutfitPageRow({ showPromptButton = true } = {}) {
-    return (
-      <div className="composerPageRow">
-        {showPromptButton && (
-          <div className="leftTools">
-            <button className="smallButton" type="button" onClick={() => setIsPromptAssistantOpen(true)}>
-              <BookOpen size={16} />
-              <span>词</span>
-            </button>
-          </div>
-        )}
-
-        <div className="outfitPageDock" role="tablist" aria-label="批量生成页面">
-          {outfitPages.map((page) => (
-            <button
-              className={`outfitPageTab ${page.id === activeOutfitPageId ? "active" : ""} ${draggedPageId === page.id ? "dragging" : ""} ${pageDropTarget?.id === page.id ? `drop-${pageDropTarget.placement}` : ""}`}
-              type="button"
-              key={page.id}
-              role="tab"
-              aria-selected={page.id === activeOutfitPageId}
-              onClick={() => switchOutfitPage(page.id)}
-              onDoubleClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                renameOutfitPage(page.id);
-              }}
-              onDragOver={(event) => updateOutfitPageDropTarget(event, page.id)}
-              onDragLeave={() => setPageDropTarget((current) => current?.id === page.id ? null : current)}
-              onDrop={(event) => dropOutfitPage(event, page.id)}
-              onDragEnd={endOutfitPageDrag}
-              title="单击切换，双击改名，拖拽排序"
-            >
-              <span
-                className="outfitPageDragHandle"
-                draggable
-                onClick={(event) => event.stopPropagation()}
-                onDoubleClick={(event) => event.stopPropagation()}
-                onDragStart={(event) => beginOutfitPageDrag(event, page.id)}
-                title="拖拽排序"
-              >
-                <Move size={12} />
-              </span>
-              <span>{page.name}</span>
-            </button>
-          ))}
-          <button className="outfitPageAdd" type="button" onClick={createOutfitPageFromCurrent} title="新建批量生成页面">
-            <Plus size={16} />
-          </button>
-          <button
-            className={`outfitPageLock ${activePageDeleteLocked ? "locked" : ""}`}
-            type="button"
-            onClick={() => toggleOutfitPageDeleteLock(activeOutfitPageId)}
-            aria-pressed={activePageDeleteLocked}
-            title={activePageDeleteLocked ? "当前页已防误删，点击解除" : "锁定当前页删除，防止误删"}
-          >
-            {activePageDeleteLocked ? <Lock size={15} /> : <Unlock size={15} />}
-          </button>
-          <button
-            className="outfitPageDelete"
-            type="button"
-            onClick={() => deleteOutfitPage(activeOutfitPageId)}
-            title="删除当前页面"
-          >
-            <Trash2 size={15} />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // 图2 卡片里的「图2服装事实」面板：只做分析 + 查看/修改结构化事实，不产生任何提示词文本。
-  function renderImageFactsPanel() {
-    const factsSource = outfitIntent.factsSource;
-    const stale = Boolean(factsSource.sourceId)
-      && Boolean(selectedFixedClothing?.id)
-      && factsSource.sourceId !== selectedFixedClothing.id;
-    const visibleFields = OUTFIT_FACT_FIELDS.filter((field) => field.parts.some((part) => outfitIntent.parts.includes(part)));
-    const summary = visibleFields
-      .map((field) => {
-        const value = outfitIntent.facts[field.key];
-        if (!value || value === FACT_UNRECOGNIZED) return "";
-        return `${field.label}：${value}`;
-      })
-      .filter(Boolean)
-      .join("；");
-    return (
-      <div className="imageFactPanel">
-        <div className="imageFactHeader">
-          <strong><Sparkles size={13} /> 图2服装事实</strong>
-          <span>
-            {outfitIntent.parts.length === 0
-              ? "先在下方「更换部位」里选部位，分析才知道该提取什么"
-              : stale
-                ? "图2已更换，这份事实可能过期，建议重新分析"
-                : `只保留本次所选部位（${outfitIntentSummary.replaceText}）的服装事实`}
-          </span>
-          <em>{outfitRecognizedFacts.length > 0 ? `已识别 ${outfitRecognizedFacts.length} 项` : "未识别"}</em>
-        </div>
-        <div className="imageFactActions">
-          <button
-            className="smallButton"
-            type="button"
-            onClick={() => void analyzeImageFacts()}
-            disabled={imageFactsAnalyzing}
-            title="读取当前图2的服装事实（不会覆盖你的部位/层级/穿法选择，也不会覆盖你手改过的内容）"
-          >
-            {imageFactsAnalyzing ? <Loader2 className="spin" size={14} /> : <Sparkles size={14} />}
-            <span>{imageFactsAnalyzing ? "分析中" : "分析当前图2"}</span>
-          </button>
-          <button className="imageFactToggle" type="button" onClick={() => setFactsDetailOpen((value) => !value)} aria-expanded={factsDetailOpen}>
-            {factsDetailOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-            <span>{factsDetailOpen ? "收起" : "查看/修改摘要"}</span>
-          </button>
-        </div>
-        <p className="imageFactSummary">
-          {summary || "还没分析：可以点「分析当前图2」自动读取，也可以留空完全靠手写。"}
-        </p>
-        {factsDetailOpen && (
-          <div className="imageFactEditor">
-            {visibleFields.length === 0 && <small>请先选择更换部位，才会出现对应的服装事实字段。</small>}
-            {visibleFields.map((field) => (
-              <label key={field.key}>
-                <span>{field.label}</span>
-                <input
-                  value={outfitIntent.facts[field.key] === FACT_UNRECOGNIZED ? "" : outfitIntent.facts[field.key]}
-                  placeholder={FACT_UNRECOGNIZED}
-                  onChange={(event) => updateOutfitFact(field.key, event.target.value)}
-                />
-              </label>
-            ))}
-            {visibleFields.length > 0 && (
-              <small>留空或写「未识别」就表示这一项没有可用事实，不会写进最终提示词。</small>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // 换装设置区（图1～图3下面）：更换部位 / 上装层级 / 穿法。旧的「单件上衣 / 外套+内搭 / 套装」
-  // 顶层切换和「上装长度 / 下装长度」已删除，长度只作为图2事实被分析出来，不再做成长短按钮。
-  function renderOutfitIntentPanel() {
-    const parts = outfitIntent.parts;
-    // 保持列表口径与编译器一致：不含鞋子；选了连衣裙时也不列上装/下装。
-    const keepLabels = OUTFIT_KEEP_PART_VALUES
-      .filter((part) => !parts.includes(part))
-      .filter((part) => !(parts.includes("dress") && (part === "upper" || part === "lower")))
-      .map((part) => OUTFIT_PART_OPTIONS.find((item) => item.value === part)?.label || part)
-      .join("、");
-    // 2026-09-26：删掉「自动识别图2」后，层级一律由用户选，这里只说"会怎么写"。
-    const layerHint = `将写作「图2的${outfitLayer.promptLabel}」`;
-    return (
-      <section className="outfitIntentPanel" aria-label="换装设置">
-        <header>
-          <div>
-            <h3>换装设置</h3>
-            <span>这里的选择会进入最终提示词；批次开始后再改只影响下一批。</span>
-          </div>
-          <span className={`outfitIntentCount ${parts.length === 0 ? "warn" : ""}`}>
-            {parts.length === 0 ? "未选择更换部位" : `已选 ${parts.length} 个部位`}
-          </span>
-        </header>
-
-        <div className="outfitIntentRow">
-          <span className="outfitIntentRowTitle">更换部位</span>
-          <div className="outfitIntentChips">
-            {OUTFIT_PART_OPTIONS.map((part) => {
-              const active = parts.includes(part.value);
-              return (
-                <button
-                  className={active ? "active" : ""}
-                  key={part.value}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => toggleOutfitPart(part.value)}
-                >
-                  {active && <Check size={13} />}
-                  <span>{part.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          <small className={parts.length === 0 ? "outfitIntentWarn" : ""}>
-            {parts.length === 0 ? "至少选择一个更换部位才能生成" : `未选择的部位保持图1原样：${keepLabels}`}
-          </small>
-        </div>
-
-        {parts.includes("upper") && (
-          <div className="outfitIntentRow">
-            <span className="outfitIntentRowTitle">上装层级</span>
-            <div className="outfitIntentChips">
-              {UPPER_LAYER_OPTIONS.map((option) => {
-                const active = outfitIntent.upperLayer === option.value;
-                return (
-                  <button
-                    className={active ? "active" : ""}
-                    key={option.value}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => patchOutfitIntent({ upperLayer: option.value })}
-                  >
-                    {active && <Check size={13} />}
-                    <span>{option.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <small className={outfitLayer.uncertain ? "outfitIntentWarn" : ""}>{layerHint}</small>
-          </div>
-        )}
-
-        <div className="outfitIntentRow">
-          <span className="outfitIntentRowTitle">穿法</span>
-          <div className="outfitIntentChips">
-            {WEARING_MODE_OPTIONS.map((mode) => {
-              const active = outfitIntent.wearing.mode === mode.value;
-              return (
-                <button
-                  className={active ? "active" : ""}
-                  key={mode.value}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => patchOutfitIntent({ wearing: { ...outfitIntent.wearing, mode: mode.value } })}
-                >
-                  {active && <Check size={13} />}
-                  <span>{mode.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="outfitIntentInline">
-            <small>{outfitWearingTextSummary()}</small>
-            {outfitIntent.wearing.mode === "custom" && (
-              <button className="imageFactToggle" type="button" onClick={() => setWearingDetailOpen((value) => !value)} aria-expanded={wearingDetailOpen}>
-                {wearingDetailOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                <span>{wearingDetailOpen ? "收起详细设置" : "展开详细设置"}</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {outfitIntent.wearing.mode === "custom" && wearingDetailOpen && (
-          <div className="outfitWearingEditor">
-            {outfitWearingFieldList.length === 0 && (
-              <small>当前部位没有可设置的穿法项目（鞋子不需要衣领和袖子，未选上装/下装时也不会出现对应项目）。</small>
-            )}
-            {outfitWearingFieldList.map((field) => (
-              <label key={field.key}>
-                <span>{field.label}</span>
-                <select value={wearingFieldValue(field.key)} onChange={(event) => updateOutfitWearingValue(field.key, event.target.value)}>
-                  <option value="">不指定</option>
-                  {field.options.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-            ))}
-          </div>
-        )}
-
-        {outfitPreview.warnings.length > 0 && (
-          <ul className="outfitIntentWarnings">
-            {outfitPreview.warnings.map((warning) => <li key={warning}>{warning}</li>)}
-          </ul>
-        )}
-      </section>
-    );
-  }
-
-  // 穿法摘要：只说明"当前会怎么写"，不重复编译器的原句。
-  function outfitWearingTextSummary() {
-    if (outfitIntent.wearing.mode === "natural") return "按常规自然穿着，不刻意复刻图2穿法细节";
-    if (outfitIntent.wearing.mode === "custom") {
-      const picked = outfitWearingFieldList
-        .map((field) => {
-          const option = field.options.find((item) => item.value === wearingFieldValue(field.key));
-          return option ? `${field.label}：${option.label}` : "";
-        })
-        .filter(Boolean);
-      return picked.length ? picked.join("｜") : "还没指定任何状态，将只保留部位与图2事实";
-    }
-    return "跟随图2穿法，不自行改变扣合、衣摆、袖子和领口";
-  }
-
-  // 精修设置区（位置与换装的换装设置一致：都在提示词区左半边）。
-  // 2026-09-26（按用户要求）：只留"选择按钮"，把标题/说明/摘要那一段不是按钮的显示全部去掉，
-  // 左侧因此省下不少高度；当前状态本来就体现在右边「通用白底精修提示词」框里。
-  function renderRetouchIntentPanel() {
-    const chipGroup = (options, current, onPick) => options.map((option) => {
-      const active = current === option.value;
-      return (
-        <button
-          className={active ? "active" : ""}
-          key={option.value}
-          type="button"
-          aria-pressed={active}
-          onClick={() => onPick(option.value)}
-        >
-          {active && <Check size={13} />}
-          <span>{option.label}</span>
-        </button>
-      );
-    });
-    return (
-      <section className="retouchIntentPanel" aria-label="精修设置">
-        <div className="retouchIntentRow">
-          <span className="retouchIntentRowTitle">对称</span>
-          <div className="retouchIntentChips">
-            {chipGroup(RETOUCH_SYMMETRY_OPTIONS, retouchIntent.symmetry, (value) => patchRetouchIntent({ symmetry: value }))}
-          </div>
-        </div>
-
-        <div className="retouchIntentRow">
-          <span className="retouchIntentRowTitle">衣摆或裙摆</span>
-          <div className="retouchIntentChips">
-            {chipGroup(RETOUCH_HEM_OPTIONS, retouchIntent.hemTreatment, (value) => patchRetouchIntent({ hemTreatment: value }))}
-          </div>
-        </div>
-
-        <div className="retouchIntentRow">
-          <span className="retouchIntentRowTitle">版型</span>
-          <div className="retouchIntentChips">
-            {chipGroup(RETOUCH_FIT_OPTIONS, retouchIntent.fit, (value) => patchRetouchIntent({ fit: value }))}
-          </div>
-        </div>
-      </section>
-    );
-  }
   function renderResultQueue() {
     return (
       <section className="resultPanel queuePanel" id="result-archive-section">
@@ -3903,7 +3566,17 @@ function buildTasks(countOverride = plannedGenerationCount) {
                   </div>
                 </div>
               ) : null}
-              sideControls={isOutfitWorkflow ? renderImageFactsPanel() : null}
+              sideControls={isOutfitWorkflow ? <ImageFactsPanel
+                outfitIntent={outfitIntent}
+                selectedFixedClothing={selectedFixedClothing}
+                outfitIntentSummary={outfitIntentSummary}
+                outfitRecognizedFacts={outfitRecognizedFacts}
+                imageFactsAnalyzing={imageFactsAnalyzing}
+                factsDetailOpen={factsDetailOpen}
+                setFactsDetailOpen={setFactsDetailOpen}
+                analyzeImageFacts={analyzeImageFacts}
+                updateOutfitFact={updateOutfitFact}
+              /> : null}
             />
             {!isWhiteRefineWorkflow && <UploadZone
               compact
@@ -3982,13 +3655,27 @@ function buildTasks(countOverride = plannedGenerationCount) {
           <div className={`composerBody ${isOutfitWorkflow ? "withIntent" : ""} ${isWhiteRefineWorkflow ? "withRetouch" : ""}`}>
             {isOutfitWorkflow && (
               <div className="composerIntentCol">
-                {renderOutfitIntentPanel()}
+                <OutfitIntentPanel
+                  outfitIntent={outfitIntent}
+                  outfitLayer={outfitLayer}
+                  outfitPreview={outfitPreview}
+                  outfitWearingFieldList={outfitWearingFieldList}
+                  wearingDetailOpen={wearingDetailOpen}
+                  setWearingDetailOpen={setWearingDetailOpen}
+                  toggleOutfitPart={toggleOutfitPart}
+                  patchOutfitIntent={patchOutfitIntent}
+                  updateOutfitWearingValue={updateOutfitWearingValue}
+                  wearingFieldValue={wearingFieldValue}
+                />
               </div>
             )}
             {/* 精修设置：三组选择排成一条，占满整行 —— 下面才是提示词 + 用户补充并排。 */}
             {isWhiteRefineWorkflow && (
               <div className="retouchSettingsRow">
-                {renderRetouchIntentPanel()}
+                <RetouchIntentPanel
+                  retouchIntent={retouchIntent}
+                  patchRetouchIntent={patchRetouchIntent}
+                />
               </div>
             )}
 
@@ -4097,7 +3784,25 @@ function buildTasks(countOverride = plannedGenerationCount) {
               </div>
             )}
             <div className="composerFooter">
-              {renderOutfitPageRow()}
+              <OutfitPageRow
+                showPromptButton
+                outfitPages={outfitPages}
+                activeOutfitPageId={activeOutfitPageId}
+                draggedPageId={draggedPageId}
+                pageDropTarget={pageDropTarget}
+                activePageDeleteLocked={activePageDeleteLocked}
+                setIsPromptAssistantOpen={setIsPromptAssistantOpen}
+                switchOutfitPage={switchOutfitPage}
+                renameOutfitPage={renameOutfitPage}
+                updateOutfitPageDropTarget={updateOutfitPageDropTarget}
+                setPageDropTarget={setPageDropTarget}
+                dropOutfitPage={dropOutfitPage}
+                endOutfitPageDrag={endOutfitPageDrag}
+                beginOutfitPageDrag={beginOutfitPageDrag}
+                createOutfitPageFromCurrent={createOutfitPageFromCurrent}
+                toggleOutfitPageDeleteLock={toggleOutfitPageDeleteLock}
+                deleteOutfitPage={deleteOutfitPage}
+              />
 
               <div className="rightTools">
                 <select value={settings.model} onChange={(event) => updateSetting("model", event.target.value)}>
