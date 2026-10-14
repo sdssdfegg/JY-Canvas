@@ -824,7 +824,7 @@ function App() {
       gallery.scrollTop = gallery.scrollHeight;
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeView, quickGalleryItems.length, quickGalleryTailKey, galleryZoom]);
+  }, [activeView, quickGalleryItems.length, quickGalleryTailKey, galleryZoom, quickGalleryRef]);
 
   useEffect(() => {
     const closeMenu = () => {
@@ -886,6 +886,8 @@ function App() {
   useEffect(() => () => {
     downloadFeedbackTimersRef.current.forEach((timer) => window.clearTimeout(timer));
     downloadFeedbackTimersRef.current.clear();
+  // 卸载期清理，ref 稳定，不纳入依赖
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 线路价格菜单：点击面板外部或按 Esc 关闭，避免菜单挡住底部参数和生成按钮。
@@ -904,7 +906,7 @@ function App() {
       document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [isQuickChannelMenuOpen]);
+  }, [isQuickChannelMenuOpen, setIsQuickChannelMenuOpen]);
 
   function updateSetting(key, value) {
     setSettings((current) => {
