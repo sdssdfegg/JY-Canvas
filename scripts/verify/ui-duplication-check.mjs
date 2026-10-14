@@ -142,8 +142,13 @@ check(
 );
 
 // 11) 设置里的「开发诊断 / 一键传参自检」已替换为「连接测试」
-check("设置里是「连接测试」按钮", /onClick=\{\(\) => void runConnectionTest\(\)\}/.test(mainJsx) && /连接测试/.test(mainJsx));
-check("旧的诊断入口 UI 已移除（按钮与标题都不在）", !mainJsx.includes("一键传参自检") && !/Settings size=\{15\} \/> 开发诊断/.test(mainJsx));
+// V56（P3-1）：设置弹窗已抽到 src/features/settings/SettingsView.jsx，连接测试按钮随之迁出 main.jsx。
+// 断言改为「设置 feature 内存在连接测试按钮」，不再死盯 main.jsx 字面量（避免锚点搬家变假绿）。
+const settingsViewSrc = readFileSync(path.join(root, "src", "features", "settings", "SettingsView.jsx"), "utf8");
+check("设置里是「连接测试」按钮", /onClick=\{\(\) => void runConnectionTest\(\)\}/.test(settingsViewSrc) && /连接测试/.test(settingsViewSrc));
+check("旧的诊断入口 UI 已移除（按钮与标题都不在）",
+  !mainJsx.includes("一键传参自检") && !/Settings size=\{15\} \/> 开发诊断/.test(mainJsx)
+  && !settingsViewSrc.includes("一键传参自检") && !/Settings size=\{15\} \/> 开发诊断/.test(settingsViewSrc));
 check("连接测试只探测模型清单（不调用生图）", /\/api\/connection-test/.test(readFileSync(path.join(root, "src", "api", "connection.js"), "utf8")));
 
 console.log(lines.join("\n"));
