@@ -62,7 +62,7 @@ import { ErrorBoundary } from "./shared/error-boundary.jsx";
 import { QuickCropViewportModal } from "./features/crop/quick-crop-panels.jsx";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
-import { createReferenceUpload, makeQuickReferenceItem, prepareImageFilesForChannel, quickReferenceHasLocalEdit, quickReferenceOriginalFile, quickReferenceRunUploadFile, quickReferenceUploadFile, quickReferenceUploadFiles, referenceMetaFromQuickRunItems } from "./features/upload/reference-upload.js";
+import { createReferenceUpload, prepareImageFilesForChannel, quickReferenceHasLocalEdit, quickReferenceOriginalFile, quickReferenceRunUploadFile, quickReferenceUploadFiles, referenceMetaFromQuickRunItems } from "./features/upload/reference-upload.js";
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import {
   imageFileFromUrl,
@@ -120,6 +120,8 @@ import { useReferenceState } from "./features/reference-remix/reference-state.js
 // V60（P3-5）：一键详情/主图视图与状态抽取至 src/features/detail/
 import { DetailView } from "./features/detail/DetailView.jsx";
 import { useDetailState } from "./features/detail/detail-state.js";
+// V61（P3-6）：快捷生成 image 模式私有状态与派生收口至 src/features/quickgen/（降级档：仅 state，JSX 留待下轮）
+import { useQuickGenState, dedupeResults, normalizeQuickReferenceItem } from "./features/quickgen/quickgen-state.js";
 import { ACTIVE_VIEW_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState } from "./shared/app-defaults.js";
 import { SHOW_INFINITE_CANVAS, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
 import { hydrateDetailGroupsWithHistory } from "./features/detail/detail-group.js";
@@ -457,21 +459,6 @@ function makeResultId() {
 
 
 
-function normalizeQuickReferenceItem(item) {
-  if (!item) return null;
-  if (item instanceof File) return makeQuickReferenceItem(item);
-  const file = item.file || item.originalFile;
-  if (!(file instanceof File)) return null;
-  return {
-    ...item,
-    id: item.id || `quick_ref_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    file,
-    originalFile: item.originalFile || file,
-    cropEdit: item.cropEdit || null,
-    localEdit: item.localEdit || null
-  };
-}
-
 
 
 
@@ -598,21 +585,51 @@ function App() {
   const [saveDirectory, setSaveDirectory] = useState("");
   const [directoryDraft, setDirectoryDraft] = useState("");
   const [isPickingDirectory, setIsPickingDirectory] = useState(false);
-  const [files, setFiles] = useState([]);
-  const [results, setResults] = useState([]);
-  // P1 缺图自愈：记录"图片确实加载失败"的结果 id → 原因文案。
-  // 只存在内存里，不回写持久化数据（服务端另有"归档文件丢失"的持久标记）。
-  const [brokenResultImages, setBrokenResultImages] = useState(() => ({}));
-  const [resultFilter, setResultFilter] = useState("all");
-  const [quickMode, setQuickMode] = useState("image");
-  const [selectedIds, setSelectedIds] = useState(() => new Set());
-  const [status, setStatus] = useState("idle");
-  const [quickTasks, setQuickTasks] = useState([]);
-  const [galleryZoom, setGalleryZoom] = useState(1);
-  const [downloadFeedbackIds, setDownloadFeedbackIds] = useState(() => new Set());
-  const [error, setError] = useState("");
-  const [isQuickPromptOptimizing, setIsQuickPromptOptimizing] = useState(false);
-  const [, setTiming] = useState(null);
+  // V61（P3-6，降级档）：快捷生成 image 模式私有状态 + 私有 ref + 派生值收口到 useQuickGenState，
+  // 以原名校验返回，下方共享工厂（createResultDownload / createResultActions / createReferenceUpload）
+  // 与 JSX 继续按同名引用，行为不变。JSX 抽取待下轮。
+  const quickApi = useQuickGenState();
+  const {
+    files, setFiles,
+    results, setResults,
+    brokenResultImages, setBrokenResultImages,
+    resultFilter, setResultFilter,
+    quickMode, setQuickMode,
+    selectedIds, setSelectedIds,
+    status, setStatus,
+    setQuickTasks,
+    galleryZoom, setGalleryZoom,
+    downloadFeedbackIds, setDownloadFeedbackIds,
+    error, setError,
+    isQuickPromptOptimizing, setIsQuickPromptOptimizing,
+    setTiming,
+    isQuickChannelMenuOpen, setIsQuickChannelMenuOpen,
+    quickResultReplaceTargetId, setQuickResultReplaceTargetId,
+    quickCropEditTarget, setQuickCropEditTarget,
+    quickLocalEditTarget, setQuickLocalEditTarget,
+    previewResult, setPreviewResult,
+    uploadPreview, setUploadPreview,
+    previewZoom, setPreviewZoom,
+    previewPan, setPreviewPan,
+    contextMenu, setContextMenu,
+    imageEditorSeed, setImageEditorSeed,
+    quickResultDragIdRef,
+    downloadFeedbackTimersRef,
+    quickGalleryRef,
+    previewFiles,
+    quickResults,
+    runningQuickTasks,
+    imageCount,
+    quickGalleryItems,
+    quickSelectedCount,
+    galleryZoomPercent,
+    galleryCardMin,
+    quickStatus,
+    latestStatusText,
+    contextItem,
+    contextIndex,
+    quickGalleryTailKey
+  } = quickApi;
   const [events, setEvents] = useState([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -623,27 +640,17 @@ function App() {
   // V56（P3-1）：设置弹窗私有状态与副作用统一收口到 useSettingsState，App() 只持有共享状态。
   const settingsApi = useSettingsState({ settings, setSettings, config, addEvent, isSettingsOpen });
   const [isPromptAssistantOpen, setIsPromptAssistantOpen] = useState(false);
-  const [isQuickChannelMenuOpen, setIsQuickChannelMenuOpen] = useState(false);
   const [referenceDropTarget, setReferenceDropTarget] = useState(null);
   // 2026-10-06：快捷生成的参考图「左右调顺序」（批量侧早就有，快捷侧补齐）。
   // 走 pointer 事件而不是 HTML5 drag —— 后者会和已有的「外部图片拖进来=替换」抢 dragover。
   const [referenceSortTarget, setReferenceSortTarget] = useState(null);
   const [draggingReferenceId, setDraggingReferenceId] = useState("");
-  const [quickResultReplaceTargetId, setQuickResultReplaceTargetId] = useState("");
-  const [quickCropEditTarget, setQuickCropEditTarget] = useState(null);
-  const [quickLocalEditTarget, setQuickLocalEditTarget] = useState(null);
   const [draggedPromptCategory, setDraggedPromptCategory] = useState("");
   const [promptCategoryDropTarget, setPromptCategoryDropTarget] = useState(null);
   const [isComposerDragging, setIsComposerDragging] = useState(false);
   // V46.1: 移除非必要全局 tick（任务计时下沉到 <ElapsedTimer>）
-  const [previewResult, setPreviewResult] = useState(null);
-  const [uploadPreview, setUploadPreview] = useState(null);
   const [referencePreview, setReferencePreview] = useState(null);
-  const [previewZoom, setPreviewZoom] = useState(1);
-  const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 });
-  const [contextMenu, setContextMenu] = useState(null);
   const [referenceContextMenu, setReferenceContextMenu] = useState(null);
-  const [imageEditorSeed, setImageEditorSeed] = useState(null);
   const inputRef = useRef(null);
   const referencePointerSortRef = useRef(null);
   // 排序松手后会紧接着触发一次 click ⇒ 会误开预览。沿用批量侧的 150ms 抑制窗口。
@@ -709,8 +716,6 @@ function App() {
     pickSaveDirectory,
   } = useSaveDirectory(saveDirectoryDeps);
 
-  const quickResultDragIdRef = useRef("");
-  const downloadFeedbackTimersRef = useRef(new Map());
 
   const models = config.models?.length ? config.models : DEFAULT_MODELS;
   const activeModel = models.find((item) => item.value === settings.model) || models[0];
@@ -724,26 +729,6 @@ function App() {
   const quickChannels = channelsForModel(settings.model, config.routing || config);
   const quickChannel = quickChannels.find((item) => item.id === settings.channelId) || quickChannels[0] || null;
   const billingGatewayEnabled = Boolean(config.billingGatewayPolicy?.enabled);
-  const previewFiles = useMemo(
-    () => files
-      .map(normalizeQuickReferenceItem)
-      .filter(Boolean)
-      .map((item) => {
-        const originalFile = quickReferenceOriginalFile(item);
-        const uploadFile = quickReferenceUploadFile(item);
-        const displayFile = uploadFile || originalFile;
-        return {
-          ...item,
-          file: originalFile,
-          uploadFile,
-          originalFile,
-          url: URL.createObjectURL(displayFile || originalFile),
-          uploadName: uploadFile?.name || originalFile?.name || "",
-          uploadSize: uploadFile?.size || originalFile?.size || 0
-        };
-      }),
-    [files]
-  );
   const canvases = infiniteCanvasState.canvases;
   const activeCanvasId = infiniteCanvasState.activeId;
   const activeCanvas = canvases.find((canvas) => canvas.id === activeCanvasId) || canvases[0] || null;
@@ -753,65 +738,10 @@ function App() {
     : activeCanvas
       ? `${activeCanvas.nodes.length} 个节点`
       : "等待新建画布";
-  const quickResults = useMemo(() => results.filter((item) => !item.source || item.source === "quickgen"), [results]);
-  const quickGalleryRef = useRef(null);
-  const runningQuickTasks = quickTasks.filter((task) => task.status === "running");
-  const imageCount = quickResults.length;
-  const visibleResults = resultFilter === "image" ? quickResults : quickResults;
   // 结果去重：同一次生成的图若被重复写入 results（同 id 或「同图不同 id」），
   // 画廊会出现「两张一模一样」的卡。按「图片内容签名优先、缺图回退 id」去重，
   // 只保证画廊展示层不重复，不改数据模型、不动存储结构。
-  function dedupeResults(items) {
-    const seen = new Set();
-    const out = [];
-    for (const item of items) {
-      const img = item.image;
-      const imgKey = img?.type === "b64_json" && img.value
-        ? `b64:${img.value}`
-        : (img?.url ? `url:${img.url}` : null);
-      const key = imgKey || `id:${item.id}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(item);
-    }
-    return out;
-  }
-  const quickGalleryItems = useMemo(() => {
-    const resultItems = dedupeResults(visibleResults).map((item, index) => ({
-        kind: "result",
-        key: `result-${item.id}`,
-        result: item,
-        orderAt: Number.isFinite(item.submittedAt) ? item.submittedAt : (Number.isFinite(item.createdAt) ? item.createdAt : 0),
-        fallbackIndex: index
-      }))
-      .sort((a, b) => (a.orderAt - b.orderAt) || (a.fallbackIndex - b.fallbackIndex));
-    const galleryItems = [...resultItems];
-    runningQuickTasks.forEach((task, index) => {
-      galleryItems.push({
-        kind: "task",
-        key: `task-${task.id}`,
-        task,
-        orderAt: task.startedAt || 0,
-        fallbackIndex: visibleResults.length + index
-      });
-    });
-    return galleryItems.sort((a, b) => (a.orderAt - b.orderAt) || (a.fallbackIndex - b.fallbackIndex));
-  }, [visibleResults, runningQuickTasks]);
-  const quickSelectedCount = quickResults.reduce((count, item) => count + (selectedIds.has(item.id) ? 1 : 0), 0);
   const selectedCount = selectedIds.size;
-  const galleryZoomPercent = Math.round(galleryZoom * 100);
-  const galleryCardMin = Math.round(170 * galleryZoom);
-  const quickStatus = runningQuickTasks.length > 0 ? "running" : status;
-  const latestStatusText = runningQuickTasks.length > 0
-    ? `运行中 ${runningQuickTasks.length} 个任务`
-    : status === "failed"
-      ? "当前任务失败"
-      : status === "success"
-        ? "当前任务已完成"
-        : "等待生成";
-  const contextItem = contextMenu ? results.find((item) => item.id === contextMenu.itemId) : null;
-  const contextIndex = contextItem ? results.findIndex((item) => item.id === contextItem.id) : -1;
-  const quickGalleryTailKey = quickGalleryItems.at(-1)?.key || "";
   // 2026-10-14（V60）：previewNavigationItems 已下移到 referenceApi 声明之后。
   // 原因：它的 useMemo 依赖数组在渲染期就会求值，而依赖里的 detailApi.activeDetailResults /
   // referenceApi.referenceGalleryItems 两者的 const 声明都在本行之下 ⇒ TDZ ⇒ 整页不挂载。
