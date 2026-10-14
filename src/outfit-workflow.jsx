@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   Check,
-  CheckSquare,
   Crop,
   Download,
   Eye,
@@ -12,7 +11,6 @@ import {
   Loader2,
   Lock,
   Maximize2,
-  ImageOff,
   Minus,
   Palette,
   Pencil,
@@ -23,7 +21,6 @@ import {
   Save,
   Settings,
   Sparkles,
-  Square,
   Trash2,
   Upload,
   Video,
@@ -63,11 +60,9 @@ import {
   beginImageDownloadDrag,
   brokenImageReason,
   dataUrlFromBlob,
-  referenceSource,
-  resultImageCardState
+  referenceSource
 } from "./shared/result-image.js";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
-import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
@@ -116,16 +111,12 @@ import "./features/outfit/retouch-intent.css";
 import { copyTextToClipboard } from "./shared/dom-actions.js";
 import { useSaveDirectory } from "./shared/hooks/useSaveDirectory.js";
 import { usePreviewDrag } from "./shared/hooks/usePreviewDrag.js";
-import { ElapsedTimer } from "./shared/ui/elapsed-timer.jsx";
 import {
   TASK_HISTORY_KEY,
   OUTFIT_DRAFT_DB_KEY,
   OUTFIT_SESSION_ID,
-  taskStatusLabel,
   taskRuntimeStageLabel,
   isLiveGenerationTask,
-  taskDurationMs,
-  taskHasCropReturnResult,
   normalizeQualityCheck,
   normalizeQualityCheckResult,
   summarizeGenerationError,
@@ -137,11 +128,9 @@ import {
   revokeRestorableTaskResultImageCaches,
   revokeTaskResultRuntimeCaches,
   cacheResultImageBlob,
-  sanitizeTaskReferenceThumbs,
   stripTaskUploadImageCache,
   stripPageNonResultImages,
   imageItemUploadFile,
-  taskReferencePreviewItems,
   attachTaskReferenceThumbs,
   hydrateTasksWithUploadReferences,
   revokePageNonResultImageUrls,
@@ -183,7 +172,7 @@ import {
     preprocessModeLabel,
   processImageFile
     } from "./features/outfit/outfit-panels.jsx";
-import { BACKGROUND_CHANGE_DEFAULT_PROMPT, BACKGROUND_CHANGE_LEGACY_DEFAULT_PROMPT, BACKGROUND_CHANGE_PERSON_LIGHT_LEGACY_DEFAULT_PROMPT, CUSTOM_UPLOAD_LABELS, DEFAULT_OUTFIT_PAGE_NAME, DESIGN_DRAFT_DEFAULT_PROMPT, FACE_SWAP_BATCH_TONE_LEGACY_DEFAULT_PROMPT, FACE_SWAP_DEFAULT_PROMPT, FACE_SWAP_HEAD_LOCK_LEGACY_DEFAULT_PROMPT, FACE_SWAP_LOOSE_DEFAULT_PROMPT, FACE_SWAP_PRE_HEAD_LOCK_DEFAULT_PROMPT, FACE_SWAP_PRE_HEAD_LOCK_SHORT_DEFAULT_PROMPT, FACE_SWAP_SHORT_DEFAULT_PROMPT, GARMENT_PART_OPTIONS, LEGACY_FACE_SWAP_DEFAULT_PROMPT, LOCAL_DETAIL_DEFAULT_PROMPT, OUTFIT_DEFAULT_PROMPT, OUTFIT_PAGES_KEY, POSE_MOTHER_FACE_SWAP_DEFAULT_PROMPT, POSE_REMIX_DEFAULT_PROMPT, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, RANDOM_BACKGROUND_DEFAULT_PROMPT, RANDOM_BACKGROUND_LEGACY_DEFAULT_PROMPT, RANDOM_BACKGROUND_LIGHT_LEGACY_DEFAULT_PROMPT, RANDOM_BACKGROUND_NEUTRAL_DAYLIGHT_LEGACY_DEFAULT_PROMPT, STORAGE_KEY, THEME_OPTIONS, formatClock, garmentCompositionLabel, loadOutfitPromptCategories, loadOutfitPromptPresets, moveItemByDrop, normalizeBatchConcurrency, normalizeGarmentComposition, normalizeGarmentParts, normalizeGenerationCount, normalizeTheme, qualityBadgeTitle, qualityStatusClass, qualityStatusLabel, readSettings, sameGarmentParts, themeToVars } from "./features/outfit/outfit-top.js";
+import { BACKGROUND_CHANGE_DEFAULT_PROMPT, BACKGROUND_CHANGE_LEGACY_DEFAULT_PROMPT, BACKGROUND_CHANGE_PERSON_LIGHT_LEGACY_DEFAULT_PROMPT, CUSTOM_UPLOAD_LABELS, DEFAULT_OUTFIT_PAGE_NAME, DESIGN_DRAFT_DEFAULT_PROMPT, FACE_SWAP_BATCH_TONE_LEGACY_DEFAULT_PROMPT, FACE_SWAP_DEFAULT_PROMPT, FACE_SWAP_HEAD_LOCK_LEGACY_DEFAULT_PROMPT, FACE_SWAP_LOOSE_DEFAULT_PROMPT, FACE_SWAP_PRE_HEAD_LOCK_DEFAULT_PROMPT, FACE_SWAP_PRE_HEAD_LOCK_SHORT_DEFAULT_PROMPT, FACE_SWAP_SHORT_DEFAULT_PROMPT, GARMENT_PART_OPTIONS, LEGACY_FACE_SWAP_DEFAULT_PROMPT, LOCAL_DETAIL_DEFAULT_PROMPT, OUTFIT_DEFAULT_PROMPT, OUTFIT_PAGES_KEY, POSE_MOTHER_FACE_SWAP_DEFAULT_PROMPT, POSE_REMIX_DEFAULT_PROMPT, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, RANDOM_BACKGROUND_DEFAULT_PROMPT, RANDOM_BACKGROUND_LEGACY_DEFAULT_PROMPT, RANDOM_BACKGROUND_LIGHT_LEGACY_DEFAULT_PROMPT, RANDOM_BACKGROUND_NEUTRAL_DAYLIGHT_LEGACY_DEFAULT_PROMPT, STORAGE_KEY, THEME_OPTIONS, formatClock, garmentCompositionLabel, loadOutfitPromptCategories, loadOutfitPromptPresets, moveItemByDrop, normalizeBatchConcurrency, normalizeGarmentComposition, normalizeGarmentParts, normalizeGenerationCount, normalizeTheme, qualityStatusClass, qualityStatusLabel, readSettings, sameGarmentParts, themeToVars } from "./features/outfit/outfit-top.js";
 import { defaultPromptForWorkflowMode, defaultUploadLabelsForPage, ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, makeOutfitPage, mentionsOptionalReferenceImage, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabelText, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, sameUploadLabels, serializeDraftPage, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import { blobFromOutfitImage, composeCropReturnBlob, composeOutfitLocalEditBlob, composeOutpaintOriginalRegionBlob, createAsyncLimiter, createImageItem, defaultLocalEditCrop, delay, ensureOutfitUploadCanvasRatio, fileFromBlob, groupPreprocessValue, prepareOutpaintUploadCanvas, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
 import { useOutfitSettingsIntent } from "./features/outfit/use-outfit-settings-intent.js";
@@ -191,6 +180,7 @@ import { OutfitPageRow } from "./features/outfit/panels/OutfitPageRow.jsx";
 import { ImageFactsPanel } from "./features/outfit/panels/ImageFactsPanel.jsx";
 import { OutfitIntentPanel } from "./features/outfit/panels/OutfitIntentPanel.jsx";
 import { RetouchIntentPanel } from "./features/outfit/panels/RetouchIntentPanel.jsx";
+import { ResultQueue } from "./features/outfit/panels/ResultQueue.jsx";
 import { CropReturnDiagnosticsPanel, LegacyModulePanel, LocalPasteDiagnosticsPanel } from "./features/outfit/outfit-panels.jsx";
 
 
@@ -3101,199 +3091,6 @@ function buildTasks(countOverride = plannedGenerationCount) {
     });
   }
 
-  function renderResultQueue() {
-    return (
-      <section className="resultPanel queuePanel" id="result-archive-section">
-        {/* 精修页专属：结果图中线剪裁开关（样式与 3.0 一致，只在精修页出现）。 */}
-        {isWhiteRefineWorkflow && renderSplitHalvesStrip()}
-        <div className="taskGrid" ref={taskGridRef} style={{ "--asset-card-min": `${galleryCardMin}px` }}>
-          {visibleTasks.map((task, taskIndex) => {
-            const selected = selectedTaskIds.has(task.id);
-            const durationMs = taskDurationMs(task);
-            const fallbackReferences = taskReferencePreviewItems(task);
-            const storedReferences = sanitizeTaskReferenceThumbs(task.referenceThumbs);
-            const references = storedReferences.length ? storedReferences : fallbackReferences;
-            const referenceCount = Math.max(
-              Number(task.referenceCount || 0),
-              references.length,
-              fallbackReferences.length
-            );
-            if (task.status !== "success") {
-              const failed = task.status === "failed";
-              const runningTask = task.status === "running";
-              const canRetry = failed && canRerunTask(task);
-              return (
-                <article className={`assetCard loadingCard outfitAssetCard ${task.status} ${selected ? "selected" : ""}`} key={task.id}>
-                  <button
-                    className="selectBox"
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      toggleTaskSelected(task.id);
-                    }}
-                    aria-label={selected ? "取消选中" : "选择图片"}
-                  >
-                    {selected ? <CheckSquare size={24} /> : <Square size={24} />}
-                  </button>
-                  {runningTask ? <Loader2 className="spin" size={28} /> : <Sparkles size={28} />}
-                  <span>{taskStatusLabel(task.status)}</span>
-                  <strong>{runningTask ? <ElapsedTimer startedAt={task.startedAt} /> : `${task.imageSize || settings.imageSize} · ${task.aspectRatio || settings.aspectRatio}`}</strong>
-                  <em>{task.modelLabel || settings.model}</em>
-                  {taskRuntimeStageLabel(task) && (
-                    <p className="assetError runtimeStage" title={taskRuntimeStageLabel(task)}>
-                      {taskRuntimeStageLabel(task)}
-                    </p>
-                  )}
-                  {canRetry && (
-                    <button className="assetRetryButton" type="button" onClick={() => retryTask(task)}>
-                      重试
-                    </button>
-                  )}
-                  {task.error && <p className="assetError" title={task.errorDetail || task.error}>{task.error}</p>}
-                </article>
-              );
-            }
-
-            const promptText = task.prompt || settings.prompt;
-            const src = displayResultImageSource(task.result);
-            // P1 缺图自愈：已知失效或加载失败过 → 不再重复请求，直接显示可读原因。
-            const cardState = resultImageCardState(task.result, displayResultImageSource);
-            // 会话内的失败标记优先，其次用持久化在任务记录里的标记（重载后依然生效）。
-            const brokenEntry = brokenTaskImages[task.id] || task.resultMissing;
-            const brokenReason = cardState.missing
-              ? cardState.reason
-              : (brokenEntry && brokenEntry.src === src ? brokenEntry.reason : "");
-            const hasCropReturn = taskHasCropReturnResult(task);
-            return (
-              <article
-                className={`assetCard outfitAssetCard success ${selected ? "selected" : ""} ${task.rerunCandidate ? "rerunCandidate" : ""} ${hasCropReturn ? "cropReturnResult" : ""} ${resultReplaceTargetId === task.id ? "replaceTarget" : ""}`}
-                key={task.id}
-                onClick={() => setPreview(task)}
-                onDragOver={(event) => handleResultReplaceDragOver(event, task)}
-                onDragLeave={() => setResultReplaceTargetId((current) => current === task.id ? "" : current)}
-                onDrop={(event) => handleResultReplaceDrop(event, task)}
-              >
-                <button
-                  className="selectBox"
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleTaskSelected(task.id);
-                  }}
-                  aria-label={selected ? "取消选中" : "选择图片"}
-                >
-                  {selected ? <CheckSquare size={24} /> : <Square size={24} />}
-                </button>
-                <button
-                  className={`assetDownloadButton ${downloadFeedbackIds.has(task.id) ? "downloaded" : ""}`}
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void downloadTask(task);
-                  }}
-                  title="下载到指定文件夹"
-                  aria-label="下载到指定文件夹"
-                >
-                  {downloadFeedbackIds.has(task.id) ? <Check size={16} /> : <Download size={16} />}
-                </button>
-                <button
-                  className="assetRerunButton"
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void rerunResultTask(task);
-                  }}
-                  disabled={!canRerunTask(task)}
-                  title={canRerunTask(task) ? "重刷这张结果" : "历史结果缺少原始上传图，不能重刷"}
-                  aria-label="重刷这张结果"
-                >
-                  <RefreshCw size={15} />
-                </button>
-                <button
-                  className="assetDeleteButton"
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    deleteResultTask(task.id);
-                  }}
-                  title="删除这张结果"
-                  aria-label="删除这张结果"
-                >
-                  <Trash2 size={15} />
-                </button>
-                {task.rerunCandidate && <div className="assetRerunBadge">重刷候选</div>}
-                {hasCropReturn && <div className="assetCropReturnBadge">裁剪回流</div>}
-                {Number.isFinite(durationMs) && durationMs > 0 && <div className="assetTimeBadge">用时 {formatMs(durationMs)}</div>}
-                {task.qualityCheck && (
-                  <div
-                    className={`qualityBadge ${qualityStatusClass(task.qualityCheck)}`}
-                    title={qualityBadgeTitle(task.qualityCheck)}
-                  >
-                    {qualityStatusLabel(task.qualityCheck)}
-                  </div>
-                )}
-                {brokenReason ? (
-                  <div className="assetImageFallback" title={brokenReason}>
-                    <ImageOff size={26} />
-                    <strong>原图已失效</strong>
-                    <span>{brokenReason}</span>
-                    <em>可点右上角删除按钮清理这条记录</em>
-                  </div>
-                ) : (
-                  <CachedImage
-                    src={src}
-                    alt={`AI换装结果 ${task.order || ""}`}
-                    decoding="async"
-                    loading={taskIndex < 6 ? "eager" : "lazy"}
-                    fetchPriority={taskIndex < 4 ? "high" : "low"}
-                    draggable
-                    onDragStart={(event) => beginTaskImageDrag(event, task, taskIndex)}
-                    onDragOver={(event) => handleResultReplaceDragOver(event, task)}
-                    onDrop={(event) => handleResultReplaceDrop(event, task)}
-                    onDragEnd={clearResultDragState}
-                    onError={() => markTaskImageBroken(task)}
-                    diagnostic={{ requestId: task.id, endpoint: "/api/generate-outfit", module: "批量生成", workflowMode: task.workflowMode || activeOutfitPage.workflowMode || "", placement: "outfit-card" }}
-                  />
-                )}
-                <ReferenceThumbTray
-                  references={references}
-                  count={referenceCount}
-                  className="assetReferenceTray"
-                  onOpen={(reference) => setImageLightbox({ title: reference.name || reference.label || "参考图", src: referenceSource(reference) })}
-                  onContextMenu={openReferenceContextMenu}
-                  onImageDragStart={beginReferenceImageDrag}
-                />
-                {promptText && (
-                  <button
-                    className="assetPrompt"
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void copyText(promptText, "提示词已复制");
-                    }}
-                    title={promptText}
-                  >
-                    {promptText}
-                  </button>
-                )}
-                <div className="assetMeta">
-                  <span>{task.modelLabel || settings.model}</span>
-                  <strong>{task.imageSize || settings.imageSize} · {task.aspectRatio || settings.aspectRatio}</strong>
-                </div>
-              </article>
-            );
-          })}
-          {visibleTasks.length === 0 && (
-            <div className="emptyTasks">
-              <Sparkles size={28} />
-              <span>{resultFilter === "video" ? "视频模块暂未接入。" : isPoseRemixWorkflow ? "上传图1姿态参考图和图2固定母版成片后，点击生成。" : isRandomBackgroundWorkflow ? "上传图1人物图，并在场景补充里写大概场景后，点击生成。" : isOutpaintWorkflow ? "上传图1半身照后，点击生成向下扩图。" : isRecolorWorkflow ? "上传图1原图和图2颜色参考图后，点击生成。" : isFaceSwapWorkflow ? "上传图1目标人物图和图2人脸参考图后，点击生成。" : "上传模特图和服装图后，点击生成。"}</span>
-            </div>
-          )}
-        </div>
-      </section>
-    );
-  }
-
   return (
     <main className="appShell outfitWorkflowEmbedded" style={themeStyle}>
       <aside className="sidebar">
@@ -3466,7 +3263,41 @@ function buildTasks(countOverride = plannedGenerationCount) {
         </header>
 
         <div className="outfitScrollArea">
-          {renderResultQueue()}
+          <ResultQueue
+            visibleTasks={visibleTasks}
+            selectedTaskIds={selectedTaskIds}
+            downloadFeedbackIds={downloadFeedbackIds}
+            brokenTaskImages={brokenTaskImages}
+            resultReplaceTargetId={resultReplaceTargetId}
+            galleryCardMin={galleryCardMin}
+            taskGridRef={taskGridRef}
+            settings={settings}
+            activeOutfitPage={activeOutfitPage}
+            resultFilter={resultFilter}
+            isWhiteRefineWorkflow={isWhiteRefineWorkflow}
+            isPoseRemixWorkflow={isPoseRemixWorkflow}
+            isRandomBackgroundWorkflow={isRandomBackgroundWorkflow}
+            isOutpaintWorkflow={isOutpaintWorkflow}
+            isRecolorWorkflow={isRecolorWorkflow}
+            isFaceSwapWorkflow={isFaceSwapWorkflow}
+            renderSplitHalvesStrip={renderSplitHalvesStrip}
+            toggleTaskSelected={toggleTaskSelected}
+            retryTask={retryTask}
+            downloadTask={downloadTask}
+            rerunResultTask={rerunResultTask}
+            deleteResultTask={deleteResultTask}
+            setPreview={setPreview}
+            setImageLightbox={setImageLightbox}
+            handleResultReplaceDragOver={handleResultReplaceDragOver}
+            handleResultReplaceDrop={handleResultReplaceDrop}
+            setResultReplaceTargetId={setResultReplaceTargetId}
+            markTaskImageBroken={markTaskImageBroken}
+            beginTaskImageDrag={beginTaskImageDrag}
+            clearResultDragState={clearResultDragState}
+            openReferenceContextMenu={openReferenceContextMenu}
+            beginReferenceImageDrag={beginReferenceImageDrag}
+            copyText={copyText}
+          />
 
           <section className="assetGrid">
           <UploadZone

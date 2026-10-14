@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 88,
+    "fileCount": 89,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -48,6 +48,7 @@
       "src/features/outfit/panels/ImageFactsPanel.jsx",
       "src/features/outfit/panels/OutfitIntentPanel.jsx",
       "src/features/outfit/panels/OutfitPageRow.jsx",
+      "src/features/outfit/panels/ResultQueue.jsx",
       "src/features/outfit/panels/RetouchIntentPanel.jsx",
       "src/features/outfit/use-outfit-settings-intent.js",
       "src/features/prompt/PromptAssistantView.jsx",

@@ -27,7 +27,12 @@ const ROOT = process.cwd();
 const NODE = path.join(ROOT, "runtime", "node", "node.exe");
 const APP_PORT = 8828;
 const SANDBOX_ROOT = path.join(ROOT, ".codex-artifacts", "white-refine-split-check");
-const CLIENT = path.join(ROOT, "src", "outfit-workflow.jsx");
+// V65 (P5-3)：中线剪裁条的渲染点随 renderResultQueue 搬进 panels/ResultQueue.jsx
+// ⇒ 结构断言扫描两个文件（开关仍在 isWhiteRefineWorkflow 条件下渲染，只是换了文件）。
+const CLIENT_PANELS = [
+  path.join(ROOT, "src", "outfit-workflow.jsx"),
+  path.join(ROOT, "src", "features", "outfit", "panels", "ResultQueue.jsx")
+];
 const CSS = path.join(ROOT, "src", "features", "outfit", "white-refine-split.css");
 
 const results = [];
@@ -36,7 +41,7 @@ function check(name, pass, detail = "") {
 }
 
 const { readFileSync } = await import("node:fs");
-const clientSource = readFileSync(CLIENT, "utf8");
+const clientSource = CLIENT_PANELS.filter((f) => existsSync(f)).map((f) => readFileSync(f, "utf8")).join("\n");
 const cssSource = readFileSync(CSS, "utf8");
 const serverSource = readServerSources();
 
