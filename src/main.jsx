@@ -14,25 +14,19 @@ import {
   Copy,
   Crop,
   Download,
-  Eye,
-  EyeOff,
   FileText,
   Flame,
   FolderOpen,
-  HardDrive,
   Image as ImageIcon,
   ImageOff,
-  KeyRound,
   Layers,
   Link2,
   Loader2,
   Maximize2,
   Minus,
   Move,
-  Palette,
   Pencil,
   Play,
-  PlugZap,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -98,18 +92,12 @@ import { readJsonStorage, writeJsonStorage } from "./lib/storage/json-storage.js
 // 使其脱离首屏 index 主包；feat-outfit(182KB) 等依赖仅在对应视图打开时再拉取，降低首屏 load。
 // 注意：release 模式下默认视图是 outfit，首次打开会短暂显示 VIEW_LOADING，属预期行为。
 import { getAppConfig } from "./api/config.js";
-import { formatConnectionResult, testConnection } from "./api/connection.js";
 import {
   getSaveDirectory,
   openSaveDirectoryRequest,
   pickSaveDirectory as pickSaveDirectoryRequest,
   setSaveDirectory as setSaveDirectoryRequest
 } from "./api/save.js";
-import {
-  cleanStorageTargets,
-  getStorageUsage,
-  revealStorageDir
-} from "./api/storage.js";
 import { generateImages } from "./api/images.js";
 import {
   createDetailPrompts,
@@ -120,8 +108,7 @@ import { generateVideo } from "./api/videos.js";
 import { uploadCanvasAssets } from "./api/assets.js";
 import {
   isAuthErrorMessage,
-  normalizeApiKeyInput,
-  testApiConnection
+  normalizeApiKeyInput
 } from "./features/auth/api-key.js";
 import {
   LOCAL_EDIT_MASK_MODE,
@@ -138,9 +125,12 @@ import { createCanvasActions, createCanvasInteractions } from "./features/canvas
 import { createQuickResultReplace, createResultDownload, createResultActions } from "./features/result-queue/quick-result-replace.js";
 import { createVideoComposer, durationOptionsForVideoModel, normalizeVideoSettingValue, videoPriceLabel, videoPromptPlaceholder } from "./features/video/video-composer.js";
 import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState, detailDefaults, referenceDefaults, videoDefaults } from "./shared/app-defaults.js";
-import { SHOW_INFINITE_CANVAS, formatStorageSize, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
+import { SHOW_INFINITE_CANVAS, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
 import { clampDetailCount, clampDetailModelUsage, clampReferenceStrength, clampReverseScreens, hydrateDetailGroupsWithHistory, loadDetailGroups, loadDetailPresets, normalizeDetailSettings, sanitizeDetailGroupsForStorage } from "./features/detail/detail-group.js";
 import { composeQuickLocalEditBlob, defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
+// V56（P3-1）：设置弹窗抽取为独立 feature
+import { SettingsView } from "./features/settings/SettingsView.jsx";
+import { useSettingsState } from "./features/settings/settings-state.js";
 
 // —— 建议3b：首屏懒加载（React.lazy）——
 // 这两个视图组件位于 src/ 根目录（原本被打进 index 主包），且会拖入 feat-outfit 等大块依赖。
@@ -276,13 +266,6 @@ const modelModeOptions = [
 const modelPoseOptions = [
   { value: "regular", label: "常规姿态" },
   { value: "special", label: "特殊姿态" }
-];
-
-const themeOptions = [
-  { value: "dark", label: "暗夜", colors: ["#080910", "#151522", "#10cfc4"] },
-  { value: "jade", label: "柔粉", colors: ["#fff2f7", "#fffafd", "#ec6f9e"] },
-  { value: "graphite", label: "米杏", colors: ["#f3e6d4", "#fff8ec", "#c98652"] },
-  { value: "mist", label: "浅雾", colors: ["#f5f7fa", "#ffffff", "#0d7a76"] }
 ];
 
 const promptCategories = ["全部", "常用", "批量复刻", "批量sku", "局部迁移"];
@@ -712,62 +695,9 @@ function App() {
   // 2026-09-29（v3.7）：数据与存储（用量 / 打开目录 / 清理）。
   // 封装版的数据目录不在安装包内，用户看不到路径也删不掉历史图片，
   // 于是"清空全部"后文件仍在、重启就被扫描重建。这里给出自助入口。
-  const [storageUsage, setStorageUsage] = useState(null);
-  const [storageBusy, setStorageBusy] = useState("");
-  const [storageStatus, setStorageStatus] = useState("");
-
-  const refreshStorageUsage = async () => {
-    try {
-      const data = await getStorageUsage();
-      if (data?.ok) setStorageUsage(data);
-    } catch (error) {
-      setStorageStatus(`读取存储用量失败：${error?.message || error}`);
-    }
-  };
-
-  useEffect(() => {
-    if (!isSettingsOpen) return;
-    setStorageStatus("");
-    void refreshStorageUsage();
-  }, [isSettingsOpen]);
-
-  const handleRevealStorage = async (target) => {
-    try {
-      const data = await revealStorageDir(target);
-      setStorageStatus(data?.ok ? `已打开：${data.path}` : `打开失败：${data?.error || "未知错误"}`);
-    } catch (error) {
-      setStorageStatus(`打开失败：${error?.message || error}`);
-    }
-  };
-
-  const handleCleanStorage = async (targets, label) => {
-    const confirmed = window.confirm(`确定清理${label}吗？\n\n这会直接删除磁盘上的文件，无法撤销。`);
-    if (!confirmed) return;
-    setStorageBusy(targets.join(","));
-    setStorageStatus(`正在清理${label}…`);
-    try {
-      const data = await cleanStorageTargets(targets);
-      if (data?.ok) {
-        setStorageUsage(data);
-        const removed = (data.report || []).reduce((sum, item) => sum + (item.removedFiles || 0), 0);
-        const freed = (data.report || []).reduce((sum, item) => sum + (item.freedBytes || 0), 0);
-        setStorageStatus(`${label}完成：删除 ${removed} 个文件，释放 ${formatStorageSize(freed)}`);
-      } else {
-        setStorageStatus(`清理失败：${data?.error || "未知错误"}`);
-      }
-    } catch (error) {
-      setStorageStatus(`清理失败：${error?.message || error}`);
-    } finally {
-      setStorageBusy("");
-    }
-  };
-  const [isApiKeyVisible, setIsApiKeyVisible] = useState(false);
-  const [apiSaveStatus, setApiSaveStatus] = useState("");
-  // 2026-09-25：设置里原有的「开发诊断」区域（含传参自检按钮）已整体替换为「连接测试」。
-  const [isConnectionTesting, setIsConnectionTesting] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState("");
-  const [connectionState, setConnectionState] = useState("idle");
   const [isDirectoryModalOpen, setIsDirectoryModalOpen] = useState(false);
+  // V56（P3-1）：设置弹窗私有状态与副作用统一收口到 useSettingsState，App() 只持有共享状态。
+  const settingsApi = useSettingsState({ settings, setSettings, config, addEvent, isSettingsOpen });
   const [isDetailPresetOpen, setIsDetailPresetOpen] = useState(false);
   const [isPromptAssistantOpen, setIsPromptAssistantOpen] = useState(false);
   const [isQuickChannelMenuOpen, setIsQuickChannelMenuOpen] = useState(false);
@@ -2443,36 +2373,9 @@ function App() {
     dropPromptOnCategory(event, category);
   }
 
-  function saveApiKey() {
-    const cleanedKey = normalizeApiKeyInput(settings.apiKey);
-    const nextSettings = { ...settings, apiKey: cleanedKey };
-    setSettings(nextSettings);
-    writeJsonStorage(STORAGE_KEY, nextSettings);
-    setApiSaveStatus(cleanedKey ? `已清理格式并保存（长度 ${cleanedKey.length}）` : "已清空本机 Key");
-    addEvent("设置", "API Key 已保存");
-    window.setTimeout(() => setApiSaveStatus(""), 1800);
-  }
-
   function openSettingsPanel() {
     setIsSettingsOpen(true);
   }
-
-  /**
-   * 连接测试：对齐 3.0 `/api/providers/test-connection` 的做法 —— 只探测 /v1/models。
-   * 不发提示词、不上传图片、不调用生图接口，所以既不会出图也不会扣费。
-   */
-  // 连通性测试的实现在 src/features/auth/api-key.js（两侧同一份，23 行逐字节一致）。
-  // 这里只保留闭包绑定壳：每次 render 重建，捕获最新的 settings / config 与各 setter。
-  const runConnectionTest = () => testApiConnection({
-    setIsConnectionTesting,
-    setConnectionState,
-    setConnectionStatus,
-    settings,
-    config,
-    testConnection,
-    formatConnectionResult,
-    addEvent
-  });
 
   function openUploadPreview(item) {
     if (!item?.url) return;
@@ -5123,144 +5026,14 @@ function App() {
       )}
 
       {isSettingsOpen && (
-        <div className="modalLayer" onMouseDown={() => setIsSettingsOpen(false)}>
-          <section className="settingsModal" onMouseDown={(event) => event.stopPropagation()}>
-            <header>
-              <div>
-                <h2>设置</h2>
-                <span>API Key 与界面皮肤</span>
-              </div>
-              <button className="iconButton" type="button" onClick={() => setIsSettingsOpen(false)} aria-label="关闭">
-                <X size={18} />
-              </button>
-            </header>
-
-            <label className="modalField">
-              <span><KeyRound size={15} /> API Key</span>
-              <div className="apiKeyRow">
-                <input
-                  type={isApiKeyVisible ? "text" : "password"}
-                  value={settings.apiKey}
-                  placeholder={config.hasServerKey ? "服务器已配置" : "sk-..."}
-                  onChange={(event) => updateSetting("apiKey", event.target.value)}
-                />
-                <button
-                  className="iconButton"
-                  type="button"
-                  onClick={() => setIsApiKeyVisible((current) => !current)}
-                  title={isApiKeyVisible ? "隐藏 API Key" : "显示 API Key"}
-                >
-                  {isApiKeyVisible ? <EyeOff size={17} /> : <Eye size={17} />}
-                </button>
-                <button className="smallButton saveKeyButton" type="button" onClick={saveApiKey}>
-                  <Save size={15} />
-                  <span>保存</span>
-                </button>
-              </div>
-              {apiSaveStatus && <small className="fieldHint">{apiSaveStatus}</small>}
-            </label>
-
-            <div className="skinBlock">
-              <span><Palette size={15} /> 皮肤</span>
-              <div className="themeGrid">
-                {themeOptions.map((theme) => (
-                  <button
-                    className={`themeButton ${settings.theme === theme.value ? "selected" : ""}`}
-                    key={theme.value}
-                    type="button"
-                    onClick={() => updateSetting("theme", theme.value)}
-                  >
-                    <i>
-                      {theme.colors.map((color) => <b key={color} style={{ backgroundColor: color }} />)}
-                    </i>
-                    <span>{theme.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="debugBlock">
-              <span><Settings size={15} /> 连接测试</span>
-              <p>只向上游请求模型清单探测连通性，<strong>不调用生图、不上传图片、不扣费</strong>，也不会显示或保存你的 API Key。</p>
-              <div className="debugActions">
-                <button className="smallButton" type="button" onClick={() => void runConnectionTest()} disabled={isConnectionTesting}>
-                  {isConnectionTesting ? <Loader2 className="spin" size={15} /> : <PlugZap size={15} />}
-                  <span>{isConnectionTesting ? "测试中…" : "连接测试"}</span>
-                </button>
-              </div>
-              {connectionStatus && (
-                <small className={`fieldHint connectionHint ${connectionState}`}>{connectionStatus}</small>
-              )}
-            </div>
-
-            <div className="debugBlock storageBlock">
-              <span><HardDrive size={15} /> 数据与存储</span>
-              <p>
-                生成的图片、上传的参考图和日志都保存在本机数据目录，<strong>不在安装包内</strong>。
-                清理会直接删除磁盘文件，无法撤销。
-              </p>
-              {storageUsage ? (
-                <>
-                  <div className="storagePathRow">
-                    <code title={storageUsage.dataDir}>{storageUsage.dataDir}</code>
-                    <button className="smallButton" type="button" onClick={() => void handleRevealStorage("data")}>
-                      <FolderOpen size={15} />
-                      <span>打开目录</span>
-                    </button>
-                  </div>
-                  <ul className="storageList">
-                    {(storageUsage.items || []).map((item) => (
-                      <li key={item.key}>
-                        <span>{item.label}</span>
-                        <em>{item.files} 个 / {formatStorageSize(item.bytes)}</em>
-                      </li>
-                    ))}
-                    <li>
-                      <span>历史记录条数</span>
-                      <em>{storageUsage.historyCount} 条</em>
-                    </li>
-                  </ul>
-                </>
-              ) : (
-                <small className="fieldHint">正在读取存储用量…</small>
-              )}
-              <div className="debugActions">
-                <button
-                  className="smallButton"
-                  type="button"
-                  disabled={Boolean(storageBusy)}
-                  onClick={() => void handleCleanStorage(["historyImages"], "历史图片（含历史清单）")}
-                >
-                  <Trash2 size={15} />
-                  <span>清理历史图片</span>
-                </button>
-                <button
-                  className="smallButton"
-                  type="button"
-                  disabled={Boolean(storageBusy)}
-                  onClick={() => void handleCleanStorage(["references"], "参考图缓存")}
-                >
-                  <Trash2 size={15} />
-                  <span>清理参考图</span>
-                </button>
-                <button
-                  className="smallButton"
-                  type="button"
-                  disabled={Boolean(storageBusy)}
-                  onClick={() => void handleCleanStorage(["results", "canvasAssets"], "结果图缓存")}
-                >
-                  <Trash2 size={15} />
-                  <span>清理结果缓存</span>
-                </button>
-                <button className="smallButton" type="button" onClick={() => void refreshStorageUsage()}>
-                  <RefreshCw size={15} />
-                  <span>刷新</span>
-                </button>
-              </div>
-              {storageStatus && <small className="fieldHint">{storageStatus}</small>}
-            </div>
-          </section>
-        </div>
+        <SettingsView
+          settings={settings}
+          config={config}
+          updateSetting={updateSetting}
+          isSettingsOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          settingsApi={settingsApi}
+        />
       )}
 
       {isPromptAssistantOpen && (
