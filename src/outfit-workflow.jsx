@@ -92,9 +92,7 @@ import {
   compileRetouchPrompt,
     isBuiltinRetouchPrompt,
   normalizeRetouchIntent,
-  validateRetouchIntent,
-    WHITE_REFINE_COLOR_LOCK_LEGACY_DEFAULT_PROMPT,
-  WHITE_REFINE_DEFAULT_PROMPT
+  validateRetouchIntent
 } from "./shared/retouch-intent.js";
 import {
   readSplitHalvesEnabled,
@@ -172,10 +170,11 @@ import {
     preprocessModeLabel,
   processImageFile
     } from "./features/outfit/outfit-panels.jsx";
-import { BACKGROUND_CHANGE_DEFAULT_PROMPT, BACKGROUND_CHANGE_LEGACY_DEFAULT_PROMPT, BACKGROUND_CHANGE_PERSON_LIGHT_LEGACY_DEFAULT_PROMPT, CUSTOM_UPLOAD_LABELS, DEFAULT_OUTFIT_PAGE_NAME, DESIGN_DRAFT_DEFAULT_PROMPT, FACE_SWAP_BATCH_TONE_LEGACY_DEFAULT_PROMPT, FACE_SWAP_DEFAULT_PROMPT, FACE_SWAP_HEAD_LOCK_LEGACY_DEFAULT_PROMPT, FACE_SWAP_LOOSE_DEFAULT_PROMPT, FACE_SWAP_PRE_HEAD_LOCK_DEFAULT_PROMPT, FACE_SWAP_PRE_HEAD_LOCK_SHORT_DEFAULT_PROMPT, FACE_SWAP_SHORT_DEFAULT_PROMPT, GARMENT_PART_OPTIONS, LEGACY_FACE_SWAP_DEFAULT_PROMPT, LOCAL_DETAIL_DEFAULT_PROMPT, OUTFIT_DEFAULT_PROMPT, OUTFIT_PAGES_KEY, POSE_MOTHER_FACE_SWAP_DEFAULT_PROMPT, POSE_REMIX_DEFAULT_PROMPT, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, RANDOM_BACKGROUND_DEFAULT_PROMPT, RANDOM_BACKGROUND_LEGACY_DEFAULT_PROMPT, RANDOM_BACKGROUND_LIGHT_LEGACY_DEFAULT_PROMPT, RANDOM_BACKGROUND_NEUTRAL_DAYLIGHT_LEGACY_DEFAULT_PROMPT, STORAGE_KEY, THEME_OPTIONS, formatClock, garmentCompositionLabel, loadOutfitPromptCategories, loadOutfitPromptPresets, moveItemByDrop, normalizeBatchConcurrency, normalizeGarmentComposition, normalizeGarmentParts, normalizeGenerationCount, normalizeTheme, qualityStatusClass, qualityStatusLabel, readSettings, sameGarmentParts, themeToVars } from "./features/outfit/outfit-top.js";
-import { defaultPromptForWorkflowMode, defaultUploadLabelsForPage, ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, makeOutfitPage, mentionsOptionalReferenceImage, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabelText, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, sameUploadLabels, serializeDraftPage, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
+import { DEFAULT_OUTFIT_PAGE_NAME, GARMENT_PART_OPTIONS, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, THEME_OPTIONS, formatClock, garmentCompositionLabel, loadOutfitPromptCategories, loadOutfitPromptPresets, moveItemByDrop, normalizeBatchConcurrency, normalizeGarmentComposition, normalizeGarmentParts, normalizeGenerationCount, normalizeTheme, qualityStatusClass, qualityStatusLabel, readSettings, sameGarmentParts, themeToVars } from "./features/outfit/outfit-top.js";
+import { defaultUploadLabelsForPage, ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, mentionsOptionalReferenceImage, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabelText, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, serializeDraftPage, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import { blobFromOutfitImage, composeCropReturnBlob, composeOutfitLocalEditBlob, composeOutpaintOriginalRegionBlob, createAsyncLimiter, createImageItem, defaultLocalEditCrop, delay, ensureOutfitUploadCanvasRatio, fileFromBlob, groupPreprocessValue, prepareOutpaintUploadCanvas, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
 import { useOutfitSettingsIntent } from "./features/outfit/use-outfit-settings-intent.js";
+import { useOutfitPages } from "./features/outfit/use-outfit-pages.js";
 import { OutfitPageRow } from "./features/outfit/panels/OutfitPageRow.jsx";
 import { ImageFactsPanel } from "./features/outfit/panels/ImageFactsPanel.jsx";
 import { OutfitIntentPanel } from "./features/outfit/panels/OutfitIntentPanel.jsx";
@@ -220,7 +219,7 @@ let outfitWorkflowDocumentBooted = false;
 // 2026-09-26：改版后显示名更短（用户要求）：批量换装 → 换装，批量白底图精修 → 精修。
 // 旧名字仍作为别名识别（见 normalizeOutfitPageName / isWhiteRefinePageName），
 // 老存档里的页面名会在读取时自动迁移到新名字。
-const DEFAULT_CUSTOM_PAGE_NAME = "临时需求";
+// 2026-10-15 V66：DEFAULT_CUSTOM_PAGE_NAME 随 createOutfitPageFromCurrent 迁入 use-outfit-pages.js。
 const GENERATION_COUNT_OPTIONS = ["auto", ...Array.from({ length: MAX_UPLOAD_IMAGES }, (_, index) => index + 1)];
 const LOCAL_EDIT_BATCH_CONCURRENCY = 5;
 const LOCAL_EDIT_BATCH_PREPARE_CONCURRENCY = 2;
@@ -1265,205 +1264,29 @@ export default function OutfitWorkflow({
     resetOutfitPageTransients();
   }
 
-  function switchOutfitPage(pageId) {
-    if (!pageId || pageId === activeOutfitPageId) return;
-    const hasLiveGeneration = tasks.some(isLiveGenerationTask);
-    if (running && hasLiveGeneration) {
-      addEvent("页面切换", "当前正在生成，完成后再切换页面");
-      return;
-    }
-    if (running && !hasLiveGeneration) {
-      runningGenerationCountRef.current = 0;
-      setRunning(false);
-    }
-    const target = outfitPages.find((page) => page.id === pageId);
-    if (!target) return;
-    const currentSnapshot = buildCurrentOutfitPageSnapshot(activeOutfitPage);
-    setOutfitPages((current) => current.map((page) => (
-      page.id === activeOutfitPageId ? currentSnapshot : page
-    )));
-    setActiveOutfitPageId(pageId);
-    loadOutfitPage(target);
-    addEvent("页面切换", `已切换到「${target.name}」`);
-  }
-
-  function createOutfitPageFromCurrent() {
-    if (running) {
-      addEvent("新建页面", "当前正在生成，完成后再新建页面");
-      return;
-    }
-    const page = makeOutfitPage(`${DEFAULT_CUSTOM_PAGE_NAME} ${outfitPages.length + 1}`, {
-      settings: {
-        ...settings,
-        prompt: "",
-        productNote: "",
-        smartIntervention: false
-      },
-      uploadLabels: CUSTOM_UPLOAD_LABELS,
-      activeUploadGroup: "model",
-      allowEmptyPrompt: true
-    });
-    const currentSnapshot = buildCurrentOutfitPageSnapshot(activeOutfitPage);
-    setOutfitPages((current) => [
-      ...current.map((item) => (item.id === activeOutfitPageId ? currentSnapshot : item)),
-      page
-    ]);
-    setActiveOutfitPageId(page.id);
-    loadOutfitPage(page);
-    addEvent("新建页面", `已创建「${page.name}」`);
-  }
-
-  function beginOutfitPageDrag(event, pageId) {
-    setDraggedPageId(pageId);
-    setPageDropTarget(null);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", pageId);
-  }
-
-  function updateOutfitPageDropTarget(event, pageId) {
-    const sourceId = draggedPageId || event.dataTransfer.getData("text/plain");
-    if (!sourceId || sourceId === pageId) return;
-    event.preventDefault();
-    const rect = event.currentTarget.getBoundingClientRect();
-    const placement = event.clientX > rect.left + rect.width / 2 ? "after" : "before";
-    setPageDropTarget({ id: pageId, placement });
-  }
-
-  function dropOutfitPage(event, targetId) {
-    const sourceId = draggedPageId || event.dataTransfer.getData("text/plain");
-    if (!sourceId || !targetId || sourceId === targetId) {
-      endOutfitPageDrag();
-      return;
-    }
-    event.preventDefault();
-    const placement = pageDropTarget?.id === targetId ? pageDropTarget.placement : "before";
-    const currentSnapshot = buildCurrentOutfitPageSnapshot(activeOutfitPage);
-    setOutfitPages((current) => {
-      const pages = current.map((page) => (
-        page.id === activeOutfitPageId ? currentSnapshot : page
-      ));
-      return moveItemByDrop(pages, sourceId, targetId, placement);
-    });
-    endOutfitPageDrag();
-    addEvent("页面排序", "顺序已更新");
-  }
-
-  function renameOutfitPage(pageId = activeOutfitPageId) {
-    const page = outfitPages.find((item) => item.id === pageId) || activeOutfitPage;
-    if (!page) return;
-    const input = window.prompt("修改页面名称", page.name || DEFAULT_OUTFIT_PAGE_NAME);
-    const name = normalizeOutfitPageName(input, page.name || DEFAULT_OUTFIT_PAGE_NAME);
-    if (!name || name === page.name) return;
-    const oldDefaultLabels = defaultUploadLabelsForPage(page.name);
-    const shouldApplyNewDefaults = sameUploadLabels(
-      page.id === activeOutfitPageId ? uploadLabels : page.uploadLabels,
-      oldDefaultLabels
-    );
-    const nextUploadLabels = shouldApplyNewDefaults
-      ? normalizeUploadLabels(defaultUploadLabelsForPage(name), name)
-      : normalizeUploadLabels(page.id === activeOutfitPageId ? uploadLabels : page.uploadLabels, name);
-    const oldMode = inferOutfitWorkflowMode(page.name, page.id === activeOutfitPageId ? uploadLabels : page.uploadLabels);
-    const nextMode = inferOutfitWorkflowMode(name, nextUploadLabels);
-    const pageSettings = page.id === activeOutfitPageId ? settings : mergeOutfitPageSettings(page.settings, settings);
-    const currentPrompt = String(pageSettings.prompt || "");
-    const shouldApplyPromptDefault = shouldApplyNewDefaults
-      && oldMode !== nextMode
-      && [
-        defaultPromptForWorkflowMode(oldMode),
-        OUTFIT_DEFAULT_PROMPT,
-        LOCAL_DETAIL_DEFAULT_PROMPT,
-        POSE_REMIX_DEFAULT_PROMPT,
-        BACKGROUND_CHANGE_LEGACY_DEFAULT_PROMPT,
-        BACKGROUND_CHANGE_PERSON_LIGHT_LEGACY_DEFAULT_PROMPT,
-        BACKGROUND_CHANGE_DEFAULT_PROMPT,
-        RANDOM_BACKGROUND_LIGHT_LEGACY_DEFAULT_PROMPT,
-        RANDOM_BACKGROUND_NEUTRAL_DAYLIGHT_LEGACY_DEFAULT_PROMPT,
-        RANDOM_BACKGROUND_LEGACY_DEFAULT_PROMPT,
-        RANDOM_BACKGROUND_DEFAULT_PROMPT,
-        WHITE_REFINE_COLOR_LOCK_LEGACY_DEFAULT_PROMPT,
-        WHITE_REFINE_DEFAULT_PROMPT,
-        FACE_SWAP_SHORT_DEFAULT_PROMPT,
-        FACE_SWAP_BATCH_TONE_LEGACY_DEFAULT_PROMPT,
-        FACE_SWAP_HEAD_LOCK_LEGACY_DEFAULT_PROMPT,
-        FACE_SWAP_DEFAULT_PROMPT,
-        FACE_SWAP_PRE_HEAD_LOCK_SHORT_DEFAULT_PROMPT,
-        FACE_SWAP_PRE_HEAD_LOCK_DEFAULT_PROMPT,
-        LEGACY_FACE_SWAP_DEFAULT_PROMPT,
-        FACE_SWAP_LOOSE_DEFAULT_PROMPT,
-        POSE_MOTHER_FACE_SWAP_DEFAULT_PROMPT,
-        DESIGN_DRAFT_DEFAULT_PROMPT
-      ].includes(currentPrompt);
-    const nextSettings = shouldApplyPromptDefault
-      ? {
-          ...pageSettings,
-          prompt: defaultPromptForWorkflowMode(nextMode),
-          productNote: ""
-        }
-      : pageSettings;
-    const nextAllowsEmptyPrompt = nextMode === "custom" || nextMode === "local-detail";
-    setOutfitPages((current) => current.map((item) => (
-      item.id === pageId ? { ...item, name, uploadLabels: nextUploadLabels, settings: stripOutfitPageGlobalSettings(nextSettings, { allowEmptyPrompt: nextAllowsEmptyPrompt }) } : item
-    )));
-    if (pageId === activeOutfitPageId) {
-      setUploadLabels(nextUploadLabels);
-      if (shouldApplyPromptDefault) setSettings(nextSettings);
-    }
-    addEvent("页面名称", `已改为「${name}」`);
-  }
-
-  function revokeOutfitPageAssets(page) {
-    [page?.modelImages, page?.clothingImages, page?.referenceImages].forEach((list) => {
-      if (Array.isArray(list)) list.forEach(revokeImageUrls);
-    });
-    if (Array.isArray(page?.originalLibrary)) {
-      page.originalLibrary.forEach((item) => {
-        if (item?.url) URL.revokeObjectURL(item.url);
-      });
-    }
-  }
-
-  function toggleOutfitPageDeleteLock(pageId = activeOutfitPageId) {
-    const page = outfitPages.find((item) => item.id === pageId) || activeOutfitPage;
-    if (!page) return;
-    const nextLocked = !page.deleteLocked;
-    setOutfitPages((current) => current.map((item) => (
-      item.id === pageId ? { ...item, deleteLocked: nextLocked } : item
-    )));
-    addEvent("页面防误删", nextLocked ? "已锁定当前页删除" : "已解除当前页删除锁");
-  }
-
-  function deleteOutfitPage(pageId = activeOutfitPageId) {
-    if (running) {
-      addEvent("删除页面", "当前正在生成，完成后再删除页面");
-      return;
-    }
-    const currentSnapshot = buildCurrentOutfitPageSnapshot(activeOutfitPage);
-    const pagesWithCurrent = outfitPages.map((page) => (
-      page.id === activeOutfitPageId ? currentSnapshot : page
-    ));
-    if (pagesWithCurrent.length <= 1) {
-      addEvent("删除页面", "至少保留一个页面");
-      return;
-    }
-    const targetIndex = pagesWithCurrent.findIndex((page) => page.id === pageId);
-    if (targetIndex < 0) return;
-    const target = pagesWithCurrent[targetIndex];
-    if (target.deleteLocked) {
-      addEvent("删除页面", "页面已锁定，先解锁再删除");
-      return;
-    }
-    const confirmed = window.confirm(`确定删除「${target.name || DEFAULT_OUTFIT_PAGE_NAME}」吗？该页面里的上传图和生成队列会一起移除。`);
-    if (!confirmed) return;
-    const remaining = pagesWithCurrent.filter((page) => page.id !== pageId);
-    const nextPage = remaining[Math.min(targetIndex, remaining.length - 1)] || remaining[0];
-    revokeOutfitPageAssets(target);
-    setOutfitPages(remaining);
-    if (pageId === activeOutfitPageId && nextPage) {
-      setActiveOutfitPageId(nextPage.id);
-      loadOutfitPage(nextPage);
-    }
-    addEvent("删除页面", `已删除「${target.name || DEFAULT_OUTFIT_PAGE_NAME}」`);
-  }
+  // 2026-10-15 V66 (P5-4)：页面管理域 9 函数搬入 use-outfit-pages.js（原 1267–1465，派发日实测）。
+  // deps 21 项（9 state + 6 setter + 1 ref + 4 函数 + 1 派生）每次 render 重建注入，薄壳模式行为零变化。
+  const {
+    switchOutfitPage,
+    createOutfitPageFromCurrent,
+    beginOutfitPageDrag,
+    updateOutfitPageDropTarget,
+    dropOutfitPage,
+    renameOutfitPage,
+    toggleOutfitPageDeleteLock,
+    deleteOutfitPage
+  } = useOutfitPages({
+    activeOutfitPageId, setActiveOutfitPageId,
+    tasks, running, setRunning,
+    runningGenerationCountRef,
+    outfitPages, setOutfitPages,
+    draggedPageId, setDraggedPageId,
+    pageDropTarget, setPageDropTarget,
+    uploadLabels, setUploadLabels,
+    settings, setSettings,
+    activeOutfitPage,
+    addEvent, loadOutfitPage, endOutfitPageDrag, buildCurrentOutfitPageSnapshot
+  });
 
   function editUploadLabel(group, field) {
     const groupIndex = group === "model" ? 1 : group === "clothing" ? 2 : 3;
