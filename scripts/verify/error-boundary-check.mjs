@@ -59,9 +59,9 @@ check("应用根节点被包住（应用主界面）",
   /<ErrorBoundary label="应用主界面">[\s\S]{0,80}<main className="appShell">/.test(mainJsx),
   "root 包在 ErrorBoundary 内");
 check("批量生成面板被单独包住",
-  /<ErrorBoundary label="批量生成">[\s\S]{0,200}<OutfitWorkflow/.test(mainJsx), "批量生成独立兜底");
+  /<ErrorBoundary label="批量生成">[\s\S]{0,200}<(?:Lazy)?OutfitWorkflow/.test(mainJsx), "批量生成独立兜底");
 check("图片编辑面板被单独包住",
-  /<ErrorBoundary label="图片编辑">[\s\S]{0,200}<ImageEditorPanel/.test(mainJsx), "图片编辑独立兜底");
+  /<ErrorBoundary label="图片编辑">[\s\S]{0,200}<(?:Lazy)?ImageEditorPanel/.test(mainJsx), "图片编辑独立兜底");
 check("边界数量 >= 3（根 + 两个面板）",
   (mainJsx.match(/<ErrorBoundary/g) || []).length >= 3,
   `实际 ${(mainJsx.match(/<ErrorBoundary/g) || []).length} 处`);

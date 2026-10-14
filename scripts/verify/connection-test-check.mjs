@@ -154,9 +154,11 @@ try {
   check("上游 503：ok=false 且提示服务不可用", errorRun.body?.ok === false && /不可用/.test(String(errorRun.body?.message || "")), `msg=${errorRun.body?.message}`);
   check("上游 503：状态码被如实带回", errorRun.body?.status === 503, `status=${errorRun.body?.status}`);
 
-  // ---- 5) 连不上（端口没人监听）
+  // ---- 5) 连不上/未授权：端口没人监听的本机地址不在授权渠道内，V46 白名单先拦截——
+  // 拦截文案与「连接失败」同属可读失败原因，两者都算合规（行为谱系见 V46 commit 77bec94）。
   const refusedRun = await callConnectionTest({ baseUrl: "http://127.0.0.1:9/v1" });
-  check("连不上：ok=false 且给出可读失败原因", refusedRun.body?.ok === false && /连接失败/.test(String(refusedRun.body?.message || "")), `msg=${refusedRun.body?.message}`);
+  check("连不上/未授权：ok=false 且给出可读失败原因", refusedRun.body?.ok === false && /连接失败|不在已授权渠道/.test(String(refusedRun.body?.message || "")), `msg=${refusedRun.body?.message}`);
+  check("V46 白名单生效：未授权地址给出授权渠道拦截文案", /不在已授权渠道/.test(String(refusedRun.body?.message || "")), `msg=${refusedRun.body?.message}`);
 
   // ---- 6) 地址不合法 / 缺 KEY 的入参校验
   const badUrl = await callConnectionTest({ baseUrl: "ftp://example.com" });
