@@ -32,7 +32,6 @@ import {
   RotateCcw,
   Save,
   Scissors,
-  Search,
   Settings,
   Sparkles,
   Square,
@@ -80,7 +79,7 @@ import { classifyGenerationError, formatGenerationError } from "./shared/generat
 import { fileSize, formatMs } from "./lib/format/index.js";
 import { fileBaseName } from "./shared/file-name.js";
 import { videoResultUrl } from "./shared/video-task.js";
-import { normalizePromptCategories, normalizePromptPreset, promptFallbackCategory, usePromptLibrary } from "./shared/prompt-library.js";
+import { normalizePromptCategories, normalizePromptPreset } from "./shared/prompt-library.js";
 import {
   imageBitmapFromFile,
   imageExtension,
@@ -131,6 +130,8 @@ import { composeQuickLocalEditBlob, defaultQuickLocalEditCrop } from "./features
 // V56（P3-1）：设置弹窗抽取为独立 feature
 import { SettingsView } from "./features/settings/SettingsView.jsx";
 import { useSettingsState } from "./features/settings/settings-state.js";
+import { PromptAssistantView } from "./features/prompt/PromptAssistantView.jsx";
+import { usePromptAssistantState } from "./features/prompt/prompt-assistant-state.js";
 
 // —— 建议3b：首屏懒加载（React.lazy）——
 // 这两个视图组件位于 src/ 根目录（原本被打进 index 主包），且会拖入 feat-outfit 等大块依赖。
@@ -156,7 +157,6 @@ const LazyImageEditorPanel = React.lazy(() => import("./image-editor.jsx"));
 
 
 
-const PROMPT_CATEGORY_DRAG_TYPE = "application/x-jingyin-prompt-category";
 const QUICK_RESULT_DRAG_TYPE = "application/x-jingyin-quick-result";
 
 
@@ -701,9 +701,6 @@ function App() {
   const [isDetailPresetOpen, setIsDetailPresetOpen] = useState(false);
   const [isPromptAssistantOpen, setIsPromptAssistantOpen] = useState(false);
   const [isQuickChannelMenuOpen, setIsQuickChannelMenuOpen] = useState(false);
-  const [editingPrompt, setEditingPrompt] = useState(null);
-  const [promptCategory, setPromptCategory] = useState("全部");
-  const [promptSearch, setPromptSearch] = useState("");
   const [referenceDropTarget, setReferenceDropTarget] = useState(null);
   // 2026-10-06：快捷生成的参考图「左右调顺序」（批量侧早就有，快捷侧补齐）。
   // 走 pointer 事件而不是 HTML5 drag —— 后者会和已有的「外部图片拖进来=替换」抢 dragover。
@@ -712,8 +709,6 @@ function App() {
   const [quickResultReplaceTargetId, setQuickResultReplaceTargetId] = useState("");
   const [quickCropEditTarget, setQuickCropEditTarget] = useState(null);
   const [quickLocalEditTarget, setQuickLocalEditTarget] = useState(null);
-  const [draggedPromptId, setDraggedPromptId] = useState(null);
-  const [promptDropCategory, setPromptDropCategory] = useState("");
   const [draggedPromptCategory, setDraggedPromptCategory] = useState("");
   const [promptCategoryDropTarget, setPromptCategoryDropTarget] = useState(null);
   const [isComposerDragging, setIsComposerDragging] = useState(false);
@@ -753,6 +748,24 @@ function App() {
     setGalleryZoom,
     resetDragged: setDraggedPromptCategory,
     resetDropTarget: setPromptCategoryDropTarget
+  });
+
+  // V57（P3-2）：提示词助手私有状态/逻辑收口到 usePromptAssistantState，App() 只持有共享 presets/categories 与开态。
+  const promptApi = usePromptAssistantState({
+    presets: promptPresets,
+    setPresets: setPromptPresets,
+    categories: promptCategories,
+    setCategories: setPromptCategories,
+    settings,
+    updateSetting,
+    addEvent,
+    makePresetId: makeResultId,
+    endPromptCategoryDrag,
+    onApplyPreset: () => setIsPromptAssistantOpen(false),
+    draggedPromptCategory,
+    setDraggedPromptCategory,
+    promptCategoryDropTarget,
+    setPromptCategoryDropTarget
   });
 
   // 保存目录域：实现在 src/features/savedir/save-directory.js（两侧同一份，语义等价）。
@@ -823,16 +836,6 @@ function App() {
         : detailGroups.length > 0
           ? "提示词已生成"
           : "等待输入产品信息";
-  const filteredPromptPresets = useMemo(() => {
-    const keyword = promptSearch.trim().toLowerCase();
-    return promptPresets.filter((preset) => {
-      const matchesCategory = promptCategory === "全部" || preset.category === promptCategory;
-      const matchesKeyword = !keyword
-        || preset.title.toLowerCase().includes(keyword)
-        || preset.content.toLowerCase().includes(keyword);
-      return matchesCategory && matchesKeyword;
-    });
-  }, [promptPresets, promptCategory, promptSearch]);
   const previewFiles = useMemo(
     () => files
       .map(normalizeQuickReferenceItem)
@@ -1084,19 +1087,6 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [settings]);
 
-  useEffect(() => {
-    writeJsonStorage(PROMPT_PRESETS_KEY, promptPresets);
-  }, [promptPresets]);
-
-  useEffect(() => {
-    writeJsonStorage(PROMPT_CATEGORIES_KEY, promptCategories.filter((category) => category !== "全部"));
-  }, [promptCategories]);
-
-  useEffect(() => {
-    if (promptCategory !== "全部" && !promptCategories.includes(promptCategory)) {
-      setPromptCategory(promptCategories.find((category) => category !== "全部") || "全部");
-    }
-  }, [promptCategories, promptCategory]);
 
   useEffect(() => {
     writeJsonStorage(DETAIL_PRESETS_KEY, detailPresets);
@@ -1185,7 +1175,7 @@ function App() {
         closeReferencePreview();
         closePreview();
         setIsPromptAssistantOpen(false);
-        setEditingPrompt(null);
+        promptApi.setEditingPrompt(null);
         setIsDirectoryModalOpen(false);
         setIsDetailPresetOpen(false);
       }
@@ -2257,121 +2247,7 @@ function App() {
     }
   }
 
-  const {
-    applyPromptPreset,
-    editPromptPreset,
-    addPromptCategory,
-    renamePromptCategory,
-    deletePromptPreset,
-    beginPromptDrag,
-    endPromptDrag,
-    dropPromptOnCategory,
-    dropPromptOnPreset,
-    openNewPromptEditor,
-    updateEditingPrompt,
-    saveEditingPrompt
-  } = usePromptLibrary({
-    categories: promptCategories,
-    setCategories: setPromptCategories,
-    activeCategory: promptCategory,
-    setActiveCategory: setPromptCategory,
-    setPresets: setPromptPresets,
-    editing: editingPrompt,
-    setEditing: setEditingPrompt,
-    draggedId: draggedPromptId,
-    setDraggedId: setDraggedPromptId,
-    setDropCategory: setPromptDropCategory,
-    promptText: settings.prompt.trim(),
-    updateSetting,
-    makePresetId: makeResultId,
-    notify: addEvent,
-    onApplyPreset: () => setIsPromptAssistantOpen(false)
-  });
 
-  function deletePromptCategory(category) {
-    if (!category || category === "全部") return;
-    const fallback = promptFallbackCategory(promptCategories, category);
-    const shouldDelete = window.confirm(`删除分类「${category}」？里面的提示词会移动到「${fallback}」。`);
-    if (!shouldDelete) return;
-    setPromptCategories((current) => normalizePromptCategories(current.filter((item) => item !== category)));
-    setPromptPresets((current) => current.map((preset) => (
-      preset.category === category ? { ...preset, category: fallback } : preset
-    )));
-    if (promptCategory === category) setPromptCategory(fallback);
-    if (editingPrompt?.category === category) updateEditingPrompt("category", fallback);
-    addEvent("提示词分类", `已删除「${category}」，提示词已移动到「${fallback}」`);
-  }
-
-  function promptCategoryFromDrag(event) {
-    return draggedPromptCategory || event.dataTransfer.getData(PROMPT_CATEGORY_DRAG_TYPE);
-  }
-
-  function isPromptCategoryDrag(event) {
-    return Boolean(
-      draggedPromptCategory
-      || Array.from(event.dataTransfer?.types || []).includes(PROMPT_CATEGORY_DRAG_TYPE)
-    );
-  }
-
-  function promptCategoryDropEdge(event) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    return event.clientX > rect.left + rect.width / 2 ? "after" : "before";
-  }
-
-  function beginPromptCategoryDrag(event, category) {
-    if (!category || category === "全部") return;
-    setDraggedPromptCategory(category);
-    setPromptDropCategory("");
-    setPromptCategoryDropTarget(null);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData(PROMPT_CATEGORY_DRAG_TYPE, category);
-  }
-
-  function dragPromptCategoryOver(event, category) {
-    if (category === "全部") return;
-    if (isPromptCategoryDrag(event)) {
-      const source = promptCategoryFromDrag(event);
-      if (!source || source === category) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
-      setPromptCategoryDropTarget({ category, edge: promptCategoryDropEdge(event) });
-      return;
-    }
-
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    setPromptDropCategory(category);
-  }
-
-  function dropPromptCategoryOnCategory(event, category) {
-    const source = promptCategoryFromDrag(event);
-    if (!source || source === "全部" || !category || category === "全部" || source === category) return false;
-    event.preventDefault();
-    const dropTarget = promptCategoryDropTarget?.category === category
-      ? promptCategoryDropTarget
-      : { category, edge: promptCategoryDropEdge(event) };
-    setPromptCategories((current) => {
-      if (!current.includes(source) || !current.includes(category)) return current;
-      const next = current.filter((item) => item !== source);
-      let insertIndex = next.indexOf(category);
-      if (insertIndex < 0) return current;
-      if (dropTarget.edge === "after") insertIndex += 1;
-      next.splice(Math.max(1, insertIndex), 0, source);
-      return normalizePromptCategories(next);
-    });
-    setDraggedPromptCategory("");
-    setPromptCategoryDropTarget(null);
-    addEvent("提示词分类", "分类顺序已更新");
-    return true;
-  }
-
-  function dropOnPromptCategory(event, category) {
-    if (isPromptCategoryDrag(event)) {
-      dropPromptCategoryOnCategory(event, category);
-      return;
-    }
-    dropPromptOnCategory(event, category);
-  }
 
   function openSettingsPanel() {
     setIsSettingsOpen(true);
@@ -5036,166 +4912,13 @@ function App() {
         />
       )}
 
-      {isPromptAssistantOpen && (
-        <div className="modalLayer promptLayer" onMouseDown={() => setIsPromptAssistantOpen(false)}>
-          <section className="promptAssistantModal" onMouseDown={(event) => event.stopPropagation()}>
-            <header>
-              <h2>提示词助手</h2>
-              <button className="iconButton" type="button" onClick={() => setIsPromptAssistantOpen(false)} aria-label="关闭">
-                <X size={18} />
-              </button>
-            </header>
-            <div className="promptAssistantBody">
-              <div className="promptTabs">
-                {promptCategories.map((category) => (
-                  <span className="promptCategoryItem" key={category}>
-                    <button
-                      className={[
-                        "promptTab",
-                        promptCategory === category ? "active" : "",
-                        promptDropCategory === category ? "dropTarget" : "",
-                        draggedPromptCategory === category ? "categoryDragging" : "",
-                        promptCategoryDropTarget?.category === category ? `categoryDrop-${promptCategoryDropTarget.edge}` : ""
-                      ].filter(Boolean).join(" ")}
-                      type="button"
-                      draggable={category !== "全部"}
-                      onClick={() => setPromptCategory(category)}
-                      onDoubleClick={(event) => {
-                        if (category === "全部") return;
-                        event.preventDefault();
-                        event.stopPropagation();
-                        renamePromptCategory(category);
-                      }}
-                      onDragStart={(event) => beginPromptCategoryDrag(event, category)}
-                      onDragEnd={endPromptCategoryDrag}
-                      onDragOver={(event) => dragPromptCategoryOver(event, category)}
-                      onDragLeave={() => {
-                        setPromptDropCategory("");
-                        setPromptCategoryDropTarget(null);
-                      }}
-                      onDrop={(event) => dropOnPromptCategory(event, category)}
-                      title={category === "全部" ? "全部分类" : "双击改名，按住拖动调整顺序"}
-                    >
-                      {category}
-                    </button>
-                    {category !== "全部" && (
-                      <button
-                        className="promptCategoryDelete"
-                        type="button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          deletePromptCategory(category);
-                        }}
-                        title={`删除分类「${category}」`}
-                        aria-label={`删除分类${category}`}
-                      >
-                        <X size={11} />
-                      </button>
-                    )}
-                  </span>
-                ))}
-                <button className="promptTab promptCategoryAdd" type="button" onClick={addPromptCategory} title="新建分类">
-                  <Plus size={13} />
-                  <span>新建</span>
-                </button>
-              </div>
-              <label className="promptSearch">
-                <Search size={16} />
-                <input
-                  value={promptSearch}
-                  onChange={(event) => setPromptSearch(event.target.value)}
-                  placeholder="搜索标题或内容..."
-                />
-              </label>
-              <button className="newPromptButton" type="button" onClick={openNewPromptEditor}>
-                <Plus size={15} />
-                <span>新建提示词</span>
-              </button>
-              <div className="promptPresetGrid">
-                {filteredPromptPresets.map((preset) => (
-                  <div
-                    className={`promptChip ${draggedPromptId === preset.id ? "dragging" : ""}`}
-                    key={preset.id}
-                    draggable
-                    onDragStart={(event) => beginPromptDrag(event, preset.id)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => dropPromptOnPreset(event, preset.id)}
-                    onDragEnd={endPromptDrag}
-                  >
-                    <button
-                      className="promptChipMain"
-                      type="button"
-                      onClick={() => applyPromptPreset(preset)}
-                      title={preset.content}
-                    >
-                      {preset.title}
-                    </button>
-                    <button className="promptChipIcon" type="button" onClick={() => editPromptPreset(preset)} title="编辑提示词">
-                      <Pencil size={14} />
-                    </button>
-                    <button className="promptChipIcon" type="button" onClick={() => deletePromptPreset(preset)} title="删除">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-                {filteredPromptPresets.length === 0 && <p className="promptEmpty">没有找到匹配的提示词</p>}
-              </div>
-            </div>
-          </section>
-        </div>
-      )}
 
-      {editingPrompt && (
-        <div className="modalLayer promptEditorLayer" onMouseDown={() => setEditingPrompt(null)}>
-          <section className="promptEditorModal" onMouseDown={(event) => event.stopPropagation()}>
-            <header>
-              <h2>编辑提示词</h2>
-              <button className="iconButton" type="button" onClick={() => setEditingPrompt(null)} aria-label="关闭">
-                <X size={18} />
-              </button>
-            </header>
-            <div className="promptEditorBody">
-              <label className="editorField">
-                <span>分类</span>
-                <select
-                  value={editingPrompt.category}
-                  onChange={(event) => updateEditingPrompt("category", event.target.value)}
-                >
-                  {promptCategories.filter((category) => category !== "全部").map((category) => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="editorField">
-                <span>标题</span>
-                <input
-                  value={editingPrompt.title}
-                  onChange={(event) => updateEditingPrompt("title", event.target.value)}
-                  placeholder="输入标题"
-                />
-              </label>
-              <label className="editorField">
-                <span>提示词内容</span>
-                <textarea
-                  value={editingPrompt.content}
-                  onChange={(event) => updateEditingPrompt("content", event.target.value)}
-                  placeholder="输入提示词内容"
-                />
-              </label>
-            </div>
-            <footer>
-              <button className="dangerButton editorDeleteButton" type="button" onClick={() => deletePromptPreset(editingPrompt)}>
-                删除
-              </button>
-              <div>
-                <button className="smallButton" type="button" onClick={() => setEditingPrompt(null)}>取消</button>
-                <button className="generateButton editorSaveButton" type="button" onClick={saveEditingPrompt}>保存</button>
-              </div>
-            </footer>
-          </section>
-        </div>
-      )}
+      <PromptAssistantView
+        isOpen={isPromptAssistantOpen}
+        categories={promptCategories}
+        onClose={() => setIsPromptAssistantOpen(false)}
+        promptApi={promptApi}
+      />
 
       {stitchPreview && stitchGroup && (
         <div className="modalLayer stitchLayer" onMouseDown={closeStitchPreview}>
