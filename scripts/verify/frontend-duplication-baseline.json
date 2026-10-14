@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 80,
+    "fileCount": 81,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -45,6 +45,7 @@
       "src/features/outfit/outfit-top.js",
       "src/features/prompt/PromptAssistantView.jsx",
       "src/features/prompt/prompt-assistant-state.js",
+      "src/features/quickgen/quickgen-state.js",
       "src/features/reference-remix/ReferenceRemixView.jsx",
       "src/features/reference-remix/reference-state.js",
       "src/features/result-queue/quick-result-replace.js",
