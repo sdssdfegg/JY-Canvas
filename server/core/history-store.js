@@ -17,7 +17,7 @@
 // 缺失的就标 missing，让前端能显示占位图而不是裂图。
 
 import { existsSync } from "node:fs";
-import { copyFile, mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   dataDir,
@@ -288,8 +288,15 @@ function enqueueHistoryWrite(task) {
 
 async function writeHistoryFileAtomic(file, text) {
   const temporary = `${file}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
-  await writeFile(temporary, text, "utf8");
-  await rename(temporary, file); // rename 覆盖已存在文件，原子替换
+  try {
+    await writeFile(temporary, text, "utf8");
+    await rename(temporary, file); // rename 覆盖已存在文件，原子替换
+  } catch (error) {
+    // V55：rename 失败（典型：Windows 下目标文件正被其他程序占用/锁定）时必须清掉
+    // 临时文件，否则 data/ 里会永久积累 .tmp 残渣。unlink 失败不掩盖原始错误。
+    await unlink(temporary).catch(() => {});
+    throw error;
+  }
 }
 
 async function writeHistoryResultsUnlocked(results, options = {}) {
