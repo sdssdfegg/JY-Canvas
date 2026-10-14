@@ -29,10 +29,14 @@ function check(name, pass, detail = "") {
 // RF-082 后：精修上传区标题的几代常量（WHITE_REFINE_UPLOAD_LABELS / OUTPAINT_UPLOAD_LABELS /
 // LEGACY_* 两代迁移名单）都搬去了 features/outfit/outfit-top.js。
 // ⇒ 两个文件一起读，只盯旧页面会让这些契约变成僵尸断言。
+// V65 (P5-3) 后：精修设置面板本体搬去 features/outfit/panels/RetouchIntentPanel.jsx
+// ⇒ 面板内部结构断言（chips 计数 / 无 header·preview·custom）改读面板文件；
+//   调用现场断言（isWhiteRefineWorkflow + retouchSettingsRow 包裹）仍读 outfit-workflow.jsx。
 const CLIENT_FILES = [
   path.join(process.cwd(), "src", "outfit-workflow.jsx"),
   path.join(process.cwd(), "src", "features", "outfit", "outfit-top.js")
 ];
+const RETOUCH_PANEL_FILE = path.join(process.cwd(), "src", "features", "outfit", "panels", "RetouchIntentPanel.jsx");
 const CSS = path.join(process.cwd(), "src", "features", "outfit", "retouch-intent.css");
 const compiled = (intentPatch = {}, options = {}) => compileRetouchPrompt({
   intent: normalizeRetouchIntent(intentPatch),
@@ -214,11 +218,11 @@ check("摘要文案正确（白底精修｜对称：关闭｜衣摆：跟随原�
 // ---------- 12) 前端接线（源码级契约，防止后来改坏） ----------
 const clientSource = CLIENT_FILES.filter(existsSync).map((file) => readFileSync(file, "utf8")).join("\n");
 const cssSource = readFileSync(CSS, "utf8");
-const panelStart = clientSource.indexOf("function renderRetouchIntentPanel");
-const panelEnd = clientSource.indexOf("function renderResultQueue", panelStart);
-const panelSource = panelStart >= 0 && panelEnd > panelStart ? clientSource.slice(panelStart, panelEnd) : "";
+// V65：面板本体已独立成件；文件缺失时 panelSource 为空 ⇒ 下方结构断言自然失败（chips=0），
+// 与搬迁前"函数消失"的失败形态一致，不会静默放水。
+const panelSource = existsSync(RETOUCH_PANEL_FILE) ? readFileSync(RETOUCH_PANEL_FILE, "utf8") : "";
 check("精修设置面板只在精修页渲染，且包在整行的设置条里",
-  /isWhiteRefineWorkflow && \(\s*<div className="retouchSettingsRow">\s*\{renderRetouchIntentPanel\(\)\}/.test(clientSource));
+  /isWhiteRefineWorkflow && \(\s*<div className="retouchSettingsRow">\s*<RetouchIntentPanel/.test(clientSource));
 check("设置条占满整行（三组排成一条），下面才是提示词 + 用户补充并排",
   /withRetouch/.test(clientSource)
     && /\.retouchSettingsRow \{\s*grid-column: 1 \/ -1;/.test(cssSource)
