@@ -78,7 +78,6 @@ import {
 import { classifyGenerationError, formatGenerationError } from "./shared/generation-errors.js";
 import { fileSize, formatMs } from "./lib/format/index.js";
 import { fileBaseName } from "./shared/file-name.js";
-import { videoResultUrl } from "./shared/video-task.js";
 import { normalizePromptCategories, normalizePromptPreset } from "./shared/prompt-library.js";
 import {
   imageBitmapFromFile,
@@ -103,7 +102,6 @@ import {
   rewriteQuickPrompt,
   rewriteReferencePrompt
 } from "./api/prompts.js";
-import { generateVideo } from "./api/videos.js";
 import { uploadCanvasAssets } from "./api/assets.js";
 import {
   isAuthErrorMessage,
@@ -122,8 +120,9 @@ import { usePreviewDrag } from "./shared/hooks/usePreviewDrag.js";
 import { incomingCanvasNodes, canvasResultItemsFromNode, canvasPromptForGenerator, canvasImagesForGenerator, canvasImageEntriesForGenerator, splitCanvasBatchEntries, buildCanvasBatchPrompt, screenPointToCanvas, canvasCenterFromRect } from "./features/canvas/canvas-graph.js";
 import { createCanvasActions, createCanvasInteractions } from "./features/canvas/canvas-actions.js";
 import { createQuickResultReplace, createResultDownload, createResultActions } from "./features/result-queue/quick-result-replace.js";
-import { createVideoComposer, durationOptionsForVideoModel, normalizeVideoSettingValue, videoPriceLabel, videoPromptPlaceholder } from "./features/video/video-composer.js";
-import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState, detailDefaults, referenceDefaults, videoDefaults } from "./shared/app-defaults.js";
+import { VideoView } from "./features/video/VideoView.jsx";
+import { useVideoState } from "./features/video/video-state.js";
+import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState, detailDefaults, referenceDefaults } from "./shared/app-defaults.js";
 import { SHOW_INFINITE_CANVAS, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
 import { clampDetailCount, clampDetailModelUsage, clampReferenceStrength, clampReverseScreens, hydrateDetailGroupsWithHistory, loadDetailGroups, loadDetailPresets, normalizeDetailSettings, sanitizeDetailGroupsForStorage } from "./features/detail/detail-group.js";
 import { composeQuickLocalEditBlob, defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
@@ -189,9 +188,6 @@ const CANVAS_GENERATOR_HEIGHT = 360;
 const COUNT_OPTIONS = Array.from({ length: 12 }, (_, index) => index + 1);
 const REFERENCE_STRENGTH_OPTIONS = Array.from({ length: 8 }, (_, index) => 30 + index * 10);
 
-const VIDEO_STATUS_POLL_INTERVAL_MS = 4000;
-const VIDEO_STATUS_MAX_POLLS = 180;
-const VIDEO_REFERENCE_MAX_BYTES = 10 * 1024 * 1024;
 
 
 
@@ -675,12 +671,6 @@ function App() {
   const [brokenResultImages, setBrokenResultImages] = useState(() => ({}));
   const [resultFilter, setResultFilter] = useState("all");
   const [quickMode, setQuickMode] = useState("image");
-  const [videoSettings, setVideoSettings] = useState(videoDefaults);
-  const [videoReferenceFile, setVideoReferenceFile] = useState(null);
-  const [videoResults, setVideoResults] = useState([]);
-  const [videoTasks, setVideoTasks] = useState([]);
-  const [videoStatus, setVideoStatus] = useState("idle");
-  const [videoError, setVideoError] = useState("");
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [status, setStatus] = useState("idle");
   const [quickTasks, setQuickTasks] = useState([]);
@@ -726,7 +716,6 @@ function App() {
   const referencePointerSortRef = useRef(null);
   // 排序松手后会紧接着触发一次 click ⇒ 会误开预览。沿用批量侧的 150ms 抑制窗口。
   const suppressReferencePreviewRef = useRef(false);
-  const videoReferenceInputRef = useRef(null);
   const detailProductInputRef = useRef(null);
   const detailReferenceInputRef = useRef(null);
   const referenceProductInputRef = useRef(null);
@@ -807,16 +796,7 @@ function App() {
   const quickMaxReferenceFiles = Math.max(1, quickCapabilities.maxInputImages || DEFAULT_MAX_REFERENCE_FILES);
   const quickChannels = channelsForModel(settings.model, config.routing || config);
   const quickChannel = quickChannels.find((item) => item.id === settings.channelId) || quickChannels[0] || null;
-  const videoModels = useMemo(() => Array.isArray(config.videoModels) && config.videoModels.length ? config.videoModels : [], [config.videoModels]);
-  const activeVideoModel = videoModels.find((item) => item.value === videoSettings.model) || videoModels[0] || null;
-  const videoRatios = activeVideoModel?.aspectRatios?.length ? activeVideoModel.aspectRatios : ["9:16", "16:9", "1:1"];
-  const videoResolutions = activeVideoModel?.resolutions?.length ? activeVideoModel.resolutions : ["720p"];
-  const videoDurations = activeVideoModel ? durationOptionsForVideoModel(activeVideoModel) : [5];
-  const videoPromptHint = activeVideoModel ? videoPromptPlaceholder(activeVideoModel) : "输入视频画面、运动、镜头、服装和氛围要求";
-  const videoPriceText = activeVideoModel ? videoPriceLabel(activeVideoModel, videoSettings.resolution) : "";
-  const videoChannelEnabled = Boolean(config.videoPolicy?.enabled);
   const billingGatewayEnabled = Boolean(config.billingGatewayPolicy?.enabled);
-  const videoBillingRequired = Boolean(config.billingGatewayPolicy?.videoRequired);
   const detailModel = models.find((item) => item.value === detailSettings.model) || models[0];
   const detailRatios = detailModel.ratios || ["1:1", "3:4", "16:9"];
   const referenceModel = models.find((item) => item.value === referenceSettings.model) || models[0];
@@ -903,15 +883,10 @@ function App() {
   const stitchItems = stitchPrompts.flatMap((prompt) => (prompt.results || []).map((result) => ({ prompt, result })));
   const quickResults = useMemo(() => results.filter((item) => !item.source || item.source === "quickgen"), [results]);
   const referenceResults = useMemo(() => results.filter((item) => item.source === "reference-remix"), [results]);
-  const videoReferencePreview = useMemo(() => (
-    videoReferenceFile ? { file: videoReferenceFile, url: URL.createObjectURL(videoReferenceFile) } : null
-  ), [videoReferenceFile]);
   const quickGalleryRef = useRef(null);
   const runningQuickTasks = quickTasks.filter((task) => task.status === "running");
-  const runningVideoTasks = videoTasks.filter((task) => task.status === "running");
   const runningReferenceTasks = referenceTasks.filter((task) => task.status === "running");
   const imageCount = quickResults.length;
-  const videoCount = videoResults.length;
   const visibleResults = resultFilter === "image" ? quickResults : quickResults;
   // 结果去重：同一次生成的图若被重复写入 results（同 id 或「同图不同 id」），
   // 画廊会出现「两张一模一样」的卡。按「图片内容签名优先、缺图回退 id」去重，
@@ -993,13 +968,13 @@ function App() {
       : status === "success"
         ? "当前任务已完成"
         : "等待生成";
-  const latestVideoStatusText = runningVideoTasks.length > 0
-    ? `视频生成中 ${runningVideoTasks.length} 个任务`
-    : videoStatus === "failed"
+  const latestVideoStatusText = videoApi.runningVideoTasks.length > 0
+    ? `视频生成中 ${videoApi.runningVideoTasks.length} 个任务`
+    : videoApi.videoStatus === "failed"
       ? "视频任务失败"
-      : videoStatus === "success"
+      : videoApi.videoStatus === "success"
         ? "视频已完成"
-        : videoBillingRequired && !billingGatewayEnabled
+        : videoApi.videoBillingRequired && !billingGatewayEnabled
           ? "等待计费接入"
           : "等待视频生成";
   const referenceStatusText = runningReferenceTasks.length > 0
@@ -1106,13 +1081,6 @@ function App() {
     writeJsonStorage(ACTIVE_VIEW_KEY, activeView);
   }, [activeView]);
 
-  useEffect(() => {
-    if (!videoModels.length) return;
-    setVideoSettings((current) => {
-      const model = videoModels.find((item) => item.value === current.model) || videoModels[0];
-      return normalizeVideoSettingValue(current, model);
-    });
-  }, [videoModels]);
 
   useEffect(() => {
     if (detailGroups.length === 0) {
@@ -1144,10 +1112,6 @@ function App() {
   useEffect(() => () => {
     referenceStylePreviews.forEach((item) => URL.revokeObjectURL(item.url));
   }, [referenceStylePreviews]);
-
-  useEffect(() => () => {
-    if (videoReferencePreview?.url) URL.revokeObjectURL(videoReferencePreview.url);
-  }, [videoReferencePreview]);
 
   // V46.1: 任务计时已下沉到 <ElapsedTimer>，此处不再需要全局 500ms 刷新
 
@@ -1745,12 +1709,23 @@ function App() {
     blobFromImageItem
   });
 
+  const videoApi = useVideoState({
+    settings,
+    config,
+    addEvent,
+    setIsSettingsOpen,
+    setIsComposerDragging,
+    clientSessionId: CLIENT_SESSION_ID,
+    isReferenceDropData,
+    imageFilesFromReferenceDrop
+  });
+
   function onComposerPaste(event) {
     const pastedImages = imageFilesFromClipboard(event.clipboardData);
     if (pastedImages.length === 0) return;
     event.preventDefault();
     if (quickMode === "video") {
-      setVideoReferenceFile(pastedImages[0]);
+      videoApi.setVideoReferenceFile(pastedImages[0]);
       addEvent("视频参考图", "已从剪贴板添加 1 张参考图");
       return;
     }
@@ -1760,137 +1735,6 @@ function App() {
     });
   }
 
-  const {
-    updateVideoSetting,
-    onPickVideoReference,
-    onVideoComposerDragOver,
-    onVideoComposerDrop,
-    videoReferencePayload,
-    pollVideoUntilFinished
-  } = createVideoComposer({
-    videoSettings,
-    setVideoSettings,
-    videoModels,
-    activeVideoModel,
-    videoDefaults,
-    normalizeVideoSettingValue,
-    VIDEO_REFERENCE_MAX_BYTES,
-    addEvent,
-    videoReferenceFile,
-    setVideoReferenceFile,
-    isReferenceDropData,
-    setIsComposerDragging,
-    imageFilesFromReferenceDrop,
-    setVideoTasks,
-    VIDEO_STATUS_MAX_POLLS,
-    VIDEO_STATUS_POLL_INTERVAL_MS
-  });
-  async function generateVideoFromComposer() {
-    const model = activeVideoModel || videoModels[0];
-    const modelLabel = model?.label || videoSettings.model || "Seedance";
-    const runSettings = normalizeVideoSettingValue({ ...videoSettings }, model || {});
-    const apiKey = normalizeApiKeyInput(settings.apiKey);
-
-    if (!apiKey && !config.hasServerKey) {
-      setVideoError("请先在左下角设置里填写 API Key");
-      setIsSettingsOpen(true);
-      setVideoStatus("failed");
-      addEvent("无法生成视频", "请先填写 API Key");
-      return;
-    }
-    if (!videoModels.length) {
-      setVideoError("视频模型配置未加载");
-      setVideoStatus("failed");
-      addEvent("无法生成视频", "视频模型配置未加载");
-      return;
-    }
-    if (!videoChannelEnabled) {
-      setVideoError("视频通道未配置，请先配置兰兰达视频 KEY");
-      setVideoStatus("failed");
-      addEvent("无法生成视频", "视频通道未配置");
-      return;
-    }
-    if (videoBillingRequired && !billingGatewayEnabled) {
-      setVideoError("视频计费网关未启用，请先接入静音中转站计费后再生成。");
-      setVideoStatus("failed");
-      addEvent("无法生成视频", "视频计费网关未启用");
-      return;
-    }
-    if (!String(runSettings.prompt || "").trim()) {
-      setVideoError("请输入视频提示词");
-      setVideoStatus("failed");
-      addEvent("无法生成视频", "请输入视频提示词");
-      return;
-    }
-    if (!billingGatewayEnabled) {
-      addEvent("计费提示", "当前源码侧计费网关未启用，正式客户版需开启后再交付");
-    }
-
-    const requestId = `video_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const startedAt = Date.now();
-    setVideoStatus("running");
-    setVideoError("");
-    setVideoTasks((current) => [...current, {
-      id: requestId,
-      status: "running",
-      startedAt,
-      modelLabel,
-      resolution: runSettings.resolution,
-      aspectRatio: runSettings.aspectRatio,
-      duration: runSettings.duration,
-      prompt: runSettings.prompt,
-      statusText: "提交中"
-    }]);
-    addEvent("视频提交", `${modelLabel} / ${runSettings.resolution} / ${runSettings.aspectRatio} / ${runSettings.duration}s`);
-
-    try {
-      const image = await videoReferencePayload();
-      const payload = await generateVideo({
-        apiKey,
-        model: runSettings.model,
-        prompt: runSettings.prompt,
-        duration: runSettings.duration,
-        resolution: runSettings.resolution,
-        aspectRatio: runSettings.aspectRatio,
-        image,
-        outputAudio: runSettings.outputAudio,
-        metadata: {
-          source: "quick-video",
-          clientSessionId: CLIENT_SESSION_ID
-        }
-      });
-      const finalTask = await pollVideoUntilFinished(payload.task || {}, requestId, { ...runSettings, modelLabel }, apiKey, startedAt);
-      const url = videoResultUrl(finalTask);
-      if (!url) throw new Error("视频任务已完成，但没有返回视频地址");
-      const totalMs = Date.now() - startedAt;
-      const result = {
-        id: requestId,
-        taskId: finalTask.taskId || payload.task?.taskId || requestId,
-        url,
-        prompt: runSettings.prompt,
-        modelLabel,
-        resolution: runSettings.resolution,
-        aspectRatio: runSettings.aspectRatio,
-        duration: runSettings.duration,
-        generationMs: totalMs,
-        createdAt: Date.now(),
-        submittedAt: startedAt,
-        status: "success",
-        referenceName: videoReferenceFile?.name || (runSettings.imageUrl ? "URL参考图" : "")
-      };
-      setVideoResults((current) => [result, ...current]);
-      setVideoStatus("success");
-      addEvent("视频完成", `生成 1 条视频，用时 ${formatMs(totalMs)}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (isAuthErrorMessage(message)) setIsSettingsOpen(true);
-      setVideoStatus("failed");
-      setVideoError(message);
-      addEvent("视频失败", message);
-    } finally {
-      setVideoTasks((current) => current.filter((task) => task.id !== requestId));
-    }
-  }
 
   function downloadVideoResult(item) {
     if (!item?.url) return;
@@ -1904,13 +1748,6 @@ function App() {
     addEvent("视频下载", "已开始下载视频");
   }
 
-  function clearVideoResults() {
-    setVideoResults([]);
-    setVideoTasks([]);
-    setVideoStatus("idle");
-    setVideoError("");
-    addEvent("视频", "已清空视频结果");
-  }
 
   function removeReferenceImage(index) {
     setFiles((current) => {
@@ -3123,7 +2960,7 @@ function App() {
                   type="button"
                   onClick={() => { setQuickMode("image"); setResultFilter("all"); }}
                 >
-                  全部({imageCount + videoCount})
+                  全部({imageCount + videoApi.videoCount})
                 </button>
                 <button
                   className={`tabButton ${quickMode === "image" && resultFilter === "image" ? "active" : ""}`}
@@ -3137,7 +2974,7 @@ function App() {
                   type="button"
                   onClick={() => { setQuickMode("video"); setResultFilter("video"); }}
                 >
-                  <Video size={14} /> 视频({videoCount})
+                  <Video size={14} /> 视频({videoApi.videoCount})
                 </button>
               </>
             )}
@@ -3202,12 +3039,12 @@ function App() {
               <>
                 {quickMode === "video" ? (
                   <>
-                    <span className={`taskBadge task-${videoStatus === "failed" ? "failed" : runningVideoTasks.length > 0 ? "running" : videoStatus}`}>{latestVideoStatusText}</span>
-                    <button className="toolbarButton" type="button" onClick={() => videoResults[0] && downloadVideoResult(videoResults[0])} disabled={videoResults.length === 0}>
+                    <span className={`taskBadge task-${videoApi.videoStatus === "failed" ? "failed" : videoApi.runningVideoTasks.length > 0 ? "running" : videoApi.videoStatus}`}>{latestVideoStatusText}</span>
+                    <button className="toolbarButton" type="button" onClick={() => videoApi.videoResults[0] && downloadVideoResult(videoApi.videoResults[0])} disabled={videoApi.videoResults.length === 0}>
                       <Download size={15} />
                       <span>下载最新</span>
                     </button>
-                    <button className="dangerButton" type="button" onClick={clearVideoResults} disabled={videoResults.length === 0 && runningVideoTasks.length === 0}>
+                    <button className="dangerButton" type="button" onClick={videoApi.clearVideoResults} disabled={videoApi.videoResults.length === 0 && videoApi.runningVideoTasks.length === 0}>
                       <Trash2 size={15} />
                       <span>清空视频</span>
                     </button>
@@ -4352,157 +4189,17 @@ function App() {
             </section>
           </section>
         ) : activeView === "quickgen" && quickMode === "video" ? (
-        <div className="canvasBoard videoCanvasBoard">
-          <section className="galleryStrip videoGalleryStrip" style={{ "--asset-card-min": `${Math.round(236 * galleryZoom)}px` }}>
-            {videoTasks.map((task) => (
-              <article className="assetCard loadingCard videoAssetCard" key={task.id}>
-                <Loader2 className="spin" size={28} />
-                <span>{task.statusText || "视频生成中"}</span>
-                <strong><ElapsedTimer startedAt={task.startedAt} /></strong>
-                <em>{task.modelLabel} · {task.resolution} · {task.aspectRatio} · {task.duration}s</em>
-              </article>
-            ))}
-            {videoResults.map((item) => (
-              <article className="assetCard videoAssetCard" key={item.id}>
-                <button
-                  className="assetDownloadButton"
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    downloadVideoResult(item);
-                  }}
-                  title="下载视频"
-                  aria-label="下载视频"
-                >
-                  <Download size={16} />
-                </button>
-                {item.generationMs && <div className="assetTimeBadge">用时 {formatMs(item.generationMs)}</div>}
-                <video src={item.url} controls preload="metadata" />
-                {item.prompt && (
-                  <button
-                    className="assetPrompt"
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      copyText(item.prompt, "视频提示词已复制");
-                    }}
-                    title={item.prompt}
-                  >
-                    {item.prompt}
-                  </button>
-                )}
-                <div className="assetMeta">
-                  <span>{item.modelLabel}</span>
-                  <strong>{item.resolution} · {item.aspectRatio} · {item.duration}s</strong>
-                </div>
-              </article>
-            ))}
-          </section>
-
-          {videoResults.length === 0 && runningVideoTasks.length === 0 && (
-            <div className="emptyCanvas">
-              <Video size={34} />
-              <span>{videoStatus === "failed" ? videoError : "暂无视频"}</span>
-            </div>
-          )}
-
-          <section
-            className={`composer videoComposer ${isComposerDragging ? "dragging" : ""}`}
-            onDragOver={onVideoComposerDragOver}
-            onDragLeave={onComposerDragLeave}
-            onDrop={onVideoComposerDrop}
-            onPaste={onComposerPaste}
-          >
-            {videoPriceText && <span className="videoPriceBadge">{videoPriceText}</span>}
-            {/* 2026-09-25 UI 调整：同一组「图片生成 / 视频生成」页签在视频悬浮框里也删掉，
-                切回图片模式仍然可以走顶部结果栏的「全部 / 图片」按钮。 */}
-
-            <div className="videoReferenceLine">
-              <input ref={videoReferenceInputRef} type="file" accept="image/*" onChange={onPickVideoReference} />
-              <button className="videoReferenceTile" type="button" onClick={() => videoReferenceInputRef.current?.click()}>
-                {videoReferencePreview ? (
-                  <>
-                    <img src={videoReferencePreview.url} alt={videoReferencePreview.file.name} />
-                    <span>{videoReferencePreview.file.name}</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus size={18} />
-                    <span>参考图</span>
-                  </>
-                )}
-              </button>
-              <input
-                className="videoUrlInput"
-                value={videoSettings.imageUrl}
-                onChange={(event) => updateVideoSetting("imageUrl", event.target.value)}
-                placeholder="图片参考 URL，可留空"
-              />
-              {(videoReferenceFile || videoSettings.imageUrl) && (
-                <button className="smallButton" type="button" onClick={() => { setVideoReferenceFile(null); updateVideoSetting("imageUrl", ""); }}>
-                  <Trash2 size={15} />
-                  <span>清空参考</span>
-                </button>
-              )}
-            </div>
-
-            <StableTextarea
-              className="promptBox videoPromptBox"
-              value={videoSettings.prompt}
-              onChange={(event) => updateVideoSetting("prompt", event.target.value)}
-              placeholder={videoPromptHint}
-            />
-
-            <div className="composerFooter">
-              <div className="leftTools">
-                <button className="smallButton" type="button" onClick={() => setIsPromptAssistantOpen(true)}>
-                  <BookOpen size={16} />
-                  <span>词</span>
-                </button>
-                <button
-                  className={`smallButton ${videoSettings.outputAudio ? "active" : ""}`}
-                  type="button"
-                  onClick={() => updateVideoSetting("outputAudio", !videoSettings.outputAudio)}
-                >
-                  <Flame size={16} />
-                  <span>{videoSettings.outputAudio ? "音频开" : "音频关"}</span>
-                </button>
-                {videoBillingRequired && !billingGatewayEnabled && <span className="videoBillingBadge">计费未接入</span>}
-              </div>
-
-              <div className="rightTools videoRightTools">
-                <select value={videoSettings.model} onChange={(event) => updateVideoSetting("model", event.target.value)}>
-                  {videoModels.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
-                </select>
-                <select value={videoSettings.aspectRatio} onChange={(event) => updateVideoSetting("aspectRatio", event.target.value)}>
-                  {videoRatios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
-                </select>
-                <select value={videoSettings.resolution} onChange={(event) => updateVideoSetting("resolution", event.target.value)}>
-                  {videoResolutions.map((resolution) => <option key={resolution} value={resolution}>{resolution}</option>)}
-                </select>
-                <select value={videoSettings.duration} onChange={(event) => updateVideoSetting("duration", event.target.value)}>
-                  {videoDurations.map((duration) => <option key={duration} value={duration}>{duration}s</option>)}
-                </select>
-                <button
-                  className="generateButton"
-                  type="button"
-                  onClick={() => void generateVideoFromComposer()}
-                  disabled={runningVideoTasks.length > 0}
-                >
-                  {runningVideoTasks.length > 0 ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
-                  <span>生成视频</span>
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {events.length > 0 && (
-            <div className="eventPill">
-              <strong>{events[0].label}</strong>
-              <span>{events[0].detail}</span>
-            </div>
-          )}
-        </div>
+          <VideoView
+            videoApi={videoApi}
+            isComposerDragging={isComposerDragging}
+            onComposerDragLeave={onComposerDragLeave}
+            onComposerPaste={onComposerPaste}
+            downloadVideoResult={downloadVideoResult}
+            setIsPromptAssistantOpen={setIsPromptAssistantOpen}
+            events={events}
+            galleryZoom={galleryZoom}
+            copyText={copyText}
+          />
         ) : (
         <div className="canvasBoard" onWheel={onQuickBoardWheel}>
           <section ref={quickGalleryRef} className="galleryStrip" style={{ "--asset-card-min": `${galleryCardMin}px` }}>

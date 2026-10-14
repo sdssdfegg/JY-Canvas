@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 74,
+    "fileCount": 76,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -49,7 +49,9 @@
       "src/features/settings/settings-state.js",
       "src/features/storage/storage-store.js",
       "src/features/upload/reference-upload.js",
+      "src/features/video/VideoView.jsx",
       "src/features/video/video-composer.js",
+      "src/features/video/video-state.js",
       "src/image-editor.jsx",
       "src/lib/format/index.js",
       "src/lib/storage/json-storage.js",
