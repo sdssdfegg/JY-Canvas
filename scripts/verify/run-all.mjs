@@ -68,6 +68,14 @@ const ORDER = [
   // 下降只报告。超过绝对上限（文件 2500 / 函数 600 行）进 overBudget **只报告不拦**：
   // 那是「要不要开拆分单」的决策信息，不该冒充回归。纯源码扫描，无子进程。
   "size-ratchet-check",
+  // P7-4（2026-10-16）：产物体积预算 —— 给 vite build 产物设硬上限（单 chunk ≤ 300 kB、
+  // 合计 ≤ 1120 kB）。体量棘轮管的是源码行数，这条管的是"打包后要下多少字节"：
+  // 误引入一个大依赖时光看源码 diff 是看不出来的，只有产物 size 会说话。
+  // **刻意不进 --fast / pre-commit**：它依赖 dist/ 构建产物，而 dist/ 不入库 ——
+  // 提交前若刚改完源码没重新 build，量到的就是过期数字（脚本会标注 staleBuild），
+  // 拿过期数字卡提交既不负责也容易被人当成噪声关掉。归全量 `npm test` / CI
+  // （CI 里先 build 再 check，顺序天然正确）。dist 不存在时跳过且退出 0。
+  "bundle-budget-check",
   // 2026-10-03 新增：源码字节卫生（NUL / 控制字符 / 非法 UTF-8）。
   // 起因是 RF-078-b 给 outfit-workflow.jsx 的注释混进二进制垃圾 —— 运行无感
   // （build/ESLint 全绿）却让 grep 把整块巨石判为 binary，审计能力静默失效。

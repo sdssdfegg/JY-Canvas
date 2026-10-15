@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-10-15",
+  "reason": "P7-4 引入时实测（vite build 派发日产物）：最大 chunk 261.70 kB / 合计 967.39 kB；预算取实测 ×1.15 取整",
+  "budget": {
+    "maxChunkBytes": 300000,
+    "totalBytes": 1120000
+  },
+  "measured": {
+    "assetCount": 24,
+    "jsCount": 21,
+    "cssCount": 3,
+    "maxChunkFile": "feat-outfit-6RnS_oyu.js",
+    "maxChunkBytes": 261703,
+    "jsBytes": 798856,
+    "cssBytes": 168536,
+    "totalBytes": 967392
+  },
+  "topAssets": [
+    {
+      "file": "feat-outfit-6RnS_oyu.js",
+      "bytes": 261703,
+      "kind": "js"
+    },
+    {
+      "file": "react-vendor-BTWVIjLd.js",
+      "bytes": 192476,
+      "kind": "js"
+    },
+    {
+      "file": "outfit-workflow-Crb8sE_i.css",
+      "bytes": 88456,
+      "kind": "css"
+    },
+    {
+      "file": "index-zyottBsU.css",
+      "bytes": 70243,
+      "kind": "css"
+    },
+    {
+      "file": "index-Dw-0atWD.js",
+      "bytes": 48287,
+      "kind": "js"
+    }
+  ]
+}
