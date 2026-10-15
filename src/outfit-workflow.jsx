@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
-  Download,
   FolderOpen,
   Images,
-  Maximize2,
   Upload,
   Wand2,
   X
@@ -38,7 +36,7 @@ import {
   dataUrlFromBlob,
   referenceSource
 } from "./shared/result-image.js";
-import { CachedImage } from "./shared/ui/cached-image.jsx";
+// CachedImage 已随 preview 浮层迁至 src/features/outfit/panels/ResultPreviewModal.jsx
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
@@ -142,17 +140,18 @@ import {
         makeId,
     preprocessModeLabel
     } from "./features/outfit/outfit-panels.jsx";
-import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, formatClock, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeBatchConcurrency, normalizeGarmentComposition, normalizeGarmentParts, normalizeGenerationCount, normalizeTheme, qualityStatusClass, qualityStatusLabel, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
+import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeBatchConcurrency, normalizeGarmentComposition, normalizeGarmentParts, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
 import { ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, mentionsOptionalReferenceImage, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, serializeDraftPage, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import { blobFromOutfitImage, composeCropReturnBlob, composeOutfitLocalEditBlob, composeOutpaintOriginalRegionBlob, createAsyncLimiter, defaultLocalEditCrop, delay, ensureOutfitUploadCanvasRatio, fileFromBlob, groupPreprocessValue, prepareOutpaintUploadCanvas, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
 import { useOutfitSettingsIntent } from "./features/outfit/use-outfit-settings-intent.js";
 import { useOutfitPages } from "./features/outfit/use-outfit-pages.js";
 import { useOutfitUploads } from "./features/outfit/use-outfit-uploads.js";
-import { CropReturnDiagnosticsPanel, LegacyModulePanel, LocalPasteDiagnosticsPanel } from "./features/outfit/outfit-panels.jsx";
+import { LegacyModulePanel } from "./features/outfit/outfit-panels.jsx";
 import WorkbenchSidebar from "./features/outfit/panels/WorkbenchSidebar.jsx";
 import OutfitSettingsModal from "./features/outfit/panels/OutfitSettingsModal.jsx";
 import OutfitWorkbench from "./features/outfit/panels/OutfitWorkbench.jsx";
 import OutfitComposer from "./features/outfit/panels/OutfitComposer.jsx";
+import ResultPreviewModal from "./features/outfit/panels/ResultPreviewModal.jsx";
 import PromptEditorModal from "./features/outfit/panels/PromptEditorModal.jsx";
 
 
@@ -2938,94 +2937,24 @@ function buildTasks(countOverride = plannedGenerationCount) {
       )}
 
       {preview && (
-        <div className="modalLayer" onMouseDown={() => setPreview(null)}>
-          <section className="previewModal" onMouseDown={(event) => event.stopPropagation()}>
-            <header>
-              <div>
-                <h2>结果预览 #{preview.order}</h2>
-                <span>{preview.timingMs ? formatMs(preview.timingMs) : ""}</span>
-              </div>
-              <button className="iconButton" type="button" onClick={() => setPreview(null)}><X size={18} /></button>
-            </header>
-            <div
-              className="previewImageFrame outfitPreviewImageFrame"
-              onWheel={zoomPreviewByWheel}
-              onPointerDown={startPreviewDrag}
-              onPointerMove={movePreviewDrag}
-              onPointerUp={endPreviewDrag}
-              onPointerCancel={endPreviewDrag}
-            >
-              {resultPreviewTasks.length > 1 && (
-                <button className="previewArrow previewArrowLeft" type="button" onClick={(event) => {
-                  event.stopPropagation();
-                  navigatePreview(-1);
-                }} aria-label="上一张">
-                  ‹
-                </button>
-              )}
-              <CachedImage
-                src={displayResultImageSource(preview.result)}
-                alt=""
-                draggable
-                onDragStart={(event) => beginTaskImageDrag(event, preview)}
-                onDragEnd={clearResultDragState}
-                style={{ transform: `translate(${previewPan.x}px, ${previewPan.y}px) scale(${previewZoom})` }}
-                diagnostic={{ requestId: preview.id, endpoint: "/api/generate-outfit", module: "批量生成", workflowMode: preview.workflowMode || activeOutfitPage.workflowMode || "", placement: "outfit-preview" }}
-              />
-              {resultPreviewTasks.length > 1 && (
-                <button className="previewArrow previewArrowRight" type="button" onClick={(event) => {
-                  event.stopPropagation();
-                  navigatePreview(1);
-                }} aria-label="下一张">
-                  ›
-                </button>
-              )}
-            </div>
-            {preview.prompt && (
-              <button className="previewPrompt" type="button" onClick={() => void copyText(preview.prompt, "提示词已复制")}>
-                {preview.prompt}
-              </button>
-            )}
-            <LocalPasteDiagnosticsPanel image={preview.result} />
-            <CropReturnDiagnosticsPanel image={preview.result} />
-            {preview.qualityCheck && (
-              <section className={`previewQualityPanel ${qualityStatusClass(preview.qualityCheck)}`}>
-                <header>
-                  <strong>{qualityStatusLabel(preview.qualityCheck)}</strong>
-                  {preview.qualityCheck.checkedAt && <span>{formatClock(preview.qualityCheck.checkedAt)}</span>}
-                </header>
-                {preview.qualityCheck.summary && <p>{preview.qualityCheck.summary}</p>}
-                <div className="previewQualityFacts">
-                  {preview.qualityCheck.faceQuality && <span>脸部：{preview.qualityCheck.faceQuality}</span>}
-                  {preview.qualityCheck.poseMatch && <span>姿态：{preview.qualityCheck.poseMatch}</span>}
-                  {preview.qualityCheck.outfitMatch && <span>服装：{preview.qualityCheck.outfitMatch}</span>}
-                </div>
-                {preview.qualityCheck.issues?.length > 0 && (
-                  <ul>
-                    {preview.qualityCheck.issues.map((issue, index) => <li key={`${issue}_${index}`}>{issue}</li>)}
-                  </ul>
-                )}
-                {preview.qualityCheck.repairPrompt && (
-                  <button className="previewQualityRepair" type="button" onClick={() => void copyText(preview.qualityCheck.repairPrompt, "返修提示已复制")}>
-                    {preview.qualityCheck.repairPrompt}
-                  </button>
-                )}
-              </section>
-            )}
-            <footer>
-              <button className="primaryButton" type="button" onClick={() => void downloadTask(preview)}>
-                <Download size={16} />
-                <span>{preview.savedFilename || preview.savedPath ? "已保存" : "保存结果"}</span>
-              </button>
-              <button className="secondaryButton" type="button" onClick={() => window.open(imageSource(preview.result), "_blank")}>
-                <Maximize2 size={16} />
-                <span>新窗口打开</span>
-              </button>
-            </footer>
-          </section>
-        </div>
+        <ResultPreviewModal
+          preview={preview}
+          onClose={() => setPreview(null)}
+          resultPreviewTasks={resultPreviewTasks}
+          zoomPreviewByWheel={zoomPreviewByWheel}
+          startPreviewDrag={startPreviewDrag}
+          movePreviewDrag={movePreviewDrag}
+          endPreviewDrag={endPreviewDrag}
+          navigatePreview={navigatePreview}
+          beginTaskImageDrag={beginTaskImageDrag}
+          clearResultDragState={clearResultDragState}
+          previewPan={previewPan}
+          previewZoom={previewZoom}
+          copyText={copyText}
+          downloadTask={downloadTask}
+          activeOutfitPage={activeOutfitPage}
+        />
       )}
-
       {imageLightbox && (
         <div className="modalLayer" onMouseDown={() => setImageLightbox(null)}>
           <section className="previewModal" onMouseDown={(event) => event.stopPropagation()}>
