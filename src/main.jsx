@@ -46,42 +46,27 @@ import {
   channelForModel,
   channelPriceLabel,
   channelsForModel,
-  clampPromptForModel,
   convergeSettingsForModel,
-  isBanana2Model,
   isRoutingCatalogReady,
-  modelCapabilities,
-  routingFields
+  modelCapabilities
 } from "./shared/routing.js";
-import {
-  classifyQuickPrimaryLocalIntent,
-  promptForQuickGeneration
-} from "./shared/quickgen-prompt-rules.js";
 import DebouncedTextarea from "./shared/DebouncedTextarea.jsx";
 import { ErrorBoundary } from "./shared/error-boundary.jsx";
 import { QuickCropViewportModal } from "./features/crop/quick-crop-panels.jsx";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
-import { createReferenceUpload, prepareImageFilesForChannel, quickReferenceHasLocalEdit, quickReferenceOriginalFile, quickReferenceRunUploadFile, quickReferenceUploadFiles, referenceMetaFromQuickRunItems } from "./features/upload/reference-upload.js";
+import { createReferenceUpload, quickReferenceOriginalFile } from "./features/upload/reference-upload.js";
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import {
-  imageFileFromUrl,
   beginImageDownloadDrag,
-  dataUrlFromBlob,
   dragDownloadDateStamp,
   referenceSource,
   resultImageCardState
 } from "./shared/result-image.js";
 import { classifyGenerationError, formatGenerationError } from "./shared/generation-errors.js";
 import { fileSize, formatMs } from "./lib/format/index.js";
-import { fileBaseName } from "./shared/file-name.js";
 import { normalizePromptCategories, normalizePromptPreset } from "./shared/prompt-library.js";
-import {
-  imageBitmapFromFile,
-  imageExtension,
-  imageFilesFromClipboard,
-  imageFilesFromList
-} from "./shared/image-input.js";
+import { imageFilesFromClipboard } from "./shared/image-input.js";
 import { readJsonStorage, writeJsonStorage } from "./lib/storage/json-storage.js";
 // 建议3b：OutfitWorkflow / ImageEditorPanel 改为 React.lazy 懒加载（见下方 Lazy* 定义），
 // 使其脱离首屏 index 主包；feat-outfit(182KB) 等依赖仅在对应视图打开时再拉取，降低首屏 load。
@@ -93,13 +78,6 @@ import {
   pickSaveDirectory as pickSaveDirectoryRequest,
   setSaveDirectory as setSaveDirectoryRequest
 } from "./api/save.js";
-import { generateImages } from "./api/images.js";
-import { rewriteQuickPrompt } from "./api/prompts.js";
-import { uploadCanvasAssets } from "./api/assets.js";
-import {
-  isAuthErrorMessage,
-  normalizeApiKeyInput
-} from "./features/auth/api-key.js";
 import {
   LOCAL_EDIT_MASK_MODE,
   LOCAL_EDIT_BRUSH_DEFAULT,
@@ -110,8 +88,11 @@ import "./styles.css";
 import { copyTextToClipboard } from "./shared/dom-actions.js";
 import { useSaveDirectory } from "./shared/hooks/useSaveDirectory.js";
 import { usePreviewDrag } from "./shared/hooks/usePreviewDrag.js";
-import { incomingCanvasNodes, canvasResultItemsFromNode, canvasPromptForGenerator, canvasImagesForGenerator, canvasImageEntriesForGenerator, splitCanvasBatchEntries, buildCanvasBatchPrompt, screenPointToCanvas, canvasCenterFromRect } from "./features/canvas/canvas-graph.js";
+import { incomingCanvasNodes, canvasResultItemsFromNode, canvasImagesForGenerator, canvasImageEntriesForGenerator, splitCanvasBatchEntries, screenPointToCanvas, canvasCenterFromRect } from "./features/canvas/canvas-graph.js";
 import { createCanvasActions, createCanvasInteractions } from "./features/canvas/canvas-actions.js";
+// P6-4：画布 / 生成类 handler 钩（canvasFileFromResult / addCanvasFiles / runCanvasImageRequest / generateCanvasNode /
+// saveProcessedImageFile / optimizePrompt / sendResultToImageEditor / addReferenceThumbToUploads / generate）。
+import { useCanvasGenerationHandlers } from "./features/canvas/canvas-generation-handlers.js";
 import { createQuickResultReplace, createResultDownload, createResultActions } from "./features/result-queue/quick-result-replace.js";
 import { VideoView } from "./features/video/VideoView.jsx";
 import { useVideoState } from "./features/video/video-state.js";
@@ -121,11 +102,11 @@ import { useReferenceState } from "./features/reference-remix/reference-state.js
 import { DetailView } from "./features/detail/DetailView.jsx";
 import { useDetailState } from "./features/detail/detail-state.js";
 // V61（P3-6）：快捷生成 image 模式私有状态与派生收口至 src/features/quickgen/（降级档：仅 state，JSX 留待下轮）
-import { useQuickGenState, dedupeResults, normalizeQuickReferenceItem } from "./features/quickgen/quickgen-state.js";
+import { useQuickGenState } from "./features/quickgen/quickgen-state.js";
 import { ACTIVE_VIEW_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState } from "./shared/app-defaults.js";
 import { SHOW_INFINITE_CANVAS, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
 import { hydrateDetailGroupsWithHistory } from "./features/detail/detail-group.js";
-import { composeQuickLocalEditBlob, defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
+import { defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
 // V56（P3-1）：设置弹窗抽取为独立 feature
 import { SettingsView } from "./features/settings/SettingsView.jsx";
 import { useSettingsState } from "./features/settings/settings-state.js";
@@ -176,8 +157,6 @@ const QUICK_LOCAL_EDIT_RATIOS = ["1:1", "2:3", "3:4", "4:3", "16:9", "9:16"];
 const DETAIL_ANALYSIS_MODEL = "gpt-5.4-mini";
 
 
-
-const LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES = 16 * 1024 * 1024;
 
 
 const CANVAS_NODE_WIDTH = 236;
@@ -469,71 +448,6 @@ function makeResultId() {
 
 
 
-
-
-
-
-
-// 2026-09-25 对齐 3.0：删除了"把上传图补白到模型比例"的逻辑。
-// 3.0 的裁剪输出就是选框本身，没有任何 letterbox；用户看到的白边正是这里产生的
-// （横图按 3:4 上传时上下各补一条白边）。
-// 现在上传用的就是裁剪/选框原图，比例交给服务的模型能力校验去处理。
-async function ensureQuickUploadCanvasRatio(file) {
-  return file;
-}
-
-/**
- * 把参考图压成"送 JSON 通道用"的紧凑 data URL。
- *
- * 3.0 对带参考图的请求改走 /v1/images/generations + JSON `image_urls`
- * （main.py:13428-13454），参考图用 `encode_reference_data_url(ref, max_size=1536)`
- * 压到 1536 长边再转 data URL。这里对齐同样的上限与质量：
- *   - 长边不超过 1536
- *   - JPEG q0.85（单张约 200~500KB，base64 后仍在服务端 8MB fieldSize 内）
- * 只在香蕉 Pro（nano-banana-pro）路径上使用，其它模型不受影响。
- */
-async function fileToCompactJpegDataUrl(file, maxEdge = 1536, quality = 0.85) {
-  if (!(file instanceof Blob)) return "";
-  const bitmap = await imageBitmapFromFile(file);
-  try {
-    const width = bitmap.width || bitmap.naturalWidth || 0;
-    const height = bitmap.height || bitmap.naturalHeight || 0;
-    if (!width || !height) return "";
-    const scale = Math.min(1, maxEdge / Math.max(width, height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(width * scale));
-    canvas.height = Math.max(1, Math.round(height * scale));
-    try {
-      const ctx = canvas.getContext("2d", { alpha: false });
-      if (!ctx) return "";
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL("image/jpeg", quality);
-    } finally {
-      canvas.width = 0;
-      canvas.height = 0;
-    }
-  } finally {
-    bitmap.close?.();
-  }
-}
-
-// 需要走 JSON + image_urls 参考图通道的模型（对齐 3.0 的带图路径）。
-const JSON_IMAGE_URLS_MODELS = new Set(["nano-banana-pro"]);
-
-
-
-
-
-
-
-
-function shouldNormalizeQuickUploadForModel(model) {
-  return isBanana2Model(model);
-}
 
 
 
@@ -990,47 +904,6 @@ function App() {
 
 
 
-  async function canvasFileFromResult(item, index) {
-    const blob = await blobFromImageItem(item);
-    return new File([blob], `canvas-ref-${index + 1}.${imageExtension(blob.type)}`, {
-      type: blob.type || "image/png"
-    });
-  }
-
-  async function addCanvasFiles(fileList, point = canvasCenterPoint()) {
-    const picked = imageFilesFromList(fileList);
-    if (picked.length === 0) return;
-    const form = new FormData();
-    picked.slice(0, 12).forEach((file) => form.append("image", file, file.name));
-    try {
-      const payload = await uploadCanvasAssets(form);
-      if (!payload?.ok) throw new Error(payload?.message || "Canvas assets upload failed");
-      const nodes = (payload.assets || []).map((asset, index) => createCanvasNode("image", {
-        title: asset.name || `图片 ${index + 1}`,
-        x: point.x + index * 28,
-        y: point.y + index * 28,
-        result: {
-          id: asset.id || makeResultId(),
-          image: { type: "url", value: asset.url, localUrl: asset.url },
-          prompt: "",
-          modelLabel: "画布素材",
-          imageSize: fileSize(asset.size),
-          aspectRatio: "",
-          referenceCount: 0,
-          source: "infinite-canvas",
-          originalName: asset.name,
-          createdAt: asset.createdAt || Date.now() + index
-        }
-      }));
-      patchActiveCanvas((canvas) => ({ nodes: [...canvas.nodes, ...nodes] }));
-      if (nodes[0]) setCanvasSelectedNodeId(nodes[0].id);
-      addEvent("无限画布", `已加入 ${nodes.length} 张图片节点`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      addEvent("无限画布上传失败", message);
-    }
-  }
-
   function handleCanvasDrop(event) {
     if (!Array.from(event.dataTransfer?.types || []).includes("Files")) return;
     event.preventDefault();
@@ -1060,199 +933,6 @@ function App() {
     setActiveView("infinite-canvas");
     setCanvasSelectedNodeId(node.id);
     addEvent("无限画布", "已发送副本到当前画布");
-  }
-
-  async function runCanvasImageRequest({ canvasId, nodeId, params, runModel, prompt, referenceItems, taskLabel }) {
-    const taskId = makeResultId();
-    const startedAt = Date.now();
-    setCanvasTasks((current) => [{
-      id: taskId,
-      canvasId,
-      nodeId,
-      startedAt,
-      prompt,
-      taskLabel,
-      modelLabel: runModel.label,
-      imageSize: params.imageSize,
-      aspectRatio: params.aspectRatio
-    }, ...current]);
-
-    try {
-      const filesFromNodes = await Promise.all(referenceItems.slice(0, 6).map((item, index) => canvasFileFromResult(item, index)));
-      const form = new FormData();
-      form.set("baseUrl", config.defaultBaseUrl || settings.baseUrl || defaultState.baseUrl);
-      form.set("apiKey", normalizeApiKeyInput(settings.apiKey));
-      const canvasRoute = routingFields(params.model, settings.channelId, config.routing);
-      form.set("model", canvasRoute.model);
-      form.set("channelId", canvasRoute.channelId);
-      form.set("dispatchMode", canvasRoute.dispatchMode);
-      form.set("prompt", prompt);
-      form.set("imageSize", params.imageSize);
-    form.set("aspectRatio", params.aspectRatio);
-    form.set("n", String(params.n));
-    form.set("source", "infinite-canvas");
-    form.set("referenceMeta", JSON.stringify(referenceItems.slice(0, 6).map((item, index) => ({
-      name: item.originalName || item.modelLabel || item.taskLabel || `canvas-reference-${index + 1}`,
-      role: item.source === "quickgen" ? "reference" : (item.source || "reference"),
-      index,
-      size: 0,
-      type: ""
-    }))));
-    const upload = await prepareImageFilesForChannel(filesFromNodes);
-      if (upload.compressedCount > 0) {
-        addEvent("图片压缩", `画布节点已压缩 ${upload.compressedCount} 张素材到 4MB 内`);
-      }
-      upload.files.forEach((file) => form.append("image", file, file.name));
-
-      const started = performance.now();
-      const payload = await generateImages(form);
-      if (!payload.images?.length) throw new Error("接口返回成功，但没有解析到图片");
-
-      const totalMs = Number.isFinite(payload.timing?.totalMs) ? payload.timing.totalMs : performance.now() - started;
-      const returnedItems = Array.isArray(payload.historyItems) && payload.historyItems.length > 0
-        ? payload.historyItems
-        : null;
-      const nextResults = (returnedItems || payload.images).map((entry, index) => {
-        const serverItem = returnedItems ? entry : null;
-        return {
-          ...serverItem,
-          id: serverItem?.id || makeResultId(),
-          image: serverItem?.image || entry,
-          prompt,
-          modelLabel: runModel.label,
-          imageSize: params.imageSize,
-          aspectRatio: params.aspectRatio,
-          referenceCount: filesFromNodes.length,
-          generationMs: totalMs,
-          source: "infinite-canvas",
-          canvasId,
-          generatorNodeId: nodeId,
-          taskLabel,
-          createdAt: serverItem?.createdAt || Date.now() + index
-        };
-      });
-      if (nextResults.length === 0) throw new Error("接口返回成功，但没有解析到图片");
-
-      return {
-        prompt,
-        results: nextResults,
-        totalMs,
-        taskLabel
-      };
-    } finally {
-      setCanvasTasks((current) => current.filter((task) => task.id !== taskId));
-    }
-  }
-
-  async function generateCanvasNode(nodeId) {
-    const canvas = activeCanvas;
-    const node = canvas?.nodes.find((item) => item.id === nodeId);
-    if (!canvas || !node || node.type !== "generator") return;
-    if (!normalizeApiKeyInput(settings.apiKey) && !config.hasServerKey) {
-      setIsSettingsOpen(true);
-      addEvent("无限画布", "请先在设置里填写 API Key");
-      updateCanvasNodeByCanvasId(canvas.id, nodeId, { status: "failed", error: "missing_api_key" });
-      return;
-    }
-
-    const prompt = canvasPromptForGenerator(canvas, node);
-    if (!prompt) {
-      updateCanvasNodeByCanvasId(canvas.id, nodeId, { status: "failed", error: "请连接提示词节点，或在生图节点里输入提示词" });
-      addEvent("无限画布", "缺少提示词");
-      return;
-    }
-
-    const params = {
-      model: node.params?.model || settings.model,
-      imageSize: node.params?.imageSize || settings.imageSize,
-      aspectRatio: node.params?.aspectRatio || settings.aspectRatio,
-      n: clampCount(node.params?.n || 1),
-      batchMode: node.params?.batchMode || "single"
-    };
-    const runModel = models.find((item) => item.value === params.model) || models[0];
-    const imageEntries = canvasImageEntriesForGenerator(canvas, node);
-    const startedAt = Date.now();
-    updateCanvasNodeByCanvasId(canvas.id, nodeId, { status: "running", error: "", generationMs: null });
-
-    try {
-      const runs = params.batchMode === "by-model"
-        ? (() => {
-            const { modelEntries, fixedEntries } = splitCanvasBatchEntries(imageEntries);
-            if (modelEntries.length === 0) {
-              throw new Error("按模特批量需要至少连接一张模特图");
-            }
-            return modelEntries.map((entry, index) => ({
-              prompt: buildCanvasBatchPrompt(prompt, index, modelEntries.length, fixedEntries.length),
-              referenceItems: [entry.result, ...fixedEntries.map((item) => item.result)],
-              taskLabel: `模特 ${index + 1}/${modelEntries.length}`,
-              yOffset: index * 42
-            }));
-          })()
-        : [{
-            prompt,
-            referenceItems: imageEntries.map((entry) => entry.result),
-            taskLabel: "单次生成",
-            yOffset: 0
-          }];
-
-      addEvent("无限画布", params.batchMode === "by-model"
-        ? `并发提交 ${runs.length} 个模特任务`
-        : `${runModel.label} / ${params.imageSize} / ${params.aspectRatio}`);
-
-      const settled = await Promise.allSettled(runs.map((run) => runCanvasImageRequest({
-        canvasId: canvas.id,
-        nodeId,
-        params,
-        runModel,
-        prompt: run.prompt,
-        referenceItems: run.referenceItems,
-        taskLabel: run.taskLabel
-      })));
-
-      const successfulRuns = settled
-        .map((item, index) => ({ item, index }))
-        .filter(({ item }) => item.status === "fulfilled")
-        .map(({ item, index }) => ({ ...item.value, index }));
-      const failedRuns = settled.filter((item) => item.status === "rejected");
-      if (successfulRuns.length === 0) {
-        const firstError = failedRuns[0]?.reason;
-        throw firstError instanceof Error ? firstError : new Error(String(firstError || "画布批量生成失败"));
-      }
-
-      const outputNodes = successfulRuns.map((run) => createCanvasNode("output", {
-        title: params.batchMode === "by-model" ? run.taskLabel : `输出 ${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`,
-        x: node.x + node.w + 86,
-        y: node.y + (params.batchMode === "by-model" ? run.index * (CANVAS_NODE_HEIGHT + 24) : Math.max(0, canvas.nodes.filter((item) => item.type === "output").length % 4) * 36),
-        results: run.results,
-        prompt: run.prompt,
-        generationMs: run.totalMs,
-        status: "success"
-      }));
-      const allResults = successfulRuns.flatMap((run) => run.results);
-      patchCanvasById(canvas.id, (currentCanvas) => ({
-        nodes: [...currentCanvas.nodes, ...outputNodes],
-        connections: [
-          ...currentCanvas.connections,
-          ...outputNodes.map((outputNode) => ({ id: makeResultId(), fromNodeId: nodeId, toNodeId: outputNode.id }))
-        ]
-      }));
-      setResults((current) => [...allResults, ...current]);
-      void saveHistoryResults(allResults);
-      updateCanvasNodeByCanvasId(canvas.id, nodeId, {
-        status: failedRuns.length > 0 ? "partial" : "success",
-        generationMs: Date.now() - startedAt,
-        error: failedRuns.length > 0 ? `${failedRuns.length} 个任务失败，其余已输出` : ""
-      });
-      if (outputNodes[0]) setCanvasSelectedNodeId(outputNodes[0].id);
-      addEvent("无限画布", failedRuns.length > 0
-        ? `完成 ${allResults.length} 张，${failedRuns.length} 个任务失败`
-        : `生成 ${allResults.length} 张，用时 ${formatMs(Date.now() - startedAt)}`);
-    } catch (err) {
-      const message = normalizeGenerationErrorMessage(err);
-      if (isAuthErrorMessage(message)) setIsSettingsOpen(true);
-      updateCanvasNodeByCanvasId(canvas.id, nodeId, { status: "failed", error: message, generationMs: Date.now() - startedAt });
-      addEvent("无限画布失败", message);
-    }
   }
 
   function addEvent(label, detail) {
@@ -1328,6 +1008,60 @@ function App() {
     results,
     detailGroups: detailApi.detailGroups,
     blobFromImageItem
+  });
+
+  // 2026-10-15 P6-4：画布 / 生成类 handler 搬入 useCanvasGenerationHandlers（src/features/canvas/）。
+  // TDZ：本调用点置于全部 ctx 字段初始化之后（appendReferenceFiles 为最后一项，由上方 createReferenceUpload 产出）；
+  //   兄弟函数 handleCanvasDrop / rerunResult 对 addCanvasFiles / generate 的引用均在事件回调体内、渲染期之后求值，无前向引用；
+  //   JSX 引用全部位于下方 return 内。runCanvasImageRequest / canvasFileFromResult 仅钩内互相调用，父组件不解构。
+  const {
+    addCanvasFiles,
+    generateCanvasNode,
+    saveProcessedImageFile,
+    optimizePrompt,
+    sendResultToImageEditor,
+    addReferenceThumbToUploads,
+    generate
+  } = useCanvasGenerationHandlers({
+    config,
+    settings,
+    models,
+    activeCanvas,
+    files,
+    saveDirectory,
+    isQuickPromptOptimizing,
+    setError,
+    setStatus,
+    setResults,
+    setTiming,
+    setQuickTasks,
+    setActiveView,
+    setIsSettingsOpen,
+    setCanvasTasks,
+    setCanvasSelectedNodeId,
+    setSaveDirectory,
+    setDirectoryDraft,
+    setReferenceContextMenu,
+    setImageEditorSeed,
+    setIsQuickPromptOptimizing,
+    addEvent,
+    autoSaveEventText,
+    updateSetting,
+    canvasCenterPoint,
+    patchActiveCanvas,
+    patchCanvasById,
+    updateCanvasNodeByCanvasId,
+    refreshSaveDirectory,
+    appendReferenceFiles,
+    blobFromImageItem,
+    autoSaveGeneratedItems,
+    makeResultId,
+    clampCount,
+    createCanvasNode,
+    normalizeGenerationErrorMessage,
+    CANVAS_NODE_HEIGHT,
+    DETAIL_ANALYSIS_MODEL,
+    CLIENT_SESSION_ID
   });
 
   const videoApi = useVideoState({
@@ -1601,24 +1335,6 @@ function App() {
     });
   }
 
-  async function saveProcessedImageFile(file, subfolder = "") {
-    const directory = saveDirectory || await refreshSaveDirectory();
-    if (!directory) throw new Error("未找到指定文件夹");
-    const form = new FormData();
-    form.append("directory", directory);
-    form.append("subfolder", subfolder || "");
-    form.append("image", file, file.name || `image-${Date.now()}.jpg`);
-    const response = await fetch("/api/save-processed-image", {
-      method: "POST",
-      body: form
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok || !payload?.ok) throw new Error(payload?.message || "保存图片失败");
-    setSaveDirectory(payload.directory);
-    setDirectoryDraft(payload.directory);
-    return payload;
-  }
-
   function onQuickBoardWheel(event) {
     const gallery = quickGalleryRef.current;
     if (!gallery) return;
@@ -1633,69 +1349,6 @@ function App() {
     const count = Number((overrideCount ?? payload?.autoSavedCount) || 0);
     return count > 0 ? `，已自动保存 ${count} 张` : "";
   }
-
-  async function optimizePrompt() {
-    if (isQuickPromptOptimizing) return;
-    const apiKey = normalizeApiKeyInput(settings.apiKey);
-    if (!apiKey && !config.hasServerKey) {
-      setError("请先在左下角设置里填写 API Key，优化提示词需要调用当前 AI 模型");
-      setIsSettingsOpen(true);
-      addEvent("优化提示词", "请先保存 API Key 后再优化");
-      return;
-    }
-
-    setIsQuickPromptOptimizing(true);
-    setError("");
-    try {
-      const quickFiles = quickReferenceUploadFiles(files.map(normalizeQuickReferenceItem).filter(Boolean));
-      const upload = await prepareImageFilesForChannel(quickFiles);
-      if (upload.compressedCount > 0) {
-        addEvent("图片压缩", `优化提示词已压缩 ${upload.compressedCount} 张参考图到 4MB 内`);
-      }
-
-      const form = new FormData();
-      form.set("payload", JSON.stringify({
-        prompt: settings.prompt,
-        model: settings.model,
-        imageSize: settings.imageSize,
-        aspectRatio: settings.aspectRatio,
-        n: settings.n,
-        apiKey,
-        baseUrl: config.defaultBaseUrl || settings.baseUrl || defaultState.baseUrl,
-        detailAnalysisModel: DETAIL_ANALYSIS_MODEL,
-        referenceImages: upload.files.map((file) => ({ name: file.name, size: file.size, type: file.type }))
-      }));
-      upload.files.forEach((file) => form.append("image", file, file.name));
-
-      let payload = null;
-      try {
-        payload = await rewriteQuickPrompt(form);
-      } catch (requestError) {
-        payload = requestError?.payload || null;
-        const message = requestError instanceof Error ? requestError.message : "快捷生成提示词优化失败";
-        if (isAuthErrorMessage(message)) {
-          setIsSettingsOpen(true);
-          throw new Error(message);
-        }
-        if (payload?.fallbackPrompt) {
-          updateSetting("prompt", payload.fallbackPrompt);
-          addEvent("优化提示词", "文本模型优化失败，已使用保守 Skill 兜底");
-        }
-        throw new Error(message);
-      }
-
-      updateSetting("prompt", payload.prompt || settings.prompt);
-      addEvent("优化提示词", `文本模型优化完成，${payload.mode === "ai-vision" ? "已读取参考图" : "纯文本优化"}`);
-    } catch (err) {
-      const message = normalizeGenerationErrorMessage(err);
-      setError(message);
-      addEvent("优化提示词失败", message);
-    } finally {
-      setIsQuickPromptOptimizing(false);
-    }
-  }
-
-
 
   function openSettingsPanel() {
     setIsSettingsOpen(true);
@@ -1844,45 +1497,6 @@ function App() {
     });
   }
 
-  async function sendResultToImageEditor(item, slot = "base") {
-    try {
-      const blob = await blobFromImageItem(item);
-      const file = new File([blob], `${fileBaseName(item?.modelLabel || item?.id || "result")}-${slot}-${Date.now()}.${imageExtension(blob.type)}`, {
-        type: blob.type || "image/png",
-        lastModified: Date.now()
-      });
-      setImageEditorSeed({
-        id: `image_editor_seed_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        slot,
-        file
-      });
-      setActiveView("image-editor");
-      addEvent("图片编辑", slot === "overlay" ? "已设为上层图" : "已设为底图");
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      addEvent("图片编辑失败", message);
-    }
-  }
-
-  async function addReferenceThumbToUploads(reference) {
-    const src = referenceSource(reference);
-    setReferenceContextMenu(null);
-    if (!src) {
-      addEvent("参考图", "这张缩略图没有可读取的图片地址");
-      return;
-    }
-    try {
-      const file = await imageFileFromUrl(src, reference?.name || reference?.label || "reference");
-      appendReferenceFiles([file], {
-        eventLabel: "参考图",
-        actionText: "已发送到图片上传区"
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      addEvent("参考图失败", message);
-    }
-  }
-
   function openContextMenu(event, itemId) {
     event.preventDefault();
     event.stopPropagation();
@@ -1932,229 +1546,6 @@ function App() {
   function markDeferredFeature(label) {
     addEvent(label, "此功能会在后续模块接入");
   }
-
-  async function generate(overrides = {}) {
-    const { replaceResultId = "", ...settingOverrides } = overrides;
-    const runSettings = {
-      ...settings,
-      ...settingOverrides,
-      n: clampCount(settingOverrides.n ?? settings.n),
-      baseUrl: config.defaultBaseUrl || settings.baseUrl || defaultState.baseUrl
-    };
-    const runItems = files.map(normalizeQuickReferenceItem).filter(Boolean);
-    const localEditItems = runItems.filter(quickReferenceHasLocalEdit);
-    const primaryRunItem = runItems[0] || null;
-    const localEditItem = quickReferenceHasLocalEdit(primaryRunItem) ? primaryRunItem : null;
-    const primaryLocalEdit = Boolean(localEditItem?.id);
-    const ignoredLocalEditCount = localEditItems.filter((item) => item?.id !== localEditItem?.id).length;
-    const hasLocalEditConflict = primaryLocalEdit && ignoredLocalEditCount > 0;
-    const quickPrimaryLocalIntent = primaryLocalEdit ? classifyQuickPrimaryLocalIntent(runSettings.prompt) : "";
-    let localEditForRun = localEditItem?.localEdit || null;
-    let localEditRunItem = localEditItem;
-    const wholeOutfitIntent = !localEditForRun
-      && runItems.length >= 2
-      && classifyQuickPrimaryLocalIntent(runSettings.prompt) === "outfit";
-    // 2026-09-25 对齐 3.0：删除了 shouldUseExactBanana2LocalCrop 的"香蕉2 再精确重裁一次"分支。
-    // 它存在的理由是当时只有香蕉2 用精确选框、其它模型用 contextRect 大图；
-    // 现在所有模型上传的都是精确选框（见 cropLocalEditFile），这个特殊分支已经没有意义。
-    const runFiles = runItems.map((item) => quickReferenceRunUploadFile(item, localEditRunItem)).filter((file) => file instanceof File);
-    // 2026-09-26：SKILL 规则已整体删除 —— 发给接口的提示词就是用户输入框里的原文。
-    const apiPrompt = promptForQuickGeneration(runSettings.prompt);
-    // 提示词上限来自当前模型 capabilities；超限时按目录上限截断并提示，
-    // 用户输入框里的原文保持不动。
-    const promptClamp = clampPromptForModel(apiPrompt, runSettings.model, config.routing || config);
-    const finalPrompt = promptClamp.prompt;
-    if (promptClamp.truncated) {
-      addEvent("提示词截断", `已按当前模型上限截断到 ${promptClamp.maxPromptLength} 字`);
-    }
-    const runModel = models.find((item) => item.value === runSettings.model) || models[0];
-    const runReferenceMeta = referenceMetaFromQuickRunItems(runItems, localEditRunItem, "reference");
-
-    if (!normalizeApiKeyInput(runSettings.apiKey) && !config.hasServerKey) {
-      setError("请先在左下角设置里填写 API Key");
-      setIsSettingsOpen(true);
-      setStatus("failed");
-      addEvent("无法生成", "请先填写 API Key");
-      return;
-    }
-    if (!runSettings.prompt.trim()) {
-      setError("请输入提示词");
-      setStatus("failed");
-      addEvent("无法生成", "请输入提示词");
-      return;
-    }
-    if (localEditForRun?.aspectRatio && localEditForRun.aspectRatio !== runSettings.aspectRatio) {
-      runSettings.aspectRatio = localEditForRun.aspectRatio;
-      updateSetting("aspectRatio", localEditForRun.aspectRatio);
-    }
-
-    const taskId = makeResultId();
-    const taskStartedAt = Date.now();
-    setStatus("running");
-    setError("");
-    setTiming(null);
-    setQuickTasks((current) => [...current, {
-      id: taskId,
-      status: "running",
-      startedAt: taskStartedAt,
-      modelLabel: runModel.label,
-      imageSize: runSettings.imageSize,
-      aspectRatio: runSettings.aspectRatio,
-      prompt: runSettings.prompt
-    }]);
-    addEvent("提交", `${runModel.label} / ${runSettings.imageSize} / ${runSettings.aspectRatio}`);
-    if (hasLocalEditConflict) {
-      addEvent("局部回贴", "检测到多张局部图，本次只用第一张做回贴，其他图按普通参考图上传");
-    }
-    if (!primaryLocalEdit && ignoredLocalEditCount > 0) {
-      addEvent("局部回贴", "只有图1会触发局部回贴，图2/图3不会切换成回贴模式");
-    }
-    if (primaryLocalEdit && quickPrimaryLocalIntent) {
-      addEvent(
-        "局部触发",
-        quickPrimaryLocalIntent === "outfit"
-          ? "已启用局部换装"
-          : quickPrimaryLocalIntent === "appearance"
-            ? "已启用局部换样貌"
-            : "已启用局部精修"
-      );
-    } else if (wholeOutfitIntent) {
-      addEvent("换装触发", "已启用整图换装姿势锁定");
-    }
-
-    const form = new FormData();
-    form.set("baseUrl", runSettings.baseUrl);
-    form.set("apiKey", normalizeApiKeyInput(runSettings.apiKey));
-    const route = routingFields(runSettings.model, runSettings.channelId, config.routing);
-    form.set("model", route.model);
-    form.set("channelId", route.channelId);
-    form.set("dispatchMode", route.dispatchMode);
-    form.set("prompt", finalPrompt);
-    form.set("imageSize", runSettings.imageSize);
-    form.set("aspectRatio", runSettings.aspectRatio);
-    form.set("n", String(runSettings.n));
-    form.set("source", "quickgen");
-    if (localEditForRun) form.set("deferAutoSave", "1");
-    form.set("referenceMeta", JSON.stringify(runReferenceMeta));
-
-    const started = performance.now();
-    try {
-      const uploadRunFiles = (!localEditForRun && runFiles.length > 0)
-        ? [await ensureQuickUploadCanvasRatio(runFiles[0], runSettings.aspectRatio), ...runFiles.slice(1)]
-        : runFiles;
-      const normalizeForBanana2 = shouldNormalizeQuickUploadForModel(runSettings.model) && uploadRunFiles.length > 0 && !localEditForRun;
-      const upload = await prepareImageFilesForChannel(uploadRunFiles, {
-        forceJpeg: normalizeForBanana2,
-        preserveFirstFile: Boolean(localEditForRun),
-        preserveFirstFileMaxBytes: LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES
-      });
-      if (upload.compressedCount > 0) {
-        addEvent("图片压缩", `已压缩 ${upload.compressedCount} 张参考图到 4MB 内`);
-      }
-      if (upload.normalizedCount > 0) {
-        addEvent("香蕉2原图兼容", `已转换 ${upload.normalizedCount} 张参考图为兼容 JPEG`);
-      }
-      upload.files.forEach((file) => form.append("image", file, file.name));
-      // 香蕉 Pro：参考图改走服务端的 JSON + image_urls 通道（对齐 3.0 的带图路径），
-      // 这里额外附上 1536 长边的 JPEG data URL。其它模型不带这个字段，链路不变。
-      if (JSON_IMAGE_URLS_MODELS.has(route.model) && upload.files.length > 0 && !localEditForRun?.maskDataUrl) {
-        const compactUrls = await Promise.all(upload.files.map((file) => fileToCompactJpegDataUrl(file)));
-        compactUrls.filter(Boolean).forEach((dataUrl) => form.append("referenceDataUrl", dataUrl));
-      }
-      const payload = await generateImages(form);
-      if (!payload.images?.length) {
-        throw new Error("接口返回成功，但没有解析到图片");
-      }
-
-      const totalMs = Number.isFinite(payload.timing?.totalMs) ? payload.timing.totalMs : performance.now() - started;
-      const returnedItems = Array.isArray(payload.historyItems) && payload.historyItems.length > 0
-        ? payload.historyItems
-        : null;
-      let nextResults = (returnedItems || payload.images).map((entry, index) => {
-        const serverItem = returnedItems ? entry : null;
-        return {
-          ...serverItem,
-          id: serverItem?.id || makeResultId(),
-          image: serverItem?.image || entry,
-          prompt: runSettings.prompt,
-          modelLabel: runModel.label,
-          imageSize: runSettings.imageSize,
-          aspectRatio: runSettings.aspectRatio,
-          referenceCount: runFiles.length,
-          generationMs: totalMs,
-          source: "quickgen",
-          taskId,
-          submittedAt: taskStartedAt + index,
-          clientSessionId: CLIENT_SESSION_ID,
-          createdAt: serverItem?.createdAt || taskStartedAt + index
-        };
-      });
-      let clientAutoSavedCount = 0;
-      if (localEditRunItem && localEditForRun) {
-        const originalFile = quickReferenceOriginalFile(localEditRunItem);
-        // 2026-09-25 对齐 3.0：贴回不再做任何后处理。
-        // 原来按模型分派的 autoAlign / colorMatch / protectSkinAndFace / feather
-        // 全部停用（3.0 localPaste.ts 明确"贴回就是贴回"）。
-        // 这里保留一个空对象，调用点签名不变。
-        const localCompositeOptions = {};
-        nextResults = await Promise.all(nextResults.map(async (item) => {
-          const generatedBlob = await blobFromImageItem(item);
-          const composedBlob = await composeQuickLocalEditBlob(originalFile, generatedBlob, localEditForRun.cropRect, localEditForRun, localCompositeOptions);
-          const dataUrl = await dataUrlFromBlob(composedBlob, "长图编码失败");
-          return {
-            ...item,
-            image: { type: "b64_json", value: dataUrl, mimeType: "image/jpeg" },
-          localEdit: {
-            enabled: true,
-            editMode: localEditForRun.editMode || LOCAL_EDIT_RECT_MODE,
-            sourceName: originalFile?.name || "",
-            cropRect: localEditForRun.cropRect,
-            contextRect: localEditForRun.contextRect || null,
-            sourceWidth: localEditForRun.sourceWidth,
-            sourceHeight: localEditForRun.sourceHeight,
-            maskBounds: localEditForRun.maskBounds || null
-          }
-          };
-        }));
-        clientAutoSavedCount = await autoSaveGeneratedItems(nextResults);
-      }
-      if (replaceResultId && nextResults[0]) {
-        const replacement = {
-          ...nextResults[0],
-          id: replaceResultId,
-          replacedFromResultId: nextResults[0].id
-        };
-        const extraResults = nextResults.slice(1);
-        setResults((current) => [
-          ...extraResults,
-          ...current.map((item) => item.id === replaceResultId ? {
-            ...replacement,
-            submittedAt: item.submittedAt ?? replacement.submittedAt,
-            createdAt: item.createdAt ?? replacement.createdAt
-          } : item)
-        ]);
-        void removeHistoryResults([replaceResultId, ...nextResults.map((item) => item.id)])
-          .then(() => saveHistoryResults([replacement, ...extraResults]));
-      } else {
-        setResults((current) => dedupeResults([...nextResults, ...current]));
-        void saveHistoryResults(nextResults);
-      }
-      setTiming(payload.timing);
-      setStatus("success");
-      addEvent(replaceResultId ? "重刷完成" : "完成", `${replaceResultId ? "已原位覆盖，" : `生成 ${nextResults.length} 张，`}用时 ${formatMs(totalMs)}${autoSaveEventText(payload, localEditForRun ? clientAutoSavedCount : null)}`);
-    } catch (err) {
-      const message = normalizeGenerationErrorMessage(err);
-      if (isAuthErrorMessage(message)) {
-        setIsSettingsOpen(true);
-      }
-      setStatus("failed");
-      setError(message);
-      addEvent("失败", message);
-    } finally {
-      setQuickTasks((current) => current.filter((task) => task.id !== taskId));
-    }
-  }
-
 
   return (
     // 最外层兜底：任何一个视图在渲染期抛错，都不会变成整页白屏。
