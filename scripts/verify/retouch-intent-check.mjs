@@ -36,10 +36,15 @@ function check(name, pass, detail = "") {
 //   outfit-workflow.jsx 主 return 外壳搬去 features/outfit/panels/OutfitWorkbench.jsx；
 // ⇒ 调用现场断言需把该面板文件一并纳入 clientSource 扫描，否则「精修页只渲染图1 一个上传区」
 //   等契约会被静默判红（行为未变，仅代码位移）。
+// V68 (P5-6) 阶段B-3 后：composerPanel（含 retouchSettingsRow 调用现场、composerBody 的 withRetouch/withIntent、
+//   retouchPromptLive 定高框、retouchAutoPrompt 回填等精修/换装接线契约）从 outfit-workflow.jsx 主 return
+//   外壳搬去 features/outfit/panels/OutfitComposer.jsx；
+// ⇒ 调用现场断言需把该面板文件一并纳入 clientSource 扫描，否则上述契约会被静默判红（行为未变，仅代码位移）。
 const CLIENT_FILES = [
   path.join(process.cwd(), "src", "outfit-workflow.jsx"),
   path.join(process.cwd(), "src", "features", "outfit", "outfit-top.js"),
-  path.join(process.cwd(), "src", "features", "outfit", "panels", "OutfitWorkbench.jsx")
+  path.join(process.cwd(), "src", "features", "outfit", "panels", "OutfitWorkbench.jsx"),
+  path.join(process.cwd(), "src", "features", "outfit", "panels", "OutfitComposer.jsx")
 ];
 const RETOUCH_PANEL_FILE = path.join(process.cwd(), "src", "features", "outfit", "panels", "RetouchIntentPanel.jsx");
 const CSS = path.join(process.cwd(), "src", "features", "outfit", "retouch-intent.css");
