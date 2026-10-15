@@ -55,7 +55,6 @@ import {
   setSaveDirectory as setSaveDirectoryRequest
 } from "./api/save.js";
 import { checkOutfitQuality, generateOutfit } from "./api/outfit.js";
-import { fetchImageBlob } from "./api/assets.js";
 import { emitClientDiagnosticEvent } from "./api/client.js";
 import { normalizeApiKeyInput } from "./features/auth/api-key.js";
 import {
@@ -68,8 +67,6 @@ import {
 } from "./shared/retouch-intent.js";
 import {
   readSplitHalvesEnabled,
-  splitHalvesFileName,
-  splitImageIntoHalves,
   writeSplitHalvesEnabled
 } from "./shared/image-split.js";
 import { fileSize, formatWholeSecondMs as formatMs } from "./lib/format/index.js";
@@ -78,7 +75,6 @@ import "./outfit-workflow.css";
 import "./features/outfit/outfit-intent.css";
 import "./features/outfit/white-refine-split.css";
 import "./features/outfit/retouch-intent.css";
-import { copyTextToClipboard } from "./shared/dom-actions.js";
 import { useSaveDirectory } from "./shared/hooks/useSaveDirectory.js";
 import { usePreviewDrag } from "./shared/hooks/usePreviewDrag.js";
 import {
@@ -124,7 +120,6 @@ import {
     MAX_UPLOAD_IMAGES,
   PREPROCESS_OPTIONS,
   PromptPresetGrid,
-  RESIZE_OUTPUT_FOLDER,
   WorkflowQuickVideoPanel,
         makeId,
     preprocessModeLabel
@@ -136,6 +131,7 @@ import { useOutfitSettingsIntent } from "./features/outfit/use-outfit-settings-i
 import { useOutfitPages } from "./features/outfit/use-outfit-pages.js";
 import { useOutfitUploads } from "./features/outfit/use-outfit-uploads.js";
 import { useOutfitRefHandlers } from "./features/outfit/handlers/outfit-ref-handlers.js";
+import { useOutfitSaveHandlers } from "./features/outfit/handlers/outfit-save-handlers.js";
 import { LegacyModulePanel } from "./features/outfit/outfit-panels.jsx";
 import WorkbenchSidebar from "./features/outfit/panels/WorkbenchSidebar.jsx";
 import OutfitSettingsModal from "./features/outfit/panels/OutfitSettingsModal.jsx";
@@ -241,40 +237,13 @@ const RANDOM_BACKGROUND_FOCUS_OPTIONS = [
 // 只改这三条展示文案，不动状态、时间、结果和保存记录。
 
 
-
-
-
-
-
-
-
-
 // 结果是否已经有"可恢复地址"（不是本次文档的 blob: 临时地址）。
 // 有可恢复地址 → 切页面 / 重挂载后能用这个地址重新显示，内存里的对象 URL 可以立刻释放；
 // 只有 blob: 临时地址 → 不能 revoke，否则切回来这张图就再也拿不到了。
 
 
-
 // 恢复时判读"只剩 blob: 临时地址、而且这个地址已经不是本文档创建的" → 真实失效。
 // 不再让这种记录显示成莫名其妙的空白卡片，也不会拿这个死地址去发请求。
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 /**
@@ -284,8 +253,6 @@ const RANDOM_BACKGROUND_FOCUS_OPTIONS = [
  * 只在批量独有的"额度明细"上做增强，其余 10 类错误与快捷生成保持同一套说法。
  * 传入 Error 对象时能带出服务端返回的 requestId 便于查日志。
  */
-
-
 
 
 /**
@@ -301,7 +268,6 @@ const RANDOM_BACKGROUND_FOCUS_OPTIONS = [
  */
 
 
-
 /**
  * 把「跨挂载周期账本里的任务快照」合并进当前任务列表。
  * 见 outfitLiveRuns 的说明：这是"切走又切回来"时不再误判成中断的关键。
@@ -313,14 +279,8 @@ const RANDOM_BACKGROUND_FOCUS_OPTIONS = [
  */
 
 
-
 // 选框几何统一走 src/shared/local-edit-geometry.js（快捷生成 src/main.jsx 用同一份），
 // 这里保留同名局部引用，调用点不用改。
-
-
-
-
-
 
 
 /**
@@ -1377,6 +1337,25 @@ export default function OutfitWorkflow({
     pickSaveDirectory,
   } = useSaveDirectory(saveDirectoryDeps);
 
+  // 2026-10-15 P6-2：保存 / 导出 / 自动保存 / 下载 handler 搬入 useOutfitSaveHandlers。
+  const {
+    saveExportedImageToFolder,
+    splitWhiteRefineResult,
+    autoSaveTask,
+    downloadTask,
+    copyText
+  } = useOutfitSaveHandlers({
+    saveDirectory,
+    settings,
+    setSaveDirectory,
+    setDirectoryDraft,
+    setSplitNote,
+    setTasks,
+    setDownloadFeedbackIds,
+    refreshSaveDirectory,
+    addEvent
+  });
+
   function openSaveDirectory() {
     const directory = saveDirectory || directoryDraft;
     openSaveDirectoryRequest(directory).then((payload) => {
@@ -1386,43 +1365,6 @@ export default function OutfitWorkflow({
     }).catch((error) => {
       addEvent("打开失败", error instanceof Error ? error.message : String(error));
     });
-  }
-
-  async function saveProcessedImageToFolder(file, subfolder = "", directoryOverride = "") {
-    const directory = directoryOverride || saveDirectory || await refreshSaveDirectory();
-    if (!directory) throw new Error("未找到指定文件夹");
-    const form = new FormData();
-    form.append("directory", directory);
-    form.append("subfolder", String(subfolder ?? ""));
-    form.append("image", file, file.name || "processed.jpg");
-    const response = await fetch("/api/save-processed-image", {
-      method: "POST",
-      body: form
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok || !payload?.ok) {
-      throw new Error(payload?.message || "保存整理后图片失败");
-    }
-    setSaveDirectory(payload.directory);
-    setDirectoryDraft(payload.directory);
-    return payload;
-  }
-
-  async function saveExportedImageToFolder(file, subfolder = RESIZE_OUTPUT_FOLDER) {
-    return saveProcessedImageToFolder(file, subfolder);
-  }
-
-
-  function taskToDownloadItem(task, imageOverride = null) {
-    return {
-      id: task.id,
-      image: imageOverride || task.result,
-      prompt: task.prompt || "",
-      modelLabel: task.modelLabel || settings.model,
-      imageSize: task.imageSize || settings.imageSize,
-      aspectRatio: task.aspectRatio || settings.aspectRatio,
-      createdAt: task.finishedAt || task.createdAt || Date.now()
-    };
   }
 
 
@@ -1449,7 +1391,6 @@ export default function OutfitWorkflow({
   }
 
 
-
   function resultDragTaskId(event) {
     try {
       const raw = event.dataTransfer?.getData?.(OUTFIT_RERUN_DRAG_MIME);
@@ -1462,22 +1403,6 @@ export default function OutfitWorkflow({
   }
 
 
-  function flashDownloadFeedback(id) {
-    if (!id) return;
-    setDownloadFeedbackIds((current) => {
-      const next = new Set(current);
-      next.add(id);
-      return next;
-    });
-    window.setTimeout(() => {
-      setDownloadFeedbackIds((current) => {
-        const next = new Set(current);
-        next.delete(id);
-        return next;
-      });
-    }, 1100);
-  }
-
   function toggleSplitHalves() {
     const next = !splitHalves;
     setSplitHalves(next);
@@ -1485,34 +1410,6 @@ export default function OutfitWorkflow({
     setSplitNote(next ? "已开启：生成后会自动裁切并保存左右两张" : "已关闭：只输出整张结果图");
   }
 
-  // 精修页结果图中线剪裁：只在这一页、且开关打开时生效，其它页面/其它 workflow 完全不受影响。
-  // 与 3.0 的口径一致 —— 竖切中线、左右各存一张；只是 3.0 在服务端用 Pillow 切，
-  // V11 服务端不做图像处理，所以这里用 canvas 切好再走既有的 /api/save-processed-image。
-  async function splitWhiteRefineResult(task, image) {
-    const source = image?.cachedFile instanceof File ? image.cachedFile : imageSource(image);
-    if (!source) {
-      setSplitNote("裁切失败：结果图地址不可用");
-      return;
-    }
-    setSplitNote("正在从中线裁切…");
-    try {
-      const { halves, middle } = await splitImageIntoHalves(source);
-      const sourceName = task?.savedFilename || task?.result?.archiveFile || "";
-      const saved = [];
-      for (const half of halves) {
-        const file = new File([half.blob], splitHalvesFileName(half.label, sourceName), { type: "image/png" });
-        // 直接放保存目录根（和 3.0 一样），不塞子目录。
-        const payload = await saveProcessedImageToFolder(file, "");
-        saved.push({ label: half.label, filename: payload?.filename || "", path: payload?.path || "" });
-      }
-      const names = saved.map((item) => `${item.label} ${item.filename}`).join("　");
-      setSplitNote(`已裁切保存到：${saved[0]?.path ? saved[0].path.replace(/[\\/][^\\/]*$/, "") : ""}　${names}`);
-      addEvent("精修裁切", `已从中线（第 ${middle}px）切成左右两张：${names}`);
-    } catch (error) {
-      setSplitNote(`裁切失败：${error instanceof Error ? error.message : String(error)}`);
-      addEvent("精修裁切失败", error instanceof Error ? error.message : String(error));
-    }
-  }
 
   function renderSplitHalvesStrip() {
     return (
@@ -1532,83 +1429,6 @@ export default function OutfitWorkflow({
     );
   }
 
-  async function saveTaskImageToDirectory(task, imageOverride = null) {
-    const image = imageOverride || task?.result;
-    if (!task || !image) return null;
-    const directory = saveDirectory || await refreshSaveDirectory();
-    if (image.cachedFile instanceof File) {
-      const payload = await saveProcessedImageToFolder(image.cachedFile, "", directory);
-      return payload;
-    }
-    const response = await fetch("/api/save-image", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ directory, item: taskToDownloadItem(task, image) })
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok || !payload?.ok) throw new Error(payload?.message || "保存图片失败");
-    setSaveDirectory(payload.directory);
-    setDirectoryDraft(payload.directory);
-    return payload;
-  }
-
-  async function saveTaskImageToDirectoryViaBlob(task, imageOverride = null) {
-    const image = imageOverride || task?.result;
-    const src = imageSource(image);
-    if (!task || !src) throw new Error("图片地址无效");
-    const directory = saveDirectory || await refreshSaveDirectory();
-    const blob = await fetchImageBlob(src, "图片下载失败");
-    const file = fileFromBlob(blob, taskDragDownloadName(task), image?.mimeType || image?.archiveMime || "image/png");
-    return saveProcessedImageToFolder(file, "", directory);
-  }
-
-  function markTaskSaved(taskId, payload, options = {}) {
-    setTasks((current) => current.map((item) => item.id === taskId ? {
-      ...item,
-      savedFilename: payload?.filename || item.savedFilename || "",
-      savedPath: payload?.path || item.savedPath || "",
-      autoSaveFailed: false
-    } : item));
-    if (options.flash !== false) flashDownloadFeedback(taskId);
-  }
-
-  // 返回保存结果（payload 或 null）：调用方在"组件已卸载"时需要拿到 savedPath
-  // 一起补登记进页面草稿，所以这里把结果返回出去（原来的 `void autoSaveTask(...)` 用法不受影响）。
-  async function autoSaveTask(task, image) {
-    try {
-      const payload = await saveTaskImageToDirectory(task, image);
-      markTaskSaved(task.id, payload, { flash: true });
-      return payload;
-    } catch (error) {
-      try {
-        const payload = await saveTaskImageToDirectoryViaBlob(task, image);
-        markTaskSaved(task.id, payload, { flash: true });
-        addEvent("自动保存兜底", "已通过本地代理重新保存结果图");
-        return payload;
-      } catch (fallbackError) {
-        setTasks((current) => current.map((item) => item.id === task.id ? { ...item, autoSaveFailed: true } : item));
-        addEvent("自动保存失败", fallbackError instanceof Error ? fallbackError.message : (error instanceof Error ? error.message : String(error)));
-        return null;
-      }
-    }
-  }
-
-  async function downloadTask(task) {
-    if (!task?.result) return;
-    try {
-      const payload = await saveTaskImageToDirectory(task);
-      markTaskSaved(task.id, payload, { flash: true });
-      addEvent("下载", `已保存为 ${payload.filename}`);
-    } catch (error) {
-      try {
-        const payload = await saveTaskImageToDirectoryViaBlob(task);
-        markTaskSaved(task.id, payload, { flash: true });
-        addEvent("下载兜底", `已保存为 ${payload.filename}`);
-      } catch (fallbackError) {
-        addEvent("下载失败", fallbackError instanceof Error ? fallbackError.message : (error instanceof Error ? error.message : String(error)));
-      }
-    }
-  }
 
   function downloadSelected() {
     const targets = tasks.filter((task) => selectedTaskIds.has(task.id) && task.result);
@@ -1622,10 +1442,6 @@ export default function OutfitWorkflow({
     if (targets.length > 0) addEvent("下载全部", `已提交 ${targets.length} 张保存任务`);
   }
 
-  // 实现在 src/shared/dom-actions.js（两侧同一份，20 行逐字节一致）。
-  // 这里只保留闭包绑定壳：捕获本组件的 addEvent，14 处调用点因此无需改动。
-  const copyText = (text, successMessage = "已复制") =>
-    copyTextToClipboard(text, { successMessage, notify: addEvent });
 
   function closePreviewModal() {
     setPreview(null);
@@ -2907,6 +2723,4 @@ function buildTasks(countOverride = plannedGenerationCount) {
     </main>
   );
 }
-
-
 
