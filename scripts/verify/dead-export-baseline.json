@@ -1,50 +1,5 @@
 {
   "generatedAt": "2026-10-15",
-  "reason": "P7-2 引入时的存量：src/ 下 11 条无人 import、本模块内也未自用的导出（清理归 P7-6）",
-  "items": [
-    {
-      "file": "src/api/debug.js",
-      "name": "formatImageRequestDiagnostic"
-    },
-    {
-      "file": "src/api/debug.js",
-      "name": "inspectImageRequestParams"
-    },
-    {
-      "file": "src/api/history.js",
-      "name": "clearHistoryResultsOnServer"
-    },
-    {
-      "file": "src/api/history.js",
-      "name": "repairHistoryResults"
-    },
-    {
-      "file": "src/shared/image-hosts.js",
-      "name": "isAllowedImageSource"
-    },
-    {
-      "file": "src/shared/models.js",
-      "name": "IMAGE_SIZES"
-    },
-    {
-      "file": "src/shared/retouch-intent.js",
-      "name": "summarizeRetouchIntent"
-    },
-    {
-      "file": "src/shared/routing.js",
-      "name": "defaultChannelForModel"
-    },
-    {
-      "file": "src/shared/routing.js",
-      "name": "isBananaFamilyModel"
-    },
-    {
-      "file": "src/shared/routing.js",
-      "name": "isTtImage2Model"
-    },
-    {
-      "file": "src/shared/routing.js",
-      "name": "isTtImageFamilyModel"
-    }
-  ]
+  "reason": "P7-6 B 组：删 2 条真死导出（image-hosts.js::isAllowedImageSource、models.js::IMAGE_SIZES）；2 条经修正后判明为活——被 scripts/verify 直接引用（routing.js::defaultChannelForModel、retouch-intent.js::summarizeRetouchIntent）；余 7 条在代码中补 @internal 保留原因注解，由门禁按注解豁免。基线归零，新增即判红",
+  "items": []
 }

@@ -57,9 +57,6 @@ export const DEFAULT_MODELS = [
   }
 ];
 
-// 仅保留给历史代码兼容；新代码请用 modelCapabilities(model).sizes。
-export const IMAGE_SIZES = ["1K", "2K", "4K"];
-
 export function imageSourceFromResult(image) {
   if (!image) return "";
   if (image.localUrl) return image.localUrl;

@@ -38,10 +38,22 @@ function buildDiagnosticHints(params, primary) {
   return hints;
 }
 
+/**
+ * @internal 保留原因（P7-6 确认）：这是服务端 `POST /api/debug/image-request-params`
+ * （`server/routes/debug.routes.js`）在前端**唯一的**包装函数，`src/api/README.md` 里也
+ * 登记了这条端面。当前确实没有 UI 调用它——调用方是排查真实出图问题时临时贴的一行代码、
+ * 以及 REFACTOR 台账里的链路诊断入口。删掉它就等于删掉唯一入口，探针和文档会对不上。
+ * 若将来确认这条后端路由下线，本函数应随之一并删除。
+ */
 export function inspectImageRequestParams(input) {
   return postJson("/api/debug/image-request-params", input, "传参自检失败");
 }
 
+/**
+ * @internal 保留原因（P7-6 确认）：配合上面的干跑报告一起用的格式化器。
+ * 报告本身由服务端生成、字段随端面对齐，没有第二个地方能格式化，也没有第二个调用点
+ * 可以在没有 UI 入口的前提下存在。删了就等于把已经实现好的诊断输出能力丢掉。
+ */
 export function formatImageRequestDiagnostic(report = {}) {
   const params = report.params || {};
   const primary = report.primary || {};
