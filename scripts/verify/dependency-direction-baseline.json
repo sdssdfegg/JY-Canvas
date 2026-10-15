@@ -1,0 +1,181 @@
+{
+  "generatedAt": "2026-10-15",
+  "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+  "allowed": [
+    {
+      "from": "canvas",
+      "to": "auth",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/canvas/canvas-generation-handlers.js → src/features/auth/api-key.js"
+    },
+    {
+      "from": "canvas",
+      "to": "local-edit",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/canvas/canvas-generation-handlers.js → src/features/local-edit/crop-rect-resize.js"
+    },
+    {
+      "from": "canvas",
+      "to": "quickgen",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/canvas/canvas-generation-handlers.js → src/features/quickgen/quickgen-state.js"
+    },
+    {
+      "from": "canvas",
+      "to": "storage",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/canvas/canvas-generation-handlers.js → src/features/storage/storage-store.js"
+    },
+    {
+      "from": "canvas",
+      "to": "upload",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/canvas/canvas-generation-handlers.js → src/features/upload/reference-upload.js"
+    },
+    {
+      "from": "crop",
+      "to": "local-edit",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/crop/quick-crop-panels.jsx → src/features/local-edit/crop-rect-resize.js"
+    },
+    {
+      "from": "crop",
+      "to": "upload",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/crop/quick-crop-panels.jsx → src/features/upload/reference-upload.js"
+    },
+    {
+      "from": "detail",
+      "to": "auth",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/detail/detail-state.js → src/features/auth/api-key.js"
+    },
+    {
+      "from": "detail",
+      "to": "crop",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/detail/DetailView.jsx → src/features/crop/quick-crop-panels.jsx"
+    },
+    {
+      "from": "detail",
+      "to": "storage",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 2,
+      "sample": "src/features/detail/detail-group.js → src/features/storage/storage-store.js"
+    },
+    {
+      "from": "detail",
+      "to": "upload",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/detail/detail-state.js → src/features/upload/reference-upload.js"
+    },
+    {
+      "from": "main-app",
+      "to": "canvas",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/main-app/main-handlers.js → src/features/canvas/canvas-graph.js"
+    },
+    {
+      "from": "main-app",
+      "to": "storage",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/main-app/main-handlers.js → src/features/storage/storage-store.js"
+    },
+    {
+      "from": "outfit",
+      "to": "auth",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 3,
+      "sample": "src/features/outfit/outfit-page-actions.js → src/features/auth/api-key.js"
+    },
+    {
+      "from": "outfit",
+      "to": "video",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/outfit/outfit-panels.jsx → src/features/video/video-composer.js"
+    },
+    {
+      "from": "quickgen",
+      "to": "upload",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/quickgen/quickgen-state.js → src/features/upload/reference-upload.js"
+    },
+    {
+      "from": "reference-remix",
+      "to": "auth",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/reference-remix/reference-state.js → src/features/auth/api-key.js"
+    },
+    {
+      "from": "reference-remix",
+      "to": "crop",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/reference-remix/ReferenceRemixView.jsx → src/features/crop/quick-crop-panels.jsx"
+    },
+    {
+      "from": "reference-remix",
+      "to": "detail",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/reference-remix/reference-state.js → src/features/detail/detail-group.js"
+    },
+    {
+      "from": "reference-remix",
+      "to": "storage",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/reference-remix/reference-state.js → src/features/storage/storage-store.js"
+    },
+    {
+      "from": "reference-remix",
+      "to": "upload",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 2,
+      "sample": "src/features/reference-remix/reference-state.js → src/features/upload/reference-upload.js"
+    },
+    {
+      "from": "settings",
+      "to": "auth",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/settings/settings-state.js → src/features/auth/api-key.js"
+    },
+    {
+      "from": "settings",
+      "to": "storage",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 2,
+      "sample": "src/features/settings/settings-state.js → src/features/storage/storage-store.js"
+    },
+    {
+      "from": "video",
+      "to": "auth",
+      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+      "refs": 1,
+      "sample": "src/features/video/video-state.js → src/features/auth/api-key.js"
+    }
+  ],
+  "metrics": {
+    "featureFiles": 53,
+    "directions": 24,
+    "crossFeatureRefs": 29,
+    "sharedRefs": 130,
+    "unresolved": 0
+  }
+}
