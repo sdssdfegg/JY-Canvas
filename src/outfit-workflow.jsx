@@ -5,7 +5,6 @@ import {
   FolderOpen,
   Images,
   Maximize2,
-  Save,
   Upload,
   Wand2,
   X
@@ -154,6 +153,7 @@ import WorkbenchSidebar from "./features/outfit/panels/WorkbenchSidebar.jsx";
 import OutfitSettingsModal from "./features/outfit/panels/OutfitSettingsModal.jsx";
 import OutfitWorkbench from "./features/outfit/panels/OutfitWorkbench.jsx";
 import OutfitComposer from "./features/outfit/panels/OutfitComposer.jsx";
+import PromptEditorModal from "./features/outfit/panels/PromptEditorModal.jsx";
 
 
 const OUTFIT_TEMP_IMAGE_CACHE_PREFIX = "temp-image-cache:";
@@ -2877,52 +2877,13 @@ function buildTasks(countOverride = plannedGenerationCount) {
       )}
 
       {editingPrompt && (
-        <div className="modalLayer promptEditorLayer" onMouseDown={() => setEditingPrompt(null)}>
-          <section className="promptEditorModal" onMouseDown={(event) => event.stopPropagation()}>
-            <header>
-              <h2>编辑提示词</h2>
-              <button className="iconButton" type="button" onClick={() => setEditingPrompt(null)}>
-                <X size={18} />
-              </button>
-            </header>
-            <div className="promptEditorBody">
-              <label className="editorField">
-                <span>分类</span>
-                <select
-                  value={editingPrompt.category}
-                  onChange={(event) => updateEditingPrompt("category", event.target.value)}
-                >
-                  {promptCategories.filter((category) => category !== "全部").map((category) => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="editorField">
-                <span>标题</span>
-                <input
-                  value={editingPrompt.title}
-                  onChange={(event) => updateEditingPrompt("title", event.target.value)}
-                  placeholder="输入标题"
-                />
-              </label>
-              <label className="editorField">
-                <span>提示词内容</span>
-                <textarea
-                  value={editingPrompt.content}
-                  onChange={(event) => updateEditingPrompt("content", event.target.value)}
-                  placeholder="输入提示词内容"
-                />
-              </label>
-            </div>
-            <footer>
-              <button className="secondaryButton" type="button" onClick={() => setEditingPrompt(null)}>取消</button>
-              <button className="primaryButton" type="button" onClick={saveEditingPrompt}>
-                <Save size={16} />
-                <span>保存</span>
-              </button>
-            </footer>
-          </section>
-        </div>
+        <PromptEditorModal
+          editingPrompt={editingPrompt}
+          promptCategories={promptCategories}
+          onClose={() => setEditingPrompt(null)}
+          updateEditingPrompt={updateEditingPrompt}
+          saveEditingPrompt={saveEditingPrompt}
+        />
       )}
 
       {cropTarget && (
