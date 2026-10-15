@@ -10,7 +10,7 @@
 //    本文件只被 src/outfit-workflow.jsx 反向 import，绝不反向依赖 outfit-workflow.jsx（避免循环）。
 
 import { formatGenerationError } from "../../shared/generation-errors.js";
-import { displayImageRequestUrl } from "../../api/assets.js";
+import { cacheResultImageRequest, displayImageRequestUrl, fetchBlobWithTimeout } from "../../api/assets.js";
 import { dataUrlFromBlob, dragDownloadDateStamp, padDragDownloadNumber } from "../../shared/result-image.js";
 import { canvasToBlob } from "../../shared/canvas-blob.js";
 import { imageBitmapFromFile } from "../../shared/image-input.js";
@@ -209,19 +209,10 @@ export function cachedResultBlobFromRecord(record) {
   if (record?.blob instanceof Blob) return record.blob;
   return null;
 }
-export function fetchBlobWithTimeout(url, timeoutMs = 45000) {
-  const controller = typeof AbortController === "function" ? new AbortController() : null;
-  const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : null;
-  return fetch(url, {
-    cache: "force-cache",
-    ...(controller ? { signal: controller.signal } : {})
-  }).finally(() => {
-    if (timer) window.clearTimeout(timer);
-  }).then((response) => {
-    if (!response.ok) throw new Error(`缓存图片失败 HTTP ${response.status}`);
-    return response.blob();
-  });
-}
+// P7-6：`fetchBlobWithTimeout` 已搬到准入层 src/api/assets.js（全文逐字搬运，行为不变）。
+// 这里刻意不再留同名转发导出——留了就等于给"网络出口只有一处"重开第二个口子；
+// 调用方改从准入层取（本文件顶部已 import）。
+// 注：注释里不要写示例代码形式的相对 import，P7-5 依赖方向检查是读原文不擦注释的。
 export function revokeResultImageRuntimeCache(image) {
   const url = image?.cachedUrl;
   if (typeof url === "string" && url.startsWith("blob:")) {
@@ -829,10 +820,8 @@ export async function cacheTaskResultImageFile(file, taskId) {
   const form = new FormData();
   form.append("taskId", taskId || "");
   form.append("image", file, file.name || "result.png");
-  const response = await fetch("/api/cache-result-image", {
-    method: "POST",
-    body: form
-  });
+  // P7-6：请求本身收口到 src/api/assets.js（URL/method/body 逐字一致）。
+  const response = await cacheResultImageRequest(form);
   const payload = await response.json().catch(() => null);
   if (!response.ok || !payload?.ok) {
     throw new Error(payload?.message || "缓存结果图片失败");

@@ -1,0 +1,26 @@
+# 编辑器约定（P7-6 附带，可选项）
+#
+# 为什么要有：`.gitattributes` 只管"进仓库时怎么存"，管不了"新文件第一次保存时长什么样"。
+# 没有这份的话，Windows 上新文件默认还是会被写成 CRLF，然后又在提交时被归一化，
+# 形成"每次存盘都悄悄变行尾"的回路。这里把它摆在明面上。
+#
+# 只声明与仓库现状一致的那几条（缩进按几格、字符集、结尾换行），
+# 不引入格式化器，也不规定引号风格这类会引爆全仓 diff 的东西。
+
+root = true
+
+[*]
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# 这些真的会被 Windows 直接执行，必须留 CRLF（与 .gitattributes 保持一致）
+[*.{bat,cmd,ps1}]
+end_of_line = crlf
+
+# Markdown 里行尾两个空格是换行语义，别给剪了
+[*.md]
+trim_trailing_whitespace = false

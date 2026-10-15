@@ -164,6 +164,12 @@ export function canonicalModel(value, fallback = "tt-image-2") {
   return LEGACY_MODEL_ALIASES[key] || fallback;
 }
 
+/**
+ * @internal 保留原因（P7-6 确认）：与本文件在用的 `isBanana2Model`（精确到 canonical ID）
+ * 相对，这一族是「按前缀判 family」的粗粒度谓词，V11《渠道模型迁移》交付清单里连同
+ * `isTtImageFamilyModel` / `isTtImage2Model` 一起点名登记为 routing 的公共判定 API。
+ * 当前无调用点。统筹若判定"没有二手计划"可以一并删掉；保留期间请勿修改它们的语义。
+ */
 export function isBananaFamilyModel(value) {
   return /^(banana|nano-banana)/i.test(String(value || "").trim());
 }
@@ -172,12 +178,20 @@ export function isBanana2Model(value) {
   return canonicalModel(value, "") === "banana-2";
 }
 
+/**
+ * @internal 保留原因（P7-6 确认）：与 `isBananaFamilyModel` 同为 V11 交付的 model family
+ * 谓词，当前无调用点。留着是为了「模型族」这个语义在本模块有一致的一组入口，
+ * 将来新增模型时不必各处重写正则。统筹若判定无二手计划可一并删除。
+ */
 export function isTtImageFamilyModel(value) {
   return /^tt-image/i.test(String(value || "").trim());
 }
 
 // 精确到 canonical 的 tt-image-2（旧 ID gpt-image / gpt-image-2 映射到它）。
 // 局部回贴的 GPT 专用合成参数只给这一支，不要扩散到 tt-image-2.5。
+//
+// @internal 保留原因（P7-6 确认）：上面这句业务约束是局部回贴链路的关键知识，
+// 函数当前无调用点但注释本身有价值；同 `isBananaFamilyModel` 一并待统筹裁决。
 export function isTtImage2Model(value) {
   return canonicalModel(value, "") === "tt-image-2";
 }

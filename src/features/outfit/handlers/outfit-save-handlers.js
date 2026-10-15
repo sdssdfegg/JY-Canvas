@@ -10,6 +10,7 @@ import { imageSource, taskDragDownloadName } from "../outfit-task.js";
 import { fileFromBlob } from "../outfit-image-pipeline.js";
 import { splitHalvesFileName, splitImageIntoHalves } from "../../../shared/image-split.js";
 import { fetchImageBlob } from "../../../api/assets.js";
+import { saveImageRequest, saveProcessedImageRequest } from "../../../api/save.js";
 import { copyTextToClipboard } from "../../../shared/dom-actions.js";
 import { RESIZE_OUTPUT_FOLDER } from "../outfit-panels.jsx";
 
@@ -33,10 +34,8 @@ export function useOutfitSaveHandlers(ctx) {
     form.append("directory", directory);
     form.append("subfolder", String(subfolder ?? ""));
     form.append("image", file, file.name || "processed.jpg");
-    const response = await fetch("/api/save-processed-image", {
-      method: "POST",
-      body: form
-    });
+    // P7-6：请求本身收口到 src/api/save.js（URL/method/body 逐字一致）。
+    const response = await saveProcessedImageRequest(form);
     const payload = await response.json().catch(() => null);
     if (!response.ok || !payload?.ok) {
       throw new Error(payload?.message || "保存整理后图片失败");
@@ -99,11 +98,8 @@ export function useOutfitSaveHandlers(ctx) {
       const payload = await saveProcessedImageToFolder(image.cachedFile, "", directory);
       return payload;
     }
-    const response = await fetch("/api/save-image", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ directory, item: taskToDownloadItem(task, image) })
-    });
+    // P7-6：请求本身收口到 src/api/save.js（URL/method/headers/body 逐字一致）。
+    const response = await saveImageRequest(directory, taskToDownloadItem(task, image));
     const payload = await response.json().catch(() => null);
     if (!response.ok || !payload?.ok) throw new Error(payload?.message || "保存图片失败");
     setSaveDirectory(payload.directory);

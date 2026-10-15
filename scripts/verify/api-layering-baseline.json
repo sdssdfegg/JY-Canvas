@@ -1,15 +1,5 @@
 {
   "generatedAt": "2026-10-15",
-  "reason": "P7-1 引入时的存量：src/ 下绕过 src/api/** 准入层的 9 处散写 fetch（收口归 P7-6）",
-  "violations": [
-    "src/features/canvas/canvas-generation-handlers.js:388",
-    "src/features/detail/detail-state.js:285",
-    "src/features/outfit/handlers/outfit-save-handlers.js:102",
-    "src/features/outfit/handlers/outfit-save-handlers.js:36",
-    "src/features/outfit/outfit-task.js:215",
-    "src/features/outfit/outfit-task.js:832",
-    "src/features/result-queue/quick-result-replace.js:190",
-    "src/features/result-queue/quick-result-replace.js:216",
-    "src/shared/local-edit-mask.js:159"
-  ]
+  "reason": "P7-6：9 处散写 fetch 全部收口进 src/api/（save.js/assets.js），准入层恢复零违规",
+  "violations": []
 }

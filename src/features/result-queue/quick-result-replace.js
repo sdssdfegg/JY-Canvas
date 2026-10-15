@@ -27,6 +27,7 @@ import {
   referenceSource
 } from "../../shared/result-image.js";
 import { fetchImageBlob } from "../../api/assets.js";
+import { saveImageRequest } from "../../api/save.js";
 
 export function createQuickResultReplace(deps) {
   const {
@@ -187,14 +188,9 @@ export function createResultDownload(deps) {
   async function downloadItem(item, _index = 0) {
     try {
       const directory = saveDirectory || await refreshSaveDirectory();
-      const response = await fetch("/api/save-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          directory,
-          item
-        })
-      });
+      // P7-6：请求本身收口到 src/api/save.js（URL/method/headers/body 逐字一致）；
+      // 这里是全组唯一不带 catch 的 `.json()`，保持原样不动。
+      const response = await saveImageRequest(directory, item);
       const payload = await response.json();
       if (!response.ok || !payload?.ok) throw new Error(payload?.message || "保存图片失败");
       setSaveDirectory(payload.directory);
@@ -213,14 +209,8 @@ export function createResultDownload(deps) {
     try {
       const directory = saveDirectory || await refreshSaveDirectory();
       for (const item of items) {
-        const response = await fetch("/api/save-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            directory,
-            item
-          })
-        });
+        // P7-6：请求本身收口到 src/api/save.js（URL/method/headers/body 逐字一致）。
+        const response = await saveImageRequest(directory, item);
         const payload = await response.json().catch(() => null);
         if (!response.ok || !payload?.ok) throw new Error(payload?.message || "保存图片失败");
         setSaveDirectory(payload.directory);

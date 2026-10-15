@@ -141,8 +141,3 @@ export function classifyImageSource(value) {
   // 其它协议（javascript:、file:、ftp: 等）一律拒绝
   return { allowed: false, kind: "blocked", reason: IMAGE_SOURCE_REASONS.BLOCKED_SCHEME, target: text };
 }
-
-/** 便捷判断。 */
-export function isAllowedImageSource(value) {
-  return classifyImageSource(value).allowed;
-}
