@@ -19,14 +19,27 @@ function check(name, ok, detail = "") {
 }
 
 const mainJsx = readFileSync(path.join(root, "src", "main.jsx"), "utf8");
+// P6-5（2026-10-15）：快捷生成悬浮框 / 顶栏结果栏已面板化至 src/features/main-app/panels/。
+// 悬浮框区段切自面板；文件不存在（搬迁前的老树）时回退 main.jsx，保证脚本对历史提交仍可跑。
+const panelsDir = path.join(root, "src", "features", "main-app", "panels");
+const canvasBoardJsx = existsSync(path.join(panelsDir, "main-canvas-board.jsx"))
+  ? readFileSync(path.join(panelsDir, "main-canvas-board.jsx"), "utf8")
+  : "";
+const topBarJsx = existsSync(path.join(panelsDir, "main-top-bar.jsx"))
+  ? readFileSync(path.join(panelsDir, "main-top-bar.jsx"), "utf8")
+  : "";
+// 悬浮框工具区的当前宿主（面板优先，回退 main.jsx）
+const quickgenUi = canvasBoardJsx || mainJsx;
+// 能力在断言的数据源 = 三文件并集（入口可能落在任一处）
+const capabilityJsx = mainJsx + topBarJsx + canvasBoardJsx;
 
 // 切出「快捷生成图片模式的悬浮框底部工具区」这一段。
-const clusterIndex = mainJsx.indexOf('className="quickToolCluster"');
-check("找到快捷悬浮框功能组", clusterIndex > 0);
-const footerStart = mainJsx.lastIndexOf('className="composerFooter"', clusterIndex);
-const footerEnd = mainJsx.indexOf("</section>", clusterIndex);
-const footer = mainJsx.slice(footerStart, footerEnd);
-check("成功切出快捷悬浮框底部工具区", footer.length > 200, `len=${footer.length}`);
+const clusterIndex = quickgenUi.indexOf('className="quickToolCluster"');
+check("找到快捷悬浮框功能组", clusterIndex >= 0);
+const footerStart = clusterIndex >= 0 ? quickgenUi.lastIndexOf('className="composerFooter"', clusterIndex) : -1;
+const footerEnd = clusterIndex >= 0 ? quickgenUi.indexOf("</section>", clusterIndex) : -1;
+check("成功切出快捷悬浮框底部工具区", footerStart >= 0 && footerEnd > footerStart && footerEnd - footerStart > 200, `len=${footerEnd - footerStart}`);
+const footer = footerStart >= 0 && footerEnd > footerStart ? quickgenUi.slice(footerStart, footerEnd) : "";
 
 function countIn(text, token) {
   return text.split(token).length - 1;
@@ -47,7 +60,7 @@ check("底部不再有 <span>词</span> 旧入口", countIn(footer, "<span>词</
 //    参考生图 / 一键详情 属于独立模块，不在快捷生成页，排除。
 const quickgenAreaStart = mainJsx.indexOf("className={`composer ${isComposerDragging");
 const quickgenAreaEnd = mainJsx.indexOf("{events.length > 0 && (", quickgenAreaStart);
-const quickgenSection = mainJsx.slice(quickgenAreaStart, quickgenAreaEnd);
+const quickgenSection = quickgenUi.slice(quickgenAreaStart, quickgenAreaEnd);
 check("快捷生成悬浮框内没有第二套清空图片按钮", countIn(quickgenSection, "<span>清空图片</span>") === 0);
 check("快捷生成悬浮框内没有第二套优化提示词按钮", countIn(quickgenSection, "<span>优化提示词</span>") === 0);
 check("快捷生成悬浮框内没有第二套词按钮", countIn(quickgenSection, "<span>词</span>") === 0);
@@ -82,7 +95,7 @@ const canvasHandlersSrc = existsSync(path.join(root, "src", "features", "canvas"
   ? readFileSync(path.join(root, "src", "features", "canvas", "canvas-generation-handlers.js"), "utf8")
   : "";
 for (const fn of ["function optimizePrompt", "setIsPromptAssistantOpen", "setFiles([])"]) {
-  check(`底层能力仍在：${fn}`, mainJsx.includes(fn) || canvasHandlersSrc.includes(fn));
+  check(`底层能力仍在：${fn}`, mainJsx.includes(fn) || canvasHandlersSrc.includes(fn) || canvasBoardJsx.includes(fn) || topBarJsx.includes(fn));
 }
 
 // 6) 2026-09-26：SKILL 规则块已整体删除，只保留"用户原话"出口 + 局部意图判定
@@ -119,7 +132,7 @@ check("悬浮框不再有可见「库」按钮", !/<span>库<\/span>/.test(foote
 check("隐藏 file input 仍保留（上传能力不删）", footer.includes('type="file"'));
 check(
   "顶部结果栏仍保留 图片/视频 切换入口（能力不删）",
-  /setQuickMode\("video"\)/.test(mainJsx) && /setQuickMode\("image"\)/.test(mainJsx)
+  /setQuickMode\("video"\)/.test(capabilityJsx) && /setQuickMode\("image"\)/.test(capabilityJsx)
 );
 
 // 8) 悬浮框尺寸稳定性：min-width / min-height 必须是固定值
