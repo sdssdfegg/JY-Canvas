@@ -33,6 +33,7 @@ import { dedupeResults, normalizeQuickReferenceItem } from "../../features/quick
 import { removeHistoryResults, saveHistoryResults } from "../../features/storage/storage-store.js";
 import { defaultState } from "../../shared/app-defaults.js";
 import { uploadCanvasAssets } from "../../api/assets.js";
+import { saveProcessedImageRequest } from "../../api/save.js";
 import { generateImages } from "../../api/images.js";
 import { rewriteQuickPrompt } from "../../api/prompts.js";
 import {
@@ -385,10 +386,8 @@ export function useCanvasGenerationHandlers(ctx) {
     form.append("directory", directory);
     form.append("subfolder", subfolder || "");
     form.append("image", file, file.name || `image-${Date.now()}.jpg`);
-    const response = await fetch("/api/save-processed-image", {
-      method: "POST",
-      body: form
-    });
+    // P7-6：请求本身收口到 src/api/save.js（URL/method/body 逐字一致），响应处理维持原样。
+    const response = await saveProcessedImageRequest(form);
     const payload = await response.json().catch(() => null);
     if (!response.ok || !payload?.ok) throw new Error(payload?.message || "保存图片失败");
     setSaveDirectory(payload.directory);

@@ -15,6 +15,7 @@ import { writeJsonStorage } from "../../lib/storage/json-storage.js";
 import { addFilesByRole, removeFilesByRole } from "../../shared/image-input.js";
 import { prepareImageFilesForChannel, referenceMetaFromFiles } from "../upload/reference-upload.js";
 import { generateImages } from "../../api/images.js";
+import { saveImageRequest } from "../../api/save.js";
 import { createDetailPrompts } from "../../api/prompts.js";
 import { isAuthErrorMessage, normalizeApiKeyInput } from "../auth/api-key.js";
 import { dataUrlFromBlob } from "../../shared/result-image.js";
@@ -282,20 +283,16 @@ export function useDetailState({
       const directory = saveDirectory || await refreshSaveDirectory();
       const blob = await stitchDetailGroupBlob(group);
       const dataUrl = await dataUrlFromBlob(blob, "长图编码失败");
-      const response = await fetch("/api/save-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          directory,
-          item: {
-            id: `${group.id}_stitch_${Date.now()}`,
-            image: { type: "b64_json", value: dataUrl },
-            modelLabel: "详情长图",
-            imageSize: `${detailResultItemsForGroup(group).length}屏`,
-            aspectRatio: "long",
-            createdAt: Date.now()
-          }
-        })
+      // P7-6：请求本身收口到 src/api/save.js（URL/method/headers/body 逐字一致）；
+      // 这里原来是 `response.json()` 不带 catch，JSON 解析失败会直接抛，
+      // 为保持行为不变，容错方式维持原样。
+      const response = await saveImageRequest(directory, {
+        id: `${group.id}_stitch_${Date.now()}`,
+        image: { type: "b64_json", value: dataUrl },
+        modelLabel: "详情长图",
+        imageSize: `${detailResultItemsForGroup(group).length}屏`,
+        aspectRatio: "long",
+        createdAt: Date.now()
       });
       const payload = await response.json();
       if (!response.ok || !payload?.ok) throw new Error(payload?.message || "保存长图失败");

@@ -5,6 +5,10 @@ import {
   snapSizeToRatio,
   constrainCropRect as sharedConstrainCropRect
 } from "./local-edit-geometry.js";
+// P7-6：下面的 fetch 收口到 src/api/assets.js。这里是 data:/blob: 的本地读取而非业务接口，
+// 但为了「网络出口只此一处」没有例外，仍然搬进准入层（行为逐字一致）。
+// 依赖方向 shared → api 并非本单首创：`shared/result-image.js` 早已 import `../api/assets.js`。
+import { fetchLocalBlob } from "../api/assets.js";
 
 export const LOCAL_EDIT_RECT_MODE = "rect";
 export const LOCAL_EDIT_MASK_MODE = "mask";
@@ -156,8 +160,7 @@ export function normalizeMaskCanvas(canvas, threshold = 10) {
  */
 export async function imageBitmapFromDataUrl(dataUrl) {
   if (!dataUrl) return null;
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
+  const blob = await fetchLocalBlob(dataUrl);
   if (window.createImageBitmap) {
     try {
       return await window.createImageBitmap(blob);
