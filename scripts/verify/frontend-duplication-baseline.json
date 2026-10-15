@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 104,
+    "fileCount": 105,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -36,6 +36,7 @@
       "src/features/detail/DetailView.jsx",
       "src/features/detail/detail-group.js",
       "src/features/detail/detail-state.js",
+      "src/features/image-editor/image-editor-helpers.js",
       "src/features/local-edit/LocalEditBrushTools.jsx",
       "src/features/local-edit/LocalEditCropOverlay.jsx",
       "src/features/local-edit/LocalEditModal.jsx",
