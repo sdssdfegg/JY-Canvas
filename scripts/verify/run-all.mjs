@@ -68,6 +68,13 @@ const ORDER = [
   // 下降只报告。超过绝对上限（文件 2500 / 函数 600 行）进 overBudget **只报告不拦**：
   // 那是「要不要开拆分单」的决策信息，不该冒充回归。纯源码扫描，无子进程。
   "size-ratchet-check",
+  // P7-5（2026-10-16）：依赖方向白名单 —— 回答「板块 A 能不能 import 板块 B」。
+  // 与上面几条同属静态解析，但不重复做环检测（那是 source-hygiene 的活儿）：
+  // 环检测是底线（出环就崩），方向门禁管的是"合法却该被审视"的边 ——
+  // `outfit → auth`、`reference-remix → detail` 这类不会崩，但会把板块长期焊死。
+  // 存量 24 个方向记账、出现新方向判红（必须写明 reason）、方向消失判 stale。
+  // `src/shared/**` 不计（共享层本就给所有 feature 用）。
+  "dependency-direction-check",
   // P7-4（2026-10-16）：产物体积预算 —— 给 vite build 产物设硬上限（单 chunk ≤ 300 kB、
   // 合计 ≤ 1120 kB）。体量棘轮管的是源码行数，这条管的是"打包后要下多少字节"：
   // 误引入一个大依赖时光看源码 diff 是看不出来的，只有产物 size 会说话。
@@ -168,6 +175,9 @@ const FAST_ORDER = [
   // P7-3 体量棘轮：同样是纯源码扫描（行数 + 花括号配平），无子进程。进提交钩子是有意的——
   // 「只许降不许升」只有卡在写代码的那一刻才有约束力，攒到 CI 再报就已经长回去了。
   "size-ratchet-check",
+  // P7-5 依赖方向：静态解析 import 说明符 + 白名单比对，无子进程（<1s）。
+  // 它的价值窗口就是"写那行新 import 的一刻"——等到 CI 再报，横向依赖已经落地一个月了。
+  "dependency-direction-check",
   "source-hygiene-check",
   "runtime-config-baseline-check",
   "auth-key-parity-check",
