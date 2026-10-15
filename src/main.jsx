@@ -4,11 +4,7 @@ import { ElapsedTimer } from "./shared/ui/elapsed-timer.jsx";
 import { createRoot } from "react-dom/client";
 import {
   Archive,
-  BookOpen,
   Box,
-  Brush,
-  Check,
-  CheckSquare,
   ChevronLeft,
   ChevronRight,
   Copy,
@@ -18,55 +14,41 @@ import {
   Flame,
   FolderOpen,
   Image as ImageIcon,
-  ImageOff,
   Layers,
   Link2,
   Loader2,
-  Maximize2,
-  Minus,
   Move,
   Pencil,
   Play,
   Plus,
-  RefreshCw,
   RotateCcw,
-  Scissors,
   Settings,
   Sparkles,
-  Square,
   Trash2,
   Unlink,
   Upload,
-  Video,
-  Wand2,
   X
 } from "lucide-react";
 import { DEFAULT_MODELS, imageSourceFromResult } from "./shared/models.js";
 import {
   channelForModel,
-  channelPriceLabel,
   channelsForModel,
   convergeSettingsForModel,
   isRoutingCatalogReady,
   modelCapabilities
 } from "./shared/routing.js";
-import DebouncedTextarea from "./shared/DebouncedTextarea.jsx";
 import { ErrorBoundary } from "./shared/error-boundary.jsx";
 import { QuickCropViewportModal } from "./features/crop/quick-crop-panels.jsx";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
-import { ReferenceThumbTray } from "./shared/ui/reference-thumb-tray.jsx";
 import { createReferenceUpload, quickReferenceOriginalFile } from "./features/upload/reference-upload.js";
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import {
   beginImageDownloadDrag,
-  dragDownloadDateStamp,
   referenceSource,
-  resultImageCardState
 } from "./shared/result-image.js";
 import { classifyGenerationError, formatGenerationError } from "./shared/generation-errors.js";
 import { fileSize, formatMs } from "./lib/format/index.js";
 import { normalizePromptCategories, normalizePromptPreset } from "./shared/prompt-library.js";
-import { imageFilesFromClipboard } from "./shared/image-input.js";
 import { readJsonStorage, writeJsonStorage } from "./lib/storage/json-storage.js";
 // 建议3b：OutfitWorkflow / ImageEditorPanel 改为 React.lazy 懒加载（见下方 Lazy* 定义），
 // 使其脱离首屏 index 主包；feat-outfit(182KB) 等依赖仅在对应视图打开时再拉取，降低首屏 load。
@@ -74,25 +56,22 @@ import { readJsonStorage, writeJsonStorage } from "./lib/storage/json-storage.js
 import { getAppConfig } from "./api/config.js";
 import {
   getSaveDirectory,
-  openSaveDirectoryRequest,
   pickSaveDirectory as pickSaveDirectoryRequest,
   setSaveDirectory as setSaveDirectoryRequest
 } from "./api/save.js";
-import {
-  LOCAL_EDIT_MASK_MODE,
-  LOCAL_EDIT_BRUSH_DEFAULT,
-  LOCAL_EDIT_MASK_OPACITY_DEFAULT,
-  LOCAL_EDIT_RECT_MODE,
-} from "./shared/local-edit-mask.js";
 import "./styles.css";
-import { copyTextToClipboard } from "./shared/dom-actions.js";
 import { useSaveDirectory } from "./shared/hooks/useSaveDirectory.js";
 import { usePreviewDrag } from "./shared/hooks/usePreviewDrag.js";
-import { incomingCanvasNodes, canvasResultItemsFromNode, canvasImagesForGenerator, canvasImageEntriesForGenerator, splitCanvasBatchEntries, screenPointToCanvas, canvasCenterFromRect } from "./features/canvas/canvas-graph.js";
+import { incomingCanvasNodes, canvasResultItemsFromNode, canvasImagesForGenerator, canvasImageEntriesForGenerator, splitCanvasBatchEntries } from "./features/canvas/canvas-graph.js";
 import { createCanvasActions, createCanvasInteractions } from "./features/canvas/canvas-actions.js";
 // P6-4：画布 / 生成类 handler 钩（canvasFileFromResult / addCanvasFiles / runCanvasImageRequest / generateCanvasNode /
 // saveProcessedImageFile / optimizePrompt / sendResultToImageEditor / addReferenceThumbToUploads / generate）。
 import { useCanvasGenerationHandlers } from "./features/canvas/canvas-generation-handlers.js";
+// P6-5：App() 体其余全部 handler 钩（updateSetting / addEvent / copyText / 预览三态 / 参考图排序 / 右键菜单 / rerun 等 38 个）。
+import { useMainHandlers } from "./features/main-app/main-handlers.js";
+// P6-5：App() return 的顶栏 / 快捷画板面板化（纯展示组件，props 同名下发）。
+import { MainTopBar } from "./features/main-app/panels/main-top-bar.jsx";
+import { MainCanvasBoard } from "./features/main-app/panels/main-canvas-board.jsx";
 import { createQuickResultReplace, createResultDownload, createResultActions } from "./features/result-queue/quick-result-replace.js";
 import { VideoView } from "./features/video/VideoView.jsx";
 import { useVideoState } from "./features/video/video-state.js";
@@ -504,7 +483,7 @@ function App() {
   // 与 JSX 继续按同名引用，行为不变。JSX 抽取待下轮。
   const quickApi = useQuickGenState();
   const {
-    files, setFiles,
+    setFiles,
     results, setResults,
     brokenResultImages, setBrokenResultImages,
     resultFilter, setResultFilter,
@@ -572,6 +551,105 @@ function App() {
   const canvasStageRef = useRef(null);
   const canvasFileInputRef = useRef(null);
   const previewDragRef = useRef(null);
+
+  // P6-5（V4.0）：App() 体其余全部 handler（38 个）收口到 useMainHandlers（src/features/main-app/）。
+  // 调用点置于 usePreviewDrag / useSettingsState / usePromptAssistantState / useSaveDirectory /
+  //   createCanvasActions 之前——这些下游 deps 引用 addEvent / updateSetting / closePreview / canvasCenterPoint
+  //   （搬出前依赖函数提升可用，现由本钩产出，调用点必须在前）。
+  // TDZ：钩内 10 项晚期产出引用统一走 handlerLateRef.current，回填点在 syncHistoryFromServerRef 回填处
+  //   （渲染期，此时各产出均已初始化；handler 只在事件回调 / effect 内被调用，均在渲染之后，无前向引用）。
+  const handlerLateRef = useRef({});
+  const {
+    updateSetting,
+    canvasCenterPoint,
+    handleCanvasDrop,
+    sendResultToCanvas,
+    addEvent,
+    copyText,
+    onComposerPaste,
+    downloadVideoResult,
+    removeReferenceImage,
+    openQuickCropEdit,
+    openQuickLocalEdit,
+    applyQuickCropEdit,
+    applyQuickLocalEdit,
+    clearQuickCropEdit,
+    clearQuickLocalEdit,
+    clearAll,
+    openSaveDirectory,
+    onQuickBoardWheel,
+    autoSaveEventText,
+    openSettingsPanel,
+    openUploadPreview,
+    beginReferenceSort,
+    moveReferenceSort,
+    endReferenceSort,
+    cancelReferenceSort,
+    closeUploadPreview,
+    openReferencePreview,
+    closeReferencePreview,
+    shiftReferencePreview,
+    openPreview,
+    shiftPreview,
+    closePreview,
+    handlePreviewWheel,
+    openContextMenu,
+    openReferenceContextMenu,
+    rerunResult,
+    markDeferredFeature
+  } = useMainHandlers({
+    config,
+    settings,
+    setSettings,
+    activeView,
+    setActiveView,
+    quickMode,
+    setFiles,
+    quickResults,
+    setResults,
+    setSelectedIds,
+    setStatus,
+    setError,
+    setTiming,
+    setQuickTasks,
+    quickCropEditTarget,
+    setQuickCropEditTarget,
+    quickLocalEditTarget,
+    setQuickLocalEditTarget,
+    previewResult,
+    setPreviewResult,
+    setPreviewZoom,
+    setPreviewPan,
+    setUploadPreview,
+    setContextMenu,
+    setReferenceContextMenu,
+    setReferencePreview,
+    setReferenceSortTarget,
+    setDraggingReferenceId,
+    previewFiles,
+    saveDirectory,
+    directoryDraft,
+    setSaveDirectory,
+    setDirectoryDraft,
+    setIsSettingsOpen,
+    setReferenceProductFiles,
+    setReferenceStyleFiles,
+    setEvents,
+    setCanvasSelectedNodeId,
+    canvasViewport,
+    createCanvasNode,
+    makeResultId,
+    CANVAS_NODE_WIDTH,
+    CANVAS_NODE_HEIGHT,
+    clampCount,
+    QUICK_LOCAL_EDIT_RATIOS,
+    referencePointerSortRef,
+    suppressReferencePreviewRef,
+    previewDragRef,
+    quickGalleryRef,
+    canvasStageRef,
+    lateRef: handlerLateRef
+  });
   const {
     beginPreviewDrag,
     movePreviewDrag,
@@ -580,7 +658,6 @@ function App() {
     endDrag: endPromptCategoryDrag,
   } = usePreviewDrag({
     previewDragRef,
-    previewPan,
     setPreviewPan,
     closePreview,
     setGalleryZoom,
@@ -717,6 +794,7 @@ function App() {
     if (!writeJsonStorage(INFINITE_CANVAS_KEY, infiniteCanvasState)) {
       addEvent("无限画布", "画布内容较大，部分临时图片可能无法写入本地缓存");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [infiniteCanvasState]);
 
   useEffect(() => {
@@ -795,6 +873,7 @@ function App() {
     };
     window.addEventListener("keydown", onReferencePreviewKeyDown);
     return () => window.removeEventListener("keydown", onReferencePreviewKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [referencePreview]);
 
   useEffect(() => () => {
@@ -822,24 +901,6 @@ function App() {
     };
   }, [isQuickChannelMenuOpen, setIsQuickChannelMenuOpen]);
 
-  function updateSetting(key, value) {
-    setSettings((current) => {
-      const next = { ...current, [key]: value };
-      if (key === "model") {
-        // 切换模型时按新模型的 capabilities 重新收敛：
-        // 比例 / 尺寸 / 生成数量 / 质量 / 背景 / 版本 / 线路。
-        return convergeSettingsForModel(next, config.routing || config);
-      }
-      if (key === "channelId") {
-        const channels = channelsForModel(next.model, config.routing || config);
-        next.channelId = channels.some((item) => item.id === value) ? value : (channels[0]?.id || "");
-        return next;
-      }
-      if (key === "n") next.n = Math.min(clampCount(value), modelCapabilities(next.model, config.routing || config).maxInputImages);
-      return next;
-    });
-  }
-
   const {
     patchActiveCanvas, patchCanvasById, updateCanvasNode, updateCanvasNodeByCanvasId,
     createCanvas, renameCanvas, deleteCanvas, clearCanvas, selectCanvas,
@@ -855,25 +916,6 @@ function App() {
     createCanvasNode,
     canvasCenterPoint
   });
-
-
-
-
-
-
-
-
-
-
-  function screenToCanvasPoint(clientX, clientY) {
-    return screenPointToCanvas(canvasStageRef.current?.getBoundingClientRect(), canvasViewport, clientX, clientY);
-  }
-
-  function canvasCenterPoint(offsetX = 0, offsetY = 0) {
-    return canvasCenterFromRect(canvasStageRef.current?.getBoundingClientRect(), canvasViewport, offsetX, offsetY);
-  }
-
-
 
   const {
     fitCanvasView, handleCanvasWheel, beginCanvasPan, beginCanvasNodeDrag,
@@ -895,58 +937,6 @@ function App() {
     makeResultId,
   });
 
-
-
-
-
-
-
-
-
-
-  function handleCanvasDrop(event) {
-    if (!Array.from(event.dataTransfer?.types || []).includes("Files")) return;
-    event.preventDefault();
-    void addCanvasFiles(event.dataTransfer.files, screenToCanvasPoint(event.clientX, event.clientY));
-  }
-
-  function sendResultToCanvas(item) {
-    if (!item) return;
-    const point = canvasCenterPoint(-CANVAS_NODE_WIDTH / 2, -CANVAS_NODE_HEIGHT / 2);
-    const copy = {
-      ...item,
-      id: makeResultId(),
-      source: "infinite-canvas",
-      copiedFromResultId: item.id,
-      copiedToCanvasAt: Date.now()
-    };
-    const node = createCanvasNode("image", {
-      title: item.modelLabel || "跨模块图片",
-      x: point.x,
-      y: point.y,
-      result: copy,
-      prompt: item.prompt || ""
-    });
-    patchActiveCanvas((canvas) => ({
-      nodes: [...canvas.nodes, node]
-    }));
-    setActiveView("infinite-canvas");
-    setCanvasSelectedNodeId(node.id);
-    addEvent("无限画布", "已发送副本到当前画布");
-  }
-
-  function addEvent(label, detail) {
-    setEvents((current) => [
-      { time: new Date().toLocaleTimeString("zh-CN", { hour12: false }), label, detail },
-      ...current
-    ].slice(0, 6));
-  }
-
-  // 实现在 src/shared/dom-actions.js（两侧同一份，20 行逐字节一致）。
-  // 这里只保留闭包绑定壳：捕获本组件的 addEvent，14 处调用点因此无需改动。
-  const copyText = (text, successMessage = "已复制") =>
-    copyTextToClipboard(text, { successMessage, notify: addEvent });
-
   const resultDownloadDeps = { quickResults, selectedIds, addEvent, quickResultDragIdRef, QUICK_RESULT_DRAG_TYPE, copyText, saveDirectory, refreshSaveDirectory, setSaveDirectory, setDirectoryDraft, setDownloadFeedbackIds, downloadFeedbackTimersRef };
   const { blobFromImageItem, beginResultImageDrag, beginReferenceImageDrag, copyImage, downloadItem, autoSaveGeneratedItems, downloadSelected, downloadAll } = createResultDownload(resultDownloadDeps);
 
@@ -965,7 +955,6 @@ function App() {
     setIsSettingsOpen,
     updateSetting,
     setActiveView,
-    selectedIds,
     downloadItem,
     blobFromImageItem,
     saveDirectory,
@@ -1027,7 +1016,6 @@ function App() {
     settings,
     models,
     activeCanvas,
-    files,
     saveDirectory,
     isQuickPromptOptimizing,
     setError,
@@ -1135,131 +1123,31 @@ function App() {
       .filter(Boolean);
   }, [previewResult, detailApi.activeDetailResults, referenceApi.referenceGalleryItems, quickGalleryItems, results]);
 
-  function onComposerPaste(event) {
-    const pastedImages = imageFilesFromClipboard(event.clipboardData);
-    if (pastedImages.length === 0) return;
-    event.preventDefault();
-    if (quickMode === "video") {
-      videoApi.setVideoReferenceFile(pastedImages[0]);
-      addEvent("视频参考图", "已从剪贴板添加 1 张参考图");
-      return;
-    }
-    appendReferenceFiles(pastedImages, {
-      eventLabel: "粘贴上传",
-      actionText: "已从剪贴板添加"
-    });
-  }
 
-
-  function downloadVideoResult(item) {
-    if (!item?.url) return;
-    const link = document.createElement("a");
-    link.href = item.url;
-    link.download = `静音AI视频-${dragDownloadDateStamp(item.createdAt || Date.now())}.mp4`;
-    link.rel = "noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    addEvent("视频下载", "已开始下载视频");
-  }
-
-
-  function removeReferenceImage(index) {
-    setFiles((current) => {
-      const removed = current[index];
-      if (quickCropEditTarget?.id && removed?.id === quickCropEditTarget.id) {
-        setQuickCropEditTarget(null);
-      }
-      if (quickLocalEditTarget?.id && removed?.id === quickLocalEditTarget.id) {
-        setQuickLocalEditTarget(null);
-      }
-      return current.filter((_, itemIndex) => itemIndex !== index);
-    });
-  }
-
-  function openQuickCropEdit(item) {
-    if (!item?.id) return;
-    setQuickCropEditTarget(item);
-  }
-
-  function openQuickLocalEdit(item) {
-    if (!item?.id) return;
-    // 2026-09-25：这里原来会在 settings.aspectRatio 不属于 QUICK_LOCAL_EDIT_RATIOS 时
-    // 把比例强改成 QUICK_LOCAL_EDIT_RATIOS[0]（也就是 "1:1"）。
-    // 模型目录里的 2:3 / auto 等合法比例会因此被悄悄改成正方形，
-    // 于是"打开局部回贴就变成正方形选框"。现在不再改用户的比例设置。
-    setQuickLocalEditTarget(item);
-  }
-
-  function applyQuickCropEdit(itemId, cropped) {
-    setFiles((current) => current.map((item) => {
-      if (item.id !== itemId) return item;
-      return {
-        ...item,
-        cropEdit: {
-          cropFile: cropped.file,
-          cropRect: cropped.cropRect,
-          sourceWidth: cropped.sourceWidth,
-          sourceHeight: cropped.sourceHeight,
-          aspectRatio: cropped.aspectRatio || settings.aspectRatio,
-          appliedAt: Date.now()
-        },
-        localEdit: null
-      };
-    }));
-    setQuickCropEditTarget(null);
-    addEvent("普通裁剪", "已启用普通裁剪，生成结果不会贴回原图");
-  }
-
-  function applyQuickLocalEdit(itemId, cropped) {
-    const nextRatio = QUICK_LOCAL_EDIT_RATIOS.includes(cropped.aspectRatio) ? cropped.aspectRatio : QUICK_LOCAL_EDIT_RATIOS[0];
-    updateSetting("aspectRatio", nextRatio);
-    setFiles((current) => current.map((item) => {
-      if (item.id !== itemId) return item;
-      return {
-        ...item,
-        cropEdit: null,
-        localEdit: {
-          cropFile: cropped.file,
-          cropRect: cropped.cropRect,
-          contextRect: cropped.contextRect || null,
-          sourceWidth: cropped.sourceWidth,
-          sourceHeight: cropped.sourceHeight,
-          aspectRatio: nextRatio,
-          editMode: cropped.editMode || LOCAL_EDIT_RECT_MODE,
-          maskDataUrl: cropped.maskDataUrl || "",
-          maskBounds: cropped.maskBounds || null,
-          brushSize: cropped.brushSize || LOCAL_EDIT_BRUSH_DEFAULT,
-          maskOpacity: cropped.maskOpacity || LOCAL_EDIT_MASK_OPACITY_DEFAULT,
-          appliedAt: Date.now()
-        }
-      };
-    }));
-    setQuickLocalEditTarget(null);
-    addEvent("局部编辑", cropped.editMode === LOCAL_EDIT_MASK_MODE ? "已启用涂抹蒙版，生成后只回贴涂抹区域" : "已启用局部裁剪，生成后会贴回原图");
-  }
-
-  function clearQuickCropEdit(itemId) {
-    setFiles((current) => current.map((item) => (
-      item.id === itemId ? { ...item, cropEdit: null } : item
-    )));
-    setQuickCropEditTarget(null);
-    addEvent("普通裁剪", "已取消普通裁剪");
-  }
-
-  function clearQuickLocalEdit(itemId) {
-    setFiles((current) => current.map((item) => (
-      item.id === itemId ? { ...item, localEdit: null } : item
-    )));
-    setQuickLocalEditTarget(null);
-    addEvent("局部编辑", "已取消局部裁剪");
-  }
 
   // V60：详情私有状态已移入 useDetailState，此处经 detailApi 回传（见 detail/README.md 偏差③）。
   const resultActionsDeps = { setSelectedIds, selectedIds, activeView, quickResults, setResults, setBrokenResultImages, detailInfoSelection: detailApi.detailInfoSelection, setDetailInfoSelection: detailApi.setDetailInfoSelection, setDetailGroups: detailApi.setDetailGroups, removeHistoryResults, loadHistoryResults, hydrateDetailGroupsWithHistory, addEvent };
   const { toggleSelected, deleteSelected, deleteResult, markResultImageBroken, refreshHistory, syncHistoryFromServer } = createResultActions(resultActionsDeps);
   // 回填晚绑定 ref：详情生成完成后（2.4s 延时）用它回载历史。
   syncHistoryFromServerRef.current = syncHistoryFromServer;
+
+  // P6-5：useMainHandlers 晚绑定 ref 回填（渲染期执行；此时 addCanvasFiles(P6-4 钩) /
+  //   patchActiveCanvas(createCanvasActions) / videoApi / appendReferenceFiles(createReferenceUpload) /
+  //   referenceApi / refreshSaveDirectory(useSaveDirectory) / previewNavigationItems(useMemo) /
+  //   moveReferenceFile(createReferenceUpload) /
+  //   detailApi / generate(P6-4 钩) 均已初始化；handler 只在事件回调 / effect 内调用，无 TDZ）。
+  handlerLateRef.current = {
+    addCanvasFiles,
+    patchActiveCanvas,
+    moveReferenceFile,
+    videoApi,
+    appendReferenceFiles,
+    referenceApi,
+    refreshSaveDirectory,
+    previewNavigationItems,
+    detailApi,
+    generate
+  };
 
   const {
     clearQuickResultDragState,
@@ -1283,270 +1171,11 @@ function App() {
 
 
 
-  function clearAll() {
-    const targetResults = activeView === "reference-remix" ? referenceApi.referenceResults : quickResults;
-    const moduleName = activeView === "reference-remix" ? "参考生图" : "快捷生成";
-    const confirmed = window.confirm(`确定清空${moduleName}历史记录吗？这个操作不会影响其他模块。`);
-    if (!confirmed) return;
-    const ids = targetResults.map((item) => item.id);
-    setResults((current) => current.filter((item) => !ids.includes(item.id)));
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      ids.forEach((id) => next.delete(id));
-      return next;
-    });
-    if (activeView === "reference-remix") {
-      setReferenceProductFiles([]);
-      setReferenceStyleFiles([]);
-      referenceApi.resetReferenceState();
-    } else {
-      setFiles([]);
-      setQuickLocalEditTarget(null);
-      setTiming(null);
-      setError("");
-      setStatus("idle");
-      setQuickTasks([]);
-    }
-    setEvents([]);
-    void removeHistoryResults(ids);
-  }
-
-  function openSaveDirectory() {
-    const sendOpenRequest = (directory) => {
-      addEvent("保存目录", "正在打开保存目录");
-      openSaveDirectoryRequest(directory).then((payload) => {
-        setSaveDirectory(payload.directory);
-        setDirectoryDraft((current) => current || payload.directory);
-        addEvent("保存目录", `已打开 ${payload.directory}`);
-      }).catch((err) => {
-        const message = err instanceof Error ? err.message : String(err);
-        addEvent("打开失败", message);
-      });
-    };
-
-    const directory = saveDirectory || directoryDraft;
-    if (directory) {
-      sendOpenRequest(directory);
-      return;
-    }
-
-    void refreshSaveDirectory().then((nextDirectory) => {
-      if (nextDirectory) sendOpenRequest(nextDirectory);
-    });
-  }
-
-  function onQuickBoardWheel(event) {
-    const gallery = quickGalleryRef.current;
-    if (!gallery) return;
-    if (event.target?.closest?.("textarea,input,select,.composerReferences")) return;
-    if (gallery.contains(event.target)) return;
-    if (gallery.scrollHeight <= gallery.clientHeight) return;
-    event.preventDefault();
-    gallery.scrollTop += event.deltaY;
-  }
-
-  function autoSaveEventText(payload, overrideCount = null) {
-    const count = Number((overrideCount ?? payload?.autoSavedCount) || 0);
-    return count > 0 ? `，已自动保存 ${count} 张` : "";
-  }
-
-  function openSettingsPanel() {
-    setIsSettingsOpen(true);
-  }
-
-  function openUploadPreview(item) {
-    if (!item?.url) return;
-    // 排完序松手会紧跟一次 click，这时不能开预览（同批量侧 outfit-panels 的 150ms 抑制窗口）。
-    if (suppressReferencePreviewRef.current) return;
-    setUploadPreview({
-      url: item.url,
-      name: item.uploadName || item.file?.name || "上传图片",
-      size: item.uploadSize || item.file?.size || 0
-    });
-  }
-
   // ---- 参考图左右调顺序（pointer 版，与批量侧 outfit-panels 同一套手感）----
-  function beginReferenceSort(event, item) {
-    if (event.button !== 0) return;
-    // 移除按钮 / 裁剪 / 局部回贴这三个工具按钮不参与拖拽。
-    if (event.target instanceof Element && event.target.closest(".referenceToolRow")) return;
-    referencePointerSortRef.current = {
-      id: item.id,
-      startX: event.clientX,
-      startY: event.clientY,
-      active: false,
-      target: null
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function moveReferenceSort(event) {
-    const sort = referencePointerSortRef.current;
-    if (!sort) return;
-    // 只有 1 张图时排不了序，也不需要起步。
-    if (previewFiles.length <= 1) return;
-    const deltaX = event.clientX - sort.startX;
-    const deltaY = event.clientY - sort.startY;
-    // 8px 阈值：没超过就当作普通点击，不要抢走 click。
-    if (!sort.active && Math.hypot(deltaX, deltaY) < 8) return;
-
-    sort.active = true;
-    setDraggingReferenceId(sort.id);
-    event.preventDefault();
-    event.stopPropagation();
-
-    const under = document.elementFromPoint(event.clientX, event.clientY);
-    const wrap = under?.closest?.(".referenceThumbWrap[data-reference-id]");
-    const targetId = wrap?.dataset?.referenceId;
-    if (!wrap || !targetId || targetId === sort.id) {
-      sort.target = null;
-      setReferenceSortTarget(null);
-      return;
-    }
-
-    const rect = wrap.getBoundingClientRect();
-    // 左右分半：过中线算"放到它后面"，否则算"放到它前面"。
-    const placement = event.clientX > rect.left + rect.width / 2 ? "after" : "before";
-    sort.target = { id: targetId, placement };
-    setReferenceSortTarget(sort.target);
-  }
-
-  function endReferenceSort(event) {
-    const sort = referencePointerSortRef.current;
-    if (!sort) return;
-    if (sort.active) {
-      event.preventDefault();
-      event.stopPropagation();
-      if (sort.target) {
-        moveReferenceFile(sort.id, sort.target.id, sort.target.placement);
-      }
-      suppressReferencePreviewRef.current = true;
-      window.setTimeout(() => {
-        suppressReferencePreviewRef.current = false;
-      }, 150);
-    }
-    referencePointerSortRef.current = null;
-    setDraggingReferenceId("");
-    setReferenceSortTarget(null);
-  }
-
-  function cancelReferenceSort() {
-    referencePointerSortRef.current = null;
-    setDraggingReferenceId("");
-    setReferenceSortTarget(null);
-  }
-
-  function closeUploadPreview() {
-    setUploadPreview(null);
-  }
-
   // V11-RF-043-2：共享 `ReferenceThumbTray` 的 onOpen 约定统一为 `(reference, index, items)`，
   // 第一个实参是**被点击的那一张**，不再是整组（旧版是 `onOpen(items, index)`）。
   // 本页预览要的是整组 ⇒ 取第三个实参 items；items 缺失时退化到被点击的这一张（放宽，不留静默失效）。
   // 正常路径下 items 就是旧版传进来的那个数组 ⇒ 与改前**行为等价**。
-  function openReferencePreview(reference, index = 0, items = []) {
-    const source = Array.isArray(items) && items.length > 0 ? items : [reference];
-    const previewItems = source.filter((item) => referenceSource(item));
-    if (previewItems.length === 0) return;
-    setReferencePreview({
-      items: previewItems,
-      index: Math.max(0, Math.min(previewItems.length - 1, index))
-    });
-  }
-
-  function closeReferencePreview() {
-    setReferencePreview(null);
-  }
-
-  function shiftReferencePreview(direction) {
-    setReferencePreview((current) => {
-      if (!current?.items?.length) return current;
-      const nextIndex = Math.max(0, Math.min(current.items.length - 1, current.index + direction));
-      return nextIndex === current.index ? current : { ...current, index: nextIndex };
-    });
-  }
-
-  function openPreview(item) {
-    setPreviewResult(item);
-    setPreviewZoom(1);
-    setPreviewPan({ x: 0, y: 0 });
-  }
-
-  function shiftPreview(direction) {
-    if (!previewResult || previewNavigationItems.length <= 1) return;
-    const index = previewNavigationItems.findIndex((item) => item.id === previewResult.id);
-    if (index < 0) return;
-    const nextIndex = Math.max(0, Math.min(previewNavigationItems.length - 1, index + direction));
-    if (nextIndex === index) return;
-    openPreview(previewNavigationItems[nextIndex]);
-  }
-
-  function closePreview() {
-    setPreviewResult(null);
-    setPreviewZoom(1);
-    setPreviewPan({ x: 0, y: 0 });
-    previewDragRef.current = null;
-  }
-
-  function handlePreviewWheel(event) {
-    event.preventDefault();
-    const direction = event.deltaY < 0 ? 1 : -1;
-    setPreviewZoom((current) => {
-      const next = current + direction * 0.12;
-      return Math.max(0.35, Math.min(4, Number(next.toFixed(2))));
-    });
-  }
-
-  function openContextMenu(event, itemId) {
-    event.preventDefault();
-    event.stopPropagation();
-    const menuWidth = 176;
-    const menuHeight = 476;
-    setReferenceContextMenu(null);
-    detailApi.setStitchContextMenu(null);
-    setContextMenu({
-      itemId,
-      x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
-      y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8))
-    });
-  }
-
-  function openReferenceContextMenu(event, reference, index, items) {
-    event.preventDefault();
-    event.stopPropagation();
-    const menuWidth = 190;
-    const menuHeight = 52;
-    setContextMenu(null);
-    detailApi.setStitchContextMenu(null);
-    setReferenceContextMenu({
-      reference,
-      index,
-      count: Array.isArray(items) ? items.length : 0,
-      x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
-      y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8))
-    });
-  }
-
-  function rerunResult(item, count = 1) {
-    if (item.source === "infinite-canvas") {
-      setActiveView("infinite-canvas");
-      addEvent("无限画布", "画布结果请通过生图节点继续生成");
-      return;
-    }
-    const detailMatch = detailApi.findDetailPromptByResult(item.id);
-    if (detailMatch) {
-      void detailApi.generateDetailPrompt(detailMatch.group, detailMatch.prompt, detailMatch.prompt.screen, count);
-      return;
-    }
-    const prompt = item.prompt || settings.prompt;
-    setSettings((current) => ({ ...current, prompt, n: count }));
-    void generate({ prompt, n: count, replaceResultId: item.id });
-  }
-
-  function markDeferredFeature(label) {
-    addEvent(label, "此功能会在后续模块接入");
-  }
-
   return (
     // 最外层兜底：任何一个视图在渲染期抛错，都不会变成整页白屏。
     <ErrorBoundary label="应用主界面">
@@ -1594,170 +1223,43 @@ function App() {
 
       <section className={`quickgenArea ${["outfit", "resize"].includes(activeView) ? "embeddedWorkflowArea" : ""}`}>
         {!["outfit", "resize"].includes(activeView) && (
-        <header className="topBar">
-          <div className="resultTabs">
-            {activeView === "infinite-canvas" ? (
-              <div className="viewTitle">
-                <Box size={16} />
-                <span>无限画布</span>
-              </div>
-            ) : activeView === "detail-main" ? (
-              <div className="viewTitle">
-                <FileText size={16} />
-                <span>一键详情/主图</span>
-              </div>
-            ) : activeView === "reference-remix" ? (
-              <div className="viewTitle">
-                <Layers size={16} />
-                <span>参考生图</span>
-              </div>
-            ) : activeView === "image-editor" ? (
-              <div className="viewTitle">
-                <Brush size={16} />
-                <span>图片编辑</span>
-              </div>
-            ) : (
-              <>
-                <button
-                  className={`tabButton ${quickMode === "image" && resultFilter === "all" ? "active" : ""}`}
-                  type="button"
-                  onClick={() => { setQuickMode("image"); setResultFilter("all"); }}
-                >
-                  全部({imageCount + videoApi.videoCount})
-                </button>
-                <button
-                  className={`tabButton ${quickMode === "image" && resultFilter === "image" ? "active" : ""}`}
-                  type="button"
-                  onClick={() => { setQuickMode("image"); setResultFilter("image"); }}
-                >
-                  <ImageIcon size={14} /> 图片({imageCount})
-                </button>
-                <button
-                  className={`tabButton ${quickMode === "video" ? "active" : ""}`}
-                  type="button"
-                  onClick={() => { setQuickMode("video"); setResultFilter("video"); }}
-                >
-                  <Video size={14} /> 视频({videoApi.videoCount})
-                </button>
-              </>
-            )}
-          </div>
-
-          <div className="topActions">
-            {activeView === "quickgen" && (
-              <button className="toolbarButton" type="button" onClick={() => void refreshHistory()}>
-                <RefreshCw size={15} />
-                <span>刷新</span>
-              </button>
-            )}
-            <button className="toolbarButton" type="button" onClick={openDirectoryModal}>
-              <FolderOpen size={15} />
-              <span>指定文件夹</span>
-            </button>
-            {activeView === "detail-main" && (
-              <button
-                className="generateButton pinnedFolderButton"
-                type="button"
-                onClick={() => detailApi.activeDetailGroup && detailApi.openStitchPreview(detailApi.activeDetailGroup)}
-                disabled={!detailApi.activeDetailGroup || detailApi.activeDetailResults.length === 0}
-              >
-                <Layers size={15} />
-                <span>拼图预览</span>
-              </button>
-            )}
-            <button className="toolbarButton pinnedFolderButton" type="button" onClick={() => void openSaveDirectory()}>
-              <FolderOpen size={15} />
-              <span>打开保存目录</span>
-            </button>
-            {activeView === "infinite-canvas" && (
-              <>
-                <select className="toolbarSelect" value={activeCanvasId || ""} onChange={(event) => selectCanvas(event.target.value)}>
-                  {canvases.map((canvas) => <option key={canvas.id} value={canvas.id}>{canvas.name}</option>)}
-                </select>
-                <span className={`taskBadge task-${canvasRunningCount > 0 ? "running" : "success"}`}>{canvasStatusText}</span>
-                <button className="toolbarButton" type="button" onClick={createCanvas}>
-                  <Plus size={15} />
-                  <span>新建画布</span>
-                </button>
-                <button className="toolbarButton" type="button" onClick={renameCanvas} disabled={!activeCanvas}>
-                  <Pencil size={15} />
-                  <span>重命名</span>
-                </button>
-                <button className="toolbarButton" type="button" onClick={fitCanvasView} disabled={!activeCanvas}>
-                  <Maximize2 size={15} />
-                  <span>适配</span>
-                </button>
-                <button className="dangerButton" type="button" onClick={clearCanvas} disabled={!activeCanvas}>
-                  <Trash2 size={15} />
-                  <span>清空</span>
-                </button>
-              </>
-            )}
-            {activeView === "detail-main" && (
-              <span className={`taskBadge task-${detailApi.detailStatus === "failed" ? "failed" : detailApi.detailRunningCount > 0 || detailApi.detailStatus === "planning" ? "running" : "success"}`}>
-                {detailApi.detailStatusText}
-              </span>
-            )}
-            {activeView === "quickgen" && (
-              <>
-                {quickMode === "video" ? (
-                  <>
-                    <span className={`taskBadge task-${videoApi.videoStatus === "failed" ? "failed" : videoApi.runningVideoTasks.length > 0 ? "running" : videoApi.videoStatus}`}>{latestVideoStatusText}</span>
-                    <button className="toolbarButton" type="button" onClick={() => videoApi.videoResults[0] && downloadVideoResult(videoApi.videoResults[0])} disabled={videoApi.videoResults.length === 0}>
-                      <Download size={15} />
-                      <span>下载最新</span>
-                    </button>
-                    <button className="dangerButton" type="button" onClick={videoApi.clearVideoResults} disabled={videoApi.videoResults.length === 0 && videoApi.runningVideoTasks.length === 0}>
-                      <Trash2 size={15} />
-                      <span>清空视频</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className={`taskBadge task-${quickStatus}`}>{latestStatusText}</span>
-                    <button className="toolbarButton" type="button" onClick={downloadSelected} disabled={quickSelectedCount === 0}>
-                      <Download size={15} />
-                      <span>下载选中</span>
-                    </button>
-                    <button className="toolbarButton" type="button" onClick={downloadAll} disabled={quickResults.length === 0}>
-                      <Download size={15} />
-                      <span>下载全部</span>
-                    </button>
-                    <button className="dangerButton" type="button" onClick={deleteSelected} disabled={quickSelectedCount === 0}>
-                      <Trash2 size={15} />
-                      <span>删除选中</span>
-                    </button>
-                    <button className="dangerButton" type="button" onClick={clearAll}>
-                      <Trash2 size={15} />
-                      <span>清空全部</span>
-                    </button>
-                    <div className="zoomControl">
-                      <button type="button" onClick={() => changeGalleryZoom(-0.1)} disabled={galleryZoom <= 0.75} aria-label="缩小图库">
-                        <Minus size={14} />
-                      </button>
-                      <span style={{ "--zoom-fill": `${Math.max(0, Math.min(100, ((galleryZoom - 0.75) / 0.7) * 100))}%` }} />
-                      <button type="button" onClick={() => changeGalleryZoom(0.1)} disabled={galleryZoom >= 1.45} aria-label="放大图库">
-                        <Plus size={14} />
-                      </button>
-                      <strong>{galleryZoomPercent}%</strong>
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-            {activeView === "reference-remix" && (
-              <>
-                <span className={`taskBadge task-${referenceApi.runningReferenceTasks.length > 0 ? "running" : referenceApi.referenceStatus}`}>
-                  {referenceApi.referenceStatusText}
-                </span>
-                <button className="toolbarButton" type="button" onClick={clearAll} disabled={referenceApi.referenceResults.length === 0}>
-                  <Trash2 size={15} />
-                  <span>清空参考结果</span>
-                </button>
-              </>
-            )}
-          </div>
-        </header>
+          <MainTopBar
+            activeView={activeView}
+            quickMode={quickMode}
+            setQuickMode={setQuickMode}
+            resultFilter={resultFilter}
+            setResultFilter={setResultFilter}
+            imageCount={imageCount}
+            videoApi={videoApi}
+            refreshHistory={refreshHistory}
+            openDirectoryModal={openDirectoryModal}
+            detailApi={detailApi}
+            openSaveDirectory={openSaveDirectory}
+            activeCanvasId={activeCanvasId}
+            canvases={canvases}
+            selectCanvas={selectCanvas}
+            canvasRunningCount={canvasRunningCount}
+            canvasStatusText={canvasStatusText}
+            createCanvas={createCanvas}
+            renameCanvas={renameCanvas}
+            activeCanvas={activeCanvas}
+            fitCanvasView={fitCanvasView}
+            clearCanvas={clearCanvas}
+            latestVideoStatusText={latestVideoStatusText}
+            quickStatus={quickStatus}
+            latestStatusText={latestStatusText}
+            downloadSelected={downloadSelected}
+            quickSelectedCount={quickSelectedCount}
+            downloadAll={downloadAll}
+            quickResults={quickResults}
+            deleteSelected={deleteSelected}
+            clearAll={clearAll}
+            changeGalleryZoom={changeGalleryZoom}
+            galleryZoom={galleryZoom}
+            galleryZoomPercent={galleryZoomPercent}
+            referenceApi={referenceApi}
+            downloadVideoResult={downloadVideoResult}
+          />
         )}
 
         {["outfit", "resize"].includes(activeView) ? (
@@ -2188,335 +1690,78 @@ function App() {
             copyText={copyText}
           />
         ) : (
-        <div className="canvasBoard" onWheel={onQuickBoardWheel}>
-          <section ref={quickGalleryRef} className="galleryStrip" style={{ "--asset-card-min": `${galleryCardMin}px` }}>
-            {quickGalleryItems.map((galleryItem, index) => {
-              if (galleryItem.kind === "task") {
-                const task = galleryItem.task;
-                return (
-                  <article className="assetCard loadingCard" key={galleryItem.key}>
-                    <Loader2 className="spin" size={28} />
-                    <span>生成中</span>
-                    <strong><ElapsedTimer startedAt={task.startedAt} /></strong>
-                    <em>{task.modelLabel} · {task.imageSize} · {task.aspectRatio}</em>
-                  </article>
-                );
-              }
-              const item = galleryItem.result;
-              const src = imageSourceFromResult(item.image);
-              // P1 缺图自愈：已知失效（服务端标记）或加载失败过 → 不再发请求，直接显示原因。
-              // 失败标记带 src 快照：重刷后地址变了就自动失效，不会把新图也判成坏图。
-              const cardState = resultImageCardState(item.image, imageSourceFromResult);
-              const brokenEntry = brokenResultImages[item.id];
-              const brokenReason = cardState.missing
-                ? cardState.reason
-                : (brokenEntry && brokenEntry.src === src ? brokenEntry.reason : "");
-              const selected = selectedIds.has(item.id);
-              return (
-                <article
-                  className={`assetCard ${quickResultReplaceTargetId === item.id ? "replaceTarget" : ""}`}
-                  key={galleryItem.key}
-                  onClick={() => openPreview(item)}
-                  onContextMenu={(event) => openContextMenu(event, item.id)}
-                  onDragOver={(event) => handleQuickResultReplaceDragOver(event, item)}
-                  onDragLeave={() => setQuickResultReplaceTargetId((current) => current === item.id ? "" : current)}
-                  onDrop={(event) => handleQuickResultReplaceDrop(event, item)}
-                >
-                  <button
-                    className="selectBox"
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      toggleSelected(item.id);
-                    }}
-                    aria-label="选择图片"
-                  >
-                    {selected ? <CheckSquare size={24} /> : <Square size={24} />}
-                  </button>
-                  <button
-                    className={`assetDownloadButton ${downloadFeedbackIds.has(item.id) ? "downloaded" : ""}`}
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void downloadItem(item, index);
-                    }}
-                    title="下载到指定文件夹"
-                    aria-label="下载到指定文件夹"
-                  >
-                    {downloadFeedbackIds.has(item.id) ? <Check size={16} /> : <Download size={16} />}
-                  </button>
-                  <button
-                    className="assetRerunButton"
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      rerunResult(item, 1);
-                    }}
-                    title="重刷这张结果"
-                    aria-label="重刷这张结果"
-                  >
-                    <RefreshCw size={15} />
-                  </button>
-                  <button
-                    className="assetDeleteButton"
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      deleteResult(item.id);
-                    }}
-                    title="删除这张结果"
-                    aria-label="删除这张结果"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                  {item.generationMs && <div className="assetTimeBadge">用时 {formatMs(item.generationMs)}</div>}
-                  {brokenReason ? (
-                    <div className="assetImageFallback" title={brokenReason}>
-                      <ImageOff size={26} />
-                      <strong>原图已失效</strong>
-                      <span>{brokenReason}</span>
-                      <em>可点右上角删除按钮清理这条记录</em>
-                    </div>
-                  ) : (
-                    <CachedImage
-                      src={src}
-                      alt={`生成图片 ${index + 1}`}
-                      draggable
-                      onDragStart={(event) => beginResultImageDrag(event, item, index)}
-                      onDragEnd={clearQuickResultDragState}
-                      onError={() => markResultImageBroken(item)}
-                      diagnostic={{ requestId: item.requestId || item.id, endpoint: "/api/images", module: "快捷生成", placement: "quick-card" }}
-                    />
-                  )}
-                  <ReferenceThumbTray references={item.references} count={item.referenceCount} className="assetReferenceTray" onOpen={openReferencePreview} onContextMenu={openReferenceContextMenu} onImageDragStart={beginReferenceImageDrag} />
-                  {item.prompt && (
-                    <button
-                      className="assetPrompt"
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        copyText(item.prompt, "提示词已复制");
-                      }}
-                      title={item.prompt}
-                    >
-                      {item.prompt}
-                    </button>
-                  )}
-                  <div className="assetMeta">
-                    <span>{item.modelLabel}</span>
-                    <strong>{item.imageSize} · {item.aspectRatio}</strong>
-                  </div>
-                </article>
-              );
-            })}
-          </section>
-
-          {quickResults.length === 0 && runningQuickTasks.length === 0 && (
-            <div className="emptyCanvas">
-              <ImageIcon size={34} />
-              <span>{status === "failed" ? error : "暂无图片"}</span>
-            </div>
-          )}
-
-          <section
-            className={`composer ${isComposerDragging ? "dragging" : ""}`}
-            onDragOver={onComposerDragOver}
-            onDragLeave={onComposerDragLeave}
-            onDrop={onComposerDrop}
-            onPaste={onComposerPaste}
-          >
-            {/* 2026-09-25 UI 调整：删除悬浮框里的「图片生成 / 视频生成」页签。
-                它与顶部结果栏的「全部 / 图片 / 视频」是同一功能的重复入口，
-                切换逻辑和底层 setQuickMode 都保留（顶部栏仍然可以切）。 */}
-
-            {previewFiles.length > 0 && (
-              <div className="composerReferences">
-                <div
-                  className={`referenceInsertZone ${referenceDropTarget?.type === "insert" && referenceDropTarget.index === 0 ? "active" : ""}`}
-                  onDragOver={(event) => beginReferenceDrop(event, "insert", 0)}
-                  onDragLeave={endReferenceDrop}
-                  onDrop={(event) => onReferenceDrop(event, "insert", 0)}
-                  title="拖到这里插入图片"
-                />
-                {previewFiles.map((item, index) => (
-                  <React.Fragment key={item.id || `${item.file.name}-${item.file.lastModified}-${index}`}>
-                    <div
-                      className={`referenceThumbWrap ${draggingReferenceId === item.id ? "sorting" : ""} ${referenceSortTarget?.id === item.id ? (referenceSortTarget.placement === "after" ? "dropAfter" : "dropBefore") : ""}`}
-                      data-reference-id={item.id}
-                    >
-                      <div
-                      className={`referenceThumb ${referenceDropTarget?.type === "replace" && referenceDropTarget.index === index ? "replaceTarget" : ""} ${item.cropEdit ? "cropEditReady" : ""} ${item.localEdit ? "localEditReady" : ""}`}
-                      data-reference-index={index}
-                      draggable={false}
-                      onDragOver={(event) => beginReferenceDrop(event, "replace", index)}
-                      onDragLeave={endReferenceDrop}
-                      onDrop={(event) => onReferenceDrop(event, "replace", index)}
-                      onPointerDown={(event) => beginReferenceSort(event, item)}
-                      onPointerMove={moveReferenceSort}
-                      onPointerUp={endReferenceSort}
-                      onPointerCancel={cancelReferenceSort}
-                      onClick={() => openUploadPreview(item)}
-                      title={previewFiles.length > 1 ? `${item.file.name} · ${fileSize(item.file.size)}，按住可左右拖动调整顺序；拖新图到这里可替换` : `${item.file.name} · ${fileSize(item.file.size)}，拖新图到这里可替换`}
-                    >
-                      <b>图{index + 1}</b>
-                      <img src={item.url} alt={item.file.name} draggable={false} />
-                      <button
-                        type="button"
-                        onClick={(event) => { event.stopPropagation(); removeReferenceImage(index); }}
-                        onPointerDown={(event) => event.stopPropagation()}
-                        aria-label="移除参考图"
-                      >
-                        <X size={12} />
-                      </button>
-                      </div>
-                      <div className="referenceToolRow">
-                        <button
-                          className={`referenceToolButton ${item.cropEdit ? "active" : ""}`}
-                          type="button"
-                          onClick={(event) => { event.stopPropagation(); openQuickCropEdit(item); }}
-                          title={item.cropEdit ? "重新调整普通裁剪" : "普通裁剪"}
-                          aria-label={item.cropEdit ? "重新调整普通裁剪" : "普通裁剪"}
-                        >
-                          <Crop size={14} />
-                        </button>
-                        <button
-                          className={`referenceToolButton ${item.localEdit ? "active" : ""}`}
-                          type="button"
-                          onClick={(event) => { event.stopPropagation(); openQuickLocalEdit(item); }}
-                          title={item.localEdit ? "重新调整局部回贴" : "局部回贴"}
-                          aria-label={item.localEdit ? "重新调整局部回贴" : "局部回贴"}
-                        >
-                          <Scissors size={14} />
-                        </button>
-                      </div>
-                    </div>
-                    <div
-                      className={`referenceInsertZone ${referenceDropTarget?.type === "insert" && referenceDropTarget.index === index + 1 ? "active" : ""}`}
-                      onDragOver={(event) => beginReferenceDrop(event, "insert", index + 1)}
-                      onDragLeave={endReferenceDrop}
-                      onDrop={(event) => onReferenceDrop(event, "insert", index + 1)}
-                      title="拖到这里插入图片"
-                    />
-                  </React.Fragment>
-                ))}
-              </div>
-            )}
-
-            <DebouncedTextarea
-              className="promptBox"
-              value={settings.prompt}
-              onChange={(value) => updateSetting("prompt", value)}
-              placeholder="输入你要生成或修改的画面"
-            />
-
-            <div className="composerFooter">
-              {/* 快捷悬浮框右上角功能组：与 3.0 快捷生成右上角四个功能一一对应。
-                  清空图片 / 提示词助手 / 优化提示词 / 渠道价格（线路价格）四个功能
-                  在本页只保留这一套入口；底部原来的同名入口已删除。 */}
-              <div className="quickToolCluster" role="group" aria-label="快捷生成工具">
-                <button
-                  className="quickToolButton"
-                  type="button"
-                  title="清空图片"
-                  aria-label="清空图片"
-                  onClick={() => { setFiles([]); setQuickCropEditTarget(null); setQuickLocalEditTarget(null); setIsQuickChannelMenuOpen(false); }}
-                >
-                  <Trash2 size={15} />
-                </button>
-                <button
-                  className="quickToolButton"
-                  type="button"
-                  title="提示词助手"
-                  aria-label="提示词助手"
-                  onClick={() => { setIsPromptAssistantOpen(true); setIsQuickChannelMenuOpen(false); }}
-                >
-                  <BookOpen size={15} />
-                </button>
-                <button
-                  className="quickToolButton"
-                  type="button"
-                  title="优化提示词"
-                  aria-label="优化提示词"
-                  disabled={isQuickPromptOptimizing}
-                  onClick={() => { setIsQuickChannelMenuOpen(false); void optimizePrompt(); }}
-                >
-                  {isQuickPromptOptimizing ? <Loader2 className="spin" size={15} /> : <Wand2 size={15} />}
-                </button>
-                <button
-                  className={`quickToolButton channelPriceButton ${isQuickChannelMenuOpen ? "active" : ""}`}
-                  type="button"
-                  title={quickChannel ? `线路价格：${quickChannel.label} ${channelPriceLabel(quickChannel)}` : "线路价格：当前模型暂无可用线路"}
-                  aria-label="线路价格"
-                  aria-expanded={isQuickChannelMenuOpen}
-                  onClick={() => setIsQuickChannelMenuOpen((current) => !current)}
-                >
-                  <span className="quickToolGlyph">¥</span>
-                </button>
-
-                {isQuickChannelMenuOpen && (
-                  <div className="quickChannelMenu" role="menu" aria-label="线路价格菜单">
-                    <div className="quickChannelMenuTitle">
-                      {activeModel?.label || settings.model} 可用线路
-                    </div>
-                    {quickChannels.map((channel) => (
-                      <button
-                        key={channel.id}
-                        className={`quickChannelItem ${quickChannel?.id === channel.id ? "active" : ""}`}
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          updateSetting("channelId", channel.id);
-                          setIsQuickChannelMenuOpen(false);
-                        }}
-                      >
-                        <span>{channel.label}</span>
-                        <em>{channelPriceLabel(channel)}</em>
-                      </button>
-                    ))}
-                    {quickChannels.length === 0 && (
-                      <p className="quickChannelEmpty">当前模型暂无可用线路，请检查渠道目录</p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="leftTools">
-                {/* 2026-09-25 UI 调整：删除可见的「上传」和「库/素材库」按钮。
-                    隐藏的 file input 与拖拽/粘贴上传能力全部保留（onPickFiles / onComposerDrop / onComposerPaste 未改动），
-                    只是不再提供这两个重复入口的按钮。 */}
-                <input ref={inputRef} type="file" accept="image/*" multiple onChange={onPickFiles} />
-              </div>
-
-              <div className="rightTools">
-                <select value={settings.model} onChange={(event) => updateSetting("model", event.target.value)}>
-                  {models.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
-                </select>
-                <select value={settings.aspectRatio} onChange={(event) => updateSetting("aspectRatio", event.target.value)}>
-                  {ratios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
-                </select>
-                <select value={settings.imageSize} onChange={(event) => updateSetting("imageSize", event.target.value)}>
-                  {quickSizes.map((size) => <option key={size} value={size}>{size}</option>)}
-                </select>
-                <select value={settings.n} onChange={(event) => updateSetting("n", event.target.value)}>
-                  {COUNT_OPTIONS.filter((count) => count <= quickMaxReferenceFiles).map((count) => (
-                    <option key={count} value={count}>{count}张</option>
-                  ))}
-                </select>
-                <button className="generateButton" type="button" onClick={() => generate()}>
-                  {runningQuickTasks.length > 0 ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
-                  <span>生成</span>
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {events.length > 0 && (
-            <div className="eventPill">
-              <strong>{events[0].label}</strong>
-              <span>{events[0].detail}</span>
-            </div>
-          )}
-        </div>
+          <MainCanvasBoard
+            quickGalleryRef={quickGalleryRef}
+            galleryCardMin={galleryCardMin}
+            quickGalleryItems={quickGalleryItems}
+            brokenResultImages={brokenResultImages}
+            selectedIds={selectedIds}
+            quickResultReplaceTargetId={quickResultReplaceTargetId}
+            setQuickResultReplaceTargetId={setQuickResultReplaceTargetId}
+            openPreview={openPreview}
+            openContextMenu={openContextMenu}
+            handleQuickResultReplaceDragOver={handleQuickResultReplaceDragOver}
+            handleQuickResultReplaceDrop={handleQuickResultReplaceDrop}
+            toggleSelected={toggleSelected}
+            downloadFeedbackIds={downloadFeedbackIds}
+            downloadItem={downloadItem}
+            rerunResult={rerunResult}
+            deleteResult={deleteResult}
+            beginResultImageDrag={beginResultImageDrag}
+            clearQuickResultDragState={clearQuickResultDragState}
+            markResultImageBroken={markResultImageBroken}
+            openReferencePreview={openReferencePreview}
+            openReferenceContextMenu={openReferenceContextMenu}
+            beginReferenceImageDrag={beginReferenceImageDrag}
+            copyText={copyText}
+            quickResults={quickResults}
+            runningQuickTasks={runningQuickTasks}
+            status={status}
+            error={error}
+            isComposerDragging={isComposerDragging}
+            onComposerDragOver={onComposerDragOver}
+            onComposerDragLeave={onComposerDragLeave}
+            onComposerDrop={onComposerDrop}
+            onComposerPaste={onComposerPaste}
+            previewFiles={previewFiles}
+            referenceDropTarget={referenceDropTarget}
+            beginReferenceDrop={beginReferenceDrop}
+            endReferenceDrop={endReferenceDrop}
+            onReferenceDrop={onReferenceDrop}
+            draggingReferenceId={draggingReferenceId}
+            referenceSortTarget={referenceSortTarget}
+            beginReferenceSort={beginReferenceSort}
+            moveReferenceSort={moveReferenceSort}
+            endReferenceSort={endReferenceSort}
+            cancelReferenceSort={cancelReferenceSort}
+            openUploadPreview={openUploadPreview}
+            removeReferenceImage={removeReferenceImage}
+            openQuickCropEdit={openQuickCropEdit}
+            openQuickLocalEdit={openQuickLocalEdit}
+            settings={settings}
+            updateSetting={updateSetting}
+            isQuickChannelMenuOpen={isQuickChannelMenuOpen}
+            setIsQuickChannelMenuOpen={setIsQuickChannelMenuOpen}
+            quickChannel={quickChannel}
+            quickChannels={quickChannels}
+            activeModel={activeModel}
+            inputRef={inputRef}
+            onPickFiles={onPickFiles}
+            models={models}
+            ratios={ratios}
+            quickSizes={quickSizes}
+            quickMaxReferenceFiles={quickMaxReferenceFiles}
+            optimizePrompt={optimizePrompt}
+            isQuickPromptOptimizing={isQuickPromptOptimizing}
+            generate={generate}
+            countOptions={COUNT_OPTIONS}
+            events={events}
+            onQuickBoardWheel={onQuickBoardWheel}
+            setFiles={setFiles}
+            setQuickCropEditTarget={setQuickCropEditTarget}
+            setQuickLocalEditTarget={setQuickLocalEditTarget}
+            setIsPromptAssistantOpen={setIsPromptAssistantOpen}
+          />
         )}
       </section>
 
