@@ -24,166 +24,26 @@ import { imageBitmapFromFile, isImageFile } from "./shared/image-input.js";
 // （main.jsx / outfit-workflow.jsx 早已 import 它）；4 个调用点全部只"画到 canvas"，消费方式不变。
 import { imageBitmapFromDataUrl } from "./shared/local-edit-mask.js";
 import { preventFileDropNavigation } from "./shared/dom-actions.js";
+// 2026-10-16 · P6-6：顶部的 11 个纯函数 helpers 已逐字搬进 features/image-editor/image-editor-helpers.js。
+// 随迁的私有常量：EDITOR_DB_NAME / EDITOR_STORE_NAME / EDITOR_MAX_WORK_SIDE（仅 helpers 使用）；
+// 下面留在本文件的 5 个常量父组件体内仍有引用点，故不随迁。
+// 父只 import 实际调用的 7 个；另 4 个（openEditorDb / drawTransparentGrid / overlayFitScale /
+// drawOverlayToContext）只在 helpers 内部互调，父无引用点，故不 import（否则 unused-vars）。
+import {
+  editorGet,
+  editorSet,
+  editorDelete,
+  workSizeForBitmap,
+  resetMaskCanvas,
+  createCompositionCanvas,
+  maskSnapshot
+} from "./features/image-editor/image-editor-helpers.js";
 
-const EDITOR_DB_NAME = "jingyin-image-editor-v1";
-const EDITOR_STORE_NAME = "project";
 const EDITOR_PROJECT_KEY = "active";
-const EDITOR_MAX_WORK_SIDE = 3000;
 const EDITOR_HISTORY_LIMIT = 32;
 const EDITOR_BRUSH_DEFAULTS_VERSION = 2;
 const DEFAULT_TRANSFORM = { x: 0, y: 0, scale: 1, rotation: 0 };
 const DEFAULT_BRUSH = { size: 72, hardness: 0, opacity: 100 };
-
-function openEditorDb() {
-  if (!window.indexedDB) return Promise.resolve(null);
-  return new Promise((resolve) => {
-    const request = window.indexedDB.open(EDITOR_DB_NAME, 1);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(EDITOR_STORE_NAME)) {
-        db.createObjectStore(EDITOR_STORE_NAME, { keyPath: "key" });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => resolve(null);
-  });
-}
-
-async function editorGet(key) {
-  const db = await openEditorDb();
-  if (!db) return null;
-  return new Promise((resolve) => {
-    const tx = db.transaction(EDITOR_STORE_NAME, "readonly");
-    const req = tx.objectStore(EDITOR_STORE_NAME).get(key);
-    req.onsuccess = () => resolve(req.result?.value || null);
-    req.onerror = () => resolve(null);
-    tx.oncomplete = () => db.close();
-    tx.onerror = () => db.close();
-  });
-}
-
-async function editorSet(key, value) {
-  const db = await openEditorDb();
-  if (!db) return;
-  await new Promise((resolve) => {
-    const tx = db.transaction(EDITOR_STORE_NAME, "readwrite");
-    tx.objectStore(EDITOR_STORE_NAME).put({ key, value, updatedAt: Date.now() });
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => resolve();
-  });
-  db.close();
-}
-
-async function editorDelete(key) {
-  const db = await openEditorDb();
-  if (!db) return;
-  await new Promise((resolve) => {
-    const tx = db.transaction(EDITOR_STORE_NAME, "readwrite");
-    tx.objectStore(EDITOR_STORE_NAME).delete(key);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => resolve();
-  });
-  db.close();
-}
-
-function drawTransparentGrid(ctx, width, height) {
-  ctx.fillStyle = "#0f1018";
-  ctx.fillRect(0, 0, width, height);
-  const size = 24;
-  ctx.fillStyle = "rgba(255,255,255,0.035)";
-  for (let y = 0; y < height; y += size) {
-    for (let x = (y / size) % 2 ? 0 : size; x < width; x += size * 2) {
-      ctx.fillRect(x, y, size, size);
-    }
-  }
-}
-
-function workSizeForBitmap(bitmap) {
-  const width = bitmap.width || bitmap.naturalWidth || 1;
-  const height = bitmap.height || bitmap.naturalHeight || 1;
-  const scale = Math.min(1, EDITOR_MAX_WORK_SIDE / Math.max(width, height));
-  return {
-    width: Math.max(1, Math.round(width * scale)),
-    height: Math.max(1, Math.round(height * scale)),
-    sourceWidth: width,
-    sourceHeight: height,
-    scale
-  };
-}
-
-function resetMaskCanvas(maskCanvas, width, height) {
-  if (!maskCanvas || !width || !height) return;
-  maskCanvas.width = width;
-  maskCanvas.height = height;
-  const ctx = maskCanvas.getContext("2d");
-  if (!ctx) return;
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, width, height);
-}
-
-function overlayFitScale(canvasSize, overlayBitmap) {
-  const width = overlayBitmap?.width || overlayBitmap?.naturalWidth || 1;
-  const height = overlayBitmap?.height || overlayBitmap?.naturalHeight || 1;
-  return Math.min(canvasSize.width / width, canvasSize.height / height) || 1;
-}
-
-function drawOverlayToContext(ctx, overlayBitmap, canvasSize, transform) {
-  if (!overlayBitmap) return;
-  const width = overlayBitmap.width || overlayBitmap.naturalWidth || 1;
-  const height = overlayBitmap.height || overlayBitmap.naturalHeight || 1;
-  const fitScale = overlayFitScale(canvasSize, overlayBitmap);
-  const scale = fitScale * clamp(transform.scale || 1, 0.05, 6);
-  ctx.save();
-  ctx.translate(canvasSize.width / 2 + (Number(transform.x) || 0), canvasSize.height / 2 + (Number(transform.y) || 0));
-  ctx.rotate(((Number(transform.rotation) || 0) * Math.PI) / 180);
-  ctx.scale(scale, scale);
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(overlayBitmap, -width / 2, -height / 2, width, height);
-  ctx.restore();
-}
-
-function createCompositionCanvas({ baseBitmap, overlayBitmap, maskCanvas, canvasSize, transform, overlayOpacity, differenceMode = false }) {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvasSize.width;
-  canvas.height = canvasSize.height;
-  const ctx = canvas.getContext("2d", { alpha: false });
-  if (!ctx) return canvas;
-  drawTransparentGrid(ctx, canvas.width, canvas.height);
-  if (baseBitmap) {
-    ctx.drawImage(baseBitmap, 0, 0, canvas.width, canvas.height);
-  }
-  if (overlayBitmap) {
-    const overlayCanvas = document.createElement("canvas");
-    overlayCanvas.width = canvas.width;
-    overlayCanvas.height = canvas.height;
-    const overlayCtx = overlayCanvas.getContext("2d");
-    if (overlayCtx) {
-      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-      drawOverlayToContext(overlayCtx, overlayBitmap, canvasSize, transform);
-      if (maskCanvas) {
-        overlayCtx.globalCompositeOperation = "destination-in";
-        overlayCtx.drawImage(maskCanvas, 0, 0, canvas.width, canvas.height);
-        overlayCtx.globalCompositeOperation = "source-over";
-      }
-      ctx.save();
-      ctx.globalAlpha = clamp(overlayOpacity, 0, 100) / 100;
-      if (differenceMode) ctx.globalCompositeOperation = "difference";
-      ctx.drawImage(overlayCanvas, 0, 0);
-      ctx.restore();
-    }
-  }
-  return canvas;
-}
-
-function maskSnapshot(maskCanvas, transform) {
-  if (!maskCanvas) return null;
-  return {
-    maskDataUrl: maskCanvas.toDataURL("image/png"),
-    transform: { ...transform }
-  };
-}
 
 function ImageEditorSlot({ title, file, meta, onPick, onClear, resolveDroppedFiles, onDropFiles }) {
   const inputRef = useRef(null);
