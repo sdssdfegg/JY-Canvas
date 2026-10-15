@@ -84,7 +84,7 @@
 | V67 | P5-5 buildTasks 体内拆分（前提失效·降级档归档） | 执行单 | 已交付（前提失效·降级归档） | d395d85 / 06d9af9 | 2026-10-15 | `已完成/2026-10/V4.0-执行单-V67-P5-5-buildTasks体内拆分.md` |
 | V68 | P5-6 主 return 外壳收尾（**P5 收官单**） | 执行单 | 已交付（B-3 + C-1/C-2 完成·`--no-ff` 合回 main·outfit 3300→**2992**） | 43e6c94·450b6b1·d0466ee → merge `3f6420f` | 2026-10-15 | `已完成/2026-10/V4.0-执行单-V68-P5-6-主return外壳收尾.md` |
 | P6-1 | outfit handler 组A（reference/cache/history）抽取 | 执行单 | 已交付（父 2992→**2912**·`--no-ff` 合 main） | dfa3006 → merge `8fff809` | 2026-10-15 | `已完成/2026-10/V4.0-执行单-P6-1-outfit-handler组A抽取.md` |
-| P6-2 | outfit handler 组B（save/export/autoSave）抽取 | 执行单 | **可派（V68+P6-1 已合 main·锚点已重测）** | — | — | `进行中/V4.0-执行单-P6-2-outfit-handler组B抽取.md` |
+| P6-2 | outfit handler 组B（save/export/autoSave）抽取 | 执行单 | 已交付（父 2912→**2727**·`--no-ff` 合 main） | 5843090 → merge `77ac316` | 2026-10-15 | `已完成/2026-10/V4.0-执行单-P6-2-outfit-handler组B抽取.md` |
 | P6-3 | outfit batch 逻辑（runSingleTask/startBatch 等）抽取 | 执行单 | 待派（待 V68 合 main 后） | — | — | `进行中/V4.0-执行单-P6-3-outfit-batch逻辑抽取.md` |
 | P6-4 | main.jsx canvas/generate handler 组抽取 | 执行单 | 待派（待 V68 合 main 后） | — | — | `进行中/V4.0-执行单-P6-4-main-canvas-handler组抽取.md` |
 | P6-5 | main.jsx 其余 handler 与 render 子区抽取 | 执行单 | 待派（待 V68 合 main 后） | — | — | `进行中/V4.0-执行单-P6-5-main-其余handler与render子区抽取.md` |
@@ -92,7 +92,7 @@
 
 ---
 
-**统计**：共 83 张单（执行单 82 / 修复单 1）。**V68 已交付并 `--no-ff` 合回 main**（merge `3f6420f`，`outfit-workflow.jsx` 4826→**2992**，P5 收官）；**P6-1 已交付**（`outfit-workflow.jsx` 2992→**2912**，`--no-ff` 合 main merge `8fff809`），P6-2~P6-6 仍按串行等待。V67 前提失效已降级归档（buildTasks 实际仅 73 行，抽 `freezeIntentIntoTask` 后目标达成）。
+**统计**：共 83 张单（执行单 82 / 修复单 1）。**V68 已交付并 `--no-ff` 合回 main**（merge `3f6420f`，`outfit-workflow.jsx` 4826→**2992**，P5 收官）；**P6-1 已交付**（`outfit-workflow.jsx` 2992→**2912**，`--no-ff` 合 main merge `8fff809`），**P6-2 已交付**（`outfit-workflow.jsx` 2912→**2727**，`--no-ff` 合 main merge `77ac316`），P6-3~P6-6 仍按串行等待。V67 前提失效已降级归档（buildTasks 实际仅 73 行，抽 `freezeIntentIntoTask` 后目标达成）。
 **V13 已废弃**（RF-076 排产变更，改全量施工单）。
 **漂移说明**：V56–V67 由同一开发 AI 按序串行执行，后续单锚点随前序合入漂移（V60/V61 曾重写锚点、V67 前提失效）；因各单带「派发日重 grep 锚点 + 负向对照 + 全量门禁」纪律，漂移当场消化，最终代码一致、全量 41/41 通过，无遗留回归。V68 锚点已于 2026-10-15 按 HEAD `06d9af9` 重测刷新。**P6 锚点勘误（2026-10-15 V68 合入后必读）**：P6-1/2/3 起草时的行号存在两类失真——① P6-1/P6-2 的 594/1036/1084/1320 是 `awk` 取的**相对组件体起点的相对行号**，非绝对行号；② P6-3 按 `4a8117f`（3300 行）实测，V68 合入后父文件 2992 行需 -6 平移。三张单 §1 锚点表均已按 main `3f6420f` **重测为绝对行号**并加勘误注（P6-3 另注：本组是 `async function` 声明，grep 勿只用 `const` 模式）。P6 整批仍须待前序单合 main 后从 main 拉分支串行执行。**二次重测（P6-1 合入后，2026-10-15）**：P6-1 抽走组A（981–1465）并删失效 import 与模块级 const，父文件 2992→**2912**，组件体起点 376，P6-2/P6-3 区间整体 **−80** 平移——P6-2 → **1391–1627**；P6-3 → buildTasks **1675** / runTaskQualityCheck **1747** / runSingleTask **1809** / startBatch **2198** / 段止 **2475**。两张单 §1 已刷新为绝对值（前版作废）。
 
