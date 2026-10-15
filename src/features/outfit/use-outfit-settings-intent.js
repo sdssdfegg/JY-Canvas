@@ -47,7 +47,7 @@ export function useOutfitSettingsIntent(deps) {
     setTasks,
     runningGenerationCountRef,
     setRunning,
-    startBatch
+    startBatchRef
   } = deps;
 
   function updateSetting(key, value) {
@@ -339,7 +339,7 @@ export function useOutfitSettingsIntent(deps) {
   function handlePromptKeyDown(event) {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       event.preventDefault();
-      void startBatch();
+      void startBatchRef.current?.();
     }
   }
 

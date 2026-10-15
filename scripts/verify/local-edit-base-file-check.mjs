@@ -48,6 +48,9 @@ const OUTFIT_TASK_FILE = path.join(ROOT, "src", "features", "outfit", "outfit-ta
 const OUTFIT_PANELS_FILE = path.join(ROOT, "src", "features", "outfit", "outfit-panels.jsx");
 const REFERENCE_UPLOAD_FILE = path.join(ROOT, "src", "features", "upload", "reference-upload.js");
 const SHARED_IMAGE_INPUT_FILE = path.join(ROOT, "src", "shared", "image-input.js");
+// P6-3：runSingleTask 整段（含本地贴回合成 / outpaint 接线）从 outfit-workflow.jsx 搬到了这里。
+// 下面几条「批量」断言盯的就是 runSingleTask 内部源码，落点必须重定向到新模块，否则恒红（僵尸断言）。
+const BATCH_EXEC_FILE = path.join(ROOT, "src", "features", "outfit", "handlers", "outfit-batch-execution.js");
 // 后端源码真相源（index.js + core/routes/shared 下所有模块）统一由共享模块收集，
 // 后续 Phase 拆分（搬到 routes/shared）后脚本无需逐个改：见 ./lib/server-sources.mjs。
 const SERVER_SOURCES = listServerSourceFiles();
@@ -118,6 +121,7 @@ const outfitTaskSrc = readFileSync(OUTFIT_TASK_FILE, "utf8");
 const outfitPanelsSrc = readFileSync(OUTFIT_PANELS_FILE, "utf8");
 const referenceUploadSrc = readFileSync(REFERENCE_UPLOAD_FILE, "utf8");
 const imageInputSrc = readFileSync(SHARED_IMAGE_INPUT_FILE, "utf8");
+const batchExecSrc = readFileSync(BATCH_EXEC_FILE, "utf8");
 
 check("共享模块导出 resolveLocalEditBaseFile 且规则是「原图优先」",
   /export function resolveLocalEditBaseFile\(item\)\s*\{[\s\S]{0,400}?return item\.originalFile \|\| item\.file \|\| null;/.test(geometrySrc),
@@ -134,11 +138,11 @@ check("批量：诊断快照用 resolveLocalEditBaseFile(task?.modelItem)",
   /localEditFileSnapshot\(resolveLocalEditBaseFile\(task\?\.modelItem\)\)/.test(outfitTaskSrc),
   "localEditTaskBindingSnapshot");
 check("批量：任务贴回底图用 resolveLocalEditBaseFile(task.modelItem)",
-  /const originalFile = resolveLocalEditBaseFile\(task\.modelItem\);/.test(outfitSrc),
+  /const originalFile = resolveLocalEditBaseFile\(task\.modelItem\);/.test(batchExecSrc),
   "runSingleTask 贴回");
 // 只盯「本地贴回合成」这一段：底图必须是原图，且这段**代码**里不能再出现上传副本取值。
 // （先把注释剥掉，否则"不要用 imageItemUploadFile"这句注释本身会被当成违规。）
-const pasteBlockRaw = /updateTaskRuntime\(task\.id, "本地贴回合成"([\s\S]{0,1500}?)composeOutfitLocalEditBlob\(/.exec(outfitSrc)?.[1] || "";
+const pasteBlockRaw = /updateTaskRuntime\(task\.id, "本地贴回合成"([\s\S]{0,1500}?)composeOutfitLocalEditBlob\(/.exec(batchExecSrc)?.[1] || "";
 const pasteBlock = pasteBlockRaw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
 check("批量：贴回底图不再用 imageItemUploadFile（上传副本优先）",
   pasteBlock.includes("resolveLocalEditBaseFile(task.modelItem)") && !pasteBlock.includes("imageItemUploadFile"),
@@ -150,11 +154,11 @@ check("批量：贴回底图不再用 imageItemUploadFile（上传副本优先�
 // 两段各查各的落点 —— 合成一条的话，任一段搬家都会让整条断言恒红。
 check("批量：上传副本取值函数仍在，且真的用于上传（没有被误改）",
   /function imageItemUploadFile\(item\)\s*\{\s*return item\?\.file \|\| item\?\.originalFile \|\| null;\s*\}/.test(outfitTaskSrc)
-    && /form\.append\("image", modelUploadFile/.test(outfitSrc),
+    && /form\.append\("image", modelUploadFile/.test(batchExecSrc),
   "imageItemUploadFile 仍供上传使用");
 check("扩图仍自洽（原图保护底图与扩图画布同一文件）",
-  /prepareOutpaintUploadCanvas\(taskModelFile, taskAspectRatio\)/.test(outfitSrc)
-    && /const taskModelFile = imageItemUploadFile\(task\.modelItem\);/.test(outfitSrc),
+  /prepareOutpaintUploadCanvas\(taskModelFile, taskAspectRatio\)/.test(batchExecSrc)
+    && /const taskModelFile = imageItemUploadFile\(task\.modelItem\);/.test(batchExecSrc),
   "outpaint 未受影响");
 check("快捷生成侧委托同一份规则（原图优先，裸 File 兜底）",
   /function quickReferenceOriginalFile\(item\)\s*\{[\s\S]{0,200}?return resolveLocalEditBaseFile\(item\) \|\| item;/.test(referenceUploadSrc),
@@ -181,12 +185,12 @@ const stylesSrc = readFileSync(STYLES_FILE, "utf8");
 const embeddedStylesSrc = readFileSync(EMBEDDED_STYLES_FILE, "utf8");
 
 check("批量：贴回后发出尺寸对账单诊断事件（client-generation-local-paste-composed）",
-  /stage: "client-generation-local-paste-composed"/.test(outfitSrc)
-    && /localPaste: localPasteSizes/.test(outfitSrc)
-    && /const localPasteSizes = localPasteSizeReport\(\{/.test(outfitSrc),
+  /stage: "client-generation-local-paste-composed"/.test(batchExecSrc)
+    && /localPaste: localPasteSizes/.test(batchExecSrc)
+    && /const localPasteSizes = localPasteSizeReport\(\{/.test(batchExecSrc),
   "runSingleTask 贴回");
 check("批量：贴回尺寸异常时会明确报事件（而不是静默）",
-  /if \(!localPasteSizes\.matches\) \{[\s\S]{0,200}?addEvent\("贴回尺寸异常"/.test(outfitSrc),
+  /if \(!localPasteSizes\.matches\) \{[\s\S]{0,200}?addEvent\("贴回尺寸异常"/.test(batchExecSrc),
   "matches=false 分支");
 check("批量：局部回贴弹窗标题显示底图尺寸与「输出同尺寸」",
   /底图 \$\{baseSizeText\}/.test(modalSrc)

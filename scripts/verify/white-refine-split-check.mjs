@@ -34,7 +34,11 @@ const CLIENT_PANELS = [
   path.join(ROOT, "src", "features", "outfit", "panels", "ResultQueue.jsx"),
   // 2026-10-15 P6-2：splitWhiteRefineResult 随保存/导出/自动保存/下载 handler 一起
   // 抽进 outfit-save-handlers.js，本校验扫描的「裁切落盘」代码也随之迁移，须纳入扫描范围。
-  path.join(ROOT, "src", "features", "outfit", "handlers", "outfit-save-handlers.js")
+  path.join(ROOT, "src", "features", "outfit", "handlers", "outfit-save-handlers.js"),
+  // 2026-10-15 P6-3：runSingleTask（含白底精修「按任务自身 workflowMode 判断 + 仅精修成功后裁切」
+  // 的接线）从 outfit-workflow.jsx 抽进 outfit-batch-execution.js；扫描须纳入新模块，
+  // 否则这两条断言会变成僵尸断言。
+  path.join(ROOT, "src", "features", "outfit", "handlers", "outfit-batch-execution.js")
 ];
 const CSS = path.join(ROOT, "src", "features", "outfit", "white-refine-split.css");
 
