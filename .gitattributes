@@ -1,0 +1,54 @@
+# 行尾统一：仓库入库 LF，检出也 LF（P7-6）
+#
+# 为什么加这个文件：本地 core.autocrlf=true，而仓库现状是混的（222 个纯 CRLF、
+# 359 个纯 LF、26 个混合）。凡是"纯 LF"的文件，每次 git add 都会刷一句
+#   warning: in the working copy of 'xxx', LF will be replaced by CRLF ...
+# 这句话的意思是：git 会在检出时把 LF 换成 CRLF。它会天天挂在提交输出里，
+# 淹掉真正要看的信息；更麻烦的是它让"换行符到底是什么"变成一件随机器配置漂移的事。
+#
+# 为什么选 eol=lf 而不是 eol=crlf：
+#   ① 前端工程（vite / ESLint / 各种 verify 脚本）读文件从不依赖系统行尾，
+#      LF 是事实标准；
+#   ② 已存在的 359 个 LF 文件无需任何改动，改动面最小；
+#   ③ 剩下的 CRLF 文件会被 git 在 clean 阶段归一化成 LF，**工作区内容不变**
+#      （只有以后重新检出才会物理落地成 LF），所以不会制造巨型 diff。
+#
+# 故意没做的事：**没有**跑 `git add --renormalize .` 重写全仓。
+# 那会把 222 个 CRLF 文件的 index blob 一次性改掉，是一次巨大的、不可逆在我们语境下的
+# 全仓变更；本单只要止住警告。将来若要做彻底归一，应单独开一单并可 review。
+#
+# Windows 批处理 / PowerShell 必须留 CRLF：`.bat` / `.cmd` 用纯 LF 会被 cmd.exe 咬字符串，
+# 属于"换了就跑不起来"的那类文件，与上面的一律 LF 分开处置（本仓有 3 个：
+# 启动静音内测画板.bat、scripts/provision-local-node.ps1、scripts/start-jingyin-board.ps1）。
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 二进制不要碰（text=auto 的自动判定大多数时候对，但这类文件判错代价太高——
+# 一旦被当成文本，换行会被悄悄改写，图片/字体就废了）。
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.bmp binary
+*.svg text eol=lf
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.7z binary
+*.mp4 binary
+*.mp3 binary
+*.webm binary
+*.psd binary
+*.exe binary
+*.dll binary
+*.lock text eol=lf
