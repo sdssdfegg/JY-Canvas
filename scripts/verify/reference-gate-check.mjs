@@ -19,12 +19,14 @@ import process from "node:process";
 import { buildOutfitPrompt } from "../../server/outfit-skill.js";
 
 const ROOT = process.cwd();
-// RF-082 后：4 句 hint 搬去了 features/outfit/outfit-top.js，
-// 但「上传门控」那段代码仍在 src/outfit-workflow.jsx。
-// ⇒ 两个都要读。只换成新文件，会让「上传门控」这条立刻变成新的僵尸断言。
+// RF-082 后：4 句 hint 搬去了 features/outfit/outfit-top.js；
+// 「上传门控」那段代码（(isOutfitWorkflow || isPoseRemixWorkflow) && ... && !mentionsOptionalReferenceImage）
+// 原在 src/outfit-workflow.jsx，P6-3 抽进 features/outfit/handlers/outfit-batch-execution.js。
+// ⇒ 三个都要读。只换成新文件，会让「上传门控」这条立刻变成新的僵尸断言。
 const CLIENT = [
   path.join(ROOT, "src", "outfit-workflow.jsx"),
-  path.join(ROOT, "src", "features", "outfit", "outfit-top.js")
+  path.join(ROOT, "src", "features", "outfit", "outfit-top.js"),
+  path.join(ROOT, "src", "features", "outfit", "handlers", "outfit-batch-execution.js")
 ].filter(existsSync).map((file) => readFileSync(file, "utf8")).join("\n");
 
 let failures = 0;

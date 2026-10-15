@@ -288,6 +288,9 @@ check(
 {
   const mainSrc = read("src/main.jsx");
   const outfitSrc = read("src/outfit-workflow.jsx");
+  // P6-3：批量换装的 routingFields( 调用从 outfit-workflow.jsx 搬进 outfit-batch-execution.js，
+  // 故批量侧的路由字段调用以新模块为准（outfit-workflow 侧可能已不再直接出现）。
+  const batchExecSrc = read("src/features/outfit/handlers/outfit-batch-execution.js");
   check(
     "快捷生成与批量换装用同一个线路目录（channelsForModel）",
     mainSrc.includes("channelsForModel(settings.model") && outfitSrc.includes("channelsForModel(settings.model"),
@@ -295,7 +298,7 @@ check(
   );
   check(
     "快捷生成与批量换装用同一套路由字段（routingFields）",
-    mainSrc.includes("routingFields(") && outfitSrc.includes("routingFields("),
+    mainSrc.includes("routingFields(") && (outfitSrc.includes("routingFields(") || batchExecSrc.includes("routingFields(")),
     "main.jsx + outfit-workflow.jsx"
   );
 }

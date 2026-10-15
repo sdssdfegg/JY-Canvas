@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 99,
+    "fileCount": 100,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -40,6 +40,7 @@
       "src/features/local-edit/LocalEditModal.jsx",
       "src/features/local-edit/crop-drag.js",
       "src/features/local-edit/crop-rect-resize.js",
+      "src/features/outfit/handlers/outfit-batch-execution.js",
       "src/features/outfit/handlers/outfit-ref-handlers.js",
       "src/features/outfit/handlers/outfit-save-handlers.js",
       "src/features/outfit/outfit-image-pipeline.js",
