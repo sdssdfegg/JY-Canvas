@@ -8,15 +8,10 @@ import {
   Images,
   Loader2,
   Maximize2,
-  Minus,
-  Pencil,
   Play,
-  Plus,
-  RefreshCw,
   Save,
   Trash2,
   Upload,
-  Video,
   Wand2,
   X
 } from "lucide-react";
@@ -169,6 +164,7 @@ import { ResultQueue } from "./features/outfit/panels/ResultQueue.jsx";
 import { CropReturnDiagnosticsPanel, LegacyModulePanel, LocalPasteDiagnosticsPanel } from "./features/outfit/outfit-panels.jsx";
 import WorkbenchSidebar from "./features/outfit/panels/WorkbenchSidebar.jsx";
 import OutfitSettingsModal from "./features/outfit/panels/OutfitSettingsModal.jsx";
+import OutfitWorkbench from "./features/outfit/panels/OutfitWorkbench.jsx";
 
 
 const OUTFIT_TEMP_IMAGE_CACHE_PREFIX = "temp-image-cache:";
@@ -2652,75 +2648,32 @@ function buildTasks(countOverride = plannedGenerationCount) {
         </section>
 
         <section className={`viewPanel outfitViewPanel ${activeView === "outfit" ? "active" : ""}`}>
-        <header className="topbar">
-          <div className="resultTabs">
-            <button className={`tabButton ${resultFilter === "all" ? "active" : ""}`} type="button" onClick={() => setResultFilter("all")}>
-              全部({tasks.length})
-            </button>
-            <button className={`tabButton ${resultFilter === "image" ? "active" : ""}`} type="button" onClick={() => setResultFilter("image")}>
-              <Images size={14} />
-              <span>图片({imageCount})</span>
-            </button>
-            <button className="tabButton" type="button" onClick={() => { setResultFilter("all"); switchView("quick"); addEvent("视频", "已打开快捷视频生成"); }}>
-              <Video size={14} />
-              <span>视频(0)</span>
-            </button>
-            <button
-              className="outfitPageNameChip"
-              type="button"
-              onDoubleClick={() => renameOutfitPage(activeOutfitPageId)}
-              title="双击修改页面名称"
-            >
-              <Pencil size={13} />
-              <span>{activeOutfitPage.name}</span>
-            </button>
-          </div>
-          <div className="topActions">
-            <button className="toolbarButton" type="button" onClick={() => void refreshHistory()}>
-              <RefreshCw size={15} />
-              <span>刷新</span>
-            </button>
-            <button className="toolbarButton" type="button" onClick={openDirectoryModal}>
-              <FolderOpen size={15} />
-              <span>指定文件夹</span>
-            </button>
-            <button className="toolbarButton" type="button" onClick={() => void openSaveDirectory()}>
-              <FolderOpen size={15} />
-              <span>打开保存目录</span>
-            </button>
-            <span className={`taskBadge task-${topbarStatus}`}>{topbarStatusText}</span>
-            <button className="toolbarButton" type="button" onClick={downloadSelected} disabled={selectedCompletedCount === 0}>
-              <Download size={15} />
-              <span>下载选中</span>
-            </button>
-            <button className="toolbarButton" type="button" onClick={downloadAll} disabled={imageCount === 0}>
-              <Download size={15} />
-              <span>下载全部</span>
-            </button>
-            <button className="dangerButton" type="button" onClick={deleteSelected} disabled={selectedCount === 0}>
-              <Trash2 size={15} />
-              <span>删除选中</span>
-            </button>
-            <button className="dangerButton" type="button" onClick={clearAll}>
-              <Trash2 size={15} />
-              <span>清空全部</span>
-            </button>
-            <button className="toolbarButton" type="button" onClick={() => void clearNonResultImageCache()}>
-              <RefreshCw size={15} />
-              <span>清缓存</span>
-            </button>
-            <div className="zoomControl">
-              <button type="button" onClick={() => changeGalleryZoom(-0.1)} disabled={galleryZoom <= 0.75} aria-label="缩小图库">
-                <Minus size={14} />
-              </button>
-              <span style={{ "--zoom-fill": `${Math.max(0, Math.min(100, ((galleryZoom - 0.75) / 0.7) * 100))}%` }} />
-              <button type="button" onClick={() => changeGalleryZoom(0.1)} disabled={galleryZoom >= 1.45} aria-label="放大图库">
-                <Plus size={14} />
-              </button>
-              <strong>{galleryZoomPercent}%</strong>
-            </div>
-          </div>
-        </header>
+        <OutfitWorkbench
+          resultFilter={resultFilter}
+          setResultFilter={setResultFilter}
+          tasks={tasks}
+          imageCount={imageCount}
+          switchView={switchView}
+          addEvent={addEvent}
+          activeOutfitPageId={activeOutfitPageId}
+          renameOutfitPage={renameOutfitPage}
+          activeOutfitPage={activeOutfitPage}
+          refreshHistory={refreshHistory}
+          openDirectoryModal={openDirectoryModal}
+          openSaveDirectory={openSaveDirectory}
+          topbarStatus={topbarStatus}
+          topbarStatusText={topbarStatusText}
+          downloadSelected={downloadSelected}
+          selectedCompletedCount={selectedCompletedCount}
+          downloadAll={downloadAll}
+          deleteSelected={deleteSelected}
+          selectedCount={selectedCount}
+          clearAll={clearAll}
+          clearNonResultImageCache={clearNonResultImageCache}
+          changeGalleryZoom={changeGalleryZoom}
+          galleryZoom={galleryZoom}
+          galleryZoomPercent={galleryZoomPercent}
+        />
 
         <div className="outfitScrollArea">
           <ResultQueue
