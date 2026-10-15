@@ -82,10 +82,16 @@
 | V65 | P5-3 render* 面板组件化 | 执行单 | 已交付 | 8e4acea / 1e3e6af / 74726cf | 2026-10-15 | `已完成/2026-10/V4.0-执行单-V65-P5-3-render面板组件化.md` |
 | V66 | P5-4 handler 域分组 | 执行单 | 已交付 | 380efaa / 1ec2d77 / 910c36f | 2026-10-15 | `已完成/2026-10/V4.0-执行单-V66-P5-4-handler域分组.md` |
 | V67 | P5-5 buildTasks 体内拆分（前提失效·降级档归档） | 执行单 | 已交付（前提失效·降级归档） | d395d85 / 06d9af9 | 2026-10-15 | `已完成/2026-10/V4.0-执行单-V67-P5-5-buildTasks体内拆分.md` |
-| V68 | P5-6 主 return 外壳收尾（可选收官单） | 执行单 | 进行中（待派·锚点已刷新） | — | — | `进行中/V4.0-执行单-V68-P5-6-主return外壳收尾.md` |
+| V68 | P5-6 主 return 外壳收尾（可选收官单） | 执行单 | 进行中（B-2 完成·分支 4a8117f·领先 main 3 提交·B-3/阶段C 待做·未合 main） | 4a8117f | 2026-10-15 | `进行中/V4.0-执行单-V68-P5-6-主return外壳收尾.md` |
+| P6-1 | outfit handler 组A（reference/cache/history）抽取 | 执行单 | 待派（待 V68 合 main 后） | — | — | `进行中/V4.0-执行单-P6-1-outfit-handler组A抽取.md` |
+| P6-2 | outfit handler 组B（save/export/autoSave）抽取 | 执行单 | 待派（待 V68 合 main 后） | — | — | `进行中/V4.0-执行单-P6-2-outfit-handler组B抽取.md` |
+| P6-3 | outfit batch 逻辑（runSingleTask/startBatch 等）抽取 | 执行单 | 待派（待 V68 合 main 后） | — | — | `进行中/V4.0-执行单-P6-3-outfit-batch逻辑抽取.md` |
+| P6-4 | main.jsx canvas/generate handler 组抽取 | 执行单 | 待派（待 V68 合 main 后） | — | — | `进行中/V4.0-执行单-P6-4-main-canvas-handler组抽取.md` |
+| P6-5 | main.jsx 其余 handler 与 render 子区抽取 | 执行单 | 待派（待 V68 合 main 后） | — | — | `进行中/V4.0-执行单-P6-5-main-其余handler与render子区抽取.md` |
+| P6-6 | image-editor.jsx 基础拆分（helpers 抽离） | 执行单 | 待派（待 V68 合 main 后） | — | — | `进行中/V4.0-执行单-P6-6-image-editor基础拆分.md` |
 
 ---
 
-**统计**：共 77 张单（执行单 76 / 修复单 1）。V68 为唯一进行中（待派）单；V67 前提失效已降级归档（buildTasks 实际仅 73 行，抽 `freezeIntentIntoTask` 后目标达成）。
+**统计**：共 83 张单（执行单 82 / 修复单 1）。V68 进行中（B-2 完成、未合 main）；P6 六张（P6-1~P6-6）已起草、待 V68 合 main 后派发；V67 前提失效已降级归档（buildTasks 实际仅 73 行，抽 `freezeIntentIntoTask` 后目标达成）。
 **V13 已废弃**（RF-076 排产变更，改全量施工单）。
-**漂移说明**：V56–V67 由同一开发 AI 按序串行执行，后续单锚点随前序合入漂移（V60/V61 曾重写锚点、V67 前提失效）；因各单带「派发日重 grep 锚点 + 负向对照 + 全量门禁」纪律，漂移当场消化，最终代码一致、全量 41/41 通过，无遗留回归。V68 锚点已于 2026-10-15 按 HEAD `06d9af9` 重测刷新。
+**漂移说明**：V56–V67 由同一开发 AI 按序串行执行，后续单锚点随前序合入漂移（V60/V61 曾重写锚点、V67 前提失效）；因各单带「派发日重 grep 锚点 + 负向对照 + 全量门禁」纪律，漂移当场消化，最终代码一致、全量 41/41 通过，无遗留回归。V68 锚点已于 2026-10-15 按 HEAD `06d9af9` 重测刷新。P6 六张（P6-1~P6-6）锚点已于 2026-10-15 按现状实测（outfit 3300 / main 3536 / image 1069），均落在 V68 删除区（2562+ return 块）之外，V68 收官不漂 P6 锚点；P6 整批须待 V68 合 main 后从 main 拉分支执行，避免并发改 `outfit-workflow.jsx` 引发合并冲突。
