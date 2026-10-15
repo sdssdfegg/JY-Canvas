@@ -1762,6 +1762,17 @@ function modelForIndex(index) {
   return activeModels[index] || activeModels[index % activeModels.length];
 }
 
+function freezeIntentIntoTask(intentCtx) {
+  const { isOutfitWorkflow, isWhiteRefineWorkflow, settings } = intentCtx;
+  return {
+    // 中文注释：把本轮结构化换装意图（部位 / 上装层级 / 穿法 / 图2事实）冻结在任务快照里。
+    // 批次开始后再改界面，只影响下一批，不会改到在途任务的提示词。
+    outfitIntent: isOutfitWorkflow ? normalizeOutfitIntent(settings.outfitIntent) : undefined,
+    // 精修结构化意图同样冻结进任务快照：批次开始后改界面不会改到在途任务。
+    retouchIntent: isWhiteRefineWorkflow ? normalizeRetouchIntent(settings.retouchIntent) : undefined,
+  };
+}
+
 function buildTasks(countOverride = plannedGenerationCount) {
     const count = Math.min(countOverride, outfitMaxImages);
     const referenceMentioned = mentionsOptionalReferenceImage(settings.prompt, settings.productNote);
@@ -1771,6 +1782,7 @@ function buildTasks(countOverride = plannedGenerationCount) {
         ? referenceImages.filter((item) => item.selected)
         : [];
     const outpaintReferenceItems = [];
+    const intentCtx = { isOutfitWorkflow, isWhiteRefineWorkflow, settings };
     return Array.from({ length: count }, (_, index) => {
       const modelItem = isDesignDraftWorkflow ? activeModels[0] : modelForIndex(index);
       // 设计稿与精修都是「多图进、一张出」：图1 的其余几张要作为图2…图N 一起带上去。
@@ -1818,11 +1830,7 @@ function buildTasks(countOverride = plannedGenerationCount) {
         garmentParts: isRecolorWorkflow ? normalizeGarmentParts(settings.garmentParts) : undefined,
         garmentComposition: isRecolorWorkflow ? normalizeGarmentComposition(settings.garmentComposition, settings.garmentParts) : undefined,
         randomBackgroundFocus: isRandomBackgroundWorkflow ? normalizeRandomBackgroundFocus(settings.randomBackgroundFocus) : undefined,
-        // 中文注释：把本轮结构化换装意图（部位 / 上装层级 / 穿法 / 图2事实）冻结在任务快照里。
-        // 批次开始后再改界面，只影响下一批，不会改到在途任务的提示词。
-        outfitIntent: isOutfitWorkflow ? normalizeOutfitIntent(settings.outfitIntent) : undefined,
-        // 精修结构化意图同样冻结进任务快照：批次开始后改界面不会改到在途任务。
-        retouchIntent: isWhiteRefineWorkflow ? normalizeRetouchIntent(settings.retouchIntent) : undefined,
+        ...freezeIntentIntoTask(intentCtx),
         pairingMode: settings.pairingMode,
         modelLabel: activeModel.label,
         modelName: modelItem?.name || "",
