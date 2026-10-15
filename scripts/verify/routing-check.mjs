@@ -291,6 +291,10 @@ check(
   // P6-3：批量换装的 routingFields( 调用从 outfit-workflow.jsx 搬进 outfit-batch-execution.js，
   // 故批量侧的路由字段调用以新模块为准（outfit-workflow 侧可能已不再直接出现）。
   const batchExecSrc = read("src/features/outfit/handlers/outfit-batch-execution.js");
+  // P6-4：快捷生成的 routingFields( 调用从 main.jsx 搬进 features/canvas/canvas-generation-handlers.js
+  // （runCanvasImageRequest / generate 两个调用点），故快捷侧以新模块为准（main.jsx 侧已不再直接出现）。
+  // 追加「从 shared/routing.js import」条件，防止将来有人在新文件里私写同名函数骗过门禁。
+  const canvasHandlersSrc = read("src/features/canvas/canvas-generation-handlers.js");
   check(
     "快捷生成与批量换装用同一个线路目录（channelsForModel）",
     mainSrc.includes("channelsForModel(settings.model") && outfitSrc.includes("channelsForModel(settings.model"),
@@ -298,8 +302,18 @@ check(
   );
   check(
     "快捷生成与批量换装用同一套路由字段（routingFields）",
-    mainSrc.includes("routingFields(") && (outfitSrc.includes("routingFields(") || batchExecSrc.includes("routingFields(")),
-    "main.jsx + outfit-workflow.jsx"
+    (
+      mainSrc.includes("routingFields(")
+      || (
+        canvasHandlersSrc.includes("routingFields(")
+        && canvasHandlersSrc.includes('from "../../shared/routing.js"')
+      )
+    )
+    && (
+      outfitSrc.includes("routingFields(")
+      || batchExecSrc.includes("routingFields(")
+    ),
+    "main.jsx/canvas-generation-handlers.js + outfit-workflow.jsx/outfit-batch-execution.js"
   );
 }
 

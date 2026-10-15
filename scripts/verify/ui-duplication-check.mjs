@@ -75,8 +75,14 @@ const storageEffect = mainJsx.slice(mainJsx.indexOf("writeJsonStorage(STORAGE_KE
 check("settings 会写回本地存档（状态持久化）", storageEffect.includes("writeJsonStorage(STORAGE_KEY, settings)"));
 
 // 5) 底层能力函数没有被删除
+// 2026-10-15 P6-4：optimizePrompt 随画布/生成 handler 组搬至 src/features/canvas/canvas-generation-handlers.js，
+// 能力存在性判据改为「main.jsx 或新钩子文件任一命中即算在」；两处都删才判红。
+// 文件缺失时 canvasHandlersSrc 为 ""，判据自动退化为仅 main.jsx（与原行为一致）。
+const canvasHandlersSrc = existsSync(path.join(root, "src", "features", "canvas", "canvas-generation-handlers.js"))
+  ? readFileSync(path.join(root, "src", "features", "canvas", "canvas-generation-handlers.js"), "utf8")
+  : "";
 for (const fn of ["function optimizePrompt", "setIsPromptAssistantOpen", "setFiles([])"]) {
-  check(`底层能力仍在：${fn}`, mainJsx.includes(fn));
+  check(`底层能力仍在：${fn}`, mainJsx.includes(fn) || canvasHandlersSrc.includes(fn));
 }
 
 // 6) 2026-09-26：SKILL 规则块已整体删除，只保留"用户原话"出口 + 局部意图判定
