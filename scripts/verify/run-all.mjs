@@ -52,6 +52,11 @@ const ORDER = [
   //   额外带「扫描范围漂移」自检：基线口径与当前口径不一致即判红（98/104/22 三次数字反复
   //   的根因就是口径漂移静默改了结论）。存量 22 条记账、新增即失败。纯源码检查，跑得快。
   "frontend-duplication-check",
+  // P7-1（2026-10-16）：API 分层门禁 —— AGENTS.md 第 5 条「不要在页面组件里散写 fetch」
+  // 的机器版。扫 src/** 里绕过 src/api/** 准入层的裸 `fetch(` 调用，基线棘轮
+  // （存量 9 条记账、新增即失败、修好了不刷基线判 stale）。纯源码扫描，跑得飞快，
+  // 与上面两个 duplication 检查同族，排在同一梯队。
+  "api-layering-check",
   // 2026-10-03 新增：源码字节卫生（NUL / 控制字符 / 非法 UTF-8）。
   // 起因是 RF-078-b 给 outfit-workflow.jsx 的注释混进二进制垃圾 —— 运行无感
   // （build/ESLint 全绿）却让 grep 把整块巨石判为 binary，审计能力静默失效。
@@ -135,6 +140,9 @@ const FAST_ORDER = [
   "image-host-allowlist-check",
   "shared-ui-duplication-check",
   "frontend-duplication-check",
+  // P7-1 API 分层门禁：纯源码扫描 + 基线棘轮，无子进程、无需起服务（<1s），
+  // 改一行 fetch 就能立刻发现，正合提交钩子的定位。
+  "api-layering-check",
   "source-hygiene-check",
   "runtime-config-baseline-check",
   "auth-key-parity-check",
