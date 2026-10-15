@@ -89,12 +89,22 @@
 | P6-4 | main.jsx canvas/generate handler 组抽取 | 执行单 | 已交付（main.jsx 3536→**2927**·`--no-ff` 合 main） | 7c87c43 → merge `ced0f3c` | 2026-10-15 | `已完成/2026-10/V4.0-执行单-P6-4-main-canvas-handler组抽取.md` |
 | P6-5 | main.jsx 其余 handler 与 render 子区抽取 | 执行单 | 已交付（main.jsx 2927→**2172**·`--no-ff` 合 main） | 04f5269·f696ea0 → merge `4b7cf6e` | 2026-10-15 | `已完成/2026-10/V4.0-执行单-P6-5-main-其余handler与render子区抽取.md` |
 | P6-6 | image-editor.jsx 基础拆分（helpers 抽离·**P6 收官单**） | 执行单 | 已交付（image-editor 1069→**929**·`--no-ff` 合 main） | a8dd887 → merge `d686c37` | 2026-10-16 | `已完成/2026-10/V4.0-执行单-P6-6-image-editor基础拆分.md` |
+| P7-1 | API 分层门禁（禁散写 fetch + 基线棘轮） | 执行单 | 待派（P7 首单·织网批次） | — | — | `进行中/V4.0-执行单-P7-1-API分层门禁.md` |
+| P7-2 | 死导出（dead export）门禁 + 基线 | 执行单 | 待派（P7-1 后） | — | — | `进行中/V4.0-执行单-P7-2-死导出门禁.md` |
+| P7-3 | 体量棘轮门禁（单文件/单函数，只许降） | 执行单 | 待派（P7-2 后） | — | — | `进行中/V4.0-执行单-P7-3-体量棘轮门禁.md` |
+| P7-4 | 产物体积预算门禁（最大 chunk 261 kB） | 执行单 | 待派（P7-3 后·归全量/CI，不进 --fast） | — | — | `进行中/V4.0-执行单-P7-4-体积预算门禁.md` |
+| P7-5 | 依赖方向白名单门禁（跨 feature 24 组） | 执行单 | 待派（P7-4 后） | — | — | `进行中/V4.0-执行单-P7-5-依赖方向门禁.md` |
+| P7-6 | 存量修复（fetch 收口 + 死导出清理 + .gitattributes） | 执行单 | 待派（**硬前置：P7-1/P7-2 已合 main**） | — | — | `进行中/V4.0-执行单-P7-6-存量修复.md` |
 
 ---
 
 **统计**：共 83 张单（执行单 82 / 修复单 1）。**V68 已交付并 `--no-ff` 合回 main**（merge `3f6420f`，`outfit-workflow.jsx` 4826→**2992**，P5 收官）；**P6-1 已交付**（`outfit-workflow.jsx` 2992→**2912**，`--no-ff` 合 main merge `8fff809`），**P6-2 已交付**（`outfit-workflow.jsx` 2912→**2726**，`--no-ff` 合 main merge `77ac316`），**P6-3 已交付**（2726→**2089**，merge `ece3c0d`；生图热路径，TDZ 用 `startBatchRef` late-bound ref 解环，并修复 `local-edit-base-file-check` 6 条僵尸断言），**P6-4 已交付**（main.jsx 3536→**2927**，merge `ced0f3c`；新钩 732 行；TDZ 用事件回调延迟求值解环；同步 `ui-duplication-check` / `routing-check` 两处写死旧落点的判据），**P6-5 已交付**（main.jsx 2927→**2172**，merge `4b7cf6e`，净 −755：37 handler→`main-handlers.js` 586 行，面板 `main-top-bar.jsx` 226 / `main-canvas-board.jsx` 437；TDZ 用 `handlerLateRef` 晚绑定，声明 561 / 传入 651 / 回填 1139，读取全在回调体内）。**P6-6（收官单）已交付**（`image-editor.jsx` 1069→**929**，merge `d686c37`；11 个 helper 逐字搬入 `image-editor-helpers.js` 169 行）。
 **P6 六张全部落地，本轮重构主线收官**：`main.jsx` 5747→**2172**（−62%）／`outfit-workflow.jsx` 4826→**2089**（−57%）／`image-editor.jsx` 1069→**929**（−13%）；三大件合计 11642→**5190**（−55%），两巨石 10573→**4261**（−60%）。
-**后续建议**：不再追「单文件 ≤600 行」极致档（边际递减、TDZ 风险递增）；唯一可选的一张是拆 `src/features/outfit/outfit-panels.jsx`（**2283 行**，历次搬运堆积形成的新大文件，纯面板、低风险）。更该投入的是门禁维护与功能开发。V67 前提失效已降级归档（buildTasks 实际仅 73 行，抽 `freezeIntentIntoTask` 后目标达成）。
+**后续建议**：不再追「单文件 ≤600 行」极致档（边际递减、TDZ 风险递增）；唯一可选的一张是拆 `src/features/outfit/outfit-panels.jsx`（**2283 行**，历次搬运堆积形成的新大文件，纯面板、低风险）。更该投入的是门禁维护与功能开发。
+
+**P7 批次（2026-10-16 起·「织网」）**：源于同日架构审计两颗 P0 —— ① 文件拆了但状态没拆（全仓 211 个 useState、outfit 57 / main 28、useCallback 仅 7、`App()` 1708 行），解药是状态分层，**不在功能高峰期启动**；② AGENTS 规则没全部变成门禁。P7 先做 ROI 最高的「织网」：五道 ~100 行纯扫描门禁（API 分层 / 死导出 / 体量棘轮 / 体积预算 / 依赖方向）+ 一张存量修复。
+**新门禁一律「基线棘轮」上线**：引入时把存量违规记进 `baselines/*.json`（带 reason），**只拦新增**、存量不拦，否则一接 pre-commit 就全红锁死提交；`stale`（基线项消失）判红逼 `--update`。此套路与既有 duplication/lint 基线一致。后续（P8 候选，未开单）：shared 层 vitest、持久化 schema 版本化、状态分层。
+**审计勘误（统筹核实，勿采信旧值）**：审计称「`freezeIntentIntoTask` 单函数 578 行」**不成立**——实测仅 10 行（outfit-workflow.jsx 1510–1519）；真正大函数为 `outfit-page-actions.js:176`(~537 行)、`runSingleTask`(389)、`openCropEditor`(370)。散写 fetch 实测 **9 处**（非 5）。V67 前提失效已降级归档（buildTasks 实际仅 73 行，抽 `freezeIntentIntoTask` 后目标达成）。
 **V13 已废弃**（RF-076 排产变更，改全量施工单）。
 **漂移说明**：V56–V67 由同一开发 AI 按序串行执行，后续单锚点随前序合入漂移（V60/V61 曾重写锚点、V67 前提失效）；因各单带「派发日重 grep 锚点 + 负向对照 + 全量门禁」纪律，漂移当场消化，最终代码一致、全量 41/41 通过，无遗留回归。V68 锚点已于 2026-10-15 按 HEAD `06d9af9` 重测刷新。**P6 锚点勘误（2026-10-15 V68 合入后必读）**：P6-1/2/3 起草时的行号存在两类失真——① P6-1/P6-2 的 594/1036/1084/1320 是 `awk` 取的**相对组件体起点的相对行号**，非绝对行号；② P6-3 按 `4a8117f`（3300 行）实测，V68 合入后父文件 2992 行需 -6 平移。三张单 §1 锚点表均已按 main `3f6420f` **重测为绝对行号**并加勘误注（P6-3 另注：本组是 `async function` 声明，grep 勿只用 `const` 模式）。P6 整批仍须待前序单合 main 后从 main 拉分支串行执行。**二次重测（P6-1 合入后，2026-10-15）**：P6-1 抽走组A（981–1465）并删失效 import 与模块级 const，父文件 2992→**2912**，组件体起点 376，P6-2/P6-3 区间整体 **−80** 平移——P6-2 → **1391–1627**；P6-3 → buildTasks **1675** / runTaskQualityCheck **1747** / runSingleTask **1809** / startBatch **2198** / 段止 **2475**。两张单 §1 已刷新为绝对值（前版作废）。**三次重测（P6-2 合入后，2026-10-15）**：P6-2 抽走 save 组，父文件 2912→**2726**，P6-3 区间再 **−184** 平移——buildTasks **1491** / runTaskQualityCheck **1563** / runSingleTask **1625** / startBatch **2014** / 段止 **2291**（主 return 2292，组件体起点 336）。P6-3 §1 已刷新为绝对值。
 
