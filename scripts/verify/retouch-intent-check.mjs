@@ -32,9 +32,14 @@ function check(name, pass, detail = "") {
 // V65 (P5-3) 后：精修设置面板本体搬去 features/outfit/panels/RetouchIntentPanel.jsx
 // ⇒ 面板内部结构断言（chips 计数 / 无 header·preview·custom）改读面板文件；
 //   调用现场断言（isWhiteRefineWorkflow + retouchSettingsRow 包裹）仍读 outfit-workflow.jsx。
+// V68 (P5-6) 阶段B-2 后：assetGrid（含「精修页隐藏图2/图3 上传区」的 assetSide 契约行）从
+//   outfit-workflow.jsx 主 return 外壳搬去 features/outfit/panels/OutfitWorkbench.jsx；
+// ⇒ 调用现场断言需把该面板文件一并纳入 clientSource 扫描，否则「精修页只渲染图1 一个上传区」
+//   等契约会被静默判红（行为未变，仅代码位移）。
 const CLIENT_FILES = [
   path.join(process.cwd(), "src", "outfit-workflow.jsx"),
-  path.join(process.cwd(), "src", "features", "outfit", "outfit-top.js")
+  path.join(process.cwd(), "src", "features", "outfit", "outfit-top.js"),
+  path.join(process.cwd(), "src", "features", "outfit", "panels", "OutfitWorkbench.jsx")
 ];
 const RETOUCH_PANEL_FILE = path.join(process.cwd(), "src", "features", "outfit", "panels", "RetouchIntentPanel.jsx");
 const CSS = path.join(process.cwd(), "src", "features", "outfit", "retouch-intent.css");
