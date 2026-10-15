@@ -4,23 +4,16 @@ import {
   Check,
   Crop,
   Download,
-  Eye,
-  EyeOff,
   FolderOpen,
   Images,
   Loader2,
-  Lock,
   Maximize2,
   Minus,
-  Palette,
   Pencil,
   Play,
-  PlugZap,
   Plus,
   RefreshCw,
   Save,
-  Settings,
-  Sparkles,
   Trash2,
   Upload,
   Video,
@@ -162,7 +155,7 @@ import {
         makeId,
     preprocessModeLabel
     } from "./features/outfit/outfit-panels.jsx";
-import { DEFAULT_OUTFIT_PAGE_NAME, GARMENT_PART_OPTIONS, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, THEME_OPTIONS, formatClock, garmentCompositionLabel, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeBatchConcurrency, normalizeGarmentComposition, normalizeGarmentParts, normalizeGenerationCount, normalizeTheme, qualityStatusClass, qualityStatusLabel, readSettings, sameGarmentParts, themeToVars } from "./features/outfit/outfit-top.js";
+import { DEFAULT_OUTFIT_PAGE_NAME, GARMENT_PART_OPTIONS, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, formatClock, garmentCompositionLabel, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeBatchConcurrency, normalizeGarmentComposition, normalizeGarmentParts, normalizeGenerationCount, normalizeTheme, qualityStatusClass, qualityStatusLabel, readSettings, sameGarmentParts, themeToVars } from "./features/outfit/outfit-top.js";
 import { ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, mentionsOptionalReferenceImage, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, serializeDraftPage, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import { blobFromOutfitImage, composeCropReturnBlob, composeOutfitLocalEditBlob, composeOutpaintOriginalRegionBlob, createAsyncLimiter, defaultLocalEditCrop, delay, ensureOutfitUploadCanvasRatio, fileFromBlob, groupPreprocessValue, prepareOutpaintUploadCanvas, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
 import { useOutfitSettingsIntent } from "./features/outfit/use-outfit-settings-intent.js";
@@ -174,6 +167,8 @@ import { OutfitIntentPanel } from "./features/outfit/panels/OutfitIntentPanel.js
 import { RetouchIntentPanel } from "./features/outfit/panels/RetouchIntentPanel.jsx";
 import { ResultQueue } from "./features/outfit/panels/ResultQueue.jsx";
 import { CropReturnDiagnosticsPanel, LegacyModulePanel, LocalPasteDiagnosticsPanel } from "./features/outfit/outfit-panels.jsx";
+import WorkbenchSidebar from "./features/outfit/panels/WorkbenchSidebar.jsx";
+import OutfitSettingsModal from "./features/outfit/panels/OutfitSettingsModal.jsx";
 
 
 const OUTFIT_TEMP_IMAGE_CACHE_PREFIX = "temp-image-cache:";
@@ -2576,33 +2571,15 @@ function buildTasks(countOverride = plannedGenerationCount) {
 
   return (
     <main className="appShell outfitWorkflowEmbedded" style={themeStyle}>
-      <aside className="sidebar">
-        <div className="brand">
-          <img src="/app-avatar.webp" alt="" />
-          <div>
-            <h1>静音AI换装</h1>
-            <span>换装流水线</span>
-          </div>
-        </div>
-        <nav>
-          <button className={activeView === "quick" ? "active" : ""} type="button" onClick={() => switchView("quick")}><Sparkles size={18} /> 快捷生成</button>
-          <button className={activeView === "outfit" ? "active" : ""} type="button" onClick={() => switchView("outfit")}><Wand2 size={18} /> 批量生成</button>
-          <button className={activeView === "resize" ? "active" : ""} type="button" onClick={() => switchView("resize")}><Crop size={18} /> 批量尺寸导出</button>
-          <button className={activeView === "reference" ? "active" : ""} type="button" onClick={() => switchView("reference")}><Images size={18} /> 参考生图</button>
-          <button className={activeView === "detail" ? "active" : ""} type="button" onClick={() => switchView("detail")}><BookOpen size={18} /> 一键详情/主图</button>
-          <button className={activeView === "prompt" ? "active" : ""} type="button" onClick={() => switchView("prompt")}><BookOpen size={18} /> 提示词助手</button>
-        </nav>
-        <button className="settingsEntry" type="button" onClick={openSettings}>
-          <Settings size={18} />
-          <span>设置</span>
-        </button>
-        <div className="statusBox">
-          <strong>{completedCount}/{tasks.length || 0}</strong>
-          <span>完成任务</span>
-          {failedCount > 0 && <em>{failedCount} 个失败</em>}
-          {failedCount === 0 && detachedCount > 0 && <em>{detachedCount} 个待确认</em>}
-        </div>
-      </aside>
+      <WorkbenchSidebar
+        activeView={activeView}
+        onSwitchView={switchView}
+        openSettings={openSettings}
+        completedCount={completedCount}
+        tasks={tasks}
+        failedCount={failedCount}
+        detachedCount={detachedCount}
+      />
 
       <section className="workspace" ref={workspaceRef} onPaste={activeView === "outfit" ? handleWorkspacePaste : undefined}>
         <section className={`viewPanel ${activeView === "quick" ? "active" : ""}`}>
@@ -3241,106 +3218,29 @@ function buildTasks(countOverride = plannedGenerationCount) {
 
       </section>
 
-      {isSettingsOpen && !embeddedMode && (
-        <div className="modalLayer" onMouseDown={() => setIsSettingsOpen(false)}>
-          <section className="settingsModal" onMouseDown={(event) => event.stopPropagation()}>
-            <header>
-              <div>
-                <h2>设置</h2>
-                <span>API Key 与界面皮肤</span>
-              </div>
-              <button className="iconButton" type="button" onClick={() => setIsSettingsOpen(false)}>
-                <X size={18} />
-              </button>
-            </header>
-
-            <label className="modalField">
-              <span><Lock size={15} /> API Key</span>
-              <div className="apiKeyRow">
-                <input
-                  type={showKey ? "text" : "password"}
-                  value={apiKeyDraft}
-                  placeholder="sk-..."
-                  onChange={(event) => setApiKeyDraft(event.target.value)}
-                />
-                <button className="iconButton" type="button" onClick={() => setShowKey((value) => !value)} title={showKey ? "隐藏 API Key" : "显示 API Key"}>
-                  {showKey ? <EyeOff size={17} /> : <Eye size={17} />}
-                </button>
-                <button className="smallButton saveKeyButton" type="button" onClick={saveSettings}>
-                  <Save size={15} />
-                  <span>保存</span>
-                </button>
-              </div>
-              {apiSaveStatus && <small>{apiSaveStatus}</small>}
-            </label>
-
-            <div className="skinBlock">
-              <span><Palette size={15} /> 皮肤</span>
-              <div className="themeGrid">
-                {THEME_OPTIONS.map((theme) => (
-                  <button
-                    className={`themeButton ${effectiveTheme === theme.value ? "selected" : ""}`}
-                    key={theme.value}
-                    type="button"
-                    onClick={() => updateSetting("theme", theme.value)}
-                  >
-                    <i>{theme.colors.map((color) => <b key={color} style={{ backgroundColor: color }} />)}</i>
-                    <span>{theme.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="debugBlock">
-              <span><Settings size={15} /> 连接测试</span>
-              <p>只向上游请求模型清单探测连通性，<strong>不调用生图、不上传图片、不扣费</strong>，也不会显示或保存你的 API Key。</p>
-              <div className="debugActions">
-                <button className="smallButton" type="button" onClick={() => void runConnectionTest()} disabled={isConnectionTesting}>
-                  {isConnectionTesting ? <Loader2 className="spin" size={15} /> : <PlugZap size={15} />}
-                  <span>{isConnectionTesting ? "测试中…" : "连接测试"}</span>
-                </button>
-              </div>
-              {connectionStatus && (
-                <small className={`fieldHint connectionHint ${connectionState}`}>{connectionStatus}</small>
-              )}
-            </div>
-          </section>
-        </div>
-      )}
-
-      {isDirectoryModalOpen && (
-        <div className="modalLayer" onMouseDown={() => setIsDirectoryModalOpen(false)}>
-          <section className="saveDirectoryModal" onMouseDown={(event) => event.stopPropagation()}>
-            <header>
-              <div>
-                <h2>指定文件夹</h2>
-                <span>下载图片会保存到这个目录</span>
-              </div>
-              <button className="iconButton" type="button" onClick={() => setIsDirectoryModalOpen(false)}>
-                <X size={18} />
-              </button>
-            </header>
-            <label className="modalField">
-              <span><FolderOpen size={15} /> 保存目录</span>
-              <input
-                value={directoryDraft}
-                readOnly
-                onClick={() => void pickSaveDirectory()}
-                placeholder="点击选择保存目录"
-                title="点击选择保存目录"
-              />
-              <small>{isPickingDirectory ? "正在等待目录选择..." : "点击输入框选择目录，点确定后生效"}</small>
-            </label>
-            <footer className="directoryModalActions">
-              <button className="secondaryButton" type="button" onClick={() => setIsDirectoryModalOpen(false)}>取消</button>
-              <button className="primaryButton" type="button" onClick={() => void confirmSaveDirectory()}>
-                <Save size={16} />
-                <span>确定</span>
-              </button>
-            </footer>
-          </section>
-        </div>
-      )}
+      <OutfitSettingsModal
+        isSettingsOpen={isSettingsOpen}
+        embeddedMode={embeddedMode}
+        setIsSettingsOpen={setIsSettingsOpen}
+        apiKeyDraft={apiKeyDraft}
+        setApiKeyDraft={setApiKeyDraft}
+        showKey={showKey}
+        setShowKey={setShowKey}
+        saveSettings={saveSettings}
+        apiSaveStatus={apiSaveStatus}
+        effectiveTheme={effectiveTheme}
+        updateSetting={updateSetting}
+        isConnectionTesting={isConnectionTesting}
+        runConnectionTest={runConnectionTest}
+        connectionStatus={connectionStatus}
+        connectionState={connectionState}
+        isDirectoryModalOpen={isDirectoryModalOpen}
+        setIsDirectoryModalOpen={setIsDirectoryModalOpen}
+        directoryDraft={directoryDraft}
+        isPickingDirectory={isPickingDirectory}
+        pickSaveDirectory={pickSaveDirectory}
+        confirmSaveDirectory={confirmSaveDirectory}
+      />
 
       {isPromptAssistantOpen && (
         <div className="modalLayer promptLayer" onMouseDown={() => setIsPromptAssistantOpen(false)}>
