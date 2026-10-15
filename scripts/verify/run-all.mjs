@@ -57,6 +57,11 @@ const ORDER = [
   // （存量 9 条记账、新增即失败、修好了不刷基线判 stale）。纯源码扫描，跑得飞快，
   // 与上面两个 duplication 检查同族，排在同一梯队。
   "api-layering-check",
+  // P7-2（2026-10-16）：死导出门禁 —— 挑出「写了却没人用」的导出
+  // （无人具名 import、模块没被整包引入、自己文件里也没在用）。同样走基线棘轮，
+  // 存量 11 条记账、新增即失败、清理了不刷基线判 stale。纯源码扫描（复用
+  // lib/frontend-sources.mjs 的文件列表，口径与 019 一致），无子进程，跑得飞快。
+  "dead-export-check",
   // 2026-10-03 新增：源码字节卫生（NUL / 控制字符 / 非法 UTF-8）。
   // 起因是 RF-078-b 给 outfit-workflow.jsx 的注释混进二进制垃圾 —— 运行无感
   // （build/ESLint 全绿）却让 grep 把整块巨石判为 binary，审计能力静默失效。
@@ -143,6 +148,9 @@ const FAST_ORDER = [
   // P7-1 API 分层门禁：纯源码扫描 + 基线棘轮，无子进程、无需起服务（<1s），
   // 改一行 fetch 就能立刻发现，正合提交钩子的定位。
   "api-layering-check",
+  // P7-2 死导出门禁：同样是纯源码扫描 + 基线棘轮，无子进程（<1s）。api-layering 拦的是
+  // 「绕过准入层」，这条拦的是「导出没人用」，两者都是靠自律撑不住的规则，一起进提交钩子。
+  "dead-export-check",
   "source-hygiene-check",
   "runtime-config-baseline-check",
   "auth-key-parity-check",
