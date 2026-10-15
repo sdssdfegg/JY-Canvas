@@ -1,29 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
-  Check,
-  Crop,
-  Download,
-  Eye,
-  EyeOff,
   FolderOpen,
   Images,
-  Loader2,
-  Lock,
-  Maximize2,
-  Minus,
-  Palette,
-  Pencil,
-  Play,
-  PlugZap,
-  Plus,
-  RefreshCw,
-  Save,
-  Settings,
-  Sparkles,
-  Trash2,
   Upload,
-  Video,
   Wand2,
   X
 } from "lucide-react";
@@ -37,7 +17,6 @@ import {
   createInpaintUploadMask,
   imageBitmapFromDataUrl
     } from "./shared/local-edit-mask.js";
-import DebouncedTextarea from "./shared/DebouncedTextarea.jsx";
 import { DEFAULT_MODELS } from "./shared/models.js";
 import {
     channelsForModel,
@@ -57,7 +36,7 @@ import {
   dataUrlFromBlob,
   referenceSource
 } from "./shared/result-image.js";
-import { CachedImage } from "./shared/ui/cached-image.jsx";
+// CachedImage 已随 preview 浮层迁至 src/features/outfit/panels/ResultPreviewModal.jsx
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
@@ -157,23 +136,23 @@ import {
   PREPROCESS_OPTIONS,
   PromptPresetGrid,
   RESIZE_OUTPUT_FOLDER,
-  UploadZone,
   WorkflowQuickVideoPanel,
         makeId,
     preprocessModeLabel
     } from "./features/outfit/outfit-panels.jsx";
-import { DEFAULT_OUTFIT_PAGE_NAME, GARMENT_PART_OPTIONS, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, THEME_OPTIONS, formatClock, garmentCompositionLabel, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeBatchConcurrency, normalizeGarmentComposition, normalizeGarmentParts, normalizeGenerationCount, normalizeTheme, qualityStatusClass, qualityStatusLabel, readSettings, sameGarmentParts, themeToVars } from "./features/outfit/outfit-top.js";
+import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeBatchConcurrency, normalizeGarmentComposition, normalizeGarmentParts, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
 import { ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, mentionsOptionalReferenceImage, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, serializeDraftPage, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import { blobFromOutfitImage, composeCropReturnBlob, composeOutfitLocalEditBlob, composeOutpaintOriginalRegionBlob, createAsyncLimiter, defaultLocalEditCrop, delay, ensureOutfitUploadCanvasRatio, fileFromBlob, groupPreprocessValue, prepareOutpaintUploadCanvas, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
 import { useOutfitSettingsIntent } from "./features/outfit/use-outfit-settings-intent.js";
 import { useOutfitPages } from "./features/outfit/use-outfit-pages.js";
 import { useOutfitUploads } from "./features/outfit/use-outfit-uploads.js";
-import { OutfitPageRow } from "./features/outfit/panels/OutfitPageRow.jsx";
-import { ImageFactsPanel } from "./features/outfit/panels/ImageFactsPanel.jsx";
-import { OutfitIntentPanel } from "./features/outfit/panels/OutfitIntentPanel.jsx";
-import { RetouchIntentPanel } from "./features/outfit/panels/RetouchIntentPanel.jsx";
-import { ResultQueue } from "./features/outfit/panels/ResultQueue.jsx";
-import { CropReturnDiagnosticsPanel, LegacyModulePanel, LocalPasteDiagnosticsPanel } from "./features/outfit/outfit-panels.jsx";
+import { LegacyModulePanel } from "./features/outfit/outfit-panels.jsx";
+import WorkbenchSidebar from "./features/outfit/panels/WorkbenchSidebar.jsx";
+import OutfitSettingsModal from "./features/outfit/panels/OutfitSettingsModal.jsx";
+import OutfitWorkbench from "./features/outfit/panels/OutfitWorkbench.jsx";
+import OutfitComposer from "./features/outfit/panels/OutfitComposer.jsx";
+import ResultPreviewModal from "./features/outfit/panels/ResultPreviewModal.jsx";
+import PromptEditorModal from "./features/outfit/panels/PromptEditorModal.jsx";
 
 
 const OUTFIT_TEMP_IMAGE_CACHE_PREFIX = "temp-image-cache:";
@@ -2576,33 +2555,15 @@ function buildTasks(countOverride = plannedGenerationCount) {
 
   return (
     <main className="appShell outfitWorkflowEmbedded" style={themeStyle}>
-      <aside className="sidebar">
-        <div className="brand">
-          <img src="/app-avatar.webp" alt="" />
-          <div>
-            <h1>静音AI换装</h1>
-            <span>换装流水线</span>
-          </div>
-        </div>
-        <nav>
-          <button className={activeView === "quick" ? "active" : ""} type="button" onClick={() => switchView("quick")}><Sparkles size={18} /> 快捷生成</button>
-          <button className={activeView === "outfit" ? "active" : ""} type="button" onClick={() => switchView("outfit")}><Wand2 size={18} /> 批量生成</button>
-          <button className={activeView === "resize" ? "active" : ""} type="button" onClick={() => switchView("resize")}><Crop size={18} /> 批量尺寸导出</button>
-          <button className={activeView === "reference" ? "active" : ""} type="button" onClick={() => switchView("reference")}><Images size={18} /> 参考生图</button>
-          <button className={activeView === "detail" ? "active" : ""} type="button" onClick={() => switchView("detail")}><BookOpen size={18} /> 一键详情/主图</button>
-          <button className={activeView === "prompt" ? "active" : ""} type="button" onClick={() => switchView("prompt")}><BookOpen size={18} /> 提示词助手</button>
-        </nav>
-        <button className="settingsEntry" type="button" onClick={openSettings}>
-          <Settings size={18} />
-          <span>设置</span>
-        </button>
-        <div className="statusBox">
-          <strong>{completedCount}/{tasks.length || 0}</strong>
-          <span>完成任务</span>
-          {failedCount > 0 && <em>{failedCount} 个失败</em>}
-          {failedCount === 0 && detachedCount > 0 && <em>{detachedCount} 个待确认</em>}
-        </div>
-      </aside>
+      <WorkbenchSidebar
+        activeView={activeView}
+        onSwitchView={switchView}
+        openSettings={openSettings}
+        completedCount={completedCount}
+        tasks={tasks}
+        failedCount={failedCount}
+        detachedCount={detachedCount}
+      />
 
       <section className="workspace" ref={workspaceRef} onPaste={activeView === "outfit" ? handleWorkspacePaste : undefined}>
         <section className={`viewPanel ${activeView === "quick" ? "active" : ""}`}>
@@ -2675,551 +2636,174 @@ function buildTasks(countOverride = plannedGenerationCount) {
         </section>
 
         <section className={`viewPanel outfitViewPanel ${activeView === "outfit" ? "active" : ""}`}>
-        <header className="topbar">
-          <div className="resultTabs">
-            <button className={`tabButton ${resultFilter === "all" ? "active" : ""}`} type="button" onClick={() => setResultFilter("all")}>
-              全部({tasks.length})
-            </button>
-            <button className={`tabButton ${resultFilter === "image" ? "active" : ""}`} type="button" onClick={() => setResultFilter("image")}>
-              <Images size={14} />
-              <span>图片({imageCount})</span>
-            </button>
-            <button className="tabButton" type="button" onClick={() => { setResultFilter("all"); switchView("quick"); addEvent("视频", "已打开快捷视频生成"); }}>
-              <Video size={14} />
-              <span>视频(0)</span>
-            </button>
-            <button
-              className="outfitPageNameChip"
-              type="button"
-              onDoubleClick={() => renameOutfitPage(activeOutfitPageId)}
-              title="双击修改页面名称"
-            >
-              <Pencil size={13} />
-              <span>{activeOutfitPage.name}</span>
-            </button>
-          </div>
-          <div className="topActions">
-            <button className="toolbarButton" type="button" onClick={() => void refreshHistory()}>
-              <RefreshCw size={15} />
-              <span>刷新</span>
-            </button>
-            <button className="toolbarButton" type="button" onClick={openDirectoryModal}>
-              <FolderOpen size={15} />
-              <span>指定文件夹</span>
-            </button>
-            <button className="toolbarButton" type="button" onClick={() => void openSaveDirectory()}>
-              <FolderOpen size={15} />
-              <span>打开保存目录</span>
-            </button>
-            <span className={`taskBadge task-${topbarStatus}`}>{topbarStatusText}</span>
-            <button className="toolbarButton" type="button" onClick={downloadSelected} disabled={selectedCompletedCount === 0}>
-              <Download size={15} />
-              <span>下载选中</span>
-            </button>
-            <button className="toolbarButton" type="button" onClick={downloadAll} disabled={imageCount === 0}>
-              <Download size={15} />
-              <span>下载全部</span>
-            </button>
-            <button className="dangerButton" type="button" onClick={deleteSelected} disabled={selectedCount === 0}>
-              <Trash2 size={15} />
-              <span>删除选中</span>
-            </button>
-            <button className="dangerButton" type="button" onClick={clearAll}>
-              <Trash2 size={15} />
-              <span>清空全部</span>
-            </button>
-            <button className="toolbarButton" type="button" onClick={() => void clearNonResultImageCache()}>
-              <RefreshCw size={15} />
-              <span>清缓存</span>
-            </button>
-            <div className="zoomControl">
-              <button type="button" onClick={() => changeGalleryZoom(-0.1)} disabled={galleryZoom <= 0.75} aria-label="缩小图库">
-                <Minus size={14} />
-              </button>
-              <span style={{ "--zoom-fill": `${Math.max(0, Math.min(100, ((galleryZoom - 0.75) / 0.7) * 100))}%` }} />
-              <button type="button" onClick={() => changeGalleryZoom(0.1)} disabled={galleryZoom >= 1.45} aria-label="放大图库">
-                <Plus size={14} />
-              </button>
-              <strong>{galleryZoomPercent}%</strong>
-            </div>
-          </div>
-        </header>
+        <OutfitWorkbench
+          resultFilter={resultFilter}
+          setResultFilter={setResultFilter}
+          tasks={tasks}
+          imageCount={imageCount}
+          switchView={switchView}
+          addEvent={addEvent}
+          activeOutfitPageId={activeOutfitPageId}
+          renameOutfitPage={renameOutfitPage}
+          activeOutfitPage={activeOutfitPage}
+          refreshHistory={refreshHistory}
+          openDirectoryModal={openDirectoryModal}
+          openSaveDirectory={openSaveDirectory}
+          topbarStatus={topbarStatus}
+          topbarStatusText={topbarStatusText}
+          downloadSelected={downloadSelected}
+          selectedCompletedCount={selectedCompletedCount}
+          downloadAll={downloadAll}
+          deleteSelected={deleteSelected}
+          selectedCount={selectedCount}
+          clearAll={clearAll}
+          clearNonResultImageCache={clearNonResultImageCache}
+          changeGalleryZoom={changeGalleryZoom}
+          galleryZoom={galleryZoom}
+          galleryZoomPercent={galleryZoomPercent}
+          visibleTasks={visibleTasks}
+          selectedTaskIds={selectedTaskIds}
+          downloadFeedbackIds={downloadFeedbackIds}
+          brokenTaskImages={brokenTaskImages}
+          resultReplaceTargetId={resultReplaceTargetId}
+          galleryCardMin={galleryCardMin}
+          taskGridRef={taskGridRef}
+          settings={settings}
+          isWhiteRefineWorkflow={isWhiteRefineWorkflow}
+          isOutfitWorkflow={isOutfitWorkflow}
+          isPoseRemixWorkflow={isPoseRemixWorkflow}
+          isRandomBackgroundWorkflow={isRandomBackgroundWorkflow}
+          isOutpaintWorkflow={isOutpaintWorkflow}
+          isRecolorWorkflow={isRecolorWorkflow}
+          isFaceSwapWorkflow={isFaceSwapWorkflow}
+          renderSplitHalvesStrip={renderSplitHalvesStrip}
+          toggleTaskSelected={toggleTaskSelected}
+          retryTask={retryTask}
+          downloadTask={downloadTask}
+          rerunResultTask={rerunResultTask}
+          deleteResultTask={deleteResultTask}
+          setPreview={setPreview}
+          setImageLightbox={setImageLightbox}
+          handleResultReplaceDragOver={handleResultReplaceDragOver}
+          handleResultReplaceDrop={handleResultReplaceDrop}
+          setResultReplaceTargetId={setResultReplaceTargetId}
+          markTaskImageBroken={markTaskImageBroken}
+          beginTaskImageDrag={beginTaskImageDrag}
+          clearResultDragState={clearResultDragState}
+          openReferenceContextMenu={openReferenceContextMenu}
+          beginReferenceImageDrag={beginReferenceImageDrag}
+          copyText={copyText}
+          uploadLabels={uploadLabels}
+          editUploadLabel={editUploadLabel}
+          modelImages={modelImages}
+          addImages={addImages}
+          removeImage={removeImage}
+          toggleImage={toggleImage}
+          reorderImage={reorderImage}
+          replaceImage={replaceImage}
+          clearImageGroup={clearImageGroup}
+          setCropTarget={setCropTarget}
+          openLocalEdit={openLocalEdit}
+          isDesignDraftWorkflow={isDesignDraftWorkflow}
+          setActiveUploadGroup={setActiveUploadGroup}
+          modelBulkMode={modelBulkMode}
+          applyGroupPreprocess={applyGroupPreprocess}
+          clothingImages={clothingImages}
+          clothingBulkMode={clothingBulkMode}
+          fixedClothingId={fixedClothingId}
+          setMasterClothing={setMasterClothing}
+          isBackgroundChangeWorkflow={isBackgroundChangeWorkflow}
+          selectedGarmentParts={selectedGarmentParts}
+          selectedGarmentComposition={selectedGarmentComposition}
+          applyGarmentPartPreset={applyGarmentPartPreset}
+          toggleGarmentPart={toggleGarmentPart}
+          outfitIntent={outfitIntent}
+          selectedFixedClothing={selectedFixedClothing}
+          outfitIntentSummary={outfitIntentSummary}
+          outfitRecognizedFacts={outfitRecognizedFacts}
+          imageFactsAnalyzing={imageFactsAnalyzing}
+          factsDetailOpen={factsDetailOpen}
+          setFactsDetailOpen={setFactsDetailOpen}
+          analyzeImageFacts={analyzeImageFacts}
+          updateOutfitFact={updateOutfitFact}
+          referenceImages={referenceImages}
+          referenceBulkMode={referenceBulkMode}
+          originalLibrary={originalLibrary}
+          removeOriginalImage={removeOriginalImage}
+          GARMENT_PART_PRESET_OPTIONS={GARMENT_PART_PRESET_OPTIONS}
+        />
 
-        <div className="outfitScrollArea">
-          <ResultQueue
-            visibleTasks={visibleTasks}
-            selectedTaskIds={selectedTaskIds}
-            downloadFeedbackIds={downloadFeedbackIds}
-            brokenTaskImages={brokenTaskImages}
-            resultReplaceTargetId={resultReplaceTargetId}
-            galleryCardMin={galleryCardMin}
-            taskGridRef={taskGridRef}
-            settings={settings}
-            activeOutfitPage={activeOutfitPage}
-            resultFilter={resultFilter}
-            isWhiteRefineWorkflow={isWhiteRefineWorkflow}
-            isPoseRemixWorkflow={isPoseRemixWorkflow}
-            isRandomBackgroundWorkflow={isRandomBackgroundWorkflow}
-            isOutpaintWorkflow={isOutpaintWorkflow}
-            isRecolorWorkflow={isRecolorWorkflow}
-            isFaceSwapWorkflow={isFaceSwapWorkflow}
-            renderSplitHalvesStrip={renderSplitHalvesStrip}
-            toggleTaskSelected={toggleTaskSelected}
-            retryTask={retryTask}
-            downloadTask={downloadTask}
-            rerunResultTask={rerunResultTask}
-            deleteResultTask={deleteResultTask}
-            setPreview={setPreview}
-            setImageLightbox={setImageLightbox}
-            handleResultReplaceDragOver={handleResultReplaceDragOver}
-            handleResultReplaceDrop={handleResultReplaceDrop}
-            setResultReplaceTargetId={setResultReplaceTargetId}
-            markTaskImageBroken={markTaskImageBroken}
-            beginTaskImageDrag={beginTaskImageDrag}
-            clearResultDragState={clearResultDragState}
-            openReferenceContextMenu={openReferenceContextMenu}
-            beginReferenceImageDrag={beginReferenceImageDrag}
-            copyText={copyText}
-          />
-
-          <section className="assetGrid">
-          <UploadZone
-            primary
-            title={`图1：${uploadLabels.model.title}`}
-            hint={uploadLabels.model.hint}
-            slotPrefix="图1："
-            titleText={uploadLabels.model.title}
-            hintText={uploadLabels.model.hint}
-            onEditTitle={() => editUploadLabel("model", "title")}
-            onEditHint={() => editUploadLabel("model", "hint")}
-            items={modelImages}
-            onPick={(files) => addImages("model", files)}
-            onRemove={(id) => removeImage("model", id)}
-            onToggle={(id) => toggleImage("model", id)}
-            onReorder={(fromId, toId, placement) => reorderImage("model", fromId, toId, placement)}
-            onReplace={(id, file) => void replaceImage("model", id, file)}
-            onClear={() => clearImageGroup("model")}
-            onPreview={(item) => setImageLightbox({ title: item.name, src: item.previewUrl })}
-            onOpenCrop={(item) => setCropTarget({ group: "model", item })}
-            onOpenLocalEdit={(item) => openLocalEdit("model", item)}
-            localEditEnabled={!isDesignDraftWorkflow && !isPoseRemixWorkflow && !isOutpaintWorkflow && !isWhiteRefineWorkflow && !isRandomBackgroundWorkflow}
-            maxCount={MAX_UPLOAD_IMAGES}
-            onLimit={(message) => addEvent("图1上传", message)}
-            onActivate={() => setActiveUploadGroup("model")}
-            bulkMode={modelBulkMode}
-            onBulkModeChange={(mode) => void applyGroupPreprocess("model", mode)}
-          />
-          {/* 2026-09-26（按用户要求）：精修页不再需要图2 —— 图1 本身就是多图上传，
-              所有图片一起合成一张成品图。所以精修页只渲染图1 这一个上传区。
-              其它分区的图2 原样保留；这里只是不渲染，已有的 clothingImages 数据不动。 */}
-          {!isOutpaintWorkflow && !isRandomBackgroundWorkflow && !isWhiteRefineWorkflow && <div className="assetSide">
-            <UploadZone
-              compact
-              title={`图2：${uploadLabels.clothing.title}`}
-              hint={uploadLabels.clothing.hint}
-              slotPrefix="图2："
-              titleText={uploadLabels.clothing.title}
-              hintText={uploadLabels.clothing.hint}
-              onEditTitle={() => editUploadLabel("clothing", "title")}
-              onEditHint={() => editUploadLabel("clothing", "hint")}
-              items={clothingImages}
-              onPick={(files) => addImages("clothing", files)}
-              onRemove={(id) => removeImage("clothing", id)}
-              onToggle={(id) => toggleImage("clothing", id)}
-              onReorder={(fromId, toId, placement) => reorderImage("clothing", fromId, toId, placement)}
-              onReplace={(id, file) => void replaceImage("clothing", id, file)}
-              onClear={() => clearImageGroup("clothing")}
-              onSetFixed={isWhiteRefineWorkflow ? null : isPoseRemixWorkflow ? settings.pairingMode === "fixed" ? setMasterClothing : null : setMasterClothing}
-              fixedId={isWhiteRefineWorkflow || (isPoseRemixWorkflow && settings.pairingMode !== "fixed") ? "" : fixedClothingId}
-              fixedTitle={isPoseRemixWorkflow ? "设为固定母版" : isFaceSwapWorkflow ? "设为固定人脸" : isBackgroundChangeWorkflow ? "设为固定场景" : isOutpaintWorkflow ? "设为主扩图参考" : isRecolorWorkflow ? "设为主颜色参考" : "设为固定服装"}
-              onPreview={(item) => setImageLightbox({ title: item.name, src: item.previewUrl })}
-              onOpenCrop={(item) => setCropTarget({ group: "clothing", item })}
-              maxCount={(isOutfitWorkflow || isPoseRemixWorkflow || isFaceSwapWorkflow) ? 2 : MAX_UPLOAD_IMAGES}
-              onLimit={(message) => addEvent("图2上传", message)}
-              onActivate={() => setActiveUploadGroup("clothing")}
-              bulkMode={clothingBulkMode}
-              onBulkModeChange={(mode) => void applyGroupPreprocess("clothing", mode)}
-              footerControls={isRecolorWorkflow ? (
-                <div className="garmentTransferControls" aria-label="图2改色范围设置">
-                  <div className="garmentPartPresetGroup" aria-label="图2常用改色范围">
-                    {GARMENT_PART_PRESET_OPTIONS.map((preset) => {
-                      const active = sameGarmentParts(selectedGarmentParts, preset.parts)
-                        && selectedGarmentComposition === normalizeGarmentComposition(preset.composition, preset.parts);
-                      return (
-                        <button
-                          className={active ? "active" : ""}
-                          key={preset.value}
-                          type="button"
-                          onClick={() => applyGarmentPartPreset(preset)}
-                          aria-pressed={active}
-                          title={`改色范围：${preset.label}；当前按${garmentCompositionLabel(preset.composition)}理解图2服装结构`}
-                        >
-                          <Check size={13} />
-                          <span>{preset.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="garmentPartPicker" aria-label="图2改色部位">
-                    {GARMENT_PART_OPTIONS.map((part) => {
-                      const active = selectedGarmentParts.includes(part.value);
-                      return (
-                        <button
-                          className={active ? "active" : ""}
-                          key={part.value}
-                          type="button"
-                          onClick={() => toggleGarmentPart(part.value)}
-                          aria-pressed={active}
-                          title={`图2改色${part.label}`}
-                        >
-                          <Check size={13} />
-                          <span>{part.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-              sideControls={isOutfitWorkflow ? <ImageFactsPanel
-                outfitIntent={outfitIntent}
-                selectedFixedClothing={selectedFixedClothing}
-                outfitIntentSummary={outfitIntentSummary}
-                outfitRecognizedFacts={outfitRecognizedFacts}
-                imageFactsAnalyzing={imageFactsAnalyzing}
-                factsDetailOpen={factsDetailOpen}
-                setFactsDetailOpen={setFactsDetailOpen}
-                analyzeImageFacts={analyzeImageFacts}
-                updateOutfitFact={updateOutfitFact}
-              /> : null}
-            />
-            {!isWhiteRefineWorkflow && <UploadZone
-              compact
-              title={`图3：${uploadLabels.reference.title}`}
-              hint={uploadLabels.reference.hint}
-              slotPrefix="图3："
-              titleText={uploadLabels.reference.title}
-              hintText={uploadLabels.reference.hint}
-              onEditTitle={() => editUploadLabel("reference", "title")}
-              onEditHint={() => editUploadLabel("reference", "hint")}
-              items={referenceImages}
-              onPick={(files) => addImages("reference", files)}
-              onRemove={(id) => removeImage("reference", id)}
-              onToggle={(id) => toggleImage("reference", id)}
-              onReorder={(fromId, toId, placement) => reorderImage("reference", fromId, toId, placement)}
-              onReplace={(id, file) => void replaceImage("reference", id, file)}
-              onClear={() => clearImageGroup("reference")}
-              onPreview={(item) => setImageLightbox({ title: item.name, src: item.previewUrl })}
-              onOpenCrop={(item) => setCropTarget({ group: "reference", item })}
-              maxCount={MAX_UPLOAD_IMAGES}
-              onLimit={(message) => addEvent("图3上传", message)}
-              onActivate={() => setActiveUploadGroup("reference")}
-              bulkMode={referenceBulkMode}
-              onBulkModeChange={(mode) => void applyGroupPreprocess("reference", mode)}
-            />}
-          </div>}
-          </section>
-
-          {/* 2026-09-26（按用户要求）：换装设置已搬到下方提示词区的左半边，
-              这里不再占一整块竖向空间，图1~图3 下面直接就是原图库。 */}
-
-          <section className="originalLibraryPanel">
-          <header>
-            <div>
-              <h3>原图库</h3>
-              <span>保留你上传的原始图片，方便后续重新取细节。</span>
-            </div>
-            <span>{originalLibrary.length} 张</span>
-          </header>
-          <div className="originalLibraryGrid">
-            {originalLibrary.map((item) => (
-              <article className="originalLibraryCard" key={item.id}>
-                <button type="button" onClick={() => setImageLightbox({ title: item.name, src: item.url })}>
-                  <img src={item.url} alt="" />
-                </button>
-                <div>
-                  <strong title={item.name}>{item.name}</strong>
-                  <span>{fileSize(item.size)}</span>
-                </div>
-                <button type="button" onClick={() => removeOriginalImage(item.id)}>
-                  <Trash2 size={13} />
-                </button>
-              </article>
-            ))}
-            {originalLibrary.length === 0 && (
-              <div className="emptyOriginal">
-                <Crop size={22} />
-                <span>上传后会自动保留原图副本</span>
-              </div>
-            )}
-          </div>
-          </section>
-        </div>
-
-        <section className="composerPanel">
-          <div className="composerHeader">
-            <div className="composerTabs">
-              <button className="active" type="button">图片换装</button>
-            </div>
-          </div>
-
-          {/* 2026-09-26（按用户要求）：换装设置内容不多，搬到提示词左边这半边的空位里，
-              原来在图1~图3下面占的那一整块竖向空间就省出来了。
-              左边 = 换装设置；右边 = 通用换装提示词 + 补充提示词。
-              精修页后来又按用户要求压成两行：第一行三组设置排成一条，第二行提示词 + 用户补充并排。 */}
-          <div className={`composerBody ${isOutfitWorkflow ? "withIntent" : ""} ${isWhiteRefineWorkflow ? "withRetouch" : ""}`}>
-            {isOutfitWorkflow && (
-              <div className="composerIntentCol">
-                <OutfitIntentPanel
-                  outfitIntent={outfitIntent}
-                  outfitLayer={outfitLayer}
-                  outfitPreview={outfitPreview}
-                  outfitWearingFieldList={outfitWearingFieldList}
-                  wearingDetailOpen={wearingDetailOpen}
-                  setWearingDetailOpen={setWearingDetailOpen}
-                  toggleOutfitPart={toggleOutfitPart}
-                  patchOutfitIntent={patchOutfitIntent}
-                  updateOutfitWearingValue={updateOutfitWearingValue}
-                  wearingFieldValue={wearingFieldValue}
-                />
-              </div>
-            )}
-            {/* 精修设置：三组选择排成一条，占满整行 —— 下面才是提示词 + 用户补充并排。 */}
-            {isWhiteRefineWorkflow && (
-              <div className="retouchSettingsRow">
-                <RetouchIntentPanel
-                  retouchIntent={retouchIntent}
-                  patchRetouchIntent={patchRetouchIntent}
-                />
-              </div>
-            )}
-
-            <div className="composerPromptCol">
-              <label className="composerField" ref={promptFieldRef}>
-                <span>
-                  {promptFieldTitle}
-                  {isOutfitWorkflow && (
-                    <em className="composerFieldHint">按换装设置自动生成，也可以直接手改</em>
-                  )}
-                  {isWhiteRefineWorkflow && (
-                    <em className="composerFieldHint">按精修设置自动生成，也可以直接手改</em>
-                  )}
-                </span>
-                {/* 换装 / 精修：这个框就是**真正发送的内容**。
-                    它由「设置 + 补充」自动生成；用户可以随手调整/增删，
-                    点设置按钮时会按设置重新生成一遍。 */}
-                <DebouncedTextarea
-                  className={isOutfitWorkflow ? "outfitPromptLive" : isWhiteRefineWorkflow ? "retouchPromptLive" : undefined}
-                  value={settings.prompt}
-                  onChange={(value) => {
-                    // 手改提示词：先记下来，别让自动生成立刻盖掉用户写的东西。
-                    if (isOutfitWorkflow) outfitPromptHandEditedRef.current = true;
-                    if (isWhiteRefineWorkflow) retouchPromptHandEditedRef.current = true;
-                    updateSetting("prompt", value);
-                  }}
-                  onKeyDown={handlePromptKeyDown}
-                  placeholder={promptFieldPlaceholder}
-                />
-                {isOutfitWorkflow && (
-                  <div className="outfitPromptMeta">
-                    <span>
-                      共 {String(settings.prompt || "").length} 字（其中自动内容 {outfitPreview.autoChars}/{OUTFIT_AUTO_PROMPT_CHAR_LIMIT} 字）
-                    </span>
-                    <button
-                      className="outfitPromptClear"
-                      type="button"
-                      onClick={() => {
-                        updateSetting("prompt", outfitAutoPrompt);
-                        addEvent("换装设置", "已按当前换装设置重新生成提示词");
-                      }}
-                      title="把上面这个框恢复成按当前换装设置生成的内容"
-                    >
-                      按设置重新生成
-                    </button>
-                  </div>
-                )}
-                {isWhiteRefineWorkflow && (
-                  <div className="outfitPromptMeta">
-                    <span>
-                      共 {String(settings.prompt || "").length} 字（其中自动内容 {retouchPreview.autoChars}/{RETOUCH_AUTO_PROMPT_CHAR_LIMIT} 字
-                      {retouchPreview.userChars > 0 ? `、用户补充 ${retouchPreview.userChars} 字` : ""}）
-                    </span>
-                    <button
-                      className="outfitPromptClear"
-                      type="button"
-                      onClick={() => {
-                        retouchPromptHandEditedRef.current = false;
-                        updateSetting("prompt", retouchAutoPrompt);
-                        addEvent("精修设置", "已按当前精修设置重新生成提示词");
-                      }}
-                      title="把上面这个框恢复成按当前精修设置生成的内容"
-                    >
-                      按设置重新生成
-                    </button>
-                  </div>
-                )}
-              </label>
-
-              <label className="composerField composerNote">
-                <span>
-                  {productNoteFieldTitle}
-                  {isOutfitWorkflow && (
-                    <em className="composerFieldHint">会实时接到上面提示词的最后（只作为提示词正文的一部分，不再单独重复发给 API）</em>
-                  )}
-                  {isWhiteRefineWorkflow && (
-                    <em className="composerFieldHint">会实时并入上面提示词的【用户补充】段，不再单独重复发给 API</em>
-                  )}
-                </span>
-                <DebouncedTextarea
-                  value={settings.productNote}
-                  onChange={(value) => {
-                    // 补充提示词本身就是最终提示词正文的一部分：改它就重新拼一次，
-                    // 保证"实时并进去"这件事在手改过提示词之后也照样成立。
-                    if (isOutfitWorkflow) outfitPromptHandEditedRef.current = false;
-                    if (isWhiteRefineWorkflow) retouchPromptHandEditedRef.current = false;
-                    updateSetting("productNote", value);
-                  }}
-                  onKeyDown={handlePromptKeyDown}
-                  placeholder={productNotePlaceholder}
-                />
-              </label>
-            </div>
-          </div>
-
-          <div className="composerStickyControls">
-            {/* 提交按钮旁的一行摘要（完整提示词在「通用换装提示词」下面常显，不用再点开）。 */}
-            {isOutfitWorkflow && (
-              <div className="outfitIntentBar">
-                <span className="outfitIntentBarText">
-                  本次替换：<b>{outfitIntentSummary.replaceText}</b>
-                  <em>｜</em>保持：{outfitIntentSummary.keepText}
-                  <em>｜</em>穿法：{outfitIntentSummary.wearingText}
-                </span>
-                <span className="outfitIntentBarChars">{outfitPreview.autoChars}/{OUTFIT_AUTO_PROMPT_CHAR_LIMIT} 字</span>
-              </div>
-            )}
-            <div className="composerFooter">
-              <OutfitPageRow
-                showPromptButton
-                outfitPages={outfitPages}
-                activeOutfitPageId={activeOutfitPageId}
-                draggedPageId={draggedPageId}
-                pageDropTarget={pageDropTarget}
-                activePageDeleteLocked={activePageDeleteLocked}
-                setIsPromptAssistantOpen={setIsPromptAssistantOpen}
-                switchOutfitPage={switchOutfitPage}
-                renameOutfitPage={renameOutfitPage}
-                updateOutfitPageDropTarget={updateOutfitPageDropTarget}
-                setPageDropTarget={setPageDropTarget}
-                dropOutfitPage={dropOutfitPage}
-                endOutfitPageDrag={endOutfitPageDrag}
-                beginOutfitPageDrag={beginOutfitPageDrag}
-                createOutfitPageFromCurrent={createOutfitPageFromCurrent}
-                toggleOutfitPageDeleteLock={toggleOutfitPageDeleteLock}
-                deleteOutfitPage={deleteOutfitPage}
-              />
-
-              <div className="rightTools">
-                <select value={settings.model} onChange={(event) => updateSetting("model", event.target.value)}>
-                  {models.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
-                </select>
-                {/* 线路选择：请求必须带 canonical channelId；旧线路不会出现在这里，服务端也会拒绝。
-                    2026-09-26：批量页保持原来的下拉框样式（和旁边模型/比例/尺寸同级），
-                    只让"当前选中的渠道"用快捷生成那套金色 #fbbf24 显示，其余样式不变。 */}
-                <select
-                  className="channelSelect"
-                  value={outfitChannels.some((channel) => channel.id === settings.channelId) ? settings.channelId : (outfitChannels[0]?.id || "")}
-                  onChange={(event) => updateSetting("channelId", event.target.value)}
-                  title="当前模型的可用线路"
-                >
-                  {outfitChannels.map((channel) => (
-                    <option key={channel.id} value={channel.id}>
-                      {channel.label}{Number(channel.price || 0) > 0 ? ` ¥${Number(channel.price).toFixed(2)}/张` : ""}
-                    </option>
-                  ))}
-                </select>
-                <select value={settings.aspectRatio} onChange={(event) => updateSetting("aspectRatio", event.target.value)}>
-                  {ratios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
-                </select>
-                <select value={settings.imageSize} onChange={(event) => updateSetting("imageSize", event.target.value)}>
-                  {outfitSizes.map((size) => <option key={size} value={size}>{size}</option>)}
-                </select>
-                <select className={globalBulkMode === "mixed" ? "mixed" : ""} value={globalBulkMode} onChange={(event) => void applyGlobalPreprocess(event.target.value)}>
-                  <option value="mixed" disabled>混合状态</option>
-                  {globalBulkMode === "crop" && <option value="crop" disabled>{preprocessModeLabel("crop")}</option>}
-                  {PREPROCESS_OPTIONS.filter((option) => option.value !== "crop").map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-                {isOutpaintWorkflow || isRandomBackgroundWorkflow ? (
-                  <select value="fixed" disabled>
-                    <option value="fixed">{isRandomBackgroundWorkflow ? "按场景补充生成" : "图1向下扩图"}</option>
-                  </select>
-                ) : (
-                  <select value={settings.pairingMode} onChange={(event) => updateSetting("pairingMode", event.target.value)}>
-                    <option value="fixed">{isPoseRemixWorkflow ? "固定母版" : isFaceSwapWorkflow ? "固定人脸" : isBackgroundChangeWorkflow ? "固定场景" : "固定服装"}</option>
-                    <option value="sequence">{isPoseRemixWorkflow ? "母版一一对应" : isFaceSwapWorkflow ? "人脸一一对应" : isBackgroundChangeWorkflow ? "人物场景一一对应" : "按顺序一一对应"}</option>
-                    <option value="cycle">{isPoseRemixWorkflow ? "母版循环配对" : isFaceSwapWorkflow ? "人脸循环配对" : isBackgroundChangeWorkflow ? "场景循环配对" : "服装循环配对"}</option>
-                  </select>
-                )}
-                {isRandomBackgroundWorkflow && (
-                  <select
-                    value={normalizeRandomBackgroundFocus(settings.randomBackgroundFocus)}
-                    onChange={(event) => updateSetting("randomBackgroundFocus", event.target.value)}
-                    title="随机背景视觉重点"
-                  >
-                    {RANDOM_BACKGROUND_FOCUS_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                )}
-                <select value={generationCount} onChange={(event) => updateSetting("generationCount", event.target.value)}>
-                  {GENERATION_COUNT_OPTIONS.map((count) => (
-                    <option key={count} value={count}>{count === "auto" ? `数量(${plannedGenerationCount})` : `数量 ${count}`}</option>
-                  ))}
-                </select>
-                <button
-                  className={`smartInterventionSwitch ${!isPoseRemixWorkflow && !isOutpaintWorkflow && !isRandomBackgroundWorkflow && settings.smartIntervention ? "on" : ""}`}
-                  type="button"
-                  onClick={() => {
-                    if (isPoseRemixWorkflow) {
-                      addEvent("批量姿态", "该页按图1姿态和图2母版直接生成，暂不启用锁图1人物的智能文本");
-                      return;
-                    }
-                    if (isOutpaintWorkflow) {
-                      addEvent("批量扩图", "该页使用前端扩图画布和独立扩图 SKILL，不启用额外智能文本");
-                      return;
-                    }
-                    if (isRandomBackgroundWorkflow) {
-                      addEvent("随机背景", "该页按场景补充和随机背景 SKILL 直接生成，暂不启用额外智能文本");
-                      return;
-                    }
-                    updateSetting("smartIntervention", !settings.smartIntervention);
-                  }}
-                  aria-pressed={!isPoseRemixWorkflow && !isOutpaintWorkflow && !isRandomBackgroundWorkflow && settings.smartIntervention}
-                  title={isPoseRemixWorkflow ? "批量姿态页暂不启用锁图1人物的智能文本" : isOutpaintWorkflow ? "批量扩图页使用固定扩图文本" : isRandomBackgroundWorkflow ? "随机背景页使用场景补充和固定 SKILL" : "切换文本模型介入"}
-                >
-                  <span>{isPoseRemixWorkflow || isOutpaintWorkflow || isRandomBackgroundWorkflow ? "常规文本" : settings.smartIntervention ? "智能文本" : "常规文本"}</span>
-                  <i aria-hidden="true"><b /></i>
-                </button>
-                <button
-                  className={`qualityCheckSwitch ${settings.qualityCheck ? "on" : ""}`}
-                  type="button"
-                  onClick={() => updateSetting("qualityCheck", !settings.qualityCheck)}
-                  aria-pressed={settings.qualityCheck}
-                  title="生成完成后调用 AI质检员标记合格/不合格"
-                >
-                  <span>AI质检</span>
-                  <i aria-hidden="true"><b /></i>
-                </button>
-                <button className="generateButton" type="button" onClick={() => void startBatch()} disabled={running && !canAppendWhileRunning}>
-                  {running ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
-                  <span>生成</span>
-                </button>
-              </div>
-            </div>
-            {inlineMessage && <div className="composerStatus">{inlineMessage}</div>}
-          </div>
-        </section>
+        <OutfitComposer
+          isOutfitWorkflow={isOutfitWorkflow}
+          isWhiteRefineWorkflow={isWhiteRefineWorkflow}
+          isOutpaintWorkflow={isOutpaintWorkflow}
+          isRandomBackgroundWorkflow={isRandomBackgroundWorkflow}
+          isPoseRemixWorkflow={isPoseRemixWorkflow}
+          isFaceSwapWorkflow={isFaceSwapWorkflow}
+          isBackgroundChangeWorkflow={isBackgroundChangeWorkflow}
+          outfitIntent={outfitIntent}
+          outfitLayer={outfitLayer}
+          outfitPreview={outfitPreview}
+          outfitWearingFieldList={outfitWearingFieldList}
+          wearingDetailOpen={wearingDetailOpen}
+          setWearingDetailOpen={setWearingDetailOpen}
+          toggleOutfitPart={toggleOutfitPart}
+          patchOutfitIntent={patchOutfitIntent}
+          updateOutfitWearingValue={updateOutfitWearingValue}
+          wearingFieldValue={wearingFieldValue}
+          retouchIntent={retouchIntent}
+          patchRetouchIntent={patchRetouchIntent}
+          promptFieldRef={promptFieldRef}
+          promptFieldTitle={promptFieldTitle}
+          promptFieldPlaceholder={promptFieldPlaceholder}
+          outfitPromptHandEditedRef={outfitPromptHandEditedRef}
+          retouchPromptHandEditedRef={retouchPromptHandEditedRef}
+          updateSetting={updateSetting}
+          settings={settings}
+          OUTFIT_AUTO_PROMPT_CHAR_LIMIT={OUTFIT_AUTO_PROMPT_CHAR_LIMIT}
+          outfitAutoPrompt={outfitAutoPrompt}
+          addEvent={addEvent}
+          RETOUCH_AUTO_PROMPT_CHAR_LIMIT={RETOUCH_AUTO_PROMPT_CHAR_LIMIT}
+          retouchPreview={retouchPreview}
+          retouchAutoPrompt={retouchAutoPrompt}
+          productNoteFieldTitle={productNoteFieldTitle}
+          productNotePlaceholder={productNotePlaceholder}
+          outfitIntentSummary={outfitIntentSummary}
+          outfitPages={outfitPages}
+          activeOutfitPageId={activeOutfitPageId}
+          draggedPageId={draggedPageId}
+          pageDropTarget={pageDropTarget}
+          activePageDeleteLocked={activePageDeleteLocked}
+          setIsPromptAssistantOpen={setIsPromptAssistantOpen}
+          switchOutfitPage={switchOutfitPage}
+          renameOutfitPage={renameOutfitPage}
+          updateOutfitPageDropTarget={updateOutfitPageDropTarget}
+          setPageDropTarget={setPageDropTarget}
+          dropOutfitPage={dropOutfitPage}
+          endOutfitPageDrag={endOutfitPageDrag}
+          beginOutfitPageDrag={beginOutfitPageDrag}
+          createOutfitPageFromCurrent={createOutfitPageFromCurrent}
+          toggleOutfitPageDeleteLock={toggleOutfitPageDeleteLock}
+          deleteOutfitPage={deleteOutfitPage}
+          models={models}
+          outfitChannels={outfitChannels}
+          ratios={ratios}
+          outfitSizes={outfitSizes}
+          globalBulkMode={globalBulkMode}
+          applyGlobalPreprocess={applyGlobalPreprocess}
+          preprocessModeLabel={preprocessModeLabel}
+          normalizeRandomBackgroundFocus={normalizeRandomBackgroundFocus}
+          PREPROCESS_OPTIONS={PREPROCESS_OPTIONS}
+          RANDOM_BACKGROUND_FOCUS_OPTIONS={RANDOM_BACKGROUND_FOCUS_OPTIONS}
+          generationCount={generationCount}
+          GENERATION_COUNT_OPTIONS={GENERATION_COUNT_OPTIONS}
+          plannedGenerationCount={plannedGenerationCount}
+          running={running}
+          canAppendWhileRunning={canAppendWhileRunning}
+          inlineMessage={inlineMessage}
+          startBatch={startBatch}
+          handlePromptKeyDown={handlePromptKeyDown}
+        />
 
         </section>
 
@@ -3241,106 +2825,29 @@ function buildTasks(countOverride = plannedGenerationCount) {
 
       </section>
 
-      {isSettingsOpen && !embeddedMode && (
-        <div className="modalLayer" onMouseDown={() => setIsSettingsOpen(false)}>
-          <section className="settingsModal" onMouseDown={(event) => event.stopPropagation()}>
-            <header>
-              <div>
-                <h2>设置</h2>
-                <span>API Key 与界面皮肤</span>
-              </div>
-              <button className="iconButton" type="button" onClick={() => setIsSettingsOpen(false)}>
-                <X size={18} />
-              </button>
-            </header>
-
-            <label className="modalField">
-              <span><Lock size={15} /> API Key</span>
-              <div className="apiKeyRow">
-                <input
-                  type={showKey ? "text" : "password"}
-                  value={apiKeyDraft}
-                  placeholder="sk-..."
-                  onChange={(event) => setApiKeyDraft(event.target.value)}
-                />
-                <button className="iconButton" type="button" onClick={() => setShowKey((value) => !value)} title={showKey ? "隐藏 API Key" : "显示 API Key"}>
-                  {showKey ? <EyeOff size={17} /> : <Eye size={17} />}
-                </button>
-                <button className="smallButton saveKeyButton" type="button" onClick={saveSettings}>
-                  <Save size={15} />
-                  <span>保存</span>
-                </button>
-              </div>
-              {apiSaveStatus && <small>{apiSaveStatus}</small>}
-            </label>
-
-            <div className="skinBlock">
-              <span><Palette size={15} /> 皮肤</span>
-              <div className="themeGrid">
-                {THEME_OPTIONS.map((theme) => (
-                  <button
-                    className={`themeButton ${effectiveTheme === theme.value ? "selected" : ""}`}
-                    key={theme.value}
-                    type="button"
-                    onClick={() => updateSetting("theme", theme.value)}
-                  >
-                    <i>{theme.colors.map((color) => <b key={color} style={{ backgroundColor: color }} />)}</i>
-                    <span>{theme.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="debugBlock">
-              <span><Settings size={15} /> 连接测试</span>
-              <p>只向上游请求模型清单探测连通性，<strong>不调用生图、不上传图片、不扣费</strong>，也不会显示或保存你的 API Key。</p>
-              <div className="debugActions">
-                <button className="smallButton" type="button" onClick={() => void runConnectionTest()} disabled={isConnectionTesting}>
-                  {isConnectionTesting ? <Loader2 className="spin" size={15} /> : <PlugZap size={15} />}
-                  <span>{isConnectionTesting ? "测试中…" : "连接测试"}</span>
-                </button>
-              </div>
-              {connectionStatus && (
-                <small className={`fieldHint connectionHint ${connectionState}`}>{connectionStatus}</small>
-              )}
-            </div>
-          </section>
-        </div>
-      )}
-
-      {isDirectoryModalOpen && (
-        <div className="modalLayer" onMouseDown={() => setIsDirectoryModalOpen(false)}>
-          <section className="saveDirectoryModal" onMouseDown={(event) => event.stopPropagation()}>
-            <header>
-              <div>
-                <h2>指定文件夹</h2>
-                <span>下载图片会保存到这个目录</span>
-              </div>
-              <button className="iconButton" type="button" onClick={() => setIsDirectoryModalOpen(false)}>
-                <X size={18} />
-              </button>
-            </header>
-            <label className="modalField">
-              <span><FolderOpen size={15} /> 保存目录</span>
-              <input
-                value={directoryDraft}
-                readOnly
-                onClick={() => void pickSaveDirectory()}
-                placeholder="点击选择保存目录"
-                title="点击选择保存目录"
-              />
-              <small>{isPickingDirectory ? "正在等待目录选择..." : "点击输入框选择目录，点确定后生效"}</small>
-            </label>
-            <footer className="directoryModalActions">
-              <button className="secondaryButton" type="button" onClick={() => setIsDirectoryModalOpen(false)}>取消</button>
-              <button className="primaryButton" type="button" onClick={() => void confirmSaveDirectory()}>
-                <Save size={16} />
-                <span>确定</span>
-              </button>
-            </footer>
-          </section>
-        </div>
-      )}
+      <OutfitSettingsModal
+        isSettingsOpen={isSettingsOpen}
+        embeddedMode={embeddedMode}
+        setIsSettingsOpen={setIsSettingsOpen}
+        apiKeyDraft={apiKeyDraft}
+        setApiKeyDraft={setApiKeyDraft}
+        showKey={showKey}
+        setShowKey={setShowKey}
+        saveSettings={saveSettings}
+        apiSaveStatus={apiSaveStatus}
+        effectiveTheme={effectiveTheme}
+        updateSetting={updateSetting}
+        isConnectionTesting={isConnectionTesting}
+        runConnectionTest={runConnectionTest}
+        connectionStatus={connectionStatus}
+        connectionState={connectionState}
+        isDirectoryModalOpen={isDirectoryModalOpen}
+        setIsDirectoryModalOpen={setIsDirectoryModalOpen}
+        directoryDraft={directoryDraft}
+        isPickingDirectory={isPickingDirectory}
+        pickSaveDirectory={pickSaveDirectory}
+        confirmSaveDirectory={confirmSaveDirectory}
+      />
 
       {isPromptAssistantOpen && (
         <div className="modalLayer promptLayer" onMouseDown={() => setIsPromptAssistantOpen(false)}>
@@ -3369,52 +2876,13 @@ function buildTasks(countOverride = plannedGenerationCount) {
       )}
 
       {editingPrompt && (
-        <div className="modalLayer promptEditorLayer" onMouseDown={() => setEditingPrompt(null)}>
-          <section className="promptEditorModal" onMouseDown={(event) => event.stopPropagation()}>
-            <header>
-              <h2>编辑提示词</h2>
-              <button className="iconButton" type="button" onClick={() => setEditingPrompt(null)}>
-                <X size={18} />
-              </button>
-            </header>
-            <div className="promptEditorBody">
-              <label className="editorField">
-                <span>分类</span>
-                <select
-                  value={editingPrompt.category}
-                  onChange={(event) => updateEditingPrompt("category", event.target.value)}
-                >
-                  {promptCategories.filter((category) => category !== "全部").map((category) => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="editorField">
-                <span>标题</span>
-                <input
-                  value={editingPrompt.title}
-                  onChange={(event) => updateEditingPrompt("title", event.target.value)}
-                  placeholder="输入标题"
-                />
-              </label>
-              <label className="editorField">
-                <span>提示词内容</span>
-                <textarea
-                  value={editingPrompt.content}
-                  onChange={(event) => updateEditingPrompt("content", event.target.value)}
-                  placeholder="输入提示词内容"
-                />
-              </label>
-            </div>
-            <footer>
-              <button className="secondaryButton" type="button" onClick={() => setEditingPrompt(null)}>取消</button>
-              <button className="primaryButton" type="button" onClick={saveEditingPrompt}>
-                <Save size={16} />
-                <span>保存</span>
-              </button>
-            </footer>
-          </section>
-        </div>
+        <PromptEditorModal
+          editingPrompt={editingPrompt}
+          promptCategories={promptCategories}
+          onClose={() => setEditingPrompt(null)}
+          updateEditingPrompt={updateEditingPrompt}
+          saveEditingPrompt={saveEditingPrompt}
+        />
       )}
 
       {cropTarget && (
@@ -3469,94 +2937,24 @@ function buildTasks(countOverride = plannedGenerationCount) {
       )}
 
       {preview && (
-        <div className="modalLayer" onMouseDown={() => setPreview(null)}>
-          <section className="previewModal" onMouseDown={(event) => event.stopPropagation()}>
-            <header>
-              <div>
-                <h2>结果预览 #{preview.order}</h2>
-                <span>{preview.timingMs ? formatMs(preview.timingMs) : ""}</span>
-              </div>
-              <button className="iconButton" type="button" onClick={() => setPreview(null)}><X size={18} /></button>
-            </header>
-            <div
-              className="previewImageFrame outfitPreviewImageFrame"
-              onWheel={zoomPreviewByWheel}
-              onPointerDown={startPreviewDrag}
-              onPointerMove={movePreviewDrag}
-              onPointerUp={endPreviewDrag}
-              onPointerCancel={endPreviewDrag}
-            >
-              {resultPreviewTasks.length > 1 && (
-                <button className="previewArrow previewArrowLeft" type="button" onClick={(event) => {
-                  event.stopPropagation();
-                  navigatePreview(-1);
-                }} aria-label="上一张">
-                  ‹
-                </button>
-              )}
-              <CachedImage
-                src={displayResultImageSource(preview.result)}
-                alt=""
-                draggable
-                onDragStart={(event) => beginTaskImageDrag(event, preview)}
-                onDragEnd={clearResultDragState}
-                style={{ transform: `translate(${previewPan.x}px, ${previewPan.y}px) scale(${previewZoom})` }}
-                diagnostic={{ requestId: preview.id, endpoint: "/api/generate-outfit", module: "批量生成", workflowMode: preview.workflowMode || activeOutfitPage.workflowMode || "", placement: "outfit-preview" }}
-              />
-              {resultPreviewTasks.length > 1 && (
-                <button className="previewArrow previewArrowRight" type="button" onClick={(event) => {
-                  event.stopPropagation();
-                  navigatePreview(1);
-                }} aria-label="下一张">
-                  ›
-                </button>
-              )}
-            </div>
-            {preview.prompt && (
-              <button className="previewPrompt" type="button" onClick={() => void copyText(preview.prompt, "提示词已复制")}>
-                {preview.prompt}
-              </button>
-            )}
-            <LocalPasteDiagnosticsPanel image={preview.result} />
-            <CropReturnDiagnosticsPanel image={preview.result} />
-            {preview.qualityCheck && (
-              <section className={`previewQualityPanel ${qualityStatusClass(preview.qualityCheck)}`}>
-                <header>
-                  <strong>{qualityStatusLabel(preview.qualityCheck)}</strong>
-                  {preview.qualityCheck.checkedAt && <span>{formatClock(preview.qualityCheck.checkedAt)}</span>}
-                </header>
-                {preview.qualityCheck.summary && <p>{preview.qualityCheck.summary}</p>}
-                <div className="previewQualityFacts">
-                  {preview.qualityCheck.faceQuality && <span>脸部：{preview.qualityCheck.faceQuality}</span>}
-                  {preview.qualityCheck.poseMatch && <span>姿态：{preview.qualityCheck.poseMatch}</span>}
-                  {preview.qualityCheck.outfitMatch && <span>服装：{preview.qualityCheck.outfitMatch}</span>}
-                </div>
-                {preview.qualityCheck.issues?.length > 0 && (
-                  <ul>
-                    {preview.qualityCheck.issues.map((issue, index) => <li key={`${issue}_${index}`}>{issue}</li>)}
-                  </ul>
-                )}
-                {preview.qualityCheck.repairPrompt && (
-                  <button className="previewQualityRepair" type="button" onClick={() => void copyText(preview.qualityCheck.repairPrompt, "返修提示已复制")}>
-                    {preview.qualityCheck.repairPrompt}
-                  </button>
-                )}
-              </section>
-            )}
-            <footer>
-              <button className="primaryButton" type="button" onClick={() => void downloadTask(preview)}>
-                <Download size={16} />
-                <span>{preview.savedFilename || preview.savedPath ? "已保存" : "保存结果"}</span>
-              </button>
-              <button className="secondaryButton" type="button" onClick={() => window.open(imageSource(preview.result), "_blank")}>
-                <Maximize2 size={16} />
-                <span>新窗口打开</span>
-              </button>
-            </footer>
-          </section>
-        </div>
+        <ResultPreviewModal
+          preview={preview}
+          onClose={() => setPreview(null)}
+          resultPreviewTasks={resultPreviewTasks}
+          zoomPreviewByWheel={zoomPreviewByWheel}
+          startPreviewDrag={startPreviewDrag}
+          movePreviewDrag={movePreviewDrag}
+          endPreviewDrag={endPreviewDrag}
+          navigatePreview={navigatePreview}
+          beginTaskImageDrag={beginTaskImageDrag}
+          clearResultDragState={clearResultDragState}
+          previewPan={previewPan}
+          previewZoom={previewZoom}
+          copyText={copyText}
+          downloadTask={downloadTask}
+          activeOutfitPage={activeOutfitPage}
+        />
       )}
-
       {imageLightbox && (
         <div className="modalLayer" onMouseDown={() => setImageLightbox(null)}>
           <section className="previewModal" onMouseDown={(event) => event.stopPropagation()}>
@@ -3589,4 +2987,6 @@ function buildTasks(countOverride = plannedGenerationCount) {
     </main>
   );
 }
+
+
 
