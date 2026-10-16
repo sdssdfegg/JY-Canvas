@@ -11,6 +11,32 @@ import { Modal, ModalHeader } from "/src/shared/ui/Modal.jsx";
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// 就绪等待（前端专项D）：轮询 predicate，命中即返回 {ok:true, elapsed}；
+// 超时（默认 15s，与 error-boundary-check 导航超时口径一致）返回 {ok:false, elapsed, timedOut:true}。
+// 用来替换固定 wait(ms)，避免「探针跑赢懒加载页面」造成的误报（慢加载/冷缓存/资源被占用时尤为明显）。
+const PROBE_TIMEOUT_MS = 15000;
+const waitUntil = async (predicate, { timeout = PROBE_TIMEOUT_MS, poll = 100 } = {}) => {
+  const start = Date.now();
+  for (;;) {
+    let hit = false;
+    try { hit = Boolean(predicate()); } catch { hit = false; }
+    if (hit) return { ok: true, elapsed: Date.now() - start };
+    if (Date.now() - start >= timeout) return { ok: false, elapsed: Date.now() - start, timedOut: true };
+    await wait(poll);
+  }
+};
+// 超时诊断用的 DOM 快照特征：区分「页面根本没加载出来」与「加载了但目标元素没出现」，
+// 让门禁判红时 detail 能看出是「没等到目标就绪」而非一串 undefined。
+const domFeature = () => ({
+  navItems: [...document.querySelectorAll("button.navItem")].map((n) => (n.textContent || "").trim()),
+  outfitUploadBox: Boolean(document.querySelector(".outfitUploadBox")),
+  outfitUploadZone: Boolean(document.querySelector(".outfitUploadZone")),
+  uploadZone: Boolean(document.querySelector(".uploadZone")),
+  sectionUploadBox: Boolean(document.querySelector("section.uploadBox")),
+  sectionDetailUploadBox: Boolean(document.querySelector("section.detailUploadBox")),
+  cropModal: Boolean(document.querySelector(".cropModal"))
+});
+
 export async function run() {
   const facts = {};
   const host = document.createElement("div");
@@ -199,37 +225,57 @@ export async function runEntrances() {
     // ============================== 批量入口 ==============================
     const batch = facts.batch;
     batch.navSwitched = navTo("批量生成");
-    await wait(900);
-    const zone = [".outfitUploadBox", ".outfitUploadZone", ".uploadZone", "section.uploadBox", "section.detailUploadBox"]
+
+    // 替换固定 wait(900)：等任一上传区选择器就绪（批量页是懒加载块，慢机器/冷缓存也要等得起）
+    const uploadZoneSelectors = [".outfitUploadBox", ".outfitUploadZone", ".uploadZone", "section.uploadBox", "section.detailUploadBox"];
+    batch.uploadZoneWait = await waitUntil(() => uploadZoneSelectors.some((s) => document.querySelector(s)));
+    const zone = uploadZoneSelectors
       .map((selector) => document.querySelector(selector))
       .find(Boolean) || null;
     batch.foundUploadZone = Boolean(zone);
+    if (!batch.uploadZoneWait.ok) batch.uploadZoneSnapshot = domFeature();
     if (zone) {
       dropOn(zone, makeFile("verify-batch.png"));
-      await wait(1200);
+
+      // 替换固定 wait(1200)：等裁剪入口按钮出现（上传后才会有）
+      batch.cropEntryWait = await waitUntil(() => Boolean(zone.querySelector('button[title="裁剪/补边"]')));
       const cropButton = zone.querySelector('button[title="裁剪/补边"]');
       batch.cropEntryFound = Boolean(cropButton);
+      if (!batch.cropEntryWait.ok) batch.cropEntrySnapshot = domFeature();
 
       const revokedBefore = counters.revoked;
       cropButton?.click();
-      await wait(700);
+
+      // 替换固定 wait(700)：等裁剪弹窗打开
+      batch.openWait = await waitUntil(() => Boolean(document.querySelector(".cropModal")));
       const modal1 = document.querySelector(".cropModal");
       batch.opened = Boolean(modal1);
       batch.layerIsSharedShell = modal1?.parentElement?.classList.contains("modalLayer") === true;
       batch.closeButtonPresent = Boolean(modal1?.querySelector("header button.iconButton"));
+      if (!batch.openWait.ok) batch.openSnapshot = domFeature();
 
       buttonByExactText(modal1, "取消")?.click();
-      await wait(700);
+
+      // 替换固定 wait(700)：等裁剪弹窗关闭（取消）
+      batch.cancelWait = await waitUntil(() => !document.querySelector(".cropModal"));
       batch.closedOnCancel = !document.querySelector(".cropModal");
       batch.refReleasedOnCancel = counters.revoked > revokedBefore;
+      if (!batch.cancelWait.ok) batch.cancelSnapshot = domFeature();
 
       cropButton?.click();
-      await wait(700);
+
+      // 替换固定 wait(700)：等裁剪弹窗再次打开
+      batch.reopenWait = await waitUntil(() => Boolean(document.querySelector(".cropModal")));
       const modal2 = document.querySelector(".cropModal");
       batch.reopened = Boolean(modal2);
+      if (!batch.reopenWait.ok) batch.reopenSnapshot = domFeature();
+
       buttonByExactText(modal2, "应用")?.click();
-      await wait(1600);
+
+      // 替换固定 wait(1600)：等裁剪弹窗关闭（应用）
+      batch.applyWait = await waitUntil(() => !document.querySelector(".cropModal"));
       batch.closedOnApply = !document.querySelector(".cropModal");
+      if (!batch.applyWait.ok) batch.applySnapshot = domFeature();
     }
   } catch (error) {
     facts.batch.error = error instanceof Error ? error.message : String(error);
