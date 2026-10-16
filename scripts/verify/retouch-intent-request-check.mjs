@@ -10,7 +10,7 @@ import http from "node:http";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
-import { compileRetouchPrompt, defaultRetouchIntent } from "../../src/shared/retouch-intent.js";
+import { compileRetouchPrompt, defaultRetouchIntent, RETOUCH_FRONTBACK_TEXT } from "../../src/shared/retouch-intent.js";
 import { freshSandbox, installExitCleanup, removeSandbox, stopChild } from "./lib/sandbox.mjs";
 
 const ROOT = process.cwd();
@@ -204,6 +204,32 @@ try {
   check("兜底路径里用户补充也只出现一次",
     fallbackRequest.prompt.split("保留吊牌，背景纯白").length - 1 === 1
       && fallbackRequest.prompt.split(productNote).length - 1 === 1);
+
+  // —— 3c) 正反开关（前端专项E）：on ⇒ 预览与上游都含【正反视图】段且逐字一致；off ⇒ 都不含 ——
+  const fbOnIntent = intent({ frontback: "on" });
+  const fbOnPreview = compileRetouchPrompt({ intent: fbOnIntent });
+  check("frontback on：页面预览含【正反视图】段且逐字一致（置于最前）",
+    fbOnPreview.prompt.startsWith("【正反视图】")
+      && fbOnPreview.prompt.includes(RETOUCH_FRONTBACK_TEXT),
+    fbOnPreview.prompt.split("\n").slice(0, 2).join(" / "));
+  // 走服务端兜底编译（prompt 留空）：上游 prompt 必须与预览逐字一致且含该段。
+  const fbOnRequest = await promptFor({ retouchIntent: fbOnIntent, prompt: "", aspectRatio: "4:3" });
+  check("frontback on：上游（服务端兜底编译）prompt 与预览逐字一致且含【正反视图】段",
+    fbOnRequest.ok && fbOnRequest.prompt.trim() === fbOnPreview.prompt.trim() && fbOnRequest.prompt.includes("【正反视图】"),
+    `status=${fbOnRequest.status} head=${fbOnRequest.prompt.slice(0, 40)}`);
+  check("frontback on：配套 aspectRatio=4:3 的请求被接受（比例联动，UI 保证前后一致）",
+    fbOnRequest.ok && fbOnRequest.status === 200,
+    `status=${fbOnRequest.status}`);
+  const fbOffRequest = await promptFor({ retouchIntent: intent({ frontback: "off" }), prompt: "", aspectRatio: "3:4" });
+  check("frontback off：上游 prompt 不含【正反视图】段（默认路径不受影响）",
+    fbOffRequest.ok && !fbOffRequest.prompt.includes("【正反视图】"),
+    `status=${fbOffRequest.status}`);
+
+  // —— 3d) 服务端对非法 frontback 返回 400（与 validateRetouchIntent 一致）——
+  const fbBad = await callGenerate({ retouchIntent: intent({ frontback: "maybe" }) });
+  check("非法 frontback（maybe）请求返回 400 且带中文原因",
+    fbBad.status === 400 && fbBad.body?.error === "invalid_retouch_intent" && /不合法/.test(String(fbBad.body?.message || "")),
+    `status=${fbBad.status} message=${fbBad.body?.message || ""}`);
 
   // —— 4) 手改内容被尊重；内置默认词不会被当成编译结果丢掉 ——
   const handEdited = "手改后的提示词：背景纯白，保留吊牌和吊牌线";

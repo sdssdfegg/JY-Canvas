@@ -50,6 +50,20 @@ export function RetouchIntentPanel({
           {chipGroup(RETOUCH_FIT_OPTIONS, retouchIntent.fit, (value) => patchRetouchIntent({ fit: value }))}
         </div>
       </div>
+
+      <div className="retouchIntentRow">
+        <span className="retouchIntentRowTitle">正反</span>
+        <button
+          type="button"
+          className={`retouchFrontbackSwitch ${retouchIntent.frontback === "on" ? "on" : ""}`}
+          aria-pressed={retouchIntent.frontback === "on" ? "true" : "false"}
+          onClick={() => patchRetouchIntent({ frontback: retouchIntent.frontback === "on" ? "off" : "on" })}
+          title="开启后：在提示词最前插入正反平铺俯视固定段，并联动出图比例 4:3；再点关闭则移除该段并恢复开启前的比例"
+        >
+          <span>正反</span>
+          <i><b /></i>
+        </button>
+      </div>
     </section>
   );
 }

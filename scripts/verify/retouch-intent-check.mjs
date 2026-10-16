@@ -12,6 +12,7 @@ import path from "node:path";
 import {
   RETOUCH_AUTO_PROMPT_CHAR_LIMIT,
   RETOUCH_CLEANUP_TEXT,
+  RETOUCH_FRONTBACK_TEXT,
   RETOUCH_GOAL_TEXT,
   compileRetouchPrompt,
   defaultRetouchIntent,
@@ -82,9 +83,16 @@ check("横平竖直明确带限制：不强行拉直褶裥/弧线/波浪边/不�
 check("固定目标与清理段各只出现一次",
   base.prompt.split(RETOUCH_GOAL_TEXT).length - 1 === 1
     && base.prompt.split(RETOUCH_CLEANUP_TEXT).length - 1 === 1);
-check("分段顺序是 目标 → 清理与轮廓 → 结构要求",
+check("默认（frontback 关闭）：分段顺序是 目标 → 清理与轮廓 → 结构要求（无正反段，v1 逐字节不变）",
   base.sections.map((section) => section.id).join(",") === "goal,cleanup,structure",
   base.sections.map((section) => section.id).join(","));
+// 前端专项E：正反开启时固定段置于最前（【用户补充】之前）。
+const fbOn = compiled({ frontback: "on" });
+check("frontback 开启：分段顺序是最前【正反视图】 → 目标 → 清理与轮廓 → 结构要求",
+  fbOn.sections.map((section) => section.id).join(",") === "frontback,goal,cleanup,structure"
+    && fbOn.prompt.startsWith("【正反视图】")
+    && fbOn.prompt.includes(RETOUCH_FRONTBACK_TEXT),
+  fbOn.sections.map((section) => section.id).join(","));
 check("没有用户补充时不出现【用户补充】段", !base.prompt.includes("【用户补充】"));
 
 // ---------- 2b) 提示词里不写"状态说明"，只写给模型的指令 ----------
