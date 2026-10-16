@@ -4,14 +4,11 @@
  * 只把类名换成 V11 的命名、颜色变量换成 V11 已有的变量。
  * 只在精修页渲染（isWhiteRefineWorkflow），其它分区不受影响。 */
 
-.outfitWorkflowEmbedded .whiteRefineSplit {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 0 9px 8px;
-}
+/* V78（2026-10-16）：这条独立开关条已从结果区头部撤掉，裁剪开关归位到「精修设置」的正反行，
+ * 与「正反 + 4:3」组成三联（选中裁剪只在正反开启后才能用）。
+ * 渲染位置从 .whiteRefineSplit 包裹变成 .retouchIntentRow 同行，故旧包裹容器的样式不再保留。 */
 
+/* 开关本体：3.0 的绿色滑块口径，颜色/滑块位移不变，详见下方 V78 同行覆写。 */
 .outfitWorkflowEmbedded .whiteRefineSplitSwitch {
   display: inline-flex;
   align-items: center;
@@ -71,8 +68,42 @@
   transform: translate(20px);
 }
 
-.outfitWorkflowEmbedded .whiteRefineSplitNote {
-  color: var(--text-soft);
-  font: 12.5px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  word-break: break-all;
+/* ---------- V78：归位到「精修设置」正反行之后的同行尺寸覆写 ----------
+ * 原因：上面的基准尺寸是给结果区那条独占一行的开关条用的（高 32px、圆角 7px、min-width 116px）。
+ * 搬到正反行以后，它和左边 25px 高的正反对钮（.retouchFrontbackSwitch，999px 倒角）并肩排一行，
+ * 两套尺寸同排会出现"一方角一圆不一高"。这里只改尺寸把它对齐成同行的 pill，
+ * 颜色与滑块仍是上面那套 3.0 口径（#49c85b / translate(20px) 的既有规则未被替换）。 */
+.outfitWorkflowEmbedded .retouchIntentRow .whiteRefineSplitSwitch {
+  height: 25px;
+  min-width: 0;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: 999px;
+}
+
+.outfitWorkflowEmbedded .retouchIntentRow .whiteRefineSplitSwitch > span {
+  min-width: 0;
+  font-size: 11.5px;
+}
+
+.outfitWorkflowEmbedded .retouchIntentRow .whiteRefineSplitSwitch > i {
+  width: 34px;
+  height: 18px;
+}
+
+.outfitWorkflowEmbedded .retouchIntentRow .whiteRefineSplitSwitch > i > b {
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+}
+
+.outfitWorkflowEmbedded .retouchIntentRow .whiteRefineSplitSwitch.on > i > b {
+  transform: translate(16px);
+}
+
+/* R4 单向门：正反关闭 ⇒ 裁剪不可用。禁用态沿用本仓按钮惯例（降低不透明度 + not-allowed 光标）。 */
+.outfitWorkflowEmbedded .retouchIntentRow .whiteRefineSplitSwitch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }

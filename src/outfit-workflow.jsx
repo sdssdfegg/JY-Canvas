@@ -345,6 +345,9 @@ export default function OutfitWorkflow({
   const [inlineMessage, setInlineMessage] = useState("");
   // 精修页「结果图中线剪裁成两张」开关（默认开，和 3.0 的 localStorage 口径一致）+ 状态提示。
   const [splitHalves, setSplitHalves] = useState(() => readSplitHalvesEnabled());
+  // 裁切状态提示：V78 后不再有结果区那条开关条，改由裁剪钮的 title 承接。
+  // 保留此 state 的原因 —— outfit-save-handlers 的 splitWhiteRefineResult 会往这里写实时状态
+  //（"正在从中线裁切…" / "已裁切保存到：…" / "裁切失败：…"），属于业务的实时反馈，不是静态说明句。
   const [splitNote, setSplitNote] = useState("");
   const [, setEvents] = useState([]);
   const [cropTarget, setCropTarget] = useState(null);
@@ -1332,6 +1335,12 @@ export default function OutfitWorkflow({
     addEvent
   });
 
+  // V78 单向门（需求 R4）：裁剪只有开「正反」才算数。
+  // 为什么用派生值而不是直接改 state：splitHalves 的持久化口径是"默认开"（3.0 口径，见 image-split.js），
+  // 而 frontback 默认关 —— 二者初值不一致。若直接信 state，用户没碰过任何开关时也会真的切图。
+  // 派生口径让"裁剪随正反走"在任何初值组合下都成立；state 仍如实持久化用户手动细调的结果。
+  const splitHalvesActive = retouchIntent.frontback === "on" && splitHalves;
+
   // 2026-10-15 P6-3：批量生成执行逻辑（buildTasks / runTaskQualityCheck / runSingleTask / startBatch）搬入 useOutfitBatchExecution。
   const {
     runSingleTask,
@@ -1377,7 +1386,8 @@ export default function OutfitWorkflow({
     visibleTaskIdsRef,
     tasksRef,
     autoSaveTask,
-    splitHalves,
+    // V78：交给批量执行的是"正反已开才算数"的派生值 —— 裁切与否在这里一次收敛。
+    splitHalves: splitHalvesActive,
     splitWhiteRefineResult,
     modelForIndex,
     clothingForIndex,
@@ -1434,30 +1444,29 @@ export default function OutfitWorkflow({
   }
 
 
-  function toggleSplitHalves() {
-    const next = !splitHalves;
+  // V78：裁剪不再是结果区那条独立开关，而是「正反 + 裁剪 + 4:3」三联的一员。
+  // 这里只保留状态的写入入口；splitNote 的展示口径见 RetouchIntentPanel（V78 裁决：并入裁剪钮 title）。
+  function applySplitHalves(next) {
     setSplitHalves(next);
     writeSplitHalvesEnabled(next);
-    setSplitNote(next ? "已开启：生成后会自动裁切并保存左右两张" : "已关闭：只输出整张结果图");
   }
 
+  function toggleSplitHalves() {
+    applySplitHalves(!splitHalves);
+  }
 
-  function renderSplitHalvesStrip() {
-    return (
-      <div className="whiteRefineSplit">
-        <button
-          className={`whiteRefineSplitSwitch ${splitHalves ? "on" : ""}`}
-          type="button"
-          aria-pressed={splitHalves ? "true" : "false"}
-          onClick={toggleSplitHalves}
-          title="把生成的结果从中线竖切成左右两张，分别保存"
-        >
-          <span>裁剪</span>
-          <i><b /></i>
-        </button>
-        <span className="whiteRefineSplitNote">{splitNote}</span>
-      </div>
-    );
+  // V78 三联联动（需求 R2 联动开 / R3 联动关）：
+  // 位置说明 —— splitHalves 的 state 在 outfit-workflow.jsx 里，useOutfitSettingsIntent（hook）
+  // 内拿不到 setSplitHalves，所以联动写在 patchRetouchIntent 的**包装层**，而不是 hook 里；
+  // 4:3 那条比例联动仍在 hook 的 patchRetouchIntent 原处不动（"唯一改动意图的入口"未被破坏）。
+  function patchRetouchIntentWithSplit(patch) {
+    const nextPatch = typeof patch === "function" ? patch(retouchIntent) : patch;
+    if (nextPatch && Object.prototype.hasOwnProperty.call(nextPatch, "frontback")) {
+      const frontbackOn = retouchIntent.frontback === "on";
+      if (nextPatch.frontback === "on" && !frontbackOn) applySplitHalves(true);
+      else if (nextPatch.frontback === "off" && frontbackOn) applySplitHalves(false);
+    }
+    patchRetouchIntent(patch);
   }
 
 
@@ -1769,13 +1778,11 @@ function freezeIntentIntoTask(intentCtx) {
           galleryCardMin={galleryCardMin}
           taskGridRef={taskGridRef}
           settings={settings}
-          isWhiteRefineWorkflow={isWhiteRefineWorkflow}
           isPoseRemixWorkflow={isPoseRemixWorkflow}
           isRandomBackgroundWorkflow={isRandomBackgroundWorkflow}
           isOutpaintWorkflow={isOutpaintWorkflow}
           isRecolorWorkflow={isRecolorWorkflow}
           isFaceSwapWorkflow={isFaceSwapWorkflow}
-          renderSplitHalvesStrip={renderSplitHalvesStrip}
           toggleTaskSelected={toggleTaskSelected}
           retryTask={retryTask}
           downloadTask={downloadTask}
@@ -1815,7 +1822,11 @@ function freezeIntentIntoTask(intentCtx) {
           updateOutfitWearingValue={updateOutfitWearingValue}
           wearingFieldValue={wearingFieldValue}
           retouchIntent={retouchIntent}
-          patchRetouchIntent={patchRetouchIntent}
+          // V78：传给精修设置的是带裁剪联动的包装版（参见 patchRetouchIntentWithSplit）。
+          patchRetouchIntent={patchRetouchIntentWithSplit}
+          splitHalves={splitHalvesActive}
+          onToggleSplitHalves={toggleSplitHalves}
+          splitNote={splitNote}
           promptFieldRef={promptFieldRef}
           promptFieldTitle={promptFieldTitle}
           promptFieldPlaceholder={promptFieldPlaceholder}
