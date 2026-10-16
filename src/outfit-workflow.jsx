@@ -1770,7 +1770,6 @@ function freezeIntentIntoTask(intentCtx) {
           taskGridRef={taskGridRef}
           settings={settings}
           isWhiteRefineWorkflow={isWhiteRefineWorkflow}
-          isOutfitWorkflow={isOutfitWorkflow}
           isPoseRemixWorkflow={isPoseRemixWorkflow}
           isRandomBackgroundWorkflow={isRandomBackgroundWorkflow}
           isOutpaintWorkflow={isOutpaintWorkflow}
@@ -1793,44 +1792,8 @@ function freezeIntentIntoTask(intentCtx) {
           openReferenceContextMenu={openReferenceContextMenu}
           beginReferenceImageDrag={beginReferenceImageDrag}
           copyText={copyText}
-          uploadLabels={uploadLabels}
-          editUploadLabel={editUploadLabel}
-          modelImages={modelImages}
-          addImages={addImages}
-          removeImage={removeImage}
-          toggleImage={toggleImage}
-          reorderImage={reorderImage}
-          replaceImage={replaceImage}
-          clearImageGroup={clearImageGroup}
-          setCropTarget={setCropTarget}
-          openLocalEdit={openLocalEdit}
-          isDesignDraftWorkflow={isDesignDraftWorkflow}
-          setActiveUploadGroup={setActiveUploadGroup}
-          modelBulkMode={modelBulkMode}
-          applyGroupPreprocess={applyGroupPreprocess}
-          clothingImages={clothingImages}
-          clothingBulkMode={clothingBulkMode}
-          fixedClothingId={fixedClothingId}
-          setMasterClothing={setMasterClothing}
-          isBackgroundChangeWorkflow={isBackgroundChangeWorkflow}
-          selectedGarmentParts={selectedGarmentParts}
-          selectedGarmentComposition={selectedGarmentComposition}
-          applyGarmentPartPreset={applyGarmentPartPreset}
-          toggleGarmentPart={toggleGarmentPart}
-          outfitIntent={outfitIntent}
-          selectedFixedClothing={selectedFixedClothing}
-          outfitIntentSummary={outfitIntentSummary}
-          outfitRecognizedFacts={outfitRecognizedFacts}
-          imageFactsAnalyzing={imageFactsAnalyzing}
-          factsDetailOpen={factsDetailOpen}
-          setFactsDetailOpen={setFactsDetailOpen}
-          analyzeImageFacts={analyzeImageFacts}
-          updateOutfitFact={updateOutfitFact}
-          referenceImages={referenceImages}
-          referenceBulkMode={referenceBulkMode}
           originalLibrary={originalLibrary}
           removeOriginalImage={removeOriginalImage}
-          GARMENT_PART_PRESET_OPTIONS={GARMENT_PART_PRESET_OPTIONS}
         />
 
         <OutfitComposer
@@ -1903,6 +1866,34 @@ function freezeIntentIntoTask(intentCtx) {
           inlineMessage={inlineMessage}
           startBatch={startBatch}
           handlePromptKeyDown={handlePromptKeyDown}
+          uploadLabels={uploadLabels}
+          editUploadLabel={editUploadLabel}
+          modelImages={modelImages}
+          addImages={addImages}
+          removeImage={removeImage}
+          toggleImage={toggleImage}
+          reorderImage={reorderImage}
+          replaceImage={replaceImage}
+          clearImageGroup={clearImageGroup}
+          setCropTarget={setCropTarget}
+          openLocalEdit={openLocalEdit}
+          isDesignDraftWorkflow={isDesignDraftWorkflow}
+          isRecolorWorkflow={isRecolorWorkflow}
+          clothingImages={clothingImages}
+          clothingBulkMode={clothingBulkMode}
+          setMasterClothing={setMasterClothing}
+          fixedClothingId={fixedClothingId}
+          GARMENT_PART_PRESET_OPTIONS={GARMENT_PART_PRESET_OPTIONS}
+          selectedGarmentParts={selectedGarmentParts}
+          selectedGarmentComposition={selectedGarmentComposition}
+          applyGarmentPartPreset={applyGarmentPartPreset}
+          toggleGarmentPart={toggleGarmentPart}
+          referenceImages={referenceImages}
+          referenceBulkMode={referenceBulkMode}
+          setActiveUploadGroup={setActiveUploadGroup}
+          modelBulkMode={modelBulkMode}
+          applyGroupPreprocess={applyGroupPreprocess}
+          setImageLightbox={setImageLightbox}
         />
 
         </section>
