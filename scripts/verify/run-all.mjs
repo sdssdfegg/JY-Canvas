@@ -88,6 +88,9 @@ const ORDER = [
   // （build/ESLint 全绿）却让 grep 把整块巨石判为 binary，审计能力静默失效。
   // 无基线无棘轮，纯字节扫描，跑得飞快。
   "source-hygiene-check",
+  // BUG02（2026-10-16）：渲染期 TDZ 门禁 —— 用 espree 扫 App() 渲染期前向引用（const/let），
+  // 拦住「build 通过但首次渲染必崩」的合入。纯解析、无子进程、无基线（门槛 0），进提交钩子。
+  "main-render-tdz-check",
   // auth-key-parity：前后端 KEY 清洗规则逐用例一致（登记表第 13 行"后续可抽共享测试用例"）。
   // runtime-config-baseline：守住 server/core/runtime-config.js 的默认值
   // （超时 / 并发 / 缓存策略都是历史实测调校出来的，改了不报错、只改出图行为，
@@ -179,6 +182,8 @@ const FAST_ORDER = [
   // 它的价值窗口就是"写那行新 import 的一刻"——等到 CI 再报，横向依赖已经落地一个月了。
   "dependency-direction-check",
   "source-hygiene-check",
+  // BUG02 渲染期 TDZ 门禁：纯解析、无子进程（<1s），改一行就崩的 TDZ 立刻发现，正合提交钩子。
+  "main-render-tdz-check",
   "runtime-config-baseline-check",
   "auth-key-parity-check",
   "state-singleton-check",

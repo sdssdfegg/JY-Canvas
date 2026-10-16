@@ -530,8 +530,6 @@ function App() {
   // 封装版的数据目录不在安装包内，用户看不到路径也删不掉历史图片，
   // 于是"清空全部"后文件仍在、重启就被扫描重建。这里给出自助入口。
   const [isDirectoryModalOpen, setIsDirectoryModalOpen] = useState(false);
-  // V56（P3-1）：设置弹窗私有状态与副作用统一收口到 useSettingsState，App() 只持有共享状态。
-  const settingsApi = useSettingsState({ settings, setSettings, config, addEvent, isSettingsOpen });
   const [isPromptAssistantOpen, setIsPromptAssistantOpen] = useState(false);
   const [referenceDropTarget, setReferenceDropTarget] = useState(null);
   // 2026-10-06：快捷生成的参考图「左右调顺序」（批量侧早就有，快捷侧补齐）。
@@ -553,9 +551,9 @@ function App() {
   const previewDragRef = useRef(null);
 
   // P6-5（V4.0）：App() 体其余全部 handler（38 个）收口到 useMainHandlers（src/features/main-app/）。
-  // 调用点置于 usePreviewDrag / useSettingsState / usePromptAssistantState / useSaveDirectory /
-  //   createCanvasActions 之前——这些下游 deps 引用 addEvent / updateSetting / closePreview / canvasCenterPoint
-  //   （搬出前依赖函数提升可用，现由本钩产出，调用点必须在前）。
+  // useMainHandlers 必须先于其下游消费方执行：它解构产出 addEvent / updateSetting /
+  //   closePreview / canvasCenterPoint 等；useSettingsState（已移至本钩之后）与 usePreviewDrag /
+  //   usePromptAssistantState / useSaveDirectory 都依赖这些产出，调用点必须在其后。
   // TDZ：钩内 10 项晚期产出引用统一走 handlerLateRef.current，回填点在 syncHistoryFromServerRef 回填处
   //   （渲染期，此时各产出均已初始化；handler 只在事件回调 / effect 内被调用，均在渲染之后，无前向引用）。
   const handlerLateRef = useRef({});
@@ -650,6 +648,8 @@ function App() {
     canvasStageRef,
     lateRef: handlerLateRef
   });
+  // V56（P3-1）：设置弹窗私有状态与副作用统一收口到 useSettingsState，App() 只持有共享状态。BUG02 修复：须置于 useMainHandlers 之后（消费其产出的 addEvent），前置触发 const TDZ 首屏白屏。
+  const settingsApi = useSettingsState({ settings, setSettings, config, addEvent, isSettingsOpen });
   const {
     beginPreviewDrag,
     movePreviewDrag,

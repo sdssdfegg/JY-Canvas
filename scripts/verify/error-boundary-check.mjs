@@ -117,14 +117,29 @@ try {
     } else {
       const programFile = path.join(ROOT, ".codex-artifacts", `error-boundary-browser-${process.pid}.js`);
       const program = `
+page.setDefaultNavigationTimeout && page.setDefaultNavigationTimeout(150000);
+const __pageErrors = [];
+if (typeof page.on === "function") {
+  page.on("pageerror", (err) => { try { __pageErrors.push({ name: (err && err.name) || "Error", message: String((err && err.message) || err) }); } catch {} });
+}
 await page.goto("http://127.0.0.1:${APP_PORT}/", {waitUntil: "domcontentloaded"});
+try {
+  await page.waitForFunction(() => {
+    const root = document.getElementById("root");
+    const shell = document.querySelector("main.appShell");
+    return !!root && root.children.length > 0 && !!shell;
+  }, { timeout: 150000 });
+} catch (e) {}
+const __rootChildren = await page.evaluate(() => (document.getElementById("root") ? document.getElementById("root").children.length : 0)).catch(() => 0);
+const __appShell = await page.evaluate(() => !!document.querySelector("main.appShell")).catch(() => false);
 await page.waitForTimeout(1800);
-return await page.evaluate(async () => {
+const __probe = await page.evaluate(async () => {
   const mod = await import("/scripts/verify/error-boundary-page.jsx?v=" + Date.now());
   const probe = await mod.run();
   const wiring = await mod.runWiring();
   return { probe, wiring };
 });
+return { probe: __probe.probe, wiring: __probe.wiring, rootChildren: __rootChildren, appShell: __appShell, pageErrors: __pageErrors };
 `;
       mkdirSync(path.dirname(programFile), { recursive: true });
       writeFileSync(programFile, program, "utf8");
@@ -178,6 +193,16 @@ return await page.evaluate(async () => {
 if (browserResult.ran) {
   const p = browserResult.payload?.probe || {};
   const w = browserResult.payload?.wiring || {};
+  // ---- BUG02 增强：主应用挂载兜底诊断 ----
+  // 若主应用根本没挂上（白屏），原有活树断言只会报 undefined；这里显式给出"主应用挂载失败"
+  // 并带回首个 pageerror，让下次白屏直接暴露真实原因，而不是只剩空值。
+  const rootChildren = browserResult.payload?.rootChildren || 0;
+  const appShell = browserResult.payload?.appShell === true;
+  const pageErrors = Array.isArray(browserResult.payload?.pageErrors) ? browserResult.payload.pageErrors : [];
+  check("浏览器：主应用已挂载（#root 有子节点且 main.appShell 存在）", rootChildren > 0 && appShell === true, `rootChildren=${rootChildren} appShell=${appShell}`);
+  if (!(rootChildren > 0 && appShell === true)) {
+    check("浏览器：主应用未挂载时给出真实原因（首个 pageerror）", pageErrors.length > 0, `pageErrors=${JSON.stringify(pageErrors)}`);
+  }
   check("浏览器：渲染期抛错 → 显示兜底面板（不是白屏）", p.fallbackRendered === true, JSON.stringify(p));
   check("浏览器：兜底面板带区域名与可读原因", /「验证区域」这块界面出错了/.test(p.fallbackText || ""), p.fallbackText);
   check("浏览器：提供重试 / 重新加载 / 复制诊断三个入口",
