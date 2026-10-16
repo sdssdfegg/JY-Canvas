@@ -20,6 +20,7 @@
 | 组件 | 覆盖范围 | 说明 |
 | --- | --- | --- |
 | `Modal.jsx` | 遮罩层 + 面板 + 点遮罩关闭 + 面板阻止冒泡；`ModalHeader` 提供标题/副标题/关闭按钮 | 2026-09-25 抽取。已接入快捷/批量两侧的**裁剪弹窗**（`QuickCropViewportModal`、`CropModal`）与**局部回贴弹窗**（`QuickLocalEditModal`、`OutfitLocalEditModal`）。只共享外壳与通用交互；裁剪几何、蒙版绘制、请求参数、保存行为仍各自保留。**刻意没有**加 Esc 关闭与 body 滚动锁——抽取前这四个弹窗都没有，加了就是改交互。其余弹窗（设置、预览、提示词等）仍各写一份，可作为后续迁移对象。 |
+| `Button.jsx` | 全站通用按钮：`size`(sm 28 / md 36 / lg 44) × `tone`(default / primary / danger / ghost) + `iconOnly` / `loading` / `active`；样式统一在 `ui.css`（`.ui-` 前缀，单份）；`ModalHeader` 关闭钮也用本组件 | 2026-10-16 建（V70）。变体矩阵与旧类映射规则（`smallButton`/`iconButton`/`primaryButton`/`secondaryButton`/`toolbarButton`/`dangerButton`/`modeTab`/`tabButton`/`generateButton`/`promptTab`/`newPromptButton` → 对应 `<Button>` 的 size/tone）见总纲 §4.2。换装设置弹窗 7 钮 + `ModalHeader` 关闭钮已试点接入；旧全局按钮类（9 类基础块）作为过渡层保留至 V75 收口单删除。 |
 
 | 局部编辑/裁剪控件 | 快捷和批量都有 | 后续放 `src/features/local-edit/`，公共底层放 `src/shared/` |
 
@@ -33,7 +34,7 @@
 
 ## CSS 规则
 
-长期目标：
+已建立（V70 起）：
 
 ```text
 src/shared/ui/ui.css        通用按钮、弹窗、上传、图库、状态
