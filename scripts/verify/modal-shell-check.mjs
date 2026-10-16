@@ -192,7 +192,8 @@ if (shellFacts) {
   check("浏览器：外壳渲染出 modalLayer + 面板", f.rendered === true, String(f.rendered));
   check("浏览器：面板里有 header（标题+副标题）", f.panelHasHeader === true && f.titleText === "探针标题",
     `title=${f.titleText} subtitle=${f.subtitleText}`);
-  check("浏览器：关闭按钮是 iconButton（带 X 图标）", f.closeButtonHasIcon === true, `aria-label=${f.closeButtonAriaLabel}`);
+  // 措辞随 V79 探针选择器一并更新：V70 起关闭钮是 <Button iconOnly>，class 为 ui-button--icon。
+  check("浏览器：关闭按钮是 ui-button--icon（带 X 图标）", f.closeButtonHasIcon === true, `aria-label=${f.closeButtonAriaLabel}`);
   check("浏览器：children 渲染在面板内、不在 header 里", f.childInsidePanel === true && f.childOutsideHeader === true, "");
   check("浏览器：点面板内部不触发关闭", f.panelClickDoesNotClose === true, "");
   check("浏览器：点遮罩触发关闭（onClose 恰好 1 次）", f.backdropCloses === true, "");

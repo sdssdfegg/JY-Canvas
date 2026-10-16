@@ -73,8 +73,10 @@ export async function run() {
   facts.panelHasHeader = Boolean(panel?.querySelector("header h2"));
   facts.titleText = panel?.querySelector("header h2")?.textContent || "";
   facts.subtitleText = panel?.querySelector("header span")?.textContent || "";
-  facts.closeButtonAriaLabel = panel?.querySelector("button.iconButton")?.getAttribute("aria-label") ?? null;
-  facts.closeButtonHasIcon = Boolean(panel?.querySelector("button.iconButton svg"));
+  // V70 起 ModalHeader 的关闭钮改用共享组件 <Button iconOnly>，渲染 class 为
+  // ui-button ui-button--md ui-button--icon（不再有旧类名 iconButton）；V79 同步修复探针选择器。
+  facts.closeButtonAriaLabel = panel?.querySelector("button.ui-button--icon")?.getAttribute("aria-label") ?? null;
+  facts.closeButtonHasIcon = Boolean(panel?.querySelector("button.ui-button--icon svg"));
   facts.childInsidePanel = Boolean(panel?.querySelector(".probeBody"));
   facts.childOutsideHeader = !panel?.querySelector("header .probeBody");
   facts.bodyOverflowUnchanged = document.body.style.overflow === bodyOverflowBefore;
@@ -100,7 +102,7 @@ export async function run() {
   render({ noLabel: true });
   await wait(120);
   facts.ariaLabelOmittedWhenNotProvided =
-    (host.querySelector("section.probePanel button.iconButton")?.getAttribute("aria-label") ?? null) === null;
+    (host.querySelector("section.probePanel button.ui-button--icon")?.getAttribute("aria-label") ?? null) === null;
 
   // 卸载后不应再响应任何点击（挂载时加的监听要清干净）
   const beforeUnmount = closeCount;
@@ -183,7 +185,7 @@ export async function runEntrances() {
       quick.layerIsSharedShell = modal1?.parentElement?.classList.contains("modalLayer") === true
         && modal1?.parentElement?.classList.contains("previewLayer") === true;
       quick.title = modal1?.querySelector("header h2")?.textContent || "";
-      quick.closeButtonPresent = Boolean(modal1?.querySelector("header button.iconButton"));
+      quick.closeButtonPresent = Boolean(modal1?.querySelector("header button.ui-button--icon"));
       const createdBefore = counters.created;
       const revokedBefore = counters.revoked;
 
@@ -251,7 +253,7 @@ export async function runEntrances() {
       const modal1 = document.querySelector(".cropModal");
       batch.opened = Boolean(modal1);
       batch.layerIsSharedShell = modal1?.parentElement?.classList.contains("modalLayer") === true;
-      batch.closeButtonPresent = Boolean(modal1?.querySelector("header button.iconButton"));
+      batch.closeButtonPresent = Boolean(modal1?.querySelector("header button.ui-button--icon"));
       if (!batch.openWait.ok) batch.openSnapshot = domFeature();
 
       buttonByExactText(modal1, "取消")?.click();
