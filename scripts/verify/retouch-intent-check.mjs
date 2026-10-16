@@ -277,8 +277,11 @@ check("迁移有防线：已经是编译器产出（含固定目标段）的内�
     && /!looksCompiled/.test(clientSource)
     && /currentPrompt\.length <= 6000/.test(clientSource),
   "防止越搬越长的回流（已实测踩过）");
-check("精修页只渲染图1 一个上传区（图2 已按用户要求删除）",
-  /!isWhiteRefineWorkflow && <div className="assetSide">/.test(clientSource));
+// V76（2026-10-16）：上传三区从 .assetSide 包裹改为三区并列横排（执行单 §3.1），.assetSide 包裹层已移除；
+// 行为不变——图2/图3 上传区仍以 !isWhiteRefineWorkflow 门控（精修页只渲染图1）。
+// 契约从「assetSide 包裹存在」改为「图2/图3 以 !isWhiteRefineWorkflow 门控」，与 V68 同类契约位移更新同性质（行为未变，仅结构位移）。
+check("精修页只渲染图1 一个上传区（图2/图3 上传区以 !isWhiteRefineWorkflow 门控隐藏）",
+  /!isWhiteRefineWorkflow && \(\s*<UploadZone/.test(clientSource));
 const currentLabelsBlock = clientSource.slice(
   clientSource.indexOf("const WHITE_REFINE_UPLOAD_LABELS"),
   clientSource.indexOf("const OUTPAINT_UPLOAD_LABELS")

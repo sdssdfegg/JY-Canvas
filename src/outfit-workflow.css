@@ -2887,10 +2887,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  /* 固定最小高度：控件为高 32px 的 select/按钮；随机背景页多 1 个「视觉重点」select，
-     面板宽度不足时会从 1 行（32px）换行成 2 行（32*2+8=72px）。统一预留 2 行高度，
-     保证各板块按键区底部一致、切换无偏移。 */
-  min-height: 72px;
+  /* V76（2026-10-16）：按钮高度已归 28/36/44 阶（见 tokens.css）。
+     原预留 2 行 72px 是为防随机背景页多 1 个 select 换行致底部不齐；
+     归阶后该预留造成"空行感"（需求 1/3）。改为单阶 min-height，
+     换行情况见回报实测（预期不换行：V70 后 select 归 36 阶且 flex-wrap 已有）。 */
+  min-height: var(--control-h-md);
 }
 
 .outfitWorkflowEmbedded .composerHeader,
@@ -2928,8 +2929,8 @@
 }
 
 .outfitWorkflowEmbedded .composerField textarea {
-  height: clamp(52px, 9vh, 76px);
-  min-height: 52px;
+  height: clamp(44px, 6vh, 60px);
+  min-height: 44px;
   resize: vertical;
   padding: 9px 11px;
   border: 1px solid var(--border);
@@ -2939,8 +2940,8 @@
 }
 
 .outfitWorkflowEmbedded .composerNote textarea {
-  height: clamp(40px, 6vh, 50px);
-  min-height: 40px;
+  height: clamp(36px, 4.5vh, 44px);
+  min-height: 36px;
 }
 
 .outfitWorkflowEmbedded .rightTools,
@@ -2984,7 +2985,7 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  min-height: 32px;
+  min-height: var(--control-h-sm);
   max-width: 160px;
   padding: 0 11px;
   border-radius: 7px;
@@ -3055,8 +3056,8 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
   padding: 0;
   border-radius: 7px;
 }
@@ -3480,12 +3481,11 @@
 }
 
 .outfitWorkflowEmbedded .assetGrid {
-  order: 2;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-  margin-bottom: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  align-items: stretch;
+  margin-bottom: 0;
 }
 
 .outfitWorkflowEmbedded .assetSide {
@@ -3599,7 +3599,7 @@
 .outfitWorkflowEmbedded .uploadZone.compact .thumbGrid {
   flex: 0 1 auto;
   min-height: 0;
-  grid-template-columns: repeat(var(--upload-columns, 2), 96px);
+  grid-template-columns: repeat(auto-fill, minmax(112px, 112px));
   max-height: none;
   align-content: start;
   align-items: start;
@@ -3612,7 +3612,7 @@
   gap: 5px;
   padding: 7px;
   align-self: start;
-  width: 96px;
+  width: 112px;
 }
 
 .outfitWorkflowEmbedded .uploadZone.compact .thumbImage {
@@ -3622,13 +3622,13 @@
 
 .outfitWorkflowEmbedded .uploadZone.compact .thumbActions {
   grid-column: auto;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
 }
 
 .outfitWorkflowEmbedded .uploadZone.compact .thumbActions button {
-  min-height: 26px;
-  height: 26px;
+  min-height: var(--control-h-sm);
+  height: var(--control-h-sm);
 }
 
 .outfitWorkflowEmbedded .uploadZone.primary .emptyUpload {
@@ -3638,7 +3638,7 @@
 
 .outfitWorkflowEmbedded .uploadZone.compact .emptyUpload {
   min-height: 92px;
-  width: 202px;
+  width: 100%;
   max-width: 100%;
   grid-column: 1 / -1;
 }

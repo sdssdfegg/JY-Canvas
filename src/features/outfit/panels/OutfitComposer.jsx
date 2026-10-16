@@ -4,12 +4,14 @@
 // 模式：原闭包捕获的 state / handler / 派生值 / 常量全部改为同名 props（调用方每次 render 重建传参，JSX 一行不动）；
 //   子组件（OutfitIntentPanel / RetouchIntentPanel / OutfitPageRow / DebouncedTextarea）与图标（Loader2 / Play）直接 import；
 //   props 漏项 = 运行期 undefined（vite build 验不出），由 eslint no-undef 兜底。
-import { Loader2, Play } from "lucide-react";
+import { Check, Loader2, Play } from "lucide-react";
 import DebouncedTextarea from "../../../shared/DebouncedTextarea.jsx";
 import { OutfitIntentPanel } from "./OutfitIntentPanel.jsx";
 import { RetouchIntentPanel } from "./RetouchIntentPanel.jsx";
 import { OutfitPageRow } from "./OutfitPageRow.jsx";
 import { Button } from "../../../shared/ui/Button";
+import { MAX_UPLOAD_IMAGES, UploadZone } from "../outfit-panels.jsx";
+import { GARMENT_PART_OPTIONS, garmentCompositionLabel, normalizeGarmentComposition, sameGarmentParts } from "../outfit-top.js";
 
 export default function OutfitComposer({
   isOutfitWorkflow,
@@ -80,10 +82,167 @@ export default function OutfitComposer({
   canAppendWhileRunning,
   inlineMessage,
   startBatch,
-  handlePromptKeyDown
+  handlePromptKeyDown,
+  uploadLabels,
+  editUploadLabel,
+  modelImages,
+  addImages,
+  removeImage,
+  toggleImage,
+  reorderImage,
+  replaceImage,
+  clearImageGroup,
+  setCropTarget,
+  openLocalEdit,
+  isDesignDraftWorkflow,
+  isRecolorWorkflow,
+  clothingImages,
+  clothingBulkMode,
+  setMasterClothing,
+  fixedClothingId,
+  GARMENT_PART_PRESET_OPTIONS,
+  selectedGarmentParts,
+  selectedGarmentComposition,
+  applyGarmentPartPreset,
+  toggleGarmentPart,
+  referenceImages,
+  referenceBulkMode,
+  setActiveUploadGroup,
+  modelBulkMode,
+  applyGroupPreprocess,
+  setImageLightbox
 }) {
   return (
 <section className="composerPanel">
+  <section className="assetGrid">
+    <UploadZone
+      compact
+      title={`图1：${uploadLabels.model.title}`}
+      hint={uploadLabels.model.hint}
+      slotPrefix="图1："
+      titleText={uploadLabels.model.title}
+      hintText={uploadLabels.model.hint}
+      onEditTitle={() => editUploadLabel("model", "title")}
+      onEditHint={() => editUploadLabel("model", "hint")}
+      items={modelImages}
+      onPick={(files) => addImages("model", files)}
+      onRemove={(id) => removeImage("model", id)}
+      onToggle={(id) => toggleImage("model", id)}
+      onReorder={(fromId, toId, placement) => reorderImage("model", fromId, toId, placement)}
+      onReplace={(id, file) => void replaceImage("model", id, file)}
+      onClear={() => clearImageGroup("model")}
+      onPreview={(item) => setImageLightbox({ title: item.name, src: item.previewUrl })}
+      onOpenCrop={(item) => setCropTarget({ group: "model", item })}
+      onOpenLocalEdit={(item) => openLocalEdit("model", item)}
+      localEditEnabled={!isDesignDraftWorkflow && !isPoseRemixWorkflow && !isOutpaintWorkflow && !isWhiteRefineWorkflow && !isRandomBackgroundWorkflow}
+      maxCount={MAX_UPLOAD_IMAGES}
+      onLimit={(message) => addEvent("图1上传", message)}
+      onActivate={() => setActiveUploadGroup("model")}
+      bulkMode={modelBulkMode}
+      onBulkModeChange={(mode) => void applyGroupPreprocess("model", mode)}
+    />
+    {/* 2026-09-26（按用户要求）：精修页不再需要图2 —— 图1 本身就是多图上传，
+        所有图片一起合成一张成品图。所以精修页只渲染图1 这一个上传区。
+        其它分区的图2 原样保留；这里只是不渲染，已有的 clothingImages 数据不动。 */}
+    {/* V76（用户要求·暂时隐藏）：图2服装事实面板停止渲染；数据/handler/组件文件保留，恢复时传回 sideControls */}
+    {!isOutpaintWorkflow && !isRandomBackgroundWorkflow && !isWhiteRefineWorkflow && (
+      <UploadZone
+        compact
+        title={`图2：${uploadLabels.clothing.title}`}
+        hint={uploadLabels.clothing.hint}
+        slotPrefix="图2："
+        titleText={uploadLabels.clothing.title}
+        hintText={uploadLabels.clothing.hint}
+        onEditTitle={() => editUploadLabel("clothing", "title")}
+        onEditHint={() => editUploadLabel("clothing", "hint")}
+        items={clothingImages}
+        onPick={(files) => addImages("clothing", files)}
+        onRemove={(id) => removeImage("clothing", id)}
+        onToggle={(id) => toggleImage("clothing", id)}
+        onReorder={(fromId, toId, placement) => reorderImage("clothing", fromId, toId, placement)}
+        onReplace={(id, file) => void replaceImage("clothing", id, file)}
+        onClear={() => clearImageGroup("clothing")}
+        onSetFixed={isWhiteRefineWorkflow ? null : isPoseRemixWorkflow ? settings.pairingMode === "fixed" ? setMasterClothing : null : setMasterClothing}
+        fixedId={isWhiteRefineWorkflow || (isPoseRemixWorkflow && settings.pairingMode !== "fixed") ? "" : fixedClothingId}
+        fixedTitle={isPoseRemixWorkflow ? "设为固定母版" : isFaceSwapWorkflow ? "设为固定人脸" : isBackgroundChangeWorkflow ? "设为固定场景" : isOutpaintWorkflow ? "设为主扩图参考" : isRecolorWorkflow ? "设为主颜色参考" : "设为固定服装"}
+        onPreview={(item) => setImageLightbox({ title: item.name, src: item.previewUrl })}
+        onOpenCrop={(item) => setCropTarget({ group: "clothing", item })}
+        maxCount={(isOutfitWorkflow || isPoseRemixWorkflow || isFaceSwapWorkflow) ? 2 : MAX_UPLOAD_IMAGES}
+        onLimit={(message) => addEvent("图2上传", message)}
+        onActivate={() => setActiveUploadGroup("clothing")}
+        bulkMode={clothingBulkMode}
+        onBulkModeChange={(mode) => void applyGroupPreprocess("clothing", mode)}
+        footerControls={isRecolorWorkflow ? (
+          <div className="garmentTransferControls" aria-label="图2改色范围设置">
+            <div className="garmentPartPresetGroup" aria-label="图2常用改色范围">
+              {GARMENT_PART_PRESET_OPTIONS.map((preset) => {
+                const active = sameGarmentParts(selectedGarmentParts, preset.parts)
+                  && selectedGarmentComposition === normalizeGarmentComposition(preset.composition, preset.parts);
+                return (
+                  <button
+                    className={active ? "active" : ""}
+                    key={preset.value}
+                    type="button"
+                    onClick={() => applyGarmentPartPreset(preset)}
+                    aria-pressed={active}
+                    title={`改色范围：${preset.label}；当前按${garmentCompositionLabel(preset.composition)}理解图2服装结构`}
+                  >
+                    <Check size={13} />
+                    <span>{preset.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="garmentPartPicker" aria-label="图2改色部位">
+              {GARMENT_PART_OPTIONS.map((part) => {
+                const active = selectedGarmentParts.includes(part.value);
+                return (
+                  <button
+                    className={active ? "active" : ""}
+                    key={part.value}
+                    type="button"
+                    onClick={() => toggleGarmentPart(part.value)}
+                    aria-pressed={active}
+                    title={`图2改色${part.label}`}
+                  >
+                    <Check size={13} />
+                    <span>{part.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+        sideControls={null}
+      />
+    )}
+    {!isOutpaintWorkflow && !isRandomBackgroundWorkflow && !isWhiteRefineWorkflow && (
+      <UploadZone
+        compact
+        title={`图3：${uploadLabels.reference.title}`}
+        hint={uploadLabels.reference.hint}
+        slotPrefix="图3："
+        titleText={uploadLabels.reference.title}
+        hintText={uploadLabels.reference.hint}
+        onEditTitle={() => editUploadLabel("reference", "title")}
+        onEditHint={() => editUploadLabel("reference", "hint")}
+        items={referenceImages}
+        onPick={(files) => addImages("reference", files)}
+        onRemove={(id) => removeImage("reference", id)}
+        onToggle={(id) => toggleImage("reference", id)}
+        onReorder={(fromId, toId, placement) => reorderImage("reference", fromId, toId, placement)}
+        onReplace={(id, file) => void replaceImage("reference", id, file)}
+        onClear={() => clearImageGroup("reference")}
+        onPreview={(item) => setImageLightbox({ title: item.name, src: item.previewUrl })}
+        onOpenCrop={(item) => setCropTarget({ group: "reference", item })}
+        maxCount={MAX_UPLOAD_IMAGES}
+        onLimit={(message) => addEvent("图3上传", message)}
+        onActivate={() => setActiveUploadGroup("reference")}
+        bulkMode={referenceBulkMode}
+        onBulkModeChange={(mode) => void applyGroupPreprocess("reference", mode)}
+      />
+    )}
+  </section>
   <div className="composerHeader">
     <div className="composerTabs">
       <button className="active" type="button">图片换装</button>

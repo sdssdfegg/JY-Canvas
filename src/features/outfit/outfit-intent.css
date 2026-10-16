@@ -14,8 +14,8 @@
 .outfitWorkflowEmbedded .outfitIntentPanel {
   order: 0;
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: var(--space-2);
+  padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel-bg);
@@ -24,7 +24,7 @@
 /* 提示词区两栏：左边换装设置，右边通用换装提示词 + 补充提示词。 */
 .outfitWorkflowEmbedded .composerBody {
   display: grid;
-  gap: 10px;
+  gap: var(--space-2);
   align-items: start;
 }
 
