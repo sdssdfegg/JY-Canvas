@@ -18,6 +18,7 @@
 //                保持与抽取前完全一致的 DOM）
 
 import { X } from "lucide-react";
+import { Button } from "./Button";
 
 export function Modal({ layerClassName = "modalLayer", panelClassName = "", onClose, children }) {
   return (
@@ -36,9 +37,9 @@ export function ModalHeader({ title, subtitle, onClose, closeLabel }) {
         <h2>{title}</h2>
         <span>{subtitle}</span>
       </div>
-      <button className="iconButton" type="button" onClick={onClose} aria-label={closeLabel}>
-        <X size={18} />
-      </button>
+      <Button size="md" iconOnly aria-label={closeLabel} onClick={onClose}>
+        <X size={16} />
+      </Button>
     </header>
   );
 }

@@ -8,14 +8,13 @@ import {
   Eye,
   EyeOff,
   FolderOpen,
-  Loader2,
   Lock,
   Palette,
-  PlugZap,
   Save,
   Settings,
   X
 } from "lucide-react";
+import { Button } from "../../../shared/ui/Button";
 import { THEME_OPTIONS } from "../outfit-top.js";
 
 export default function OutfitSettingsModal({
@@ -51,9 +50,9 @@ export default function OutfitSettingsModal({
                 <h2>设置</h2>
                 <span>API Key 与界面皮肤</span>
               </div>
-              <button className="iconButton" type="button" onClick={() => setIsSettingsOpen(false)}>
-                <X size={18} />
-              </button>
+              <Button size="md" iconOnly onClick={() => setIsSettingsOpen(false)}>
+                <X size={16} />
+              </Button>
             </header>
 
             <label className="modalField">
@@ -65,13 +64,10 @@ export default function OutfitSettingsModal({
                   placeholder="sk-..."
                   onChange={(event) => setApiKeyDraft(event.target.value)}
                 />
-                <button className="iconButton" type="button" onClick={() => setShowKey((value) => !value)} title={showKey ? "隐藏 API Key" : "显示 API Key"}>
+                <Button size="md" iconOnly title={showKey ? "隐藏 API Key" : "显示 API Key"} onClick={() => setShowKey((value) => !value)}>
                   {showKey ? <EyeOff size={17} /> : <Eye size={17} />}
-                </button>
-                <button className="smallButton saveKeyButton" type="button" onClick={saveSettings}>
-                  <Save size={15} />
-                  <span>保存</span>
-                </button>
+                </Button>
+                <Button size="md" onClick={saveSettings}>保存</Button>
               </div>
               {apiSaveStatus && <small>{apiSaveStatus}</small>}
             </label>
@@ -97,10 +93,7 @@ export default function OutfitSettingsModal({
               <span><Settings size={15} /> 连接测试</span>
               <p>只向上游请求模型清单探测连通性，<strong>不调用生图、不上传图片、不扣费</strong>，也不会显示或保存你的 API Key。</p>
               <div className="debugActions">
-                <button className="smallButton" type="button" onClick={() => void runConnectionTest()} disabled={isConnectionTesting}>
-                  {isConnectionTesting ? <Loader2 className="spin" size={15} /> : <PlugZap size={15} />}
-                  <span>{isConnectionTesting ? "测试中…" : "连接测试"}</span>
-                </button>
+                <Button size="md" loading={isConnectionTesting} disabled={isConnectionTesting} onClick={() => void runConnectionTest()}>连接测试</Button>
               </div>
               {connectionStatus && (
                 <small className={`fieldHint connectionHint ${connectionState}`}>{connectionStatus}</small>
@@ -118,9 +111,9 @@ export default function OutfitSettingsModal({
                 <h2>指定文件夹</h2>
                 <span>下载图片会保存到这个目录</span>
               </div>
-              <button className="iconButton" type="button" onClick={() => setIsDirectoryModalOpen(false)}>
+              <Button size="md" iconOnly onClick={() => setIsDirectoryModalOpen(false)}>
                 <X size={18} />
-              </button>
+              </Button>
             </header>
             <label className="modalField">
               <span><FolderOpen size={15} /> 保存目录</span>
@@ -134,11 +127,11 @@ export default function OutfitSettingsModal({
               <small>{isPickingDirectory ? "正在等待目录选择..." : "点击输入框选择目录，点确定后生效"}</small>
             </label>
             <footer className="directoryModalActions">
-              <button className="secondaryButton" type="button" onClick={() => setIsDirectoryModalOpen(false)}>取消</button>
-              <button className="primaryButton" type="button" onClick={() => void confirmSaveDirectory()}>
+              <Button size="md" onClick={() => setIsDirectoryModalOpen(false)}>取消</Button>
+              <Button size="md" tone="primary" onClick={() => void confirmSaveDirectory()}>
                 <Save size={16} />
                 <span>确定</span>
-              </button>
+              </Button>
             </footer>
           </section>
         </div>

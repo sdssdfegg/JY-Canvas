@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-16",
-  "reason": "累计归档：E 精修正反开关+分组间距（RetouchIntentPanel/use-outfit-settings-intent/retouch-intent.js 增量）＋F 批量底栏高度统一（OutfitComposer.jsx +2，常驻等高占位）＋v2-1b 风格包off选项（detail-state.js 646→647，§4 预授权）。E/F 的 baseline 刷新未在单内预授权、由统筹复核时追认（详见执行单归档说明）；后续一律执行单未明文授权则不得由执行者刷基线",
+  "reason": "V70 共享按钮组件（统筹复核追认）：Modal.jsx 44→45 系本单强制的 ModalHeader 关闭钮改 <Button> 所需 import 行，归因成立；同单 OutfitSettingsModal.jsx 148→141（-7）、OutfitSettingsModal 函数 128→122（-6）净下降。执行者按单 §5 未刷基线，由统筹复核时追认（参照 E/F 先例）",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -48,7 +48,7 @@
     "src/features/outfit/panels/OutfitComposer.jsx": 353,
     "src/features/outfit/panels/OutfitIntentPanel.jsx": 171,
     "src/features/outfit/panels/OutfitPageRow.jsx": 96,
-    "src/features/outfit/panels/OutfitSettingsModal.jsx": 148,
+    "src/features/outfit/panels/OutfitSettingsModal.jsx": 141,
     "src/features/outfit/panels/OutfitWorkbench.jsx": 415,
     "src/features/outfit/panels/PromptEditorModal.jsx": 63,
     "src/features/outfit/panels/ResultPreviewModal.jsx": 120,
@@ -105,10 +105,11 @@
     "src/shared/retouch-intent.js": 284,
     "src/shared/routing.js": 433,
     "src/shared/text-normalize.js": 42,
+    "src/shared/ui/Button.jsx": 53,
     "src/shared/ui/cached-image.jsx": 223,
     "src/shared/ui/ChannelPicker.jsx": 110,
     "src/shared/ui/elapsed-timer.jsx": 20,
-    "src/shared/ui/Modal.jsx": 44,
+    "src/shared/ui/Modal.jsx": 45,
     "src/shared/ui/reference-thumb-tray.jsx": 108,
     "src/shared/ui/stable-textarea.jsx": 66,
     "src/shared/video-task.js": 53
@@ -164,7 +165,7 @@
     "src/features/outfit/panels/OutfitComposer.jsx::OutfitComposer": 341,
     "src/features/outfit/panels/OutfitIntentPanel.jsx::OutfitIntentPanel": 154,
     "src/features/outfit/panels/OutfitPageRow.jsx::OutfitPageRow": 87,
-    "src/features/outfit/panels/OutfitSettingsModal.jsx::OutfitSettingsModal": 128,
+    "src/features/outfit/panels/OutfitSettingsModal.jsx::OutfitSettingsModal": 122,
     "src/features/outfit/panels/OutfitWorkbench.jsx::OutfitWorkbench": 380,
     "src/features/outfit/panels/PromptEditorModal.jsx::PromptEditorModal": 56,
     "src/features/outfit/panels/ResultPreviewModal.jsx::ResultPreviewModal": 106,

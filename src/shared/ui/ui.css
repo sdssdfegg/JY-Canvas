@@ -1,0 +1,123 @@
+/* V4.0 共享组件样式 · 单份按钮样式（V70 落地，总纲 §4.3）
+ *
+ * 类名 .ui- 前缀；组件样式只维护一份，feature CSS 禁止覆盖 .ui-*。
+ * 全部取值走 V69 令牌并带回退值（var(--x, fallback)），确保 V69 未合入时也可构建。
+ * 后续组件（Panel / Field / Toolbar…）样式继续追加到本文件（V72+）。
+ */
+
+/* 基础 */
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  box-sizing: border-box;
+  border: 1px solid var(--border, #27283a);
+  border-radius: var(--radius-md, 8px);
+  font-family: inherit;
+  font-size: var(--text-xs, 12px);
+  font-weight: 650;
+  line-height: 1;
+  color: var(--muted, #a1a6ba);
+  background: var(--control-bg, color-mix(in srgb, #1e1f2e 86%, transparent));
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, opacity .15s ease;
+}
+
+/* 尺寸：28 / 36 / 44 阶 */
+.ui-button--sm {
+  height: var(--control-h-sm, 28px);
+  padding: 0 var(--control-px, 12px);
+  font-size: var(--text-xs, 12px);
+}
+.ui-button--md {
+  height: var(--control-h-md, 36px);
+  padding: 0 var(--control-px, 12px);
+  font-size: var(--text-sm, 13px);
+}
+.ui-button--lg {
+  height: var(--control-h-lg, 44px);
+  padding: 0 calc(var(--control-px, 12px) + 4px);
+  font-size: var(--text-md, 14px);
+}
+
+/* 图标钮：正方形 */
+.ui-button--icon {
+  aspect-ratio: 1;
+  padding: 0;
+}
+
+/* 色调 */
+.ui-button--default {
+  /* 基础即 default，无需额外声明 */
+}
+.ui-button--primary {
+  color: var(--accent-on, #061515);
+  background: var(--accent, #13d2c3);
+  border-color: var(--accent, #13d2c3);
+}
+.ui-button--danger {
+  color: var(--danger, #f05252);
+  background: var(--danger-bg, rgba(240, 82, 82, 0.14));
+  border-color: color-mix(in srgb, var(--danger, #f05252) 24%, transparent);
+}
+.ui-button--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted, #a1a6ba);
+}
+
+/* 激活态（tab 场景）：accent 淡底 */
+.ui-button--active {
+  color: var(--text, #f5f7fb);
+  border-color: var(--soft-border, #313249);
+  background: color-mix(in srgb, var(--panel-strong, #1e1f2e) 92%, var(--accent, #13d2c3) 8%);
+}
+
+/* 加载态 */
+.ui-button--loading {
+  cursor: progress;
+}
+.ui-button__spin {
+  animation: ui-button-spin 1s linear infinite;
+}
+@keyframes ui-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 文本标签（非 iconOnly 时包住 children，保留图标+文案间距） */
+.ui-button__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* 状态 */
+.ui-button--default:not(:disabled):hover,
+.ui-button--ghost:not(:disabled):hover {
+  border-color: var(--accent, #13d2c3);
+  color: var(--text, #f5f7fb);
+}
+.ui-button--primary:not(:disabled):hover {
+  background: var(--accent-strong, #18c2b7);
+  border-color: var(--accent-strong, #18c2b7);
+  color: var(--accent-on, #061515);
+}
+.ui-button--danger:not(:disabled):hover {
+  border-color: var(--danger, #f05252);
+  color: var(--text, #f5f7fb);
+}
+
+.ui-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ui-button:focus-visible {
+  outline: 2px solid var(--accent, #13d2c3);
+  outline-offset: 2px;
+}
