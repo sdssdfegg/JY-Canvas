@@ -139,6 +139,10 @@ const ORDER = [
   "routing-check",
   "ui-duplication-check",
   "modal-shell-check",
+  // 2026-10-16：前端专项F 收尾（统筹补注册）——批量底栏高度一致性浏览器实测
+  // （依次切 5 板块 + 新建页，.rightTools top 极差 ≤2px、无「已切换到」toast）。
+  // 浏览器类只进全量，不进 --fast。
+  "composer-stable-height-check",
   "quickgen-prompt-passthrough-check",
   // 2026-09-26：批量换装结构化意图 + 唯一精简提示词编译器。
   // 前者是纯逻辑断言（七种部位组合 / 层级 / 穿法 / 事实过滤 / 字符数）；
@@ -150,6 +154,10 @@ const ORDER = [
   // 2026-09-26：服装精修结构化意图（对称/衣摆/版型/用户补充）+ 唯一精简提示词编译器。
   "retouch-intent-check",
   "retouch-intent-request-check",
+  // 2026-10-16：前端专项E 收尾（统筹补注册）——「正反」开关 UI 联动浏览器实测
+  // （起服务 + tabbit：开→插入【正反视图】段+比例 4:3、关→移除+恢复开启前比例）。
+  // 浏览器类只进全量，不进 --fast。
+  "retouch-frontback-check",
   // 2026-10-16：详情 v2 视觉风格包「关闭（off）」选项。纯逻辑：规则层 off 短路
   // （stylePackForGroup → pack:null、buildSkillPackV2 → null、buildStylePackRound 判空）+
   // 中间件集成（v2-off 含主图首屏无风格锁/无变体、stylePack 缺省、与 v1 输出等价）+

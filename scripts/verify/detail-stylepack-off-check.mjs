@@ -154,9 +154,9 @@ const viewSource = readFileSync(path.join(ROOT, "src/features/detail/DetailView.
 check("C6 钉桩: v1 下视觉风格包下拉仍 disabled",
   /disabled=\{detailSettings\.detailSkillVersion !== "v2"\}/.test(viewSource));
 check("C7 钉桩: 分组 tab 角标随 stylePack 缺省为空（off 时不显示 ·S1）",
-  viewSource.includes('{group.stylePack ? `·${group.stylePack.id}` : ""}'));
+  /\{group\.stylePack \? `·\$\{group\.stylePack\.id\}` : ""\}/.test(viewSource));
 check("C8 钉桩: 分组头角标随 stylePack 缺省为空（off 时不显示 S1·白底极简）",
-  viewSource.includes('{activeDetailGroup.stylePack ? `${activeDetailGroup.stylePack.id}·${activeDetailGroup.stylePack.name} · ` : ""}'));
+  /\{activeDetailGroup\.stylePack \? `\$\{activeDetailGroup\.stylePack\.id\}·\$\{activeDetailGroup\.stylePack\.name\} · ` : ""\}/.test(viewSource));
 
 const failed = results.filter((item) => !item.pass);
 console.log(JSON.stringify({
