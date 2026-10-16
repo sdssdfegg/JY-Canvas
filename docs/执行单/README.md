@@ -99,12 +99,15 @@
 | BUG02 | `addEvent` TDZ 首屏白屏 + 三门禁同源修复 | 修复单 | **已交付**（最小修复 + 新增 `main-render-tdz-check` 门禁 + 白屏诊断增强） | 8a2059f → merge `03f6c6f` | 2026-10-16 | `已完成/2026-10/V4.0-修复单-BUG02-addEvent-TDZ首屏白屏与三门禁同源修复.md` |
 | 前端专项C | `server/detail-middleware.js` 行尾归一（纯格式·低风险） | 收尾单 | 待派（与 BUG02 严格分开，禁混 commit） | — | — | `进行中/V4.0-收尾单-前端专项C-detail-middleware行尾归一.md` |
 | 前端专项D | `modal-shell` 批量段探针去掉固定 900ms 等待（抗慢加载误报） | 收尾单 | 待派（低成本，须带负向对照） | — | — | `进行中/V4.0-收尾单-前端专项D-modal-shell批量段探针去固定等待.md` |
+| 前端专项E | 精修面板三组间距 +「正反」开关（插提示词最前 + 联动 4:3、取消恢复） | 执行单 | 待派（含门禁同步授权；不改 props 走 hook 层联动） | — | — | `进行中/V4.0-执行单-前端专项E-精修正反开关与分组间距.md` |
+| 前端专项F | 批量底栏高度统一 + 切换成功提示收敛（三根因：toast 占流/intentBar 条件消失/控件数差异） | 执行单 | 待派（验收=各板块 rightTools top 差≤2px） | — | — | `进行中/V4.0-执行单-前端专项F-批量底栏高度统一与切换提示收敛.md` |
+| 详情v2-1b | 视觉风格包「关闭」选项（off=全关含首屏 S1；v1 逐字节不变） | 执行单 | 待派（**必须排在前端专项C 之后**，同动 detail-middleware.js；已预授权 size-ratchet --update） | — | — | `进行中/V4.0-执行单-详情v2-1b-视觉风格包关闭选项.md` |
 
-**派发建议**：前端专项C 与 D **改动面无交集**（`server/` 格式 vs `scripts/verify/` 探针），可在确认无并行会话的前提下串行派发；**仍建议一次一张**以便回滚。BUG02 已完成，**当前无 P0 阻塞**。
+**派发顺序建议（2026-10-16 用户新需求三单加入后）**：前端专项C（最快·纯格式）→ **前端专项E → 前端专项F → 详情v2-1b** → 前端专项D。E 与 F 都可能碰 `OutfitComposer.jsx` 邻近区域、v2-1b 与 C 同动 `detail-middleware.js`，**全部串行、一次一张**。
 
 ---
 
-**统计**：共 **94** 张单（执行单 90 / 修复单 2 / 收尾单 2；V 系列 76 + P6 六张 + P7 六张 + 详情v2-1 + 前端专项B/C/D + BUG01 + BUG02）。门禁规模实测：P7 后 全量 `ORDER` **41→46**（+5）、`--fast` **24→28**（+4，P7-4 刻意只进全量）；BUG02 后 `main-render-tdz-check` 再 +1 ⇒ **全量 `ORDER` 47 / `--fast` 29**（统筹实测，pre-commit 钩子确实跑 29 个）。**P7 六张已全部交付并 `--no-ff` 合回 main**（2026-10-16，严格串行：P7-1 `7c2c127` → P7-2 `843a32d` → P7-3 `a5151cc` → P7-4 `299bfd5` → P7-5 `14356df` → P7-6 `5c50fbf`，每个 merge 的第一父都是上一单的 merge）。
+**统计**：共 **97** 张单（执行单 90 / 修复单 2 / 收尾单 2 / 功能执行单 3；V 系列 76 + P6 六张 + P7 六张 + 详情v2-1/1b + 前端专项B/C/D/E/F + BUG01 + BUG02）。门禁规模实测：P7 后 全量 `ORDER` **41→46**（+5）、`--fast` **24→28**（+4，P7-4 刻意只进全量）；BUG02 后 `main-render-tdz-check` 再 +1 ⇒ **全量 `ORDER` 47 / `--fast` 29**（统筹实测，pre-commit 钩子确实跑 29 个）。**P7 六张已全部交付并 `--no-ff` 合回 main**（2026-10-16，严格串行：P7-1 `7c2c127` → P7-2 `843a32d` → P7-3 `a5151cc` → P7-4 `299bfd5` → P7-5 `14356df` → P7-6 `5c50fbf`，每个 merge 的第一父都是上一单的 merge）。
 （**计数口径坑·留给后来人**：用 `grep '"[a-z0-9-]*-check"'` 数会**少计 1**，因为 `reference-policy-verify` 不以 `-check` 结尾；正确数法是匹配数组里的 `"[A-Za-z0-9_-]+"` 条目。统筹本次先按 `-check` 口径误判为 39→44/23→27，已复核改回 41→46/24→28。）**V68 已交付并 `--no-ff` 合回 main**（merge `3f6420f`，`outfit-workflow.jsx` 4826→**2992**，P5 收官）；**P6-1 已交付**（`outfit-workflow.jsx` 2992→**2912**，`--no-ff` 合 main merge `8fff809`），**P6-2 已交付**（`outfit-workflow.jsx` 2912→**2726**，`--no-ff` 合 main merge `77ac316`），**P6-3 已交付**（2726→**2089**，merge `ece3c0d`；生图热路径，TDZ 用 `startBatchRef` late-bound ref 解环，并修复 `local-edit-base-file-check` 6 条僵尸断言），**P6-4 已交付**（main.jsx 3536→**2927**，merge `ced0f3c`；新钩 732 行；TDZ 用事件回调延迟求值解环；同步 `ui-duplication-check` / `routing-check` 两处写死旧落点的判据），**P6-5 已交付**（main.jsx 2927→**2172**，merge `4b7cf6e`，净 −755：37 handler→`main-handlers.js` 586 行，面板 `main-top-bar.jsx` 226 / `main-canvas-board.jsx` 437；TDZ 用 `handlerLateRef` 晚绑定，声明 561 / 传入 651 / 回填 1139，读取全在回调体内）。**P6-6（收官单）已交付**（`image-editor.jsx` 1069→**929**，merge `d686c37`；11 个 helper 逐字搬入 `image-editor-helpers.js` 169 行）。
 **P6 六张全部落地，本轮重构主线收官**：`main.jsx` 5747→**2172**（−62%）／`outfit-workflow.jsx` 4826→**2089**（−57%）／`image-editor.jsx` 1069→**929**（−13%）；三大件合计 11642→**5190**（−55%），两巨石 10573→**4261**（−60%）。
 **后续建议**：不再追「单文件 ≤600 行」极致档（边际递减、TDZ 风险递增）；唯一可选的一张是拆 `src/features/outfit/outfit-panels.jsx`（**2283 行**，历次搬运堆积形成的新大文件，纯面板、低风险）。更该投入的是门禁维护与功能开发。
