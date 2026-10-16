@@ -224,7 +224,9 @@ if (entranceFacts) {
   check("快捷入口：用完能清理干净（取消裁剪 + 移除参考图，不留残留状态）", q.cleanedUp === true, "");
 
   // 批量入口
-  check("批量入口：切到批量页并找到上传区", b.navSwitched === true && b.foundUploadZone === true, b.error || "");
+  check("批量入口：切到批量页并找到上传区", b.navSwitched === true && b.foundUploadZone === true,
+    b.error
+      || (b.uploadZoneWait ? `uploadZoneWait=${JSON.stringify(b.uploadZoneWait)} snapshot=${JSON.stringify(b.uploadZoneSnapshot || {})}` : ""));
   check("批量入口：上传后有裁剪入口按钮", b.cropEntryFound === true, "");
   check("批量入口：点裁剪切能打开共享外壳（modalLayer>cropModal）", b.opened === true && b.layerIsSharedShell === true,
     `opened=${b.opened} layer=${b.layerIsSharedShell}`);
