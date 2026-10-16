@@ -341,7 +341,7 @@ export default function OutfitWorkflow({
   // 图2服装事实：分析中状态 + "展开详细穿法/事实"的折叠开关（默认只显示紧凑摘要）。
   const [imageFactsAnalyzing, setImageFactsAnalyzing] = useState(false);
   const [wearingDetailOpen, setWearingDetailOpen] = useState(false);
-  const [factsDetailOpen, setFactsDetailOpen] = useState(false);
+  const [_factsDetailOpen, _setFactsDetailOpen] = useState(false); // V76（用户要求·暂时隐藏）停用：图2事实详情折叠开关；state 保留，恢复时去掉 _ 前缀（V80 标记）
   const [inlineMessage, setInlineMessage] = useState("");
   // 精修页「结果图中线剪裁成两张」开关（默认开，和 3.0 的 localStorage 口径一致）+ 状态提示。
   const [splitHalves, setSplitHalves] = useState(() => readSplitHalvesEnabled());
@@ -454,7 +454,7 @@ export default function OutfitWorkflow({
   const outfitLayer = resolveUpperLayer(outfitIntent);
   const outfitIntentSummary = summarizeOutfitIntent(outfitIntent);
   const outfitWearingFieldList = visibleWearingFields(outfitIntent);
-  const outfitRecognizedFacts = recognizedFactKeys(outfitIntent.facts);
+  const _outfitRecognizedFacts = recognizedFactKeys(outfitIntent.facts); // V76（用户要求·暂时隐藏）停用；recognizedFactKeys 数据流保留，恢复时去掉 _ 前缀（V80 标记）
   // 换装目标 + 图2事实 + 穿法 + 人物基准（不含补充提示词）：这是"通用换装提示词"框的自动主体。
   const outfitPreview = compileOutfitPrompt({ intent: outfitIntent });
   const outfitAutoPrompt = outfitPreview.prompt;
@@ -1017,12 +1017,12 @@ export default function OutfitWorkflow({
   const {
     updateSetting,
     enableGenerationCountAutoLink,
-    analyzeImageFacts,
+    analyzeImageFacts: _analyzeImageFacts, // V76（用户要求·暂时隐藏）停用；hook 导出保留，恢复时去掉 _ 前缀（V80 标记）
     setMasterClothing,
     patchOutfitIntent,
     toggleOutfitPart,
     updateOutfitWearingValue,
-    updateOutfitFact,
+    updateOutfitFact: _updateOutfitFact, // V76（用户要求·暂时隐藏）停用；hook 导出保留，恢复时去掉 _ 前缀（V80 标记）
     wearingFieldValue,
     patchRetouchIntent,
     toggleGarmentPart,
