@@ -121,3 +121,45 @@
   outline: 2px solid var(--accent, #13d2c3);
   outline-offset: 2px;
 }
+
+/* ── Toolbar（V72 追加） ───────────────────────────── */
+.ui-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+.ui-toolbar--start {
+  justify-content: flex-start;
+}
+.ui-toolbar--end {
+  justify-content: flex-end;
+}
+.ui-toolbar--wrap {
+  flex-wrap: wrap;
+}
+
+/* ── Field（V72 追加） ─────────────────────────────── */
+.ui-field {
+  display: grid;
+  gap: 6px;
+}
+.ui-field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted, #a1a6ba);
+  font-size: var(--text-xs, 12px);
+}
+.ui-field__hint {
+  display: block;
+  font-size: var(--text-xs, 12px);
+  line-height: 1.5;
+  color: var(--faint, #6f7488);
+  word-break: break-word;
+}
+.ui-field__hint--danger {
+  color: var(--danger, #f05252);
+}
+.ui-field__hint--success {
+  color: var(--accent, #13d2c3);
+}

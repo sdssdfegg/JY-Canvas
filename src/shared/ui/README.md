@@ -20,7 +20,9 @@
 | 组件 | 覆盖范围 | 说明 |
 | --- | --- | --- |
 | `Modal.jsx` | 遮罩层 + 面板 + 点遮罩关闭 + 面板阻止冒泡；`ModalHeader` 提供标题/副标题/关闭按钮 | 2026-09-25 抽取。已接入快捷/批量两侧的**裁剪弹窗**（`QuickCropViewportModal`、`CropModal`）与**局部回贴弹窗**（`QuickLocalEditModal`、`OutfitLocalEditModal`）。只共享外壳与通用交互；裁剪几何、蒙版绘制、请求参数、保存行为仍各自保留。**刻意没有**加 Esc 关闭与 body 滚动锁——抽取前这四个弹窗都没有，加了就是改交互。其余弹窗（设置、预览、提示词等）仍各写一份，可作为后续迁移对象。 |
-| `Button.jsx` | 全站通用按钮：`size`(sm 28 / md 36 / lg 44) × `tone`(default / primary / danger / ghost) + `iconOnly` / `loading` / `active`；样式统一在 `ui.css`（`.ui-` 前缀，单份）；`ModalHeader` 关闭钮也用本组件 | 2026-10-16 建（V70）。变体矩阵与旧类映射规则（`smallButton`/`iconButton`/`primaryButton`/`secondaryButton`/`toolbarButton`/`dangerButton`/`modeTab`/`tabButton`/`generateButton`/`promptTab`/`newPromptButton` → 对应 `<Button>` 的 size/tone）见总纲 §4.2。换装设置弹窗 7 钮 + `ModalHeader` 关闭钮已试点接入；旧全局按钮类（9 类基础块）作为过渡层保留至 V75 收口单删除。 |
+| `Button.jsx` | 全站通用按钮：`size`(sm 28 / md 36 / lg 44) × `tone`(default / primary / danger / ghost) + `iconOnly` / `loading` / `active`；样式统一在 `ui.css`（`.ui-` 前缀，单份）；`ModalHeader` 关闭钮也用本组件 | 2026-10-16 建（V70）。变体矩阵与旧类映射规则（`smallButton`/`iconButton`/`primaryButton`/`secondaryButton`/`toolbarButton`/`dangerButton`/`modeTab`/`tabButton`/`generateButton`/`promptTab`/`newPromptButton` → 对应 `<Button>` 的 size/tone）见总纲 §4.2。换装模块 36 钮 + 换装设置弹窗 7 钮 + `ModalHeader` 关闭钮已接入；旧全局按钮类（9 类基础块）作为过渡层保留至 V75 收口单删除。 |
+| `Toolbar.jsx` | 操作条容器：`align`(start/end) + `wrap` + `gap` + `className`；flex + `--space-2` 间距 | 2026-10-16 建（V72）。主顶栏 `.topActions` 操作区已接入（`align="end" wrap`）；弹窗 footer / 卡片操作行后续按版块接入（V73+）。 |
+| `Field.jsx` | 表单项三段式：`label`(ReactNode 可含图标) + children(控件) + `hint` + `hintTone`(default/danger/success) + `as`(label/div) + `className` | 2026-10-16 建（V72）。默认 `<label>` 外壳保持点击聚焦（原 `modalField` 语义）；`as="div"` 用于"标题+说明+动作"区块（原 div 语义，避免 label 隐式关联误触）。换装设置弹窗 3 处已接入（API Key / 保存目录 / 连接测试）。 |
 
 | 局部编辑/裁剪控件 | 快捷和批量都有 | 后续放 `src/features/local-edit/`，公共底层放 `src/shared/` |
 
