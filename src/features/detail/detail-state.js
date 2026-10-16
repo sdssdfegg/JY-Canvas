@@ -98,6 +98,7 @@ const detailSkillVersionOptions = [
 
 const stylePackOptions = [
   { value: "auto", label: "自动轮换（每组不同）" },
+  { value: "off", label: "关闭视觉风格" },
   { value: "S1", label: "S1 白底极简" },
   { value: "S2", label: "S2 生活场景" },
   { value: "S3", label: "S3 质感微距" },

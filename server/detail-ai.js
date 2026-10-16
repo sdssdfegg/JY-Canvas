@@ -103,7 +103,7 @@ function buildDetailAnalysisContent(input, files, includeImages) {
       "每屏只选择必要参考图，避免所有图片都进入同一屏导致主体漂移。",
       "如果无法从图片确认某个属性，请写成保守描述，不要假装确定。",
       "只输出 JSON，不要 Markdown，不要解释。",
-      ...(skillVersion === "v2" ? [
+      ...(skillVersion === "v2" && v2Context ? [
         `本组视觉风格已锁定为 ${v2Context.stylePack.id}《${v2Context.stylePack.name}》：色温/色调 ${v2Context.stylePack.colorTone}；布光 ${v2Context.stylePack.lighting}；构图族 ${v2Context.stylePack.compositionFamily}；背景 ${v2Context.stylePack.background}；字体气质 ${v2Context.stylePack.fontMood}。每一屏的 composition 必须体现该风格取值，全组禁止漂移到其它风格。`,
         `每屏必须在 compositionVariants 中该屏 moduleId 的变体里选择一个，将变体字母（A/B/C/D）写入 compositionVariantId 字段。变体已规定第一落点、视线动线、文案安全区与禁忌，composition 描述必须与所选变体兼容；不要自创构图，不要更换风格包取值。`,
         ...(v2Context.platformNote ? [v2Context.platformNote] : [])

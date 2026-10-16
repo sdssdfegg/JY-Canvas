@@ -1,5 +1,7 @@
 // 详情 v2 视觉风格包数据（服务端权威）。
 // 8 套风格包全量 + 平台禁配 + 自动轮换池。
+// off（用户关闭视觉风格）：v2 下不注入任何风格包，含主图首屏强制 S1 一并关闭；
+// 由 index.js 的 stylePackForGroup off 分支返回 { pack: null }，下游等价按「无风格包」处理。
 // 修改本文件请同步 prompts/README.md 的 v2 规则表；不得改动 v1 任何文件与输出。
 
 export const STYLE_PACKS = {

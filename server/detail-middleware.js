@@ -448,9 +448,10 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   const workflow = String(input.workflow || "taobao-detail").trim();
   const platformSkill = getPlatformSkill(workflow);
   const skillVersion = resolveDetailSkillVersion(input);
-  const styleDecision = skillVersion === "v2"
+  const rawStyleDecision = skillVersion === "v2"
     ? stylePackForGroup({ groupIndex: input.detailGroupIndex, platformSkill, userChoice: input.stylePackId })
     : null;
+  const styleDecision = rawStyleDecision && rawStyleDecision.pack ? rawStyleDecision : null;
   const productFiles = files.filter((file) => file.detailRole === "product");
   const referenceFiles = files.filter((file) => file.detailRole === "reference");
   const productImages = assetsFromInput(input.productImages, productFiles, "product");

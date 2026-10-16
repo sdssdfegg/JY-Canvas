@@ -286,7 +286,7 @@ export function normalizeDetailSettings(settings = {}) {
   next.modelUsage = clampDetailModelUsage(next.modelUsage);
   next.reverseScreens = clampReverseScreens(next.reverseScreens);
   next.detailSkillVersion = next.detailSkillVersion === "v2" ? "v2" : "v1";
-  next.stylePackId = /^S[1-8]$/.test(next.stylePackId) ? next.stylePackId : "auto";
+  next.stylePackId = next.stylePackId === "off" || /^S[1-8]$/.test(next.stylePackId) ? next.stylePackId : "auto";
   return next;
 }
 

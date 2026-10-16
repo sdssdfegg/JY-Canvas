@@ -37,6 +37,7 @@ prompts/
 | 批量生成最终提示词出口（换装编译 / 精修编译 / 只发用户原话三选一） | `prompts/server/outfit-skill.js` | `server/outfit-skill.js` |
 | 一键详情/主图行业规则、平台规则、质量检查规则 | `prompts/server/detail-skills.js` | `server/detail-skills.js` |
 | 一键详情/主图 v2 视觉规则（风格包/构图变体/轮换） | `prompts/server/detail-skills-v2/` | `server/detail-skills-v2.js` |
+| 视觉风格包「关闭（off）」语义：v2 下 off = 不注入任何风格包（主图首屏强制 S1 一并关闭），分组无风格锁行、`stylePack` 字段缺省；v1 输出不变 | `prompts/server/detail-skills-v2/index.js`（`stylePackForGroup` off 分支） | 无 |
 
 旧兼容入口只负责转发，方便现有代码继续运行；以后真实修改请进 `prompts/`。
 

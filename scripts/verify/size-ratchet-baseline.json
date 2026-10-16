@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-16",
-  "reason": "执行单E+F 合并归档：E 精修正反开关+分组间距（RetouchIntentPanel/use-outfit-settings-intent/retouch-intent.js 预期增量）；F 批量底栏高度统一（OutfitComposer.jsx +2，常驻等高占位结构）。E/F 单未预授权 baseline 刷新、由统筹复核时追认（详见执行单归档说明）",
+  "reason": "累计归档：E 精修正反开关+分组间距（RetouchIntentPanel/use-outfit-settings-intent/retouch-intent.js 增量）＋F 批量底栏高度统一（OutfitComposer.jsx +2，常驻等高占位）＋v2-1b 风格包off选项（detail-state.js 646→647，§4 预授权）。E/F 的 baseline 刷新未在单内预授权、由统筹复核时追认（详见执行单归档说明）；后续一律执行单未明文授权则不得由执行者刷基线",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -25,7 +25,7 @@
     "src/features/canvas/canvas-graph.js": 102,
     "src/features/crop/quick-crop-panels.jsx": 242,
     "src/features/detail/detail-group.js": 391,
-    "src/features/detail/detail-state.js": 646,
+    "src/features/detail/detail-state.js": 647,
     "src/features/detail/DetailView.jsx": 612,
     "src/features/image-editor/image-editor-helpers.js": 169,
     "src/features/local-edit/crop-drag.js": 117,
