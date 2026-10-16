@@ -19,6 +19,8 @@ import {
   Maximize2,
   Minus
 } from "lucide-react";
+import { Button } from "../../../shared/ui/Button";
+import { Toolbar } from "../../../shared/ui/Toolbar";
 
 export function MainTopBar({
   activeView,
@@ -82,79 +84,83 @@ export function MainTopBar({
           </div>
         ) : (
           <>
-            <button
-              className={`tabButton ${quickMode === "image" && resultFilter === "all" ? "active" : ""}`}
+            <Button
+              size="sm"
+              active={quickMode === "image" && resultFilter === "all"}
               type="button"
               onClick={() => { setQuickMode("image"); setResultFilter("all"); }}
             >
               全部({imageCount + videoApi.videoCount})
-            </button>
-            <button
-              className={`tabButton ${quickMode === "image" && resultFilter === "image" ? "active" : ""}`}
+            </Button>
+            <Button
+              size="sm"
+              active={quickMode === "image" && resultFilter === "image"}
               type="button"
               onClick={() => { setQuickMode("image"); setResultFilter("image"); }}
             >
               <ImageIcon size={14} /> 图片({imageCount})
-            </button>
-            <button
-              className={`tabButton ${quickMode === "video" ? "active" : ""}`}
+            </Button>
+            <Button
+              size="sm"
+              active={quickMode === "video"}
               type="button"
               onClick={() => { setQuickMode("video"); setResultFilter("video"); }}
             >
               <Video size={14} /> 视频({videoApi.videoCount})
-            </button>
+            </Button>
           </>
         )}
       </div>
 
-      <div className="topActions">
+      <Toolbar align="end" wrap>
         {activeView === "quickgen" && (
-          <button className="toolbarButton" type="button" onClick={() => void refreshHistory()}>
+          <Button size="sm" type="button" onClick={() => void refreshHistory()}>
             <RefreshCw size={15} />
             <span>刷新</span>
-          </button>
+          </Button>
         )}
-        <button className="toolbarButton" type="button" onClick={openDirectoryModal}>
+        <Button size="sm" type="button" onClick={openDirectoryModal}>
           <FolderOpen size={15} />
           <span>指定文件夹</span>
-        </button>
+        </Button>
         {activeView === "detail-main" && (
-          <button
-            className="generateButton pinnedFolderButton"
+          <Button
+            size="sm"
+            tone="primary"
             type="button"
             onClick={() => detailApi.activeDetailGroup && detailApi.openStitchPreview(detailApi.activeDetailGroup)}
             disabled={!detailApi.activeDetailGroup || detailApi.activeDetailResults.length === 0}
           >
             <Layers size={15} />
             <span>拼图预览</span>
-          </button>
+          </Button>
         )}
-        <button className="toolbarButton pinnedFolderButton" type="button" onClick={() => void openSaveDirectory()}>
+        <Button size="sm" type="button" onClick={() => void openSaveDirectory()}>
           <FolderOpen size={15} />
           <span>打开保存目录</span>
-        </button>
+        </Button>
         {activeView === "infinite-canvas" && (
           <>
             <select className="toolbarSelect" value={activeCanvasId || ""} onChange={(event) => selectCanvas(event.target.value)}>
               {canvases.map((canvas) => <option key={canvas.id} value={canvas.id}>{canvas.name}</option>)}
             </select>
             <span className={`taskBadge task-${canvasRunningCount > 0 ? "running" : "success"}`}>{canvasStatusText}</span>
-            <button className="toolbarButton" type="button" onClick={createCanvas}>
+            <Button size="sm" type="button" onClick={createCanvas}>
               <Plus size={15} />
               <span>新建画布</span>
-            </button>
-            <button className="toolbarButton" type="button" onClick={renameCanvas} disabled={!activeCanvas}>
+            </Button>
+            <Button size="sm" type="button" onClick={renameCanvas} disabled={!activeCanvas}>
               <Pencil size={15} />
               <span>重命名</span>
-            </button>
-            <button className="toolbarButton" type="button" onClick={fitCanvasView} disabled={!activeCanvas}>
+            </Button>
+            <Button size="sm" type="button" onClick={fitCanvasView} disabled={!activeCanvas}>
               <Maximize2 size={15} />
               <span>适配</span>
-            </button>
-            <button className="dangerButton" type="button" onClick={clearCanvas} disabled={!activeCanvas}>
+            </Button>
+            <Button size="sm" tone="danger" type="button" onClick={clearCanvas} disabled={!activeCanvas}>
               <Trash2 size={15} />
               <span>清空</span>
-            </button>
+            </Button>
           </>
         )}
         {activeView === "detail-main" && (
@@ -167,34 +173,34 @@ export function MainTopBar({
             {quickMode === "video" ? (
               <>
                 <span className={`taskBadge task-${videoApi.videoStatus === "failed" ? "failed" : videoApi.runningVideoTasks.length > 0 ? "running" : videoApi.videoStatus}`}>{latestVideoStatusText}</span>
-                <button className="toolbarButton" type="button" onClick={() => videoApi.videoResults[0] && downloadVideoResult(videoApi.videoResults[0])} disabled={videoApi.videoResults.length === 0}>
+                <Button size="sm" type="button" onClick={() => videoApi.videoResults[0] && downloadVideoResult(videoApi.videoResults[0])} disabled={videoApi.videoResults.length === 0}>
                   <Download size={15} />
                   <span>下载最新</span>
-                </button>
-                <button className="dangerButton" type="button" onClick={videoApi.clearVideoResults} disabled={videoApi.videoResults.length === 0 && videoApi.runningVideoTasks.length === 0}>
+                </Button>
+                <Button size="sm" tone="danger" type="button" onClick={videoApi.clearVideoResults} disabled={videoApi.videoResults.length === 0 && videoApi.runningVideoTasks.length === 0}>
                   <Trash2 size={15} />
                   <span>清空视频</span>
-                </button>
+                </Button>
               </>
             ) : (
               <>
                 <span className={`taskBadge task-${quickStatus}`}>{latestStatusText}</span>
-                <button className="toolbarButton" type="button" onClick={downloadSelected} disabled={quickSelectedCount === 0}>
+                <Button size="sm" type="button" onClick={downloadSelected} disabled={quickSelectedCount === 0}>
                   <Download size={15} />
                   <span>下载选中</span>
-                </button>
-                <button className="toolbarButton" type="button" onClick={downloadAll} disabled={quickResults.length === 0}>
+                </Button>
+                <Button size="sm" type="button" onClick={downloadAll} disabled={quickResults.length === 0}>
                   <Download size={15} />
                   <span>下载全部</span>
-                </button>
-                <button className="dangerButton" type="button" onClick={deleteSelected} disabled={quickSelectedCount === 0}>
+                </Button>
+                <Button size="sm" tone="danger" type="button" onClick={deleteSelected} disabled={quickSelectedCount === 0}>
                   <Trash2 size={15} />
                   <span>删除选中</span>
-                </button>
-                <button className="dangerButton" type="button" onClick={clearAll}>
+                </Button>
+                <Button size="sm" tone="danger" type="button" onClick={clearAll}>
                   <Trash2 size={15} />
                   <span>清空全部</span>
-                </button>
+                </Button>
                 <div className="zoomControl">
                   <button type="button" onClick={() => changeGalleryZoom(-0.1)} disabled={galleryZoom <= 0.75} aria-label="缩小图库">
                     <Minus size={14} />
@@ -214,13 +220,13 @@ export function MainTopBar({
             <span className={`taskBadge task-${referenceApi.runningReferenceTasks.length > 0 ? "running" : referenceApi.referenceStatus}`}>
               {referenceApi.referenceStatusText}
             </span>
-            <button className="toolbarButton" type="button" onClick={clearAll} disabled={referenceApi.referenceResults.length === 0}>
+            <Button size="sm" type="button" onClick={clearAll} disabled={referenceApi.referenceResults.length === 0}>
               <Trash2 size={15} />
               <span>清空参考结果</span>
-            </button>
+            </Button>
           </>
         )}
-      </div>
+      </Toolbar>
     </header>
   );
 }

@@ -15,6 +15,7 @@ import {
   X
 } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
+import { Field } from "../../../shared/ui/Field";
 import { THEME_OPTIONS } from "../outfit-top.js";
 
 export default function OutfitSettingsModal({
@@ -55,8 +56,7 @@ export default function OutfitSettingsModal({
               </Button>
             </header>
 
-            <label className="modalField">
-              <span><Lock size={15} /> API Key</span>
+            <Field label={<span><Lock size={15} /> API Key</span>} hint={apiSaveStatus || undefined}>
               <div className="apiKeyRow">
                 <input
                   type={showKey ? "text" : "password"}
@@ -69,8 +69,7 @@ export default function OutfitSettingsModal({
                 </Button>
                 <Button size="md" onClick={saveSettings}>保存</Button>
               </div>
-              {apiSaveStatus && <small>{apiSaveStatus}</small>}
-            </label>
+            </Field>
 
             <div className="skinBlock">
               <span><Palette size={15} /> 皮肤</span>
@@ -89,16 +88,18 @@ export default function OutfitSettingsModal({
               </div>
             </div>
 
-            <div className="debugBlock">
-              <span><Settings size={15} /> 连接测试</span>
+            <Field
+              as="div"
+              className="debugBlock"
+              label={<span><Settings size={15} /> 连接测试</span>}
+              hint={connectionStatus || undefined}
+              hintTone={connectionState === "error" ? "danger" : connectionState === "ok" ? "success" : "default"}
+            >
               <p>只向上游请求模型清单探测连通性，<strong>不调用生图、不上传图片、不扣费</strong>，也不会显示或保存你的 API Key。</p>
               <div className="debugActions">
                 <Button size="md" loading={isConnectionTesting} disabled={isConnectionTesting} onClick={() => void runConnectionTest()}>连接测试</Button>
               </div>
-              {connectionStatus && (
-                <small className={`fieldHint connectionHint ${connectionState}`}>{connectionStatus}</small>
-              )}
-            </div>
+            </Field>
           </section>
         </div>
       )}
@@ -115,8 +116,10 @@ export default function OutfitSettingsModal({
                 <X size={18} />
               </Button>
             </header>
-            <label className="modalField">
-              <span><FolderOpen size={15} /> 保存目录</span>
+            <Field
+              label={<span><FolderOpen size={15} /> 保存目录</span>}
+              hint={isPickingDirectory ? "正在等待目录选择..." : "点击输入框选择目录，点确定后生效"}
+            >
               <input
                 value={directoryDraft}
                 readOnly
@@ -124,8 +127,7 @@ export default function OutfitSettingsModal({
                 placeholder="点击选择保存目录"
                 title="点击选择保存目录"
               />
-              <small>{isPickingDirectory ? "正在等待目录选择..." : "点击输入框选择目录，点确定后生效"}</small>
-            </label>
+            </Field>
             <footer className="directoryModalActions">
               <Button size="md" onClick={() => setIsDirectoryModalOpen(false)}>取消</Button>
               <Button size="md" tone="primary" onClick={() => void confirmSaveDirectory()}>
