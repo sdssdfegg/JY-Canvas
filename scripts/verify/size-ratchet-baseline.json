@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-16",
-  "reason": "V71 换装按钮迁移（统筹预授权追认，2026-10-16 20:4x）：7 处 +1 行全部为各迁移文件新增 import { Button } 行（删多行旧按钮 JSX 的结构性结果；git diff --stat 净 70 insertions/135 deletions，各文件净降）。已写入 V71 单子统筹追加预授权条款；最终以 V71 归档复核为准，复核不通过则随复核意见回滚本次刷新",
+  "reason": "V71 换装按钮迁移·统筹收尾（同一预授权条款覆盖）：outfit-workflow.jsx 2089→2090 为统筹补的 import { Button } 行（ResultPreviewModal 3 处 + outfit-workflow.jsx 2 处收尾迁移；全单 git diff --stat 净 80 insertions/144 deletions，净降）",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -78,7 +78,7 @@
     "src/local-edit-mask.js": 1,
     "src/main.jsx": 2172,
     "src/models.js": 1,
-    "src/outfit-workflow.jsx": 2089,
+    "src/outfit-workflow.jsx": 2090,
     "src/shared/app-defaults.js": 149,
     "src/shared/canvas-blob.js": 27,
     "src/shared/DebouncedTextarea.jsx": 86,

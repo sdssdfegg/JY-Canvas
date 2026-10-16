@@ -9,6 +9,7 @@ import DebouncedTextarea from "../../../shared/DebouncedTextarea.jsx";
 import { OutfitIntentPanel } from "./OutfitIntentPanel.jsx";
 import { RetouchIntentPanel } from "./RetouchIntentPanel.jsx";
 import { OutfitPageRow } from "./OutfitPageRow.jsx";
+import { Button } from "../../../shared/ui/Button";
 
 export default function OutfitComposer({
   isOutfitWorkflow,
@@ -340,10 +341,10 @@ export default function OutfitComposer({
           <span>AI质检</span>
           <i aria-hidden="true"><b /></i>
         </button>
-        <button className="generateButton" type="button" onClick={() => void startBatch()} disabled={running && !canAppendWhileRunning}>
+        <Button size="lg" tone="primary" type="button" onClick={() => void startBatch()} disabled={running && !canAppendWhileRunning}>
           {running ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
           <span>生成</span>
-        </button>
+        </Button>
       </div>
     </div>
     <div className={`composerStatus${inlineMessage ? "" : " composerStatus--placeholder"}`}>{inlineMessage}</div>

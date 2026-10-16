@@ -6,6 +6,7 @@
 //   保证 JSX 一行不动）；调用方 outfit-workflow.jsx 每次 render 重建传参，与搬出前行为一致。
 //   ⚠️ props 漏项 = 运行期 undefined（vite build 验不出），由 V65 §3.2 负向对照兜底。
 import { BookOpen, Lock, Move, Plus, Trash2, Unlock } from "lucide-react";
+import { Button } from "../../../shared/ui/Button";
 
 export function OutfitPageRow({
   showPromptButton = true,
@@ -30,10 +31,10 @@ export function OutfitPageRow({
     <div className="composerPageRow">
       {showPromptButton && (
         <div className="leftTools">
-          <button className="smallButton" type="button" onClick={() => setIsPromptAssistantOpen(true)}>
+          <Button size="sm" type="button" onClick={() => setIsPromptAssistantOpen(true)}>
             <BookOpen size={16} />
             <span>词</span>
-          </button>
+          </Button>
         </div>
       )}
 

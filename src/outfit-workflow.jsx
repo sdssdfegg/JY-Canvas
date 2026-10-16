@@ -24,6 +24,7 @@ import {
 } from "./shared/result-image.js";
 // CachedImage 已随 preview 浮层迁至 src/features/outfit/panels/ResultPreviewModal.jsx
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
+import { Button } from "./shared/ui/Button";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
   OUTFIT_AUTO_PROMPT_CHAR_LIMIT,
@@ -1953,9 +1954,9 @@ function freezeIntentIntoTask(intentCtx) {
           <section className="promptAssistantModal" onMouseDown={(event) => event.stopPropagation()}>
             <header>
               <h2>提示词助手</h2>
-              <button className="iconButton" type="button" onClick={() => setIsPromptAssistantOpen(false)}>
-                <X size={18} />
-              </button>
+              <Button size="md" iconOnly onClick={() => setIsPromptAssistantOpen(false)}>
+                <X size={16} />
+              </Button>
             </header>
             <div className="promptAssistantBody">
               <PromptPresetGrid
@@ -2062,7 +2063,7 @@ function freezeIntentIntoTask(intentCtx) {
                 <h2>{imageLightbox.title}</h2>
                 <span>原图预览</span>
               </div>
-              <button className="iconButton" type="button" onClick={() => setImageLightbox(null)}><X size={18} /></button>
+              <Button size="md" iconOnly onClick={() => setImageLightbox(null)}><X size={16} /></Button>
             </header>
             <div
               className="previewImageFrame outfitPreviewImageFrame"

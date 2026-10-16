@@ -4,6 +4,7 @@
 // 模式：原闭包捕获的 state / handler 全部改为同名 props（调用方每次 render 重建传参，JSX 一行不动）；
 //   图标 X / Save 直接 import；setEditingPrompt(null) 收敛为 onClose prop。
 import { X, Save } from "lucide-react";
+import { Button } from "../../../shared/ui/Button";
 
 export default function PromptEditorModal({
   editingPrompt,
@@ -17,9 +18,9 @@ export default function PromptEditorModal({
   <section className="promptEditorModal" onMouseDown={(event) => event.stopPropagation()}>
     <header>
       <h2>编辑提示词</h2>
-      <button className="iconButton" type="button" onClick={() => onClose()}>
+      <Button size="md" iconOnly type="button" onClick={() => onClose()} title="关闭">
         <X size={18} />
-      </button>
+      </Button>
     </header>
     <div className="promptEditorBody">
       <label className="editorField">
@@ -51,11 +52,11 @@ export default function PromptEditorModal({
       </label>
     </div>
     <footer>
-      <button className="secondaryButton" type="button" onClick={() => onClose()}>取消</button>
-      <button className="primaryButton" type="button" onClick={saveEditingPrompt}>
+      <Button size="md" type="button" onClick={() => onClose()}>取消</Button>
+      <Button size="md" tone="primary" type="button" onClick={saveEditingPrompt}>
         <Save size={16} />
         <span>保存</span>
-      </button>
+      </Button>
     </footer>
   </section>
 </div>

@@ -7,6 +7,7 @@
 //   ⚠️ props 漏项 = 运行期 undefined（vite build 验不出），由 V65 §3.2 负向对照兜底。
 import { ChevronDown, ChevronUp, Loader2, Sparkles } from "lucide-react";
 import { FACT_UNRECOGNIZED, OUTFIT_FACT_FIELDS } from "../../../shared/outfit-intent.js";
+import { Button } from "../../../shared/ui/Button";
 
 export function ImageFactsPanel({
   outfitIntent,
@@ -46,8 +47,8 @@ export function ImageFactsPanel({
         <em>{outfitRecognizedFacts.length > 0 ? `已识别 ${outfitRecognizedFacts.length} 项` : "未识别"}</em>
       </div>
       <div className="imageFactActions">
-        <button
-          className="smallButton"
+        <Button
+          size="sm"
           type="button"
           onClick={() => void analyzeImageFacts()}
           disabled={imageFactsAnalyzing}
@@ -55,7 +56,7 @@ export function ImageFactsPanel({
         >
           {imageFactsAnalyzing ? <Loader2 className="spin" size={14} /> : <Sparkles size={14} />}
           <span>{imageFactsAnalyzing ? "分析中" : "分析当前图2"}</span>
-        </button>
+        </Button>
         <button className="imageFactToggle" type="button" onClick={() => setFactsDetailOpen((value) => !value)} aria-expanded={factsDetailOpen}>
           {factsDetailOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           <span>{factsDetailOpen ? "收起" : "查看/修改摘要"}</span>
