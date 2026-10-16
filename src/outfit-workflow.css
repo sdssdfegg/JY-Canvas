@@ -2944,9 +2944,17 @@
   min-height: 36px;
 }
 
-.outfitWorkflowEmbedded .rightTools,
 .outfitWorkflowEmbedded .leftTools {
   flex-wrap: wrap;
+}
+
+/* V77（§3.7）：参数条统一单行不换行——各板块控件数不同（换装 8 / 随机背景 9 …），
+   换行行数随板块变化导致窄窗口切换板块时冻结区上下跳动。
+   改为 nowrap + 横向滚动（实现方式：nowrap + overflow-x:auto），冻结区高度与板块无关。 */
+.outfitWorkflowEmbedded .rightTools {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .outfitWorkflowEmbedded .composerPageRow {
@@ -2959,10 +2967,16 @@
   flex: 0 0 auto;
 }
 
+/* V77（§3.6）：参数钮左对齐（与上方 tab/页面行左缘对齐），生成钮独立右侧
+   （实现方式 b：margin-left:auto，剩余空间即与最后参数控件的间距，窄窗口不重叠）。 */
 .outfitWorkflowEmbedded .rightTools {
   width: 100%;
   margin-left: 0;
-  justify-content: flex-end;
+  justify-content: flex-start;
+}
+
+.outfitWorkflowEmbedded .rightTools .generateBtn {
+  margin-left: auto;
 }
 
 .outfitWorkflowEmbedded .outfitPageDock {
@@ -3480,12 +3494,19 @@
   visibility: hidden;
 }
 
+/* V77（§3.1）：三区容量加权比例（参考图实测约 50/25/25）——图1 2fr 大区（约 10 张容量）、
+   图2/图3 各 1fr 小区（一般 2-3 张）；三区高度不锁死（内容撑起，图1 高图2/图3 矮属预期）。
+   单区工作流（精修/扩图/随机背景只渲染图1）由 :only-child 横跨全宽兜底，避免只占 2fr。 */
 .outfitWorkflowEmbedded .assetGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-3);
-  align-items: stretch;
+  align-items: start;
   margin-bottom: 0;
+}
+
+.outfitWorkflowEmbedded .assetGrid > :only-child {
+  grid-column: 1 / -1;
 }
 
 .outfitWorkflowEmbedded .assetSide {
@@ -3599,7 +3620,9 @@
 .outfitWorkflowEmbedded .uploadZone.compact .thumbGrid {
   flex: 0 1 auto;
   min-height: 0;
-  grid-template-columns: repeat(auto-fill, minmax(112px, 112px));
+  /* V77（§3.1/3.4）：列数改由 --upload-columns 驱动（图1=4、图2/图3=2），卡片随列宽自适应——
+     原先 auto-fill + 112px 定宽在窄区会把 2-3 张挤成两行浪费空间。 */
+  grid-template-columns: repeat(var(--upload-columns, 2), minmax(0, 1fr));
   max-height: none;
   align-content: start;
   align-items: start;
@@ -3608,16 +3631,15 @@
 
 .outfitWorkflowEmbedded .uploadZone.compact .thumbCard {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 86px auto auto;
+  grid-template-rows: 72px auto auto;
   gap: 5px;
-  padding: 7px;
+  padding: 6px;
   align-self: start;
-  width: 112px;
 }
 
 .outfitWorkflowEmbedded .uploadZone.compact .thumbImage {
   width: 100%;
-  height: 86px;
+  height: 72px;
 }
 
 .outfitWorkflowEmbedded .uploadZone.compact .thumbActions {
@@ -3626,9 +3648,11 @@
   gap: 4px;
 }
 
+/* V77（§3.4）：操作钮按参考图实测收小（约 20-22px），避免一张图占两三行高度。 */
 .outfitWorkflowEmbedded .uploadZone.compact .thumbActions button {
-  min-height: var(--control-h-sm);
-  height: var(--control-h-sm);
+  min-height: 22px;
+  height: 22px;
+  padding: 0;
 }
 
 .outfitWorkflowEmbedded .uploadZone.primary .emptyUpload {
@@ -3641,6 +3665,13 @@
   width: 100%;
   max-width: 100%;
   grid-column: 1 / -1;
+}
+
+/* V77：单区工作流（精修/扩图/随机背景只渲染图1）由 :only-child 横跨全宽后，图1 若仍按 4 列
+   会把卡片撑到 ~340px 宽（1280 实测 1360/4），与参考图 ~140px 的卡片尺寸不符、缩略图被压成细长条。
+   故单区时改按参考卡片宽度自动铺满（4 张仍单行，10 张也一行放下），卡片尺寸与换装页一致。 */
+.outfitWorkflowEmbedded .assetGrid > :only-child .thumbGrid {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
 }
 
 .outfitWorkflowEmbedded .uploadZone.compact .thumbMeta {

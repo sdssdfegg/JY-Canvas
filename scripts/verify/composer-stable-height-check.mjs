@@ -39,8 +39,12 @@ check("源码：composerStatus 改为常驻渲染（不再用 {inlineMessage && 
 check("源码：outfitIntentBar 改为常驻渲染（不再用 {isOutfitWorkflow && …} 整段）",
   !/\{isOutfitWorkflow\s*&&\s*\(?\s*\n?\s*<div className="outfitIntentBar"/.test(composerSrc)
     && composerSrc.includes('<div className={`outfitIntentBar'), "常驻");
-check("CSS：.rightTools 固定 min-height: 72px（2 行换行最坏场景）",
-  /\.outfitWorkflowEmbedded \.rightTools\s*\{[^}]*min-height:\s*72px/.test(workflowCssSrc), "72px");
+// V77（§4.5 预授权 --update）：V76 已把 .rightTools 的 72px 两行预留归为单阶 var(--control-h-md)，
+// V77 进一步落地 nowrap 单行策略（参数条高度与板块无关，切换不跳动）。原 72px 断言已陈旧，按新口径更新。
+check("CSS：.rightTools 单阶 min-height: var(--control-h-md)（V76 归阶后口径）",
+  /\.outfitWorkflowEmbedded \.rightTools\s*\{[^}]*min-height:\s*var\(--control-h-md\)/.test(workflowCssSrc), "var(--control-h-md)");
+check("CSS：.rightTools nowrap 单行策略（V77 参数条高度与板块无关）",
+  /\.outfitWorkflowEmbedded \.rightTools\s*\{[^}]*flex-wrap:\s*nowrap/.test(workflowCssSrc), "nowrap");
 check("CSS：.composerStatus min-height 且含 --placeholder 不可见占位",
   /\.outfitWorkflowEmbedded \.composerStatus\s*\{[^}]*min-height:\s*36px/.test(workflowCssSrc)
     && workflowCssSrc.includes(".composerStatus--placeholder"), "36px+占位");

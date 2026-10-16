@@ -628,12 +628,17 @@ export function UploadZone({
   acceptMultiple = true,
   compact = false,
   primary = false,
+  /* V77（§3.1）：显式列数覆盖。图1 传 4（大区 ~10 张容量），图2/图3 不传走默认 2。
+     说明：执行单建议按 maxCount 分档（≥8→4 列），但图3 的 maxCount 同为 MAX_UPLOAD_IMAGES(10)，
+     分档会把图3 也推成 4 列，违背「图2/图3 保持 2 列」，故改为显式 columns prop。 */
+  columns,
   maxCount = MAX_UPLOAD_IMAGES,
   onLimit,
   onActivate,
   bulkMode = "pad",
-  onBulkModeChange,
-  showBulkControl = true,
+  /* V77 Park：统一处理停用，但 props 与 handler 保留 —— 别名 _ 前缀（eslint 允许的未使用参数命名），
+     恢复 = 去掉 _ 前缀并还原 uploadZoneFooter 里的 bulkModeControl / small 两段。 */
+  onBulkModeChange: _onBulkModeChange,
   localEditEnabled = false,
   footerControls = null,
   sideControls = null
@@ -657,7 +662,8 @@ export function UploadZone({
     thumbSizeRef.current.set(itemId, { width, height });
     bumpThumbSizeRevision((value) => value + 1);
   }
-  const columnCount = primary ? 10 : 2;
+  // V77（§3.1）：列数改为显式 columns 优先（图1=4），未传时保持原判据（primary 10 列兜底，其余 2 列）。
+  const columnCount = columns ?? (primary ? 10 : 2);
   const mixedMode = bulkMode === "mixed";
   const displayTitle = titleText || title;
   const displayHint = hintText || hint;
@@ -843,10 +849,8 @@ export function UploadZone({
           )}
         </div>
         <div className="uploadHeaderActions">
-          <Button size="sm" type="button" onClick={() => inputRef.current?.click()}>
-            <Upload size={15} />
-            <span>上传</span>
-          </Button>
+          {/* V77（用户要求·停用）：上传按钮移除（空态点击/拖入仍走 inputRef 链，有图后靠拖入 + 单张替换）；
+              右上角仅保留清除钮。 */}
           {items.length > 0 && onClear && (
             <Button size="sm" tone="danger" type="button" onClick={onClear}>
               <Trash2 size={15} />
@@ -895,15 +899,15 @@ export function UploadZone({
               </div>
               <div className="thumbActions">
                 <button type="button" onClick={() => onToggle(item.id)} title="参与本次批量">
-                  {item.selected ? <Check size={14} /> : <X size={14} />}
+                  {item.selected ? <Check size={12} /> : <X size={12} />}
                 </button>
                 {onSetFixed && (
                   <button type="button" onClick={() => onSetFixed(item.id)} title={fixedTitle}>
-                    <Lock size={14} />
+                    <Lock size={12} />
                   </button>
                 )}
                 <button type="button" onClick={() => onOpenCrop(item)} title="裁剪/补边">
-                  <Crop size={14} />
+                  <Crop size={12} />
                 </button>
                 {localEditEnabled && (
                   <button
@@ -912,11 +916,11 @@ export function UploadZone({
                     onClick={() => openLocalEdit(item)}
                     title={item.localEdit ? "重新调整局部回贴" : "局部回贴"}
                   >
-                    <Scissors size={14} />
+                    <Scissors size={12} />
                   </button>
                 )}
                 <button type="button" onClick={() => onRemove(item.id)} title="删除">
-                  <Trash2 size={14} />
+                  <Trash2 size={12} />
                 </button>
               </div>
             </article>
@@ -931,24 +935,12 @@ export function UploadZone({
         </div>
         {sideControls && <div className="uploadZoneSideControls">{sideControls}</div>}
       </div>
-      {(showBulkControl || footerControls) && (
+      {/* V77（用户要求·停用）：「统一处理」select 与「新上传默认：…」说明停用；
+          bulkMode/onBulkModeChange props 与 applyGroupPreprocess handler 按 Park 纪律保留，
+          恢复时传回 bulkMode/onBulkModeChange 并还原本段。改色范围 footerControls 保留不动。 */}
+      {footerControls && (
         <div className={`uploadZoneFooter ${mixedMode ? "mixed" : ""}`}>
-          {showBulkControl && (
-            <label className="bulkModeControl">
-              <span>统一处理</span>
-              <select className={mixedMode ? "mixed" : ""} value={bulkMode} onChange={(event) => onBulkModeChange?.(event.target.value)}>
-                <option value="mixed" disabled>混合状态</option>
-                {bulkMode === "crop" && <option value="crop" disabled>{preprocessModeLabel("crop")}</option>}
-                {PREPROCESS_OPTIONS.filter((option) => option.value !== "crop").map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-          )}
-          {footerControls && <div className="uploadZoneFooterControls">{footerControls}</div>}
-          {showBulkControl && (
-            <small>{items.length > 0 ? (mixedMode ? "当前图组处于混合状态，选择后可统一应用" : `当前：${preprocessModeLabel(bulkMode)}`) : `新上传默认：${preprocessModeLabel(bulkMode)}`}</small>
-          )}
+          <div className="uploadZoneFooterControls">{footerControls}</div>
         </div>
       )}
       <input

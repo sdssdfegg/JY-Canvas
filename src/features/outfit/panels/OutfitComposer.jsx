@@ -97,7 +97,9 @@ export default function OutfitComposer({
   isDesignDraftWorkflow,
   isRecolorWorkflow,
   clothingImages,
-  clothingBulkMode,
+  /* V77 Park：统一处理/新上传默认停用，但数据流保留 —— 以下 4 个 props 仍由父级按原名传入，
+     本地别名成 _ 前缀（eslint 允许的未使用参数命名）。恢复 = 去掉 _ 前缀并传回 UploadZone。 */
+  clothingBulkMode: _clothingBulkMode,
   setMasterClothing,
   fixedClothingId,
   GARMENT_PART_PRESET_OPTIONS,
@@ -106,10 +108,10 @@ export default function OutfitComposer({
   applyGarmentPartPreset,
   toggleGarmentPart,
   referenceImages,
-  referenceBulkMode,
+  referenceBulkMode: _referenceBulkMode,
   setActiveUploadGroup,
-  modelBulkMode,
-  applyGroupPreprocess,
+  modelBulkMode: _modelBulkMode,
+  applyGroupPreprocess: _applyGroupPreprocess,
   setImageLightbox
 }) {
   return (
@@ -138,8 +140,9 @@ export default function OutfitComposer({
       maxCount={MAX_UPLOAD_IMAGES}
       onLimit={(message) => addEvent("图1上传", message)}
       onActivate={() => setActiveUploadGroup("model")}
-      bulkMode={modelBulkMode}
-      onBulkModeChange={(mode) => void applyGroupPreprocess("model", mode)}
+      columns={4}
+      /* V77（用户要求·停用）：统一处理/新上传默认停用；数据流与 handler 保留，
+         恢复时传回 bulkMode={modelBulkMode}、onBulkModeChange={(mode) => void applyGroupPreprocess("model", mode)} */
     />
     {/* 2026-09-26（按用户要求）：精修页不再需要图2 —— 图1 本身就是多图上传，
         所有图片一起合成一张成品图。所以精修页只渲染图1 这一个上传区。
@@ -170,8 +173,8 @@ export default function OutfitComposer({
         maxCount={(isOutfitWorkflow || isPoseRemixWorkflow || isFaceSwapWorkflow) ? 2 : MAX_UPLOAD_IMAGES}
         onLimit={(message) => addEvent("图2上传", message)}
         onActivate={() => setActiveUploadGroup("clothing")}
-        bulkMode={clothingBulkMode}
-        onBulkModeChange={(mode) => void applyGroupPreprocess("clothing", mode)}
+        /* V77（用户要求·停用）：统一处理/新上传默认停用；数据流与 handler 保留，
+           恢复时传回 bulkMode={clothingBulkMode}、onBulkModeChange={(mode) => void applyGroupPreprocess("clothing", mode)} */
         footerControls={isRecolorWorkflow ? (
           <div className="garmentTransferControls" aria-label="图2改色范围设置">
             <div className="garmentPartPresetGroup" aria-label="图2常用改色范围">
@@ -238,8 +241,8 @@ export default function OutfitComposer({
         maxCount={MAX_UPLOAD_IMAGES}
         onLimit={(message) => addEvent("图3上传", message)}
         onActivate={() => setActiveUploadGroup("reference")}
-        bulkMode={referenceBulkMode}
-        onBulkModeChange={(mode) => void applyGroupPreprocess("reference", mode)}
+        /* V77（用户要求·停用）：统一处理/新上传默认停用；数据流与 handler 保留，
+           恢复时传回 bulkMode={referenceBulkMode}、onBulkModeChange={(mode) => void applyGroupPreprocess("reference", mode)} */
       />
     )}
   </section>
@@ -349,12 +352,7 @@ export default function OutfitComposer({
       <label className="composerField composerNote">
         <span>
           {productNoteFieldTitle}
-          {isOutfitWorkflow && (
-            <em className="composerFieldHint">会实时接到上面提示词的最后（只作为提示词正文的一部分，不再单独重复发给 API）</em>
-          )}
-          {isWhiteRefineWorkflow && (
-            <em className="composerFieldHint">会实时并入上面提示词的【用户补充】段，不再单独重复发给 API</em>
-          )}
+          {/* V77（用户要求·§3.5 已确认删）：两条「会实时接到/并入提示词…API」长说明删除（换装 + 精修变体同删）。 */}
         </span>
         <DebouncedTextarea
           value={settings.productNote}
@@ -466,7 +464,9 @@ export default function OutfitComposer({
             <option key={count} value={count}>{count === "auto" ? `数量(${plannedGenerationCount})` : `数量 ${count}`}</option>
           ))}
         </select>
-        <button
+        {/* V77（用户要求·停用）：「常规文本/智能文本」开关与「AI质检」开关停止渲染（Park 纪律：
+            smartIntervention/qualityCheck state 与持久化不动、仍可被其他逻辑读取，恢复 = 去掉本注释）。 */}
+        {/* <button
           className={`smartInterventionSwitch ${!isPoseRemixWorkflow && !isOutpaintWorkflow && !isRandomBackgroundWorkflow && settings.smartIntervention ? "on" : ""}`}
           type="button"
           onClick={() => {
@@ -499,8 +499,8 @@ export default function OutfitComposer({
         >
           <span>AI质检</span>
           <i aria-hidden="true"><b /></i>
-        </button>
-        <Button size="lg" tone="primary" type="button" onClick={() => void startBatch()} disabled={running && !canAppendWhileRunning}>
+        </button> */}
+        <Button className="generateBtn" size="lg" tone="primary" type="button" onClick={() => void startBatch()} disabled={running && !canAppendWhileRunning}>
           {running ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
           <span>生成</span>
         </Button>

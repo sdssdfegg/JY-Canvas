@@ -260,10 +260,12 @@
   line-height: 1.6;
 }
 
-/* 提交按钮附近的摘要条 + 最终提示词预览。 */
+/* 提交按钮附近的摘要条 + 最终提示词预览。
+   V77（§3.7）：占位/实态恒高——摘要条不换行（长摘要省略号截断），min-height 32px 恒定，
+   切换板块前后高度一致，不再上下跳。 */
 .outfitWorkflowEmbedded .outfitIntentBar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 10px;
   padding: 6px 8px;
@@ -279,6 +281,10 @@
 }
 
 .outfitWorkflowEmbedded .outfitIntentBarText {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: var(--text-soft);
   font-size: 11px;
 }

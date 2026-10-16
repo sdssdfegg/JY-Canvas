@@ -9,7 +9,6 @@
 //   ⚠️ props 漏项 = 运行期 undefined（vite build 验不出），由 V65 §3.2 负向对照兜底。
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import {
-  OUTFIT_KEEP_PART_VALUES,
   OUTFIT_PART_OPTIONS,
   UPPER_LAYER_OPTIONS,
   WEARING_MODE_OPTIONS
@@ -17,7 +16,9 @@ import {
 
 export function OutfitIntentPanel({
   outfitIntent,
-  outfitLayer,
+  /* V77 Park：层级说明句停用，但父级仍按原名传入 —— 别名 _ 前缀（eslint 允许的未使用参数命名），
+     恢复 = 去掉 _ 前缀并还原「将写作「图2的…」」说明句。 */
+  outfitLayer: _outfitLayer,
   outfitPreview,
   outfitWearingFieldList,
   wearingDetailOpen,
@@ -28,36 +29,15 @@ export function OutfitIntentPanel({
   wearingFieldValue
 }) {
   const parts = outfitIntent.parts;
-  // 保持列表口径与编译器一致：不含鞋子；选了连衣裙时也不列上装/下装。
-  const keepLabels = OUTFIT_KEEP_PART_VALUES
-    .filter((part) => !parts.includes(part))
-    .filter((part) => !(parts.includes("dress") && (part === "upper" || part === "lower")))
-    .map((part) => OUTFIT_PART_OPTIONS.find((item) => item.value === part)?.label || part)
-    .join("、");
-  // 2026-09-26：删掉「自动识别图2」后，层级一律由用户选，这里只说"会怎么写"。
-  const layerHint = `将写作「图2的${outfitLayer.promptLabel}」`;
-
-  // 穿法摘要：只说明"当前会怎么写"，不重复编译器的原句。
-  function outfitWearingTextSummary() {
-    if (outfitIntent.wearing.mode === "natural") return "按常规自然穿着，不刻意复刻图2穿法细节";
-    if (outfitIntent.wearing.mode === "custom") {
-      const picked = outfitWearingFieldList
-        .map((field) => {
-          const option = field.options.find((item) => item.value === wearingFieldValue(field.key));
-          return option ? `${field.label}：${option.label}` : "";
-        })
-        .filter(Boolean);
-      return picked.length ? picked.join("｜") : "还没指定任何状态，将只保留部位与图2事实";
-    }
-    return "跟随图2穿法，不自行改变扣合、衣摆、袖子和领口";
-  }
+  // V77（§3.5 已确认删）：keepLabels / layerHint / outfitWearingTextSummary 三个纯说明性文案及其
+  // 派生计算随「未选择部位保持图1原样：…」「将写作「图2的…」」、穿法摘要句一起停用（纯 UI 文案，无数据流）。
 
   return (
     <section className="outfitIntentPanel" aria-label="换装设置">
       <header>
         <div>
           <h3>换装设置</h3>
-          <span>这里的选择会进入最终提示词；批次开始后再改只影响下一批。</span>
+          {/* V77（§3.5 已确认删）：「这里的选择会进入最终提示词；批次开始后再改只影响下一批。」 */}
         </div>
         <span className={`outfitIntentCount ${parts.length === 0 ? "warn" : ""}`}>
           {parts.length === 0 ? "未选择更换部位" : `已选 ${parts.length} 个部位`}
@@ -83,9 +63,9 @@ export function OutfitIntentPanel({
             );
           })}
         </div>
-        <small className={parts.length === 0 ? "outfitIntentWarn" : ""}>
-          {parts.length === 0 ? "至少选择一个更换部位才能生成" : `未选择的部位保持图1原样：${keepLabels}`}
-        </small>
+        {parts.length === 0 && (
+          <small className="outfitIntentWarn">至少选择一个更换部位才能生成</small>
+        )}
       </div>
 
       {parts.includes("upper") && (
@@ -108,7 +88,7 @@ export function OutfitIntentPanel({
               );
             })}
           </div>
-          <small className={outfitLayer.uncertain ? "outfitIntentWarn" : ""}>{layerHint}</small>
+          {/* V77（§3.5 已确认删）：「将写作「图2的…」」层级说明句 */}
         </div>
       )}
 
@@ -132,7 +112,7 @@ export function OutfitIntentPanel({
           })}
         </div>
         <div className="outfitIntentInline">
-          <small>{outfitWearingTextSummary()}</small>
+          {/* V77（§3.5 已确认删）：穿法摘要句（自然/自定义/跟随图2穿法的说明文字） */}
           {outfitIntent.wearing.mode === "custom" && (
             <button className="imageFactToggle" type="button" onClick={() => setWearingDetailOpen((value) => !value)} aria-expanded={wearingDetailOpen}>
               {wearingDetailOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
