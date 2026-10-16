@@ -32,6 +32,7 @@ import {
 import { fileSize } from "../../../lib/format/index.js";
 import { ResultQueue } from "./ResultQueue.jsx";
 import { ImageFactsPanel } from "./ImageFactsPanel.jsx";
+import { Button } from "../../../shared/ui/Button";
 
 export default function OutfitWorkbench({
   resultFilter,
@@ -133,17 +134,17 @@ export default function OutfitWorkbench({
     <>
       <header className="topbar">
         <div className="resultTabs">
-          <button className={`tabButton ${resultFilter === "all" ? "active" : ""}`} type="button" onClick={() => setResultFilter("all")}>
+          <Button size="sm" active={resultFilter === "all"} type="button" onClick={() => setResultFilter("all")}>
             全部({tasks.length})
-          </button>
-          <button className={`tabButton ${resultFilter === "image" ? "active" : ""}`} type="button" onClick={() => setResultFilter("image")}>
+          </Button>
+          <Button size="sm" active={resultFilter === "image"} type="button" onClick={() => setResultFilter("image")}>
             <Images size={14} />
             <span>图片({imageCount})</span>
-          </button>
-          <button className="tabButton" type="button" onClick={() => { setResultFilter("all"); switchView("quick"); addEvent("视频", "已打开快捷视频生成"); }}>
+          </Button>
+          <Button size="sm" type="button" onClick={() => { setResultFilter("all"); switchView("quick"); addEvent("视频", "已打开快捷视频生成"); }}>
             <Video size={14} />
             <span>视频(0)</span>
-          </button>
+          </Button>
           <button
             className="outfitPageNameChip"
             type="button"
@@ -155,39 +156,39 @@ export default function OutfitWorkbench({
           </button>
         </div>
         <div className="topActions">
-          <button className="toolbarButton" type="button" onClick={() => void refreshHistory()}>
+          <Button size="sm" type="button" onClick={() => void refreshHistory()}>
             <RefreshCw size={15} />
             <span>刷新</span>
-          </button>
-          <button className="toolbarButton" type="button" onClick={openDirectoryModal}>
+          </Button>
+          <Button size="sm" type="button" onClick={openDirectoryModal}>
             <FolderOpen size={15} />
             <span>指定文件夹</span>
-          </button>
-          <button className="toolbarButton" type="button" onClick={() => void openSaveDirectory()}>
+          </Button>
+          <Button size="sm" type="button" onClick={() => void openSaveDirectory()}>
             <FolderOpen size={15} />
             <span>打开保存目录</span>
-          </button>
+          </Button>
           <span className={`taskBadge task-${topbarStatus}`}>{topbarStatusText}</span>
-          <button className="toolbarButton" type="button" onClick={downloadSelected} disabled={selectedCompletedCount === 0}>
+          <Button size="sm" type="button" onClick={downloadSelected} disabled={selectedCompletedCount === 0}>
             <Download size={15} />
             <span>下载选中</span>
-          </button>
-          <button className="toolbarButton" type="button" onClick={downloadAll} disabled={imageCount === 0}>
+          </Button>
+          <Button size="sm" type="button" onClick={downloadAll} disabled={imageCount === 0}>
             <Download size={15} />
             <span>下载全部</span>
-          </button>
-          <button className="dangerButton" type="button" onClick={deleteSelected} disabled={selectedCount === 0}>
+          </Button>
+          <Button size="sm" tone="danger" type="button" onClick={deleteSelected} disabled={selectedCount === 0}>
             <Trash2 size={15} />
             <span>删除选中</span>
-          </button>
-          <button className="dangerButton" type="button" onClick={clearAll}>
+          </Button>
+          <Button size="sm" tone="danger" type="button" onClick={clearAll}>
             <Trash2 size={15} />
             <span>清空全部</span>
-          </button>
-          <button className="toolbarButton" type="button" onClick={() => void clearNonResultImageCache()}>
+          </Button>
+          <Button size="sm" type="button" onClick={() => void clearNonResultImageCache()}>
             <RefreshCw size={15} />
             <span>清缓存</span>
-          </button>
+          </Button>
           <div className="zoomControl">
             <button type="button" onClick={() => changeGalleryZoom(-0.1)} disabled={galleryZoom <= 0.75} aria-label="缩小图库">
               <Minus size={14} />

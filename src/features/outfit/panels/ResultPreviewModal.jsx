@@ -11,6 +11,7 @@ import { LocalPasteDiagnosticsPanel, CropReturnDiagnosticsPanel } from "../outfi
 import { qualityStatusClass, qualityStatusLabel, formatClock } from "../outfit-top.js";
 import { imageSource, displayResultImageSource } from "../outfit-task.js";
 import { formatWholeSecondMs as formatMs } from "../../../lib/format/index.js";
+import { Button } from "../../../shared/ui/Button";
 
 export default function ResultPreviewModal({
   preview,
@@ -37,7 +38,7 @@ export default function ResultPreviewModal({
         <h2>结果预览 #{preview.order}</h2>
         <span>{preview.timingMs ? formatMs(preview.timingMs) : ""}</span>
       </div>
-      <button className="iconButton" type="button" onClick={() => onClose()}><X size={18} /></button>
+      <Button size="md" iconOnly onClick={() => onClose()}><X size={16} /></Button>
     </header>
     <div
       className="previewImageFrame outfitPreviewImageFrame"
@@ -105,14 +106,14 @@ export default function ResultPreviewModal({
       </section>
     )}
     <footer>
-      <button className="primaryButton" type="button" onClick={() => void downloadTask(preview)}>
+      <Button size="md" tone="primary" onClick={() => void downloadTask(preview)}>
         <Download size={16} />
         <span>{preview.savedFilename || preview.savedPath ? "已保存" : "保存结果"}</span>
-      </button>
-      <button className="secondaryButton" type="button" onClick={() => window.open(imageSource(preview.result), "_blank")}>
+      </Button>
+      <Button size="md" onClick={() => window.open(imageSource(preview.result), "_blank")}>
         <Maximize2 size={16} />
         <span>新窗口打开</span>
-      </button>
+      </Button>
     </footer>
   </section>
 </div>

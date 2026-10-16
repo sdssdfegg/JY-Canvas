@@ -58,6 +58,7 @@ import {
 } from "../../shared/local-edit-geometry.js";
 import { imageFileFromUrl, dataUrlFromBlob } from "../../shared/result-image.js";
 import { Modal, ModalHeader } from "../../shared/ui/Modal.jsx";
+import { Button } from "../../shared/ui/Button";
 // 与 src/features/video/video-composer.js 的 durationOptionsForVideoModel 逐字等价
 // （仅默认时长常量来源不同，但 QUICK_VIDEO_DEFAULTS 与 videoDefaults 取值完全相同），
 // 故直接复用，消除 28 组近重复里的这一对改名克隆。
@@ -842,15 +843,15 @@ export function UploadZone({
           )}
         </div>
         <div className="uploadHeaderActions">
-          <button className="smallButton" type="button" onClick={() => inputRef.current?.click()}>
+          <Button size="sm" type="button" onClick={() => inputRef.current?.click()}>
             <Upload size={15} />
             <span>上传</span>
-          </button>
+          </Button>
           {items.length > 0 && onClear && (
-            <button className="smallButton clearUploadButton" type="button" onClick={onClear}>
+            <Button size="sm" tone="danger" type="button" onClick={onClear}>
               <Trash2 size={15} />
               <span>清除</span>
-            </button>
+            </Button>
           )}
         </div>
       </header>
@@ -1155,11 +1156,11 @@ export function CropModal({
         <footer>
           <span>{footerText || (mode === "crop" ? "默认显示完整原图，拖动画面选择区域，滚轮缩放后再应用。" : "确认后会在本地生成整理后的参考图。")}</span>
           <div>
-            <button className="smallButton" type="button" onClick={onClose}>取消</button>
-            <button className="primaryButton" type="button" onClick={confirm} disabled={working}>
+            <Button size="md" type="button" onClick={onClose}>取消</Button>
+            <Button size="md" tone="primary" type="button" onClick={confirm} disabled={working}>
               {working ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
               <span>应用</span>
-            </button>
+            </Button>
           </div>
         </footer>
     </Modal>
@@ -1437,26 +1438,26 @@ export function BatchResizePanel({
           <span>本地批量改尺寸和转格式，不消费 API；默认 JPG、最长边 3500、72DPI，导出到「{RESIZE_OUTPUT_FOLDER}」。</span>
         </div>
         <div className="batchResizeActions">
-          <button className="smallButton" type="button" onClick={() => folderInputRef.current?.click()}>
+          <Button size="sm" type="button" onClick={() => folderInputRef.current?.click()}>
             <FolderOpen size={15} />
             <span>选择文件夹</span>
-          </button>
-          <button className="smallButton" type="button" onClick={() => fileInputRef.current?.click()}>
+          </Button>
+          <Button size="sm" type="button" onClick={() => fileInputRef.current?.click()}>
             <Upload size={15} />
             <span>选择图片</span>
-          </button>
-          <button className="toolbarButton" type="button" onClick={onChooseDirectory}>
+          </Button>
+          <Button size="sm" type="button" onClick={onChooseDirectory}>
             <FolderOpen size={15} />
             <span>指定文件夹</span>
-          </button>
-          <button className="toolbarButton" type="button" onClick={onOpenSaveDirectory}>
+          </Button>
+          <Button size="sm" type="button" onClick={onOpenSaveDirectory}>
             <FolderOpen size={15} />
             <span>打开目录</span>
-          </button>
-          <button className="primaryButton" type="button" onClick={exportItems} disabled={working || items.length === 0}>
+          </Button>
+          <Button size="md" tone="primary" type="button" onClick={exportItems} disabled={working || items.length === 0}>
             {working ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
             <span>{working ? "导出中" : "导出"}</span>
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -1645,10 +1646,10 @@ export function BatchResizePanel({
 
       <footer className="batchResizeFooter">
         <span>{status || `已导入 ${items.length} 张，目标文件夹：${RESIZE_OUTPUT_FOLDER}`}</span>
-        <button className="dangerButton" type="button" onClick={clearItems} disabled={items.length === 0 || working}>
+        <Button size="sm" tone="danger" type="button" onClick={clearItems} disabled={items.length === 0 || working}>
           <Trash2 size={15} />
           <span>清空图片</span>
-        </button>
+        </Button>
       </footer>
 
       <input
@@ -1980,14 +1981,14 @@ export function WorkflowQuickVideoPanel({
         </div>
         <div className="moduleHeaderActions">
           <span className={`taskBadge task-${status === "running" || tasks.length ? "running" : status}`}>{statusText}</span>
-          <button className="toolbarButton" type="button" onClick={() => results[0] && downloadVideo(results[0])} disabled={!results.length}>
+          <Button size="sm" type="button" onClick={() => results[0] && downloadVideo(results[0])} disabled={!results.length}>
             <Download size={15} />
             <span>下载最新</span>
-          </button>
-          <button className="dangerButton" type="button" onClick={() => { setResults([]); setTasks([]); setStatus("idle"); setError(""); }} disabled={!results.length && !tasks.length}>
+          </Button>
+          <Button size="sm" tone="danger" type="button" onClick={() => { setResults([]); setTasks([]); setStatus("idle"); setError(""); }} disabled={!results.length && !tasks.length}>
             <Trash2 size={15} />
             <span>清空视频</span>
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -2049,10 +2050,10 @@ export function WorkflowQuickVideoPanel({
               placeholder="图片参考 URL，可留空"
             />
             {(referenceFile || settings.imageUrl) && (
-              <button className="smallButton" type="button" onClick={() => { setReferenceFile(null); updateSetting("imageUrl", ""); }}>
+              <Button size="sm" type="button" onClick={() => { setReferenceFile(null); updateSetting("imageUrl", ""); }}>
                 <Trash2 size={15} />
                 <span>清空参考</span>
-              </button>
+              </Button>
             )}
           </div>
 
@@ -2078,15 +2079,15 @@ export function WorkflowQuickVideoPanel({
             <select value={settings.duration} onChange={(event) => updateSetting("duration", event.target.value)}>
               {durations.map((duration) => <option key={duration} value={duration}>{duration}s</option>)}
             </select>
-            <button className={`smallButton ${settings.outputAudio ? "active" : ""}`} type="button" onClick={() => updateSetting("outputAudio", !settings.outputAudio)}>
+            <Button size="sm" active={settings.outputAudio} type="button" onClick={() => updateSetting("outputAudio", !settings.outputAudio)}>
               <Video size={15} />
               <span>{settings.outputAudio ? "音频开" : "音频关"}</span>
-            </button>
+            </Button>
             {billingRequired && !billingEnabled && <span className="workflowVideoBadge">计费未接入</span>}
-            <button className="generateButton" type="button" onClick={() => void startVideoGeneration()} disabled={tasks.length > 0}>
+            <Button size="lg" tone="primary" type="button" onClick={() => void startVideoGeneration()} disabled={tasks.length > 0}>
               {tasks.length ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
               <span>生成视频</span>
-            </button>
+            </Button>
           </div>
         </section>
       </div>
