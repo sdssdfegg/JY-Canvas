@@ -33,6 +33,10 @@ export default function OutfitComposer({
   wearingFieldValue,
   retouchIntent,
   patchRetouchIntent,
+  // V78：中线裁剪开关随「正反」归位到精修设置区（原在结果区头部）。
+  splitHalves,
+  onToggleSplitHalves,
+  splitNote,
   promptFieldRef,
   promptFieldTitle,
   promptFieldPlaceholder,
@@ -279,6 +283,9 @@ export default function OutfitComposer({
         <RetouchIntentPanel
           retouchIntent={retouchIntent}
           patchRetouchIntent={patchRetouchIntent}
+          splitHalves={splitHalves}
+          onToggleSplitHalves={onToggleSplitHalves}
+          splitNote={splitNote}
         />
       </div>
     )}

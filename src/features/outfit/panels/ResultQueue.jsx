@@ -1,7 +1,8 @@
 // src/features/outfit/panels/ResultQueue.jsx
 // V65 (P5-3) 2026-10-15：从 src/outfit-workflow.jsx renderResultQueue（3104–3295，派发日实测）逐字搬出。
 // 内容：结果队列面板——任务卡网格（running/failed/success 三态）+ 预览卡引用 + 空态引导；
-//   精修页专属的中线剪裁条以 renderSplitHalvesStrip prop 传入（该条不单独建文件，V65 §1.1 口径）。
+//   精修页专属的中线剪裁条 V78 起已归位到「精修设置」的正反行（见 RetouchIntentPanel）：
+//   结果区不再渲染任何开关条，与「裁剪跟随正反联动」的语义一致。
 // 模式：原函数内引用的 state/handler 全部改为同名 props（调用方每次 render 重建传参，JSX 一行不动）；
 //   模块级工具几乎都已在 features/shared 导出（taskStatusLabel/taskDurationMs/canRerunTask 等），
 //   面板直接 import，不重复实现；派生值（visibleTasks 等）由调用方算好传入（渲染期求值，无 TDZ 面）。
@@ -35,13 +36,11 @@ export function ResultQueue({
   settings,
   activeOutfitPage,
   resultFilter,
-  isWhiteRefineWorkflow,
   isPoseRemixWorkflow,
   isRandomBackgroundWorkflow,
   isOutpaintWorkflow,
   isRecolorWorkflow,
   isFaceSwapWorkflow,
-  renderSplitHalvesStrip,
   toggleTaskSelected,
   retryTask,
   downloadTask,
@@ -61,8 +60,6 @@ export function ResultQueue({
 }) {
   return (
     <section className="resultPanel queuePanel" id="result-archive-section">
-      {/* 精修页专属：结果图中线剪裁开关（样式与 3.0 一致，只在精修页出现）。 */}
-      {isWhiteRefineWorkflow && renderSplitHalvesStrip()}
       <div className="taskGrid" ref={taskGridRef} style={{ "--asset-card-min": `${galleryCardMin}px` }}>
         {visibleTasks.map((task, taskIndex) => {
           const selected = selectedTaskIds.has(task.id);

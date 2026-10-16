@@ -59,13 +59,11 @@ export default function OutfitWorkbench({
   galleryCardMin,
   taskGridRef,
   settings,
-  isWhiteRefineWorkflow,
   isPoseRemixWorkflow,
   isRandomBackgroundWorkflow,
   isOutpaintWorkflow,
   isRecolorWorkflow,
   isFaceSwapWorkflow,
-  renderSplitHalvesStrip,
   toggleTaskSelected,
   retryTask,
   downloadTask,
@@ -169,13 +167,11 @@ export default function OutfitWorkbench({
           settings={settings}
           activeOutfitPage={activeOutfitPage}
           resultFilter={resultFilter}
-          isWhiteRefineWorkflow={isWhiteRefineWorkflow}
           isPoseRemixWorkflow={isPoseRemixWorkflow}
           isRandomBackgroundWorkflow={isRandomBackgroundWorkflow}
           isOutpaintWorkflow={isOutpaintWorkflow}
           isRecolorWorkflow={isRecolorWorkflow}
           isFaceSwapWorkflow={isFaceSwapWorkflow}
-          renderSplitHalvesStrip={renderSplitHalvesStrip}
           toggleTaskSelected={toggleTaskSelected}
           retryTask={retryTask}
           downloadTask={downloadTask}

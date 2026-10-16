@@ -11,8 +11,18 @@ import { RETOUCH_FIT_OPTIONS, RETOUCH_HEM_OPTIONS, RETOUCH_SYMMETRY_OPTIONS } fr
 
 export function RetouchIntentPanel({
   retouchIntent,
-  patchRetouchIntent
+  patchRetouchIntent,
+  // V78（用户要求）：裁剪从结果区归位到「正反」同一行，与正反、4:3 组成三联。
+  //   splitHalves 由上层按「正反已开」推导后传入，面板只负责显示与回调。
+  splitHalves = false,
+  onToggleSplitHalves,
+  // V78：原结果区那条 splitNote 状态条并入裁剪钮的 title（它承载保存链路的实时反馈，不能随状态条一起丢）。
+  splitNote = ""
 }) {
+  const frontbackOn = retouchIntent.frontback === "on";
+  const splitTitle = frontbackOn
+    ? "把生成的结果从中线竖切成左右两张，分别保存；当前已开启，可手动关闭"
+    : "先开启「正反」才会启用：把生成的结果从中线竖切成左右两张，分别保存";
   const chipGroup = (options, current, onPick) => options.map((option) => {
     const active = current === option.value;
     return (
@@ -55,12 +65,24 @@ export function RetouchIntentPanel({
         <span className="retouchIntentRowTitle">正反</span>
         <button
           type="button"
-          className={`retouchFrontbackSwitch ${retouchIntent.frontback === "on" ? "on" : ""}`}
-          aria-pressed={retouchIntent.frontback === "on" ? "true" : "false"}
-          onClick={() => patchRetouchIntent({ frontback: retouchIntent.frontback === "on" ? "off" : "on" })}
-          title="开启后：在提示词最前插入正反平铺俯视固定段，并联动出图比例 4:3；再点关闭则移除该段并恢复开启前的比例"
+          className={`retouchFrontbackSwitch ${frontbackOn ? "on" : ""}`}
+          aria-pressed={frontbackOn ? "true" : "false"}
+          onClick={() => patchRetouchIntent({ frontback: frontbackOn ? "off" : "on" })}
+          title="开启后：在提示词最前插入正反平铺俯视固定段，并联动出图比例 4:3、自动开启中线裁剪；再点关闭则移除该段、恢复开启前的比例并一起关闭裁剪"
         >
           <span>正反</span>
+          <i><b /></i>
+        </button>
+        {/* V78：裁剪紧挨正反钮（同一行联动）——单项门：正反关闭时禁用，由「正反」统一带开关。 */}
+        <button
+          type="button"
+          className={`whiteRefineSplitSwitch ${splitHalves ? "on" : ""}`}
+          aria-pressed={splitHalves ? "true" : "false"}
+          disabled={!frontbackOn}
+          onClick={() => onToggleSplitHalves?.()}
+          title={splitNote ? `${splitTitle}　｜　${splitNote}` : splitTitle}
+        >
+          <span>裁剪</span>
           <i><b /></i>
         </button>
       </div>

@@ -38,7 +38,15 @@ const CLIENT_PANELS = [
   // 2026-10-15 P6-3：runSingleTask（含白底精修「按任务自身 workflowMode 判断 + 仅精修成功后裁切」
   // 的接线）从 outfit-workflow.jsx 抽进 outfit-batch-execution.js；扫描须纳入新模块，
   // 否则这两条断言会变成僵尸断言。
-  path.join(ROOT, "src", "features", "outfit", "handlers", "outfit-batch-execution.js")
+  path.join(ROOT, "src", "features", "outfit", "handlers", "outfit-batch-execution.js"),
+  // V68 阶段B-3 同款位移：精修设置条的调用现场（isWhiteRefineWorkflow + retouchSettingsRow 包裹）
+  // 住在 OutfitComposer.jsx，V78 用它当「只在精修页渲染」的判据，须纳入扫描。
+  path.join(ROOT, "src", "features", "outfit", "panels", "OutfitComposer.jsx"),
+  // V78（2026-10-16）：裁剪开关按用户要求从「结果区头部那条独立开关条」归位到「精修设置」的正反行，
+  // 与「正反 + 4:3」三联联动（renderSplitHalvesStrip 已撤）。开关本体住在 RetouchIntentPanel.jsx，
+  // 扫描须纳入该文件，否则「绿色滑块结构」「只在精修页渲染」这些判据会变成僵尸断言。
+  // 判椐语义不变 —— 面板本体本就只在 isWhiteRefineWorkflow 下渲染（见 retouch-intent-check）。
+  path.join(ROOT, "src", "features", "outfit", "panels", "RetouchIntentPanel.jsx")
 ];
 const CSS = path.join(ROOT, "src", "features", "outfit", "white-refine-split.css");
 
@@ -101,8 +109,16 @@ check("半图文件名带左右标识且是 PNG",
   `${splitHalvesFileName("左", "26-16.png")} / ${splitHalvesFileName("右", "")}`);
 
 // ---------- 3) 前端接线 ----------
-check("开关只在精修页渲染（isWhiteRefineWorkflow）",
-  /\{isWhiteRefineWorkflow && renderSplitHalvesStrip\(\)\}/.test(clientSource));
+// V78：开关不再由结果区渲染（renderSplitHalvesStrip 已撤），判定改为两条 ——
+//   ① 承载它的精修设置面板仍只在精修页渲染（isWhiteRefineWorkflow 包裹）；
+//   ② 结果区那套「渲染函数 + props 透传」的旧通道彻底不存在了。
+check("精修设置面板只在精修页渲染（isWhiteRefineWorkflow）",
+  /isWhiteRefineWorkflow && \(\s*<div className="retouchSettingsRow">\s*<RetouchIntentPanel/.test(clientSource));
+check("结果区不再渲染裁剪开关条（renderSplitHalvesStrip 及其 props 传递链已撤）",
+  !/renderSplitHalvesStrip/.test(clientSource));
+// V78 R1/R4：裁剪钮必须落在「正反」钮同一行的紧后方，且正反关闭时禁用（单向门）。
+check("裁剪钮归位到「正反」同一行，且正反关闭时禁用",
+  /retouchFrontbackSwitch[\s\S]{0,900}whiteRefineSplitSwitch[\s\S]{0,400}disabled=\{!frontbackOn\}/.test(clientSource));
 check("裁切只在精修任务成功后触发",
   /if \(taskIsWhiteRefine && splitHalves\) \{/.test(clientSource));
 check("用任务自己的 workflowMode 判断（切页不会误裁）",
