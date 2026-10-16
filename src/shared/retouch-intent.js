@@ -42,6 +42,10 @@ export const RETOUCH_FIT_OPTIONS = Object.freeze([
 export const RETOUCH_FIT_VALUES = Object.freeze(RETOUCH_FIT_OPTIONS.map((item) => item.value));
 export const DEFAULT_RETOUCH_FIT = "follow_original";
 
+/** 正反：默认关闭（关闭 = 不插入正反平铺俯视固定段，比例保持原值）。 */
+export const RETOUCH_FRONTBACK_VALUES = Object.freeze(["off", "on"]);
+export const DEFAULT_RETOUCH_FRONTBACK = "off";
+
 /** 自动生成部分（不含用户补充）的建议上限。 */
 export const RETOUCH_AUTO_PROMPT_CHAR_LIMIT = 600;
 
@@ -57,6 +61,9 @@ export const RETOUCH_GOAL_TEXT = [
 ].join("");
 
 export const RETOUCH_CLEANUP_TEXT = "去掉衣架、夹子、大头针和固定服装的其他物品，只保留干净的服装主体；修正服装外轮廓，使轮廓平滑、连续、自然。";
+
+/** 正反平铺俯视固定段（用户文案，一字不改）。开启「正反」开关时插到提示词最前。 */
+export const RETOUCH_FRONTBACK_TEXT = "把图1和图2服装正反平铺俯视图电商白底精修，无缝纯白背景，清除所有拍摄道具和杂物，左右分开并列摆放，保持清晰间距，禁止重叠、穿插、互相压盖或合并成一件。";
 
 /**
  * 结构要求：**只写"给模型看的指令"**，不写"关闭对称""跟随原图"这种状态说明。
@@ -108,6 +115,7 @@ export function normalizeRetouchIntent(value) {
     symmetry: pickEnum(source.symmetry, RETOUCH_SYMMETRY_VALUES, DEFAULT_RETOUCH_SYMMETRY),
     hemTreatment: pickEnum(source.hemTreatment, RETOUCH_HEM_VALUES, DEFAULT_RETOUCH_HEM),
     fit: pickEnum(source.fit, RETOUCH_FIT_VALUES, DEFAULT_RETOUCH_FIT),
+    frontback: pickEnum(source.frontback, RETOUCH_FRONTBACK_VALUES, DEFAULT_RETOUCH_FRONTBACK),
     customPrompt: asCustomPrompt(source.customPrompt)
   };
 }
@@ -140,6 +148,9 @@ export function validateRetouchIntent(value) {
   }
   if (source.fit !== undefined && !RETOUCH_FIT_VALUES.includes(asText(source.fit, 60))) {
     errors.push(`非法的版型选项：${String(source.fit)}`);
+  }
+  if (source.frontback !== undefined && !RETOUCH_FRONTBACK_VALUES.includes(asText(source.frontback, 60))) {
+    errors.push(`非法的正反选项：${String(source.frontback)}`);
   }
   if (source.customPrompt !== undefined && typeof source.customPrompt !== "string") {
     errors.push("用户补充必须是文本");
@@ -180,13 +191,21 @@ export function compileRetouchPrompt(options = {}) {
 
   const structure = retouchStructureLines(intent).join("\n");
   const sections = [];
+  if (intent.frontback === "on") {
+    // 正反开关开启：固定段插到最前（【用户补充】之前）；默认关闭时完全不产生（v1 路径逐字节不变）。
+    sections.push({ id: "frontback", title: "【正反视图】", body: RETOUCH_FRONTBACK_TEXT });
+  }
   if (userBlocks.length) sections.push({ id: "user", title: "【用户补充】", body: userBlocks.join("\n") });
   sections.push({ id: "goal", title: "【服装精修目标】", body: RETOUCH_GOAL_TEXT });
   sections.push({ id: "cleanup", title: "【清理与轮廓】", body: RETOUCH_CLEANUP_TEXT });
   if (structure) sections.push({ id: "structure", title: "【结构要求】", body: structure });
 
   const prompt = sections.map((section) => `${section.title}\n${section.body}`).join("\n\n");
-  const autoChars = RETOUCH_GOAL_TEXT.length + RETOUCH_CLEANUP_TEXT.length + structure.length + 3 * 8;
+  // autoChars：固定段正文 + 各段标题（含换行）的近似计数；开启正反时多一段（正文 + 第 4 个标题）。
+  // 默认关闭路径计数与改前完全一致（3 段），保证 v1 元数据逐字节不变。
+  const autoChars = RETOUCH_GOAL_TEXT.length + RETOUCH_CLEANUP_TEXT.length + structure.length
+    + (intent.frontback === "on" ? RETOUCH_FRONTBACK_TEXT.length + 8 : 0)
+    + 3 * 8;
   if (autoChars > RETOUCH_AUTO_PROMPT_CHAR_LIMIT) {
     warnings.push(`自动内容约 ${autoChars} 字，超过建议上限 ${RETOUCH_AUTO_PROMPT_CHAR_LIMIT} 字`);
   }

@@ -8,6 +8,7 @@
 // 模式：沿用 features/savedir/save-directory.js 的 deps 注入薄壳——每次 render 由调用方重建 deps 对象
 //   传入，钩内不记忆化，handler 每次 render 重建，与搬出前（组件内函数声明）行为完全一致。
 //   ⚠️ deps 漏项 = 运行期 undefined（vite build 验不出），由 V64 §3.2 负向对照兜底。
+import { useRef } from "react";
 import { testApiConnection, normalizeApiKeyInput } from "../auth/api-key.js";
 import { testConnection, formatConnectionResult } from "../../api/connection.js";
 import { analyzeOutfitMasterFit } from "../../api/outfit.js";
@@ -49,6 +50,9 @@ export function useOutfitSettingsIntent(deps) {
     setRunning,
     startBatchRef
   } = deps;
+
+  // 比例联动（前端专项E）：记录「正反」开启前的出图比例，关闭时原样恢复（含 16:9 等非默认值）。
+  const previousAspectRatioRef = useRef(settings?.aspectRatio || "3:4");
 
   function updateSetting(key, value) {
     if (key === "model") {
@@ -216,7 +220,21 @@ export function useOutfitSettingsIntent(deps) {
     setSettings((current) => {
       const currentIntent = normalizeRetouchIntent(current.retouchIntent);
       const nextPatch = typeof patch === "function" ? patch(currentIntent) : patch;
-      return { ...current, retouchIntent: normalizeRetouchIntent({ ...currentIntent, ...nextPatch }) };
+      const nextIntent = normalizeRetouchIntent({ ...currentIntent, ...nextPatch });
+
+      // 比例联动（前端专项E）：正反 off→on 时切到 4:3 并记录开启前的比例；
+      // on→off 时恢复记录的比例（含 16:9 等非默认值）。其它字段改动不动比例。
+      let aspectRatio = current.aspectRatio;
+      if (Object.prototype.hasOwnProperty.call(nextPatch, "frontback")) {
+        if (nextIntent.frontback === "on" && currentIntent.frontback !== "on") {
+          previousAspectRatioRef.current = current.aspectRatio;
+          aspectRatio = "4:3";
+        } else if (nextIntent.frontback === "off" && currentIntent.frontback === "on") {
+          aspectRatio = previousAspectRatioRef.current || current.aspectRatio;
+        }
+      }
+
+      return { ...current, retouchIntent: nextIntent, aspectRatio };
     });
   }
 

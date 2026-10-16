@@ -14,7 +14,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 14px;
+  gap: 8px 22px;
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -79,6 +79,66 @@
 
 .outfitWorkflowEmbedded .retouchIntentWarn {
   color: #fbbf24 !important;
+}
+
+/* 正反开关：单 toggle（滑块样式，照 whiteRefineSplitSwitch 视觉口径，缩到与 chip 同高）。
+ * 单独用 retouchFrontbackSwitch 类名（不套 retouchIntentChips），避免撞门禁「chips === 3」。 */
+.outfitWorkflowEmbedded .retouchFrontbackSwitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 25px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  background: transparent;
+  white-space: nowrap;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.outfitWorkflowEmbedded .retouchFrontbackSwitch > span {
+  font-weight: 650;
+}
+
+.outfitWorkflowEmbedded .retouchFrontbackSwitch > i {
+  position: relative;
+  display: inline-flex;
+  width: 34px;
+  height: 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-soft) 30%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 78%, transparent);
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.outfitWorkflowEmbedded .retouchFrontbackSwitch > i > b {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 4px #00000052;
+  transition: transform 0.18s ease;
+}
+
+.outfitWorkflowEmbedded .retouchFrontbackSwitch.on {
+  color: #fbbf24;
+  border-color: color-mix(in srgb, #fbbf24 60%, transparent);
+  background: color-mix(in srgb, #fbbf24 14%, transparent);
+}
+
+.outfitWorkflowEmbedded .retouchFrontbackSwitch.on > i {
+  background: #49c85b;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ffffff 20%, transparent);
+}
+
+.outfitWorkflowEmbedded .retouchFrontbackSwitch.on > i > b {
+  transform: translate(16px);
 }
 
 /* 第二行：提示词 + 用户补充并排。 */
