@@ -270,6 +270,12 @@
   border: 1px solid var(--border);
   border-radius: 7px;
   background: color-mix(in srgb, var(--panel-strong) 42%, transparent);
+  min-height: 32px;
+}
+
+/* 非换装页渲染等高占位（visibility:hidden 保留布局，grid 行高恒定，避免按键区上下跳）。 */
+.outfitWorkflowEmbedded .outfitIntentBar--placeholder {
+  visibility: hidden;
 }
 
 .outfitWorkflowEmbedded .outfitIntentBarText {

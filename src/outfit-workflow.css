@@ -2958,6 +2958,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  /* 固定最小高度：控件为高 32px 的 select/按钮；随机背景页多 1 个「视觉重点」select，
+     面板宽度不足时会从 1 行（32px）换行成 2 行（32*2+8=72px）。统一预留 2 行高度，
+     保证各板块按键区底部一致、切换无偏移。 */
+  min-height: 72px;
 }
 
 .outfitWorkflowEmbedded .composerHeader,
@@ -3542,6 +3546,12 @@
   color: var(--text);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   font-size: 12px;
+  /* 常驻渲染占位：空时 reserved 同高、visibility:hidden 不可见，避免任意事件 toast 出现/消失时顶起布局。 */
+  min-height: 36px;
+}
+
+.outfitWorkflowEmbedded .composerStatus--placeholder {
+  visibility: hidden;
 }
 
 .outfitWorkflowEmbedded .assetGrid {

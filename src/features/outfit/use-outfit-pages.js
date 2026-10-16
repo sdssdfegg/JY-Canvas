@@ -86,7 +86,6 @@ export function useOutfitPages(deps) {
     )));
     setActiveOutfitPageId(pageId);
     loadOutfitPage(target);
-    addEvent("页面切换", `已切换到「${target.name}」`);
   }
 
   function createOutfitPageFromCurrent() {
