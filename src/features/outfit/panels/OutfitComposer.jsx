@@ -214,16 +214,18 @@ export default function OutfitComposer({
 
   <div className="composerStickyControls">
     {/* 提交按钮旁的一行摘要（完整提示词在「通用换装提示词」下面常显，不用再点开）。 */}
-    {isOutfitWorkflow && (
-      <div className="outfitIntentBar">
-        <span className="outfitIntentBarText">
-          本次替换：<b>{outfitIntentSummary.replaceText}</b>
-          <em>｜</em>保持：{outfitIntentSummary.keepText}
-          <em>｜</em>穿法：{outfitIntentSummary.wearingText}
-        </span>
-        <span className="outfitIntentBarChars">{outfitPreview.autoChars}/{OUTFIT_AUTO_PROMPT_CHAR_LIMIT} 字</span>
-      </div>
-    )}
+    <div className={`outfitIntentBar${isOutfitWorkflow ? "" : " outfitIntentBar--placeholder"}`}>
+      {isOutfitWorkflow && (
+        <>
+          <span className="outfitIntentBarText">
+            本次替换：<b>{outfitIntentSummary.replaceText}</b>
+            <em>｜</em>保持：{outfitIntentSummary.keepText}
+            <em>｜</em>穿法：{outfitIntentSummary.wearingText}
+          </span>
+          <span className="outfitIntentBarChars">{outfitPreview.autoChars}/{OUTFIT_AUTO_PROMPT_CHAR_LIMIT} 字</span>
+        </>
+      )}
+    </div>
     <div className="composerFooter">
       <OutfitPageRow
         showPromptButton
@@ -344,7 +346,7 @@ export default function OutfitComposer({
         </button>
       </div>
     </div>
-    {inlineMessage && <div className="composerStatus">{inlineMessage}</div>}
+    <div className={`composerStatus${inlineMessage ? "" : " composerStatus--placeholder"}`}>{inlineMessage}</div>
   </div>
 </section>
   );
