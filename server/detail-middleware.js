@@ -10,9 +10,14 @@ import {
   getScreenModule,
   uniqueList
 } from "./detail-skills.js";
+import { buildStylePackRound, resolveDetailSkillVersion, stylePackForGroup, variantFor, STYLE_PACKS } from "./detail-skills-v2.js";
 import { asText, clamp } from "./core/ai-chat-shared.js";
 
 const DEFAULT_COUNT = BASE_SKILL.screenCountRule.defaultCount;
+
+// 构图与光线行的 v1 / v2 两版文案（v1 逐字保留，v2 仅替换布光来源，不动结构）。
+const V1_LIGHT_LINE = "主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。";
+const V2_LIGHT_TAIL = "主体清晰、边缘干净、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。";
 
 // busboy 1.6.0 解析 multipart 的 filename 时，会把 UTF-8 中文名按 latin1 误解码成
 // 类似「ç¾½ç»æ...」的乱码（每个中文字节被当成一个 latin1 字符）。这里做一次安全回解码：
@@ -137,6 +142,7 @@ function normalizeAiScreens(aiPlan, count, productCount, referenceCount) {
       promptDirectives: asArray(found.promptDirectives || found.directives),
       negativeConstraints: asArray(found.negativeConstraints || found.negative),
       qualityChecks: asArray(found.qualityChecks || found.qcRules),
+      compositionVariantId: asText(found.compositionVariantId || found.composition_variant),
       productFileIndexes: normalizeIndexList(found.productFileIndexes, productCount),
       referenceFileIndexes: normalizeIndexList(found.referenceFileIndexes, referenceCount)
     };
@@ -441,6 +447,10 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   const count = clamp(input.count, BASE_SKILL.screenCountRule.min, BASE_SKILL.screenCountRule.max, DEFAULT_COUNT);
   const workflow = String(input.workflow || "taobao-detail").trim();
   const platformSkill = getPlatformSkill(workflow);
+  const skillVersion = resolveDetailSkillVersion(input);
+  const styleDecision = skillVersion === "v2"
+    ? stylePackForGroup({ groupIndex: input.detailGroupIndex, platformSkill, userChoice: input.stylePackId })
+    : null;
   const productFiles = files.filter((file) => file.detailRole === "product");
   const referenceFiles = files.filter((file) => file.detailRole === "reference");
   const productImages = assetsFromInput(input.productImages, productFiles, "product");
@@ -481,6 +491,9 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     const moduleSkill = SCREEN_MODULES[aiScreen?.moduleId]
       || Object.values(SCREEN_MODULES).find((module) => module.name === aiScreen?.moduleId)
       || getScreenModule(aiScreen?.title || title, index, count);
+    const mainFirstScreen = platformSkill.pageType === "主图" && index === 0;
+    const screenPack = styleDecision ? (mainFirstScreen ? STYLE_PACKS.S1 : styleDecision.pack) : null;
+    const variant = screenPack ? variantFor(moduleSkill.id, index, screenPack, input.detailGroupIndex, aiScreen?.compositionVariantId) : null;
     const selling = aiScreen?.sellingPoint || aiScreen?.summary || sellingList[index % sellingList.length] || moduleSkill.name;
     const rulePlan = referencePlanForScreen(index, count, productImages, referenceImages, moduleSkill);
     const plan = aiScreen
@@ -506,19 +519,31 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     const aiInsight = aiPlan
       ? `【AI商品洞察】目标人群：${analysis.targetAudience}；真实材质/颜色：${[...(analysis.materialHints || []), ...(analysis.colors || [])].slice(0, 8).join("、") || "以商品图为准"}；结构锁定：${(analysis.productLocks || []).slice(0, 6).join("、") || "保持商品图真实结构"}。`
       : "";
+    const styleLockLine = screenPack
+      ? (mainFirstScreen
+          ? `【视觉风格锁】本屏为主图首屏安全款 S1《白底极简》：${STYLE_PACKS.S1.lockLine}；本组其余屏统一使用 ${styleDecision.pack.id}《${styleDecision.pack.name}》：${styleDecision.pack.lockLine}。`
+          : `【视觉风格锁】本组锁定 ${screenPack.id}《${screenPack.name}》：${screenPack.lockLine}；全组所有屏保持同一色温、布光方向、背景质感与字体层级，禁止漂移。`)
+      : "";
+    const variantLine = variant
+      ? `【构图变体】${variant.id}《${variant.name}》：${variant.composition}；第一落点：${variant.firstLook}；视线动线：${variant.eyeFlow}；文案安全区：${variant.textSafeZone}；禁忌：${variant.avoid}。`
+      : "";
     const text = [
       `第${index + 1}屏：${title}`,
       `【本屏模块】${moduleSkill.name}：${moduleSkill.purpose}`,
       aiInsight,
       `【本次图片编号】${imageSlotText(imageSlots)}。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。`,
       `【全局一致性锁定】${globalLock}`,
+      styleLockLine,
       `【本屏卖点】${selling}`,
       aiScreen?.copywriting ? `【本屏文案】${aiScreen.copywriting}` : "",
       `【画面任务】${aiScreen?.composition || moduleSkill.composition}`,
+      variantLine,
       `【模块指令】${promptDirectives.join("；")}。`,
       `【参考图使用】${aiScreen?.referenceReason || moduleSkill.referenceNeed}；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。`,
       `【模特与镜头】${aiScreen?.modelPolicyHint || modelPolicy(input, index, count)}`,
-      `【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。`,
+      screenPack
+        ? `【构图与光线】${[screenPack.lighting, variant?.lighting].filter(Boolean).join("；")}；${V2_LIGHT_TAIL}`
+        : `【构图与光线】${V1_LIGHT_LINE}`,
       `【质检自查】${qualityChecklist.slice(0, 8).join("；")}。`,
       `【负面约束】${negativeConstraints.join("、")}。`
     ].filter(Boolean).join("\n");
@@ -551,7 +576,9 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     };
   });
 
-  const rounds = buildRounds(platformSkill, industrySkill, analysis, count, reverseScreens);
+  const rounds = styleDecision
+    ? [...buildRounds(platformSkill, industrySkill, analysis, count, reverseScreens), buildStylePackRound(styleDecision)]
+    : buildRounds(platformSkill, industrySkill, analysis, count, reverseScreens);
 
   return {
     id: `detail_${createdAt}_${Math.random().toString(36).slice(2, 8)}`,
@@ -578,9 +605,19 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       industry: analysis.industry,
       productName,
       productImageNames: productImages.map((item) => item.name).filter(Boolean),
-      referenceImageNames: referenceImages.map((item) => item.name).filter(Boolean)
+      referenceImageNames: referenceImages.map((item) => item.name).filter(Boolean),
+      ...(styleDecision ? { detailSkillVersion: "v2", stylePackId: styleDecision.pack.id } : {})
     },
     analysis,
+    ...(styleDecision ? {
+      skillVersion: "v2",
+      stylePack: {
+        id: styleDecision.pack.id,
+        name: styleDecision.pack.name,
+        reason: styleDecision.reason,
+        groupIndex: styleDecision.groupIndex
+      }
+    } : {}),
     skillLayers: {
       base: BASE_SKILL,
       industry: industrySkill,

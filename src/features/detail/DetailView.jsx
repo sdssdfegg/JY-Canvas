@@ -66,6 +66,8 @@ export function DetailView({
     fontStyleOptions,
     modelModeOptions,
     modelPoseOptions,
+    detailSkillVersionOptions,
+    stylePackOptions,
     setActiveDetailGroupId,
     setDetailColumns,
     setDetailForwardSort,
@@ -239,6 +241,22 @@ export function DetailView({
                 </select>
               </label>
               <label>
+                <span>Skill 版本</span>
+                <select value={detailSettings.detailSkillVersion} onChange={(event) => updateDetailSetting("detailSkillVersion", event.target.value)}>
+                  {detailSkillVersionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>视觉风格包</span>
+                <select
+                  value={detailSettings.stylePackId}
+                  disabled={detailSettings.detailSkillVersion !== "v2"}
+                  onChange={(event) => updateDetailSetting("stylePackId", event.target.value)}
+                >
+                  {stylePackOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+              <label>
                 <span>输出语种</span>
                 <input value={detailSettings.lang} onChange={(event) => updateDetailSetting("lang", event.target.value)} />
               </label>
@@ -324,7 +342,7 @@ export function DetailView({
                         setDetailInfoSelection(null);
                       }}
                     >
-                      分组 #{detailGroups.length - index}
+                      分组 #{detailGroups.length - index}{group.stylePack ? `·${group.stylePack.id}` : ""}
                     </button>
                   ))}
                 </div>
@@ -352,6 +370,7 @@ export function DetailView({
                     <div>
                       <strong>{activeDetailGroup.label}</strong>
                       <span>
+                        {activeDetailGroup.stylePack ? `${activeDetailGroup.stylePack.id}·${activeDetailGroup.stylePack.name} · ` : ""}
                         {activeDetailGroup.params.platform}{activeDetailGroup.params.pageType} ·
                         {activeDetailGroup.params.model} · {activeDetailGroup.params.ratio} · {activeDetailGroup.params.imageSize} ·
                         已出图 {activeDetailResults.length} 屏

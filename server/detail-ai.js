@@ -8,22 +8,27 @@ import {
   getPlatformSkill
 } from "./detail-skills.js";
 import { clamp, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
+import { buildSkillPackV2, resolveDetailSkillVersion } from "./detail-skills-v2.js";
 
 const DEFAULT_DETAIL_ANALYSIS_MODEL = "gpt-5.4-mini";
 const DETAIL_MODEL_SPEC = { fields: ["detailAnalysisModel", "textModel"], fallback: DEFAULT_DETAIL_ANALYSIS_MODEL };
 const DETAIL_ANALYSIS_TIMEOUT_MS = 120000;
 const MAX_AI_IMAGE_COUNT = 10;
 
-function compactSkillPack(input) {
-  const platformSkill = getPlatformSkill(input.workflow);
-  const industrySeed = [
+function industrySeedText(input) {
+  return [
     input.productName,
     input.productFeature,
     input.sellingPoints,
     input.userInstruction
   ].join(" ");
+}
+
+function compactSkillPack(input, v2Context = null) {
+  const platformSkill = getPlatformSkill(input.workflow);
+  const industrySeed = industrySeedText(input);
   const industrySkill = getIndustrySkillByText(industrySeed);
-  return {
+  const pack = {
     base: {
       productAuthenticityLock: BASE_SKILL.productAuthenticityLock,
       screenCountRule: BASE_SKILL.screenCountRule,
@@ -62,12 +67,33 @@ function compactSkillPack(input) {
     })),
     quality: QUALITY_SKILL
   };
+  if (!v2Context) return pack;
+  return {
+    ...pack,
+    stylePack: v2Context.stylePack,
+    stylePackPool: v2Context.stylePackPool,
+    stylePackPlatformNote: v2Context.platformNote,
+    compositionVariants: v2Context.compositionVariants,
+    stylePackDecision: {
+      id: v2Context.decision.pack.id,
+      name: v2Context.decision.pack.name,
+      reason: v2Context.decision.reason
+    }
+  };
 }
 
 function buildDetailAnalysisContent(input, files, includeImages) {
   const productFiles = files.filter((file) => file.detailRole === "product");
   const referenceFiles = files.filter((file) => file.detailRole === "reference");
   const count = clamp(input.count, BASE_SKILL.screenCountRule.min, BASE_SKILL.screenCountRule.max, BASE_SKILL.screenCountRule.defaultCount);
+  const skillVersion = resolveDetailSkillVersion(input);
+  const v2Context = skillVersion === "v2"
+    ? buildSkillPackV2({
+        input,
+        platformSkill: getPlatformSkill(input.workflow),
+        industrySkill: getIndustrySkillByText(industrySeedText(input))
+      })
+    : null;
   const textPayload = {
     task: "完整 AI 详情页 Skill 分析与分屏提示词规划",
     instruction: [
@@ -76,7 +102,12 @@ function buildDetailAnalysisContent(input, files, includeImages) {
       "productFileIndexes 和 referenceFileIndexes 必须使用 0 基索引，并且只能选择确实存在的图片。",
       "每屏只选择必要参考图，避免所有图片都进入同一屏导致主体漂移。",
       "如果无法从图片确认某个属性，请写成保守描述，不要假装确定。",
-      "只输出 JSON，不要 Markdown，不要解释。"
+      "只输出 JSON，不要 Markdown，不要解释。",
+      ...(skillVersion === "v2" ? [
+        `本组视觉风格已锁定为 ${v2Context.stylePack.id}《${v2Context.stylePack.name}》：色温/色调 ${v2Context.stylePack.colorTone}；布光 ${v2Context.stylePack.lighting}；构图族 ${v2Context.stylePack.compositionFamily}；背景 ${v2Context.stylePack.background}；字体气质 ${v2Context.stylePack.fontMood}。每一屏的 composition 必须体现该风格取值，全组禁止漂移到其它风格。`,
+        `每屏必须在 compositionVariants 中该屏 moduleId 的变体里选择一个，将变体字母（A/B/C/D）写入 compositionVariantId 字段。变体已规定第一落点、视线动线、文案安全区与禁忌，composition 描述必须与所选变体兼容；不要自创构图，不要更换风格包取值。`,
+        ...(v2Context.platformNote ? [v2Context.platformNote] : [])
+      ] : [])
     ],
     input: {
       workflow: input.workflow,
@@ -100,7 +131,7 @@ function buildDetailAnalysisContent(input, files, includeImages) {
       productImages: productFiles.map((file, index) => fileMeta(file, { index, role: "product" })),
       referenceImages: referenceFiles.map((file, index) => fileMeta(file, { index, role: "reference" }))
     },
-    skillPack: compactSkillPack(input),
+    skillPack: compactSkillPack(input, v2Context),
     outputSchema: {
       product: {
         name: "string",
@@ -136,7 +167,10 @@ function buildDetailAnalysisContent(input, files, includeImages) {
           modelPolicyHint: "string",
           promptDirectives: ["string"],
           negativeConstraints: ["string"],
-          qualityChecks: ["string"]
+          qualityChecks: ["string"],
+          ...(skillVersion === "v2" ? {
+            compositionVariantId: "string（可选：该屏 moduleId 对应变体的字母 A/B/C/D 或完整 id 如 hero-A；无效时服务端按规则分配）"
+          } : {})
         }
       ],
       qc: {
