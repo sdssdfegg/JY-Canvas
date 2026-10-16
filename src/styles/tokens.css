@@ -1,0 +1,122 @@
+/* V4.0 设计令牌层 · 唯一样式来源（V69 收口）
+ *
+ * 本文件是全部 CSS 自定义属性的唯一来源：
+ *  - 四套 :root 颜色主题从原 src/styles.css 原值搬入（一个字节未改值）；
+ *  - 新增尺寸族令牌（control-h / radius / space / text / control-px）；
+ *  - 新增 3 个语义令牌 --input / --control-bg / --accent-on。
+ *
+ * 换装作用域（src/outfit-workflow.css）经该文件顶部的「别名映射块」归顺本文件，
+ * 见 outfit-workflow.css 顶部注释「V69 别名映射·收口单删除」。
+ *
+ * 依赖规则（总纲 §3.4）：feature CSS 禁止新定义 :root 变量；主题只改令牌值。
+ */
+
+:root {
+  /* 全局默认（非令牌，沿用原 styles.css，作用于 :root 本身） */
+  font-family: Inter, "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+  color: var(--text);
+  background: var(--app-bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  /* 颜色语义令牌 · 默认（暗色）主题 */
+  --app-bg: #07080f;
+  --sidebar: #151521;
+  --topbar: #14141f;
+  --panel: #171724;
+  --panel-strong: #1e1f2e;
+  --border: #27283a;
+  --soft-border: #313249;
+  --text: #f5f7fb;
+  --muted: #a1a6ba;
+  --faint: #6f7488;
+  --accent: #13d2c3;
+  --accent-strong: #18c2b7;
+  --danger: #f05252;
+  --danger-bg: rgba(240, 82, 82, 0.14);
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+
+  /* 尺寸族（V69 只建不用，V70+ 接入；主题无关，置于默认 :root） */
+  --control-h-sm: 28px;
+  --control-h-md: 36px;
+  --control-h-lg: 44px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --control-px: 12px;
+
+  /* 新增语义令牌 · 默认主题 */
+  --input: color-mix(in srgb, var(--panel-strong) 86%, transparent);
+  --control-bg: color-mix(in srgb, var(--panel-strong) 86%, transparent);
+  --accent-on: #061515;
+}
+
+:root[data-theme="jade"] {
+  --app-bg: #fff2f7;
+  --sidebar: #fffafd;
+  --topbar: #fff8fb;
+  --panel: #fffafd;
+  --panel-strong: #ffe8f1;
+  --border: #f2cfdb;
+  --soft-border: #e9aac3;
+  --text: #3b2230;
+  --muted: #7f5f6e;
+  --faint: #a98494;
+  --accent: #ec6f9e;
+  --accent-strong: #d95786;
+  --danger-bg: rgba(240, 82, 112, 0.14);
+  --shadow: 0 18px 42px rgba(144, 72, 103, 0.13);
+  --input: color-mix(in srgb, var(--panel-strong) 86%, transparent);
+  --control-bg: color-mix(in srgb, var(--panel-strong) 86%, transparent);
+  --accent-on: #ffffff;
+}
+
+:root[data-theme="graphite"] {
+  --app-bg: #f3e6d4;
+  --sidebar: #fff8ec;
+  --topbar: #fffaf2;
+  --panel: #fffaf2;
+  --panel-strong: #f1e1cc;
+  --border: #e1cab0;
+  --soft-border: #d3b58f;
+  --text: #2b241b;
+  --muted: #75685a;
+  --faint: #9a8a78;
+  --accent: #c98652;
+  --accent-strong: #b9773f;
+  --danger-bg: rgba(203, 63, 52, 0.1);
+  --shadow: 0 18px 42px rgba(109, 78, 43, 0.14);
+  --input: color-mix(in srgb, var(--panel-strong) 86%, transparent);
+  --control-bg: color-mix(in srgb, var(--panel-strong) 86%, transparent);
+  --accent-on: #ffffff;
+}
+
+:root[data-theme="mist"] {
+  --app-bg: #edf2f5;
+  --sidebar: #ffffff;
+  --topbar: #ffffff;
+  --panel: #ffffff;
+  --panel-strong: #f5f8fa;
+  --border: #d8e0e5;
+  --soft-border: #cbd7dd;
+  --text: #1d252b;
+  --muted: #5e6b75;
+  --faint: #82909a;
+  --accent: #0d7a76;
+  --accent-strong: #0b6b68;
+  --danger-bg: rgba(203, 63, 52, 0.1);
+  --shadow: 0 18px 42px rgba(23, 36, 42, 0.12);
+  --input: color-mix(in srgb, var(--panel-strong) 86%, transparent);
+  --control-bg: color-mix(in srgb, var(--panel-strong) 86%, transparent);
+  --accent-on: #ffffff;
+}

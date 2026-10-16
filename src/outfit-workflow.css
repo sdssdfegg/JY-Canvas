@@ -1,23 +1,20 @@
 .outfitWorkflowEmbedded {
-  --app-bg: #07090d;
-  --shell-bg: #07090d;
-  --sidebar-bg: rgba(12, 13, 20, 0.92);
-  --topbar-bg: rgba(7, 9, 13, 0.88);
-  --panel-bg: rgba(255, 255, 255, 0.045);
-  --panel-strong-bg: rgba(255, 255, 255, 0.055);
-  --input-bg: rgba(255, 255, 255, 0.06);
-  --button-bg: rgba(255, 255, 255, 0.055);
-  --border: rgba(255, 255, 255, 0.1);
-  --text: #eef4f5;
-  --text-soft: #93a0aa;
-  --accent: #1fcfc3;
-  --accent-text: #061515;
-  --accent-border: #1fcfc3;
-  --danger: #ffb3b3;
-  --option-bg: #141821;
+  /* V69 别名映射·收口单删除：换装作用域归顺主应用令牌（src/styles/tokens.css） */
+  --panel-bg: var(--panel);
+  --panel-strong-bg: var(--panel-strong);
+  --input-bg: var(--input);
+  --button-bg: var(--control-bg);
+  --text-soft: var(--muted);
+  --accent-text: var(--accent-on);
+  --accent-border: var(--accent);
+  --option-bg: var(--panel-strong);
+  --shell-bg: var(--app-bg);
+  --sidebar-bg: var(--sidebar);
+  --topbar-bg: var(--topbar);
+  /* 旧 --app-bg/--border/--text/--accent/--danger 覆盖已删，直接继承主应用令牌（src/styles/tokens.css） */
   font-family: Inter, "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
-  color: #eef4f5;
-  background: #07090d;
+  color: var(--text);
+  background: var(--app-bg);
   font-synthesis: none;
   text-rendering: geometricPrecision;
 }
@@ -54,9 +51,9 @@
   grid-template-columns: 236px minmax(0, 1fr);
   height: 100vh;
   background:
-    radial-gradient(circle at 18% 0%, rgba(33, 196, 184, 0.14), transparent 26%),
-    radial-gradient(circle at 88% 12%, rgba(236, 111, 158, 0.12), transparent 30%),
-    #07090d;
+    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 26%),
+    radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 30%),
+    var(--app-bg);
 }
 
 .outfitWorkflowEmbedded .sidebar {
@@ -64,8 +61,8 @@
   flex-direction: column;
   gap: 18px;
   padding: 18px 14px;
-  background: rgba(12, 13, 20, 0.92);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
 }
 
 .outfitWorkflowEmbedded .brand {
@@ -97,7 +94,7 @@
 .outfitWorkflowEmbedded .promptPanel span,
 .outfitWorkflowEmbedded .thumbMeta span,
 .outfitWorkflowEmbedded .eventPanel span {
-  color: #93a0aa;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -122,9 +119,9 @@
   gap: 7px;
   min-height: 32px;
   border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   color: #cad4da;
-  background: rgba(255, 255, 255, 0.055);
+  background: var(--panel-strong);
 }
 
 .outfitWorkflowEmbedded .sidebar nav button {
@@ -143,7 +140,7 @@
   display: block;
   height: 1px;
   margin: 4px 2px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--border);
 }
 
 .outfitWorkflowEmbedded .statusBox {
@@ -152,8 +149,8 @@
   gap: 4px;
   padding: 13px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
 }
 
 .outfitWorkflowEmbedded .statusBox strong {
@@ -161,7 +158,7 @@
 }
 
 .outfitWorkflowEmbedded .statusBox span {
-  color: #93a0aa;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -231,9 +228,9 @@
   margin: -18px -22px 16px;
   min-height: 58px;
   padding: 0 16px;
-  background: rgba(7, 9, 13, 0.88);
+  background: var(--topbar);
   backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border);
 }
 
 .outfitWorkflowEmbedded .resultTabs,
@@ -301,9 +298,9 @@
   align-items: center;
   justify-content: center;
   border-radius: 7px;
-  color: #93a0aa;
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--muted);
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
 }
 
 .outfitWorkflowEmbedded .dangerButton {
@@ -316,7 +313,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #93a0aa;
+  color: var(--muted);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -329,8 +326,8 @@
   padding: 0;
   border-radius: 7px;
   color: inherit;
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
 }
 
 .outfitWorkflowEmbedded .zoomControl > span {
@@ -425,7 +422,7 @@
   width: 100%;
   min-width: 0;
   color: #edf6f7;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--control-bg);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 7px;
   outline: 0;
@@ -455,7 +452,7 @@
 .outfitWorkflowEmbedded .keyRow button {
   border-radius: 7px;
   color: #b8c5cc;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--control-bg);
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
@@ -485,8 +482,8 @@
   min-height: 210px;
   padding: 10px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--panel);
+  border: 1px solid var(--border);
 }
 
 .outfitWorkflowEmbedded .uploadZone.dragging {
@@ -601,7 +598,7 @@
   padding: 8px;
   border-radius: 8px;
   background: rgba(9, 12, 18, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
 }
 
 .outfitWorkflowEmbedded .thumbCard.sortable {
@@ -783,7 +780,7 @@
   gap: 8px;
   min-height: 118px;
   border-radius: 8px;
-  color: #93a0aa;
+  color: var(--muted);
   background: rgba(255, 255, 255, 0.035);
   border: 1px dashed rgba(255, 255, 255, 0.18);
 }
@@ -797,8 +794,8 @@
   margin-top: 14px;
   padding: 13px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--panel);
+  border: 1px solid var(--border);
 }
 
 .outfitWorkflowEmbedded .queuePanel {
@@ -1572,7 +1569,7 @@
   gap: 3px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: rgba(12, 13, 20, 0.92);
+  background: var(--sidebar);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
 }
@@ -1689,7 +1686,7 @@
   height: 32px;
   padding: 0 8px;
   color: var(--text-soft);
-  background: rgba(255, 255, 255, 0.045);
+  background: var(--panel);
   border: 1px solid transparent;
   border-radius: 6px;
   font-size: 12px;
@@ -1698,7 +1695,7 @@
 .outfitWorkflowEmbedded .cropRatioPresetGroup button:hover,
 .outfitWorkflowEmbedded .cropRatioPresetGroup button:focus-visible {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border);
   border-color: rgba(255, 255, 255, 0.12);
 }
 
@@ -1819,7 +1816,7 @@
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.92),
     0 0 10px rgba(0, 0, 0, 0.34);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border);
   pointer-events: none;
   transform: translate(-50%, -50%);
 }
@@ -2078,7 +2075,7 @@
 }
 
 .outfitWorkflowEmbedded .cropModal footer > span {
-  color: #93a0aa;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -2446,7 +2443,7 @@
   color: var(--text);
   background:
     radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 26%),
-    radial-gradient(circle at 88% 12%, rgba(236, 111, 158, 0.12), transparent 30%),
+    radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 30%),
     var(--app-bg);
 }
 
