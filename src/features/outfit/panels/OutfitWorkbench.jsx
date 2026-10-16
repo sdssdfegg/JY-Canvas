@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { fileSize } from "../../../lib/format/index.js";
 import { ResultQueue } from "./ResultQueue.jsx";
-import { ImageFactsPanel } from "./ImageFactsPanel.jsx";
+import { ImageFactsPanel as _ImageFactsPanel } from "./ImageFactsPanel.jsx"; // V76（用户要求·暂时隐藏）停用：图2服装事实面板（原 sideControls 改传 null）；组件与 import 保留，恢复时传回 <ImageFactsPanel>。V80：_ 前缀标记停用
 import { Button } from "../../../shared/ui/Button";
 
 export default function OutfitWorkbench({
