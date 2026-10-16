@@ -36,6 +36,7 @@ prompts/
 | 服装精修结构化意图（对称/衣摆或裙摆/版型/用户补充）+ 固定精修目标 | **`src/shared/retouch-intent.js`（唯一编译器，前后端共用）** | 无（本轮新建） |
 | 批量生成最终提示词出口（换装编译 / 精修编译 / 只发用户原话三选一） | `prompts/server/outfit-skill.js` | `server/outfit-skill.js` |
 | 一键详情/主图行业规则、平台规则、质量检查规则 | `prompts/server/detail-skills.js` | `server/detail-skills.js` |
+| 一键详情/主图 v2 视觉规则（风格包/构图变体/轮换） | `prompts/server/detail-skills-v2/` | `server/detail-skills-v2.js` |
 
 旧兼容入口只负责转发，方便现有代码继续运行；以后真实修改请进 `prompts/`。
 
@@ -58,7 +59,7 @@ prompts/
    结构化选择（换装 = `src/shared/outfit-intent.js`；精修 = `src/shared/retouch-intent.js`），或让用户自己写。
    如果将来要重新引入"整块通用规则"，请先单独确认，不要用旧字段偷偷接回来。
 2. 如果要改"用户一打开页面看到的默认提示词"，改 `prompts/frontend/` 中对应文件；尚未迁移的先按上表到当前位置修改。
-3. 一键详情/主图仍然有后端规则集（`prompts/server/detail-skills.js`），改它时注意前后端同步检查。
+3. 一键详情/主图仍然有后端规则集（`prompts/server/detail-skills.js`），改它时注意前后端同步检查。v2 规则集在 `prompts/server/detail-skills-v2/`，由 `JINGYIN_DETAIL_SKILL_VERSION`（默认 v1）与请求级 `detailSkillVersion` 切换；改 v2 不得改动 v1 文件与 v1 输出。
 4. 前端默认提示词负责让用户看得懂、可编辑；换装/精修的结构化意图由共享编译器统一落成提示词，不要在页面里另拼一份。
 5. 不要把 API Key、渠道商地址、价格、账号信息写进任何提示词文件。
 

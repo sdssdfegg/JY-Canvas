@@ -72,6 +72,8 @@ export const detailDefaults = {
   copywriting: "need",
   richness: "simple",
   fontStyle: "heiti",
+  detailSkillVersion: "v1",
+  stylePackId: "auto",
   modelMode: "use-model",
   modelPose: "regular",
   modelUsage: 4,
