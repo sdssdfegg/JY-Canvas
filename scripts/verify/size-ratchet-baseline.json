@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-16",
-  "reason": "详情v2-1 风格包+构图变体+版本切换：前端 4 文件新增 +43 行（双下拉/默认键/选项常量/校验），属执行单 §8 明示的预期增量；规则库在 prompts/server/ 不被此棘轮扫描。",
+  "reason": "详情v2-1b 风格包off选项：净增1行（detail-state.js stylePackOptions 增加 { value: \"off\", label: \"关闭视觉风格\" } 一项；detail-group.js 归一化改为同行内表达式零净增，DetailView/app-defaults 未动）。§4 预先获准，其余门禁未改",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -25,7 +25,7 @@
     "src/features/canvas/canvas-graph.js": 102,
     "src/features/crop/quick-crop-panels.jsx": 242,
     "src/features/detail/detail-group.js": 391,
-    "src/features/detail/detail-state.js": 646,
+    "src/features/detail/detail-state.js": 647,
     "src/features/detail/DetailView.jsx": 612,
     "src/features/image-editor/image-editor-helpers.js": 169,
     "src/features/local-edit/crop-drag.js": 117,

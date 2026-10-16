@@ -150,6 +150,14 @@ const ORDER = [
   // 2026-09-26：服装精修结构化意图（对称/衣摆/版型/用户补充）+ 唯一精简提示词编译器。
   "retouch-intent-check",
   "retouch-intent-request-check",
+  // 2026-10-16：详情 v2 视觉风格包「关闭（off）」选项。纯逻辑：规则层 off 短路
+  // （stylePackForGroup → pack:null、buildSkillPackV2 → null、buildStylePackRound 判空）+
+  // 中间件集成（v2-off 含主图首屏无风格锁/无变体、stylePack 缺省、与 v1 输出等价）+
+  // auto/S1–S8/平台禁配回落回归 + 源码钉桩（detail-ai 判空 / middleware 归一 / 前端放行 off）。
+  "detail-stylepack-off-check",
+  // 2026-10-16：上条的浏览器实测（起服务 + tabbit 真实浏览器）：v1 禁用 / v2 出现 off 选项 /
+  // 选中 off / 保存预设刷新回载仍 off / 切回 v1 仍禁用。不起服务的进不了 --fast，只进全量表。
+  "detail-stylepack-off-browser-check",
   "lint-ratchet-check",
   "run-all-check",
   "check-launcher"
@@ -199,6 +207,7 @@ const FAST_ORDER = [
   "quickgen-prompt-passthrough-check",
   "outfit-intent-check",
   "retouch-intent-check",
+  "detail-stylepack-off-check",
   "generation-error-check",
   "history-integrity-check",
   "local-edit-ratio-check",

@@ -19,6 +19,9 @@ export function stylePackForGroup({ groupIndex = 1, platformSkill, userChoice = 
   const index = Math.max(1, Number.parseInt(groupIndex, 10) || 1);
   const pool = autoPoolIds();
   const choice = String(userChoice || "auto").trim();
+  if (choice === "off") {
+    return { pack: null, groupIndex: index, reason: "用户关闭视觉风格" };
+  }
   if (choice && choice !== "auto" && STYLE_PACKS[choice] && allowedPackIds(platformSkill).includes(choice)) {
     return { pack: STYLE_PACKS[choice], groupIndex: index, reason: `手动指定 ${choice}《${STYLE_PACKS[choice].name}》` };
   }
@@ -57,6 +60,7 @@ export function buildSkillPackV2({ input, platformSkill }) {
     platformSkill,
     userChoice: input.stylePackId
   });
+  if (!decision.pack) return null;
   return {
     skillVersion: "v2",
     stylePack: {
@@ -91,6 +95,7 @@ export function buildSkillPackV2({ input, platformSkill }) {
 }
 
 export function buildStylePackRound(decision) {
+  if (!decision || !decision.pack) return null;
   return {
     stage: "视觉风格包",
     title: `${decision.pack.id}《${decision.pack.name}》`,
