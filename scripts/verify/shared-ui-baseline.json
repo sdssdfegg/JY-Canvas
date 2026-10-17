@@ -1,5 +1,5 @@
 {
   "note": "共享 UI 重复组件基线：记录当前已存在的跨文件同名组件，只用来拦「新增」。组件抽到 src/shared/ui/ 后跑一次 --update 把它从账单里划掉。",
-  "generatedAt": "2026-10-13",
+  "generatedAt": "2026-10-17",
   "duplicates": {}
 }

@@ -1,47 +1,26 @@
 // V56（P3-1）：设置弹窗视图。从 src/main.jsx 的 `{isSettingsOpen && ( ... )}` 块（5125~5264）原样迁入。
 // 仅接收 props，不持有任何「弹窗私有」之外的状态；共享状态由 App() 通过 props 下发。
+// V73：按钮/字段/分区外壳统一走 Button / Field / Toolbar / Panel / ModuleHeader（总纲 §5）。
 import {
-  Eye,
-  EyeOff,
-  FolderOpen,
-  HardDrive,
-  KeyRound,
-  Loader2,
-  Palette,
-  PlugZap,
-  RefreshCw,
-  Save,
-  Settings as SettingsIcon,
-  Trash2,
-  X
+  Eye, EyeOff, FolderOpen, HardDrive, KeyRound, Palette, PlugZap,
+  RefreshCw, Save, Settings as SettingsIcon, Trash2, X
 } from "lucide-react";
 import { formatStorageSize } from "../storage/storage-store.js";
 import { themeOptions } from "./settings-state.js";
+import { Button } from "../../shared/ui/Button.jsx";
+import { Field } from "../../shared/ui/Field.jsx";
+import { Toolbar } from "../../shared/ui/Toolbar.jsx";
+import { Panel } from "../../shared/ui/Panel.jsx";
+import { ModuleHeader } from "../../shared/ui/ModuleHeader.jsx";
 
 export function SettingsView({
-  settings,
-  config,
-  updateSetting,
-  isSettingsOpen,
-  onClose,
-  settingsApi
+  settings, config, updateSetting, isSettingsOpen, onClose, settingsApi
 }) {
   if (!isSettingsOpen) return null;
   const {
-    isApiKeyVisible,
-    setIsApiKeyVisible,
-    apiSaveStatus,
-    isConnectionTesting,
-    connectionStatus,
-    connectionState,
-    storageUsage,
-    storageBusy,
-    storageStatus,
-    saveApiKey,
-    runConnectionTest,
-    handleRevealStorage,
-    handleCleanStorage,
-    refreshStorageUsage
+    isApiKeyVisible, setIsApiKeyVisible, apiSaveStatus, isConnectionTesting,
+    connectionStatus, connectionState, storageUsage, storageBusy, storageStatus,
+    saveApiKey, runConnectionTest, handleRevealStorage, handleCleanStorage, refreshStorageUsage
   } = settingsApi;
 
   return (
@@ -52,13 +31,12 @@ export function SettingsView({
             <h2>设置</h2>
             <span>API Key 与界面皮肤</span>
           </div>
-          <button className="iconButton" type="button" onClick={onClose} aria-label="关闭">
+          <Button size="md" iconOnly aria-label="关闭" onClick={onClose}>
             <X size={18} />
-          </button>
+          </Button>
         </header>
 
-        <label className="modalField">
-          <span><KeyRound size={15} /> API Key</span>
+        <Field label={<><KeyRound size={15} /> API Key</>} hint={apiSaveStatus}>
           <div className="apiKeyRow">
             <input
               type={isApiKeyVisible ? "text" : "password"}
@@ -66,24 +44,23 @@ export function SettingsView({
               placeholder={config.hasServerKey ? "服务器已配置" : "sk-..."}
               onChange={(event) => updateSetting("apiKey", event.target.value)}
             />
-            <button
-              className="iconButton"
-              type="button"
+            <Button
+              size="md"
+              iconOnly
               onClick={() => setIsApiKeyVisible((current) => !current)}
               title={isApiKeyVisible ? "隐藏 API Key" : "显示 API Key"}
             >
               {isApiKeyVisible ? <EyeOff size={17} /> : <Eye size={17} />}
-            </button>
-            <button className="smallButton saveKeyButton" type="button" onClick={saveApiKey}>
+            </Button>
+            <Button size="md" onClick={saveApiKey}>
               <Save size={15} />
               <span>保存</span>
-            </button>
+            </Button>
           </div>
-          {apiSaveStatus && <small className="fieldHint">{apiSaveStatus}</small>}
-        </label>
+        </Field>
 
-        <div className="skinBlock">
-          <span><Palette size={15} /> 皮肤</span>
+        <Panel>
+          <ModuleHeader icon={<Palette size={15} />} title="皮肤" />
           <div className="themeGrid">
             {themeOptions.map((theme) => (
               <button
@@ -99,24 +76,29 @@ export function SettingsView({
               </button>
             ))}
           </div>
-        </div>
+        </Panel>
 
-        <div className="debugBlock">
-          <span><SettingsIcon size={15} /> 连接测试</span>
+        <Panel>
+          <ModuleHeader icon={<SettingsIcon size={15} />} title="连接测试" />
           <p>只向上游请求模型清单探测连通性，<strong>不调用生图、不上传图片、不扣费</strong>，也不会显示或保存你的 API Key。</p>
-          <div className="debugActions">
-            <button className="smallButton" type="button" onClick={() => void runConnectionTest()} disabled={isConnectionTesting}>
-              {isConnectionTesting ? <Loader2 className="spin" size={15} /> : <PlugZap size={15} />}
-              <span>{isConnectionTesting ? "测试中…" : "连接测试"}</span>
-            </button>
-          </div>
+          <Button
+            size="sm"
+            loading={isConnectionTesting}
+            disabled={isConnectionTesting}
+            onClick={() => void runConnectionTest()}
+          >
+            {!isConnectionTesting && <PlugZap size={15} />}
+            <span>{isConnectionTesting ? "测试中…" : "连接测试"}</span>
+          </Button>
           {connectionStatus && (
-            <small className={`fieldHint connectionHint ${connectionState}`}>{connectionStatus}</small>
+            <small className={`ui-field__hint${connectionState === "ok" ? " ui-field__hint--success" : connectionState === "error" ? " ui-field__hint--danger" : ""}`}>
+              {connectionStatus}
+            </small>
           )}
-        </div>
+        </Panel>
 
-        <div className="debugBlock storageBlock">
-          <span><HardDrive size={15} /> 数据与存储</span>
+        <Panel>
+          <ModuleHeader icon={<HardDrive size={15} />} title="数据与存储" />
           <p>
             生成的图片、上传的参考图和日志都保存在本机数据目录，<strong>不在安装包内</strong>。
             清理会直接删除磁盘文件，无法撤销。
@@ -125,10 +107,10 @@ export function SettingsView({
             <>
               <div className="storagePathRow">
                 <code title={storageUsage.dataDir}>{storageUsage.dataDir}</code>
-                <button className="smallButton" type="button" onClick={() => void handleRevealStorage("data")}>
+                <Button size="sm" onClick={() => void handleRevealStorage("data")}>
                   <FolderOpen size={15} />
                   <span>打开目录</span>
-                </button>
+                </Button>
               </div>
               <ul className="storageList">
                 {(storageUsage.items || []).map((item) => (
@@ -144,43 +126,24 @@ export function SettingsView({
               </ul>
             </>
           ) : (
-            <small className="fieldHint">正在读取存储用量…</small>
+            <small className="ui-field__hint">正在读取存储用量…</small>
           )}
-          <div className="debugActions">
-            <button
-              className="smallButton"
-              type="button"
-              disabled={Boolean(storageBusy)}
-              onClick={() => void handleCleanStorage(["historyImages"], "历史图片（含历史清单）")}
-            >
-              <Trash2 size={15} />
-              <span>清理历史图片</span>
-            </button>
-            <button
-              className="smallButton"
-              type="button"
-              disabled={Boolean(storageBusy)}
-              onClick={() => void handleCleanStorage(["references"], "参考图缓存")}
-            >
-              <Trash2 size={15} />
-              <span>清理参考图</span>
-            </button>
-            <button
-              className="smallButton"
-              type="button"
-              disabled={Boolean(storageBusy)}
-              onClick={() => void handleCleanStorage(["results", "canvasAssets"], "结果图缓存")}
-            >
-              <Trash2 size={15} />
-              <span>清理结果缓存</span>
-            </button>
-            <button className="smallButton" type="button" onClick={() => void refreshStorageUsage()}>
-              <RefreshCw size={15} />
-              <span>刷新</span>
-            </button>
-          </div>
-          {storageStatus && <small className="fieldHint">{storageStatus}</small>}
-        </div>
+          <Toolbar>
+            <Button size="sm" disabled={Boolean(storageBusy)} onClick={() => void handleCleanStorage(["historyImages"], "历史图片（含历史清单）")}>
+              <Trash2 size={15} /><span>清理历史图片</span>
+            </Button>
+            <Button size="sm" disabled={Boolean(storageBusy)} onClick={() => void handleCleanStorage(["references"], "参考图缓存")}>
+              <Trash2 size={15} /><span>清理参考图</span>
+            </Button>
+            <Button size="sm" disabled={Boolean(storageBusy)} onClick={() => void handleCleanStorage(["results", "canvasAssets"], "结果图缓存")}>
+              <Trash2 size={15} /><span>清理结果缓存</span>
+            </Button>
+            <Button size="sm" onClick={() => void refreshStorageUsage()}>
+              <RefreshCw size={15} /><span>刷新</span>
+            </Button>
+          </Toolbar>
+          {storageStatus && <small className="ui-field__hint">{storageStatus}</small>}
+        </Panel>
       </section>
     </div>
   );
