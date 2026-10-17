@@ -1784,7 +1784,7 @@ textarea:focus {
   gap: 10px;
 }
 
-.referencePromptHeader .smallButton {
+.referencePromptHeader .ui-button {
   height: 28px;
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 26%, var(--border));

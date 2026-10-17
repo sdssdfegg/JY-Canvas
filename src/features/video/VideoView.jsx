@@ -2,6 +2,7 @@ import { Loader2, Download, Video, Plus, BookOpen, Flame, Play } from "lucide-re
 import { StableTextarea } from "../../shared/ui/stable-textarea.jsx";
 import { ElapsedTimer } from "../../shared/ui/elapsed-timer.jsx";
 import { UploadClearButton } from "../../shared/ui/UploadClearButton";
+import { Button } from "../../shared/ui/Button";
 import { formatMs } from "../../lib/format/index.js";
 
 // 视频面板视图（V58 从 src/main.jsx 迁出）。纯 JSX，无状态。
@@ -145,18 +146,18 @@ export function VideoView({
 
         <div className="composerFooter">
           <div className="leftTools">
-            <button className="smallButton" type="button" onClick={() => setIsPromptAssistantOpen(true)}>
+            <Button size="sm" onClick={() => setIsPromptAssistantOpen(true)}>
               <BookOpen size={16} />
               <span>词</span>
-            </button>
-            <button
-              className={`smallButton ${videoSettings.outputAudio ? "active" : ""}`}
-              type="button"
+            </Button>
+            <Button
+              size="sm"
+              active={videoSettings.outputAudio}
               onClick={() => updateVideoSetting("outputAudio", !videoSettings.outputAudio)}
             >
               <Flame size={16} />
               <span>{videoSettings.outputAudio ? "音频开" : "音频关"}</span>
-            </button>
+            </Button>
             {videoBillingRequired && !billingGatewayEnabled && <span className="videoBillingBadge">计费未接入</span>}
           </div>
 
@@ -173,15 +174,15 @@ export function VideoView({
             <select value={videoSettings.duration} onChange={(event) => updateVideoSetting("duration", event.target.value)}>
               {videoDurations.map((duration) => <option key={duration} value={duration}>{duration}s</option>)}
             </select>
-            <button
-              className="generateButton"
-              type="button"
+            <Button
+              size="lg"
+              tone="primary"
               onClick={() => void generateVideoFromComposer()}
               disabled={runningVideoTasks.length > 0}
             >
               {runningVideoTasks.length > 0 ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
               <span>生成视频</span>
-            </button>
+            </Button>
           </div>
         </div>
       </section>
