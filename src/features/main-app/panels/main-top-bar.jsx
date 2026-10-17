@@ -20,6 +20,7 @@ import {
   Minus
 } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
+import { TaskBadge } from "../../../shared/ui/TaskBadge";
 import { Toolbar } from "../../../shared/ui/Toolbar";
 
 export function MainTopBar({
@@ -144,7 +145,7 @@ export function MainTopBar({
             <select className="toolbarSelect" value={activeCanvasId || ""} onChange={(event) => selectCanvas(event.target.value)}>
               {canvases.map((canvas) => <option key={canvas.id} value={canvas.id}>{canvas.name}</option>)}
             </select>
-            <span className={`taskBadge task-${canvasRunningCount > 0 ? "running" : "success"}`}>{canvasStatusText}</span>
+            <TaskBadge status={canvasRunningCount > 0 ? "running" : "success"}>{canvasStatusText}</TaskBadge>
             <Button size="sm" type="button" onClick={createCanvas}>
               <Plus size={15} />
               <span>新建画布</span>
@@ -164,15 +165,13 @@ export function MainTopBar({
           </>
         )}
         {activeView === "detail-main" && (
-          <span className={`taskBadge task-${detailApi.detailStatus === "failed" ? "failed" : detailApi.detailRunningCount > 0 || detailApi.detailStatus === "planning" ? "running" : "success"}`}>
-            {detailApi.detailStatusText}
-          </span>
+          <TaskBadge status={detailApi.detailStatus === "failed" ? "failed" : detailApi.detailRunningCount > 0 || detailApi.detailStatus === "planning" ? "running" : "success"}>{detailApi.detailStatusText}</TaskBadge>
         )}
         {activeView === "quickgen" && (
           <>
             {quickMode === "video" ? (
               <>
-                <span className={`taskBadge task-${videoApi.videoStatus === "failed" ? "failed" : videoApi.runningVideoTasks.length > 0 ? "running" : videoApi.videoStatus}`}>{latestVideoStatusText}</span>
+                <TaskBadge status={videoApi.videoStatus === "failed" ? "failed" : videoApi.runningVideoTasks.length > 0 ? "running" : videoApi.videoStatus}>{latestVideoStatusText}</TaskBadge>
                 <Button size="sm" type="button" onClick={() => videoApi.videoResults[0] && downloadVideoResult(videoApi.videoResults[0])} disabled={videoApi.videoResults.length === 0}>
                   <Download size={15} />
                   <span>下载最新</span>
@@ -184,7 +183,7 @@ export function MainTopBar({
               </>
             ) : (
               <>
-                <span className={`taskBadge task-${quickStatus}`}>{latestStatusText}</span>
+                <TaskBadge status={quickStatus}>{latestStatusText}</TaskBadge>
                 <Button size="sm" type="button" onClick={downloadSelected} disabled={quickSelectedCount === 0}>
                   <Download size={15} />
                   <span>下载选中</span>
@@ -217,9 +216,7 @@ export function MainTopBar({
         )}
         {activeView === "reference-remix" && (
           <>
-            <span className={`taskBadge task-${referenceApi.runningReferenceTasks.length > 0 ? "running" : referenceApi.referenceStatus}`}>
-              {referenceApi.referenceStatusText}
-            </span>
+            <TaskBadge status={referenceApi.runningReferenceTasks.length > 0 ? "running" : referenceApi.referenceStatus}>{referenceApi.referenceStatusText}</TaskBadge>
             <Button size="sm" type="button" onClick={clearAll} disabled={referenceApi.referenceResults.length === 0}>
               <Trash2 size={15} />
               <span>清空参考结果</span>

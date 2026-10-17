@@ -59,6 +59,7 @@ import {
 import { imageFileFromUrl, dataUrlFromBlob } from "../../shared/result-image.js";
 import { Modal, ModalHeader } from "../../shared/ui/Modal.jsx";
 import { Button } from "../../shared/ui/Button";
+import { TaskBadge } from "../../shared/ui/TaskBadge";
 import { UploadClearButton } from "../../shared/ui/UploadClearButton";
 // 与 src/features/video/video-composer.js 的 durationOptionsForVideoModel 逐字等价
 // （仅默认时长常量来源不同，但 QUICK_VIDEO_DEFAULTS 与 videoDefaults 取值完全相同），
@@ -1970,7 +1971,7 @@ export function WorkflowQuickVideoPanel({
           <span>参考图、提示词和视频参数独立管理，不读取批量换装上传区。</span>
         </div>
         <div className="moduleHeaderActions">
-          <span className={`taskBadge task-${status === "running" || tasks.length ? "running" : status}`}>{statusText}</span>
+          <TaskBadge status={status === "running" || tasks.length ? "running" : status}>{statusText}</TaskBadge>
           <Button size="sm" type="button" onClick={() => results[0] && downloadVideo(results[0])} disabled={!results.length}>
             <Download size={15} />
             <span>下载最新</span>

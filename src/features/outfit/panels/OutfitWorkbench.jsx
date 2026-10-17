@@ -25,6 +25,7 @@ import { fileSize } from "../../../lib/format/index.js";
 import { ResultQueue } from "./ResultQueue.jsx";
 import { ImageFactsPanel as _ImageFactsPanel } from "./ImageFactsPanel.jsx"; // V76（用户要求·暂时隐藏）停用：图2服装事实面板（原 sideControls 改传 null）；组件与 import 保留，恢复时传回 <ImageFactsPanel>。V80：_ 前缀标记停用
 import { Button } from "../../../shared/ui/Button";
+import { TaskBadge } from "../../../shared/ui/TaskBadge";
 
 export default function OutfitWorkbench({
   resultFilter,
@@ -121,7 +122,7 @@ export default function OutfitWorkbench({
             <FolderOpen size={15} />
             <span>打开保存目录</span>
           </Button>
-          <span className={`taskBadge task-${topbarStatus}`}>{topbarStatusText}</span>
+          <TaskBadge status={topbarStatus}>{topbarStatusText}</TaskBadge>
           <Button size="sm" type="button" onClick={downloadSelected} disabled={selectedCompletedCount === 0}>
             <Download size={15} />
             <span>下载选中</span>
