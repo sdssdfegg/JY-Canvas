@@ -1,0 +1,409 @@
+▶ run-node-check … 通过 (788 ms)
+▶ image-host-allowlist-check … 通过 (15717 ms)  ok=true
+▶ shared-ui-duplication-check … 通过 (454 ms)  ok=true
+▶ docs-path-check … 通过 (481 ms)  ok=true
+▶ frontend-duplication-check … 通过 (592 ms)  ok=true
+▶ api-layering-check … 通过 (378 ms)  ok=true
+▶ dead-export-check … 通过 (695 ms)  ok=true
+▶ size-ratchet-check … 通过 (564 ms)  ok=true
+▶ dependency-direction-check … 通过 (473 ms)  ok=true
+▶ bundle-budget-check … 通过 (454 ms)  ok=true
+▶ source-hygiene-check … 通过 (559 ms)  ok=true
+▶ main-render-tdz-check … 通过 (427 ms)  ok=true
+▶ runtime-config-baseline-check … 通过 (454 ms)
+▶ auth-key-parity-check … 通过 (386 ms)  ok=true
+▶ state-singleton-check … 通过 (508 ms)  ok=true
+▶ server-duplication-check … 通过 (429 ms)  ok=true
+▶ app-paths-check … 通过 (373 ms)
+▶ import-path-check … 通过 (404 ms)  ok=true
+▶ canvas-asset-check … 通过 (3676 ms)  ok=true
+▶ history-repair-check … 通过 (10805 ms)  ok=true
+▶ history-integrity-check … 通过 (351 ms)  ok=true
+▶ local-edit-ratio-check … 通过 (400 ms)  ok=true
+▶ local-edit-base-file-check … 通过 (27422 ms)  passed 36/36
+▶ resize-long-edge-check … 通过 (35209 ms)  ok=true
+▶ generation-error-check … 通过 (316 ms)  ok=true
+▶ reference-gate-check … 通过 (331 ms)  失败 0 / 共 62 项
+▶ reference-policy-verify … 通过 (322 ms)
+▶ batch-prompt-passthrough-check … 通过 (16555 ms)  ok=true
+▶ connection-test-check … 通过 (18862 ms)  ok=true
+▶ http-mock-check … 通过 (209332 ms)  失败 0 / 共 60 项
+▶ generation-failure-path-check … 通过 (100325 ms)  ok=true
+▶ outfit-defer-autosave-check … 通过 (51769 ms)  ok=true
+▶ pro-wire-check … 通过 (349474 ms)  ok=true
+▶ error-boundary-check … 通过 (3700 ms)  ok=true
+▶ tt25-subdirect-wire-check … 通过 (339 ms)
+▶ routing-check … 通过 (510 ms)  失败 0 / 共 192 项
+▶ ui-duplication-check … 通过 (317 ms)  失败 0 / 共 60 项
+▶ modal-shell-check … 通过 (28351 ms)  ok=true
+▶ composer-stable-height-check … 通过 (22240 ms)  ok=true
+▶ quickgen-prompt-passthrough-check … 通过 (314 ms)  失败 0 / 共 29 项
+▶ outfit-intent-check … 通过 (349 ms)  ok=true
+▶ outfit-intent-request-check … 通过 (1085399 ms)  ok=true
+▶ white-refine-split-check … 通过 (22121 ms)  ok=true
+▶ retouch-intent-check … 通过 (324 ms)  ok=true
+▶ retouch-intent-request-check … 通过 (752585 ms)  ok=true
+▶ retouch-frontback-check … 通过 (37972 ms)  ok=true
+▶ detail-stylepack-off-check … 通过 (344 ms)  ok=true
+▶ detail-stylepack-off-browser-check … 通过 (33165 ms)  ok=true
+▶ lint-ratchet-check … 通过 (4516 ms)  ok=true
+▶ run-all-check … 通过 (57675 ms)  ok=true
+{
+  "ok": true,
+  "scripts": 50,
+  "passed": 50,
+  "failed": 0,
+  "totalMs": 2899517,
+  "entries": [
+    {
+      "name": "run-node-check",
+      "ok": true,
+      "ms": 788,
+      "summary": "",
+      "exitCode": 0
+    },
+    {
+      "name": "image-host-allowlist-check",
+      "ok": true,
+      "ms": 15717,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "shared-ui-duplication-check",
+      "ok": true,
+      "ms": 454,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "docs-path-check",
+      "ok": true,
+      "ms": 481,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "frontend-duplication-check",
+      "ok": true,
+      "ms": 592,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "api-layering-check",
+      "ok": true,
+      "ms": 378,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "dead-export-check",
+      "ok": true,
+      "ms": 695,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "size-ratchet-check",
+      "ok": true,
+      "ms": 564,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "dependency-direction-check",
+      "ok": true,
+      "ms": 473,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "bundle-budget-check",
+      "ok": true,
+      "ms": 454,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "source-hygiene-check",
+      "ok": true,
+      "ms": 559,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "main-render-tdz-check",
+      "ok": true,
+      "ms": 427,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "runtime-config-baseline-check",
+      "ok": true,
+      "ms": 454,
+      "summary": "",
+      "exitCode": 0
+    },
+    {
+      "name": "auth-key-parity-check",
+      "ok": true,
+      "ms": 386,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "state-singleton-check",
+      "ok": true,
+      "ms": 508,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "server-duplication-check",
+      "ok": true,
+      "ms": 429,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "app-paths-check",
+      "ok": true,
+      "ms": 373,
+      "summary": "",
+      "exitCode": 0
+    },
+    {
+      "name": "import-path-check",
+      "ok": true,
+      "ms": 404,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "canvas-asset-check",
+      "ok": true,
+      "ms": 3676,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "history-repair-check",
+      "ok": true,
+      "ms": 10805,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "history-integrity-check",
+      "ok": true,
+      "ms": 351,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "local-edit-ratio-check",
+      "ok": true,
+      "ms": 400,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "local-edit-base-file-check",
+      "ok": true,
+      "ms": 27422,
+      "summary": "passed 36/36",
+      "exitCode": 0
+    },
+    {
+      "name": "resize-long-edge-check",
+      "ok": true,
+      "ms": 35209,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "generation-error-check",
+      "ok": true,
+      "ms": 316,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "reference-gate-check",
+      "ok": true,
+      "ms": 331,
+      "summary": "失败 0 / 共 62 项",
+      "exitCode": 0
+    },
+    {
+      "name": "reference-policy-verify",
+      "ok": true,
+      "ms": 322,
+      "summary": "",
+      "exitCode": 0
+    },
+    {
+      "name": "batch-prompt-passthrough-check",
+      "ok": true,
+      "ms": 16555,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "connection-test-check",
+      "ok": true,
+      "ms": 18862,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "http-mock-check",
+      "ok": true,
+      "ms": 209332,
+      "summary": "失败 0 / 共 60 项",
+      "exitCode": 0
+    },
+    {
+      "name": "generation-failure-path-check",
+      "ok": true,
+      "ms": 100325,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "outfit-defer-autosave-check",
+      "ok": true,
+      "ms": 51769,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "pro-wire-check",
+      "ok": true,
+      "ms": 349474,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "error-boundary-check",
+      "ok": true,
+      "ms": 3700,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "tt25-subdirect-wire-check",
+      "ok": true,
+      "ms": 339,
+      "summary": "",
+      "exitCode": 0
+    },
+    {
+      "name": "routing-check",
+      "ok": true,
+      "ms": 510,
+      "summary": "失败 0 / 共 192 项",
+      "exitCode": 0
+    },
+    {
+      "name": "ui-duplication-check",
+      "ok": true,
+      "ms": 317,
+      "summary": "失败 0 / 共 60 项",
+      "exitCode": 0
+    },
+    {
+      "name": "modal-shell-check",
+      "ok": true,
+      "ms": 28351,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "composer-stable-height-check",
+      "ok": true,
+      "ms": 22240,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "quickgen-prompt-passthrough-check",
+      "ok": true,
+      "ms": 314,
+      "summary": "失败 0 / 共 29 项",
+      "exitCode": 0
+    },
+    {
+      "name": "outfit-intent-check",
+      "ok": true,
+      "ms": 349,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "outfit-intent-request-check",
+      "ok": true,
+      "ms": 1085399,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "white-refine-split-check",
+      "ok": true,
+      "ms": 22121,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "retouch-intent-check",
+      "ok": true,
+      "ms": 324,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "retouch-intent-request-check",
+      "ok": true,
+      "ms": 752585,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "retouch-frontback-check",
+      "ok": true,
+      "ms": 37972,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "detail-stylepack-off-check",
+      "ok": true,
+      "ms": 344,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "detail-stylepack-off-browser-check",
+      "ok": true,
+      "ms": 33165,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "lint-ratchet-check",
+      "ok": true,
+      "ms": 4516,
+      "summary": "ok=true",
+      "exitCode": 0
+    },
+    {
+      "name": "run-all-check",
+      "ok": true,
+      "ms": 57675,
+      "summary": "ok=true",
+      "exitCode": 0
+    }
+  ]
+}
