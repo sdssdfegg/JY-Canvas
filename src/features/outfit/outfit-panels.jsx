@@ -2095,10 +2095,11 @@ export function PromptPresetGrid(props) {
     <>
       <div className="promptTabs">
         {categories.map((category) => (
-          <button
-            className={`promptTab ${activeCategory === category ? "active" : ""} ${dropCategory === category ? "dropTarget" : ""}`}
+          <Button
+            size="sm"
+            active={activeCategory === category}
+            className={dropCategory === category ? "dropTarget" : ""}
             key={category}
-            type="button"
             onClick={() => onSelectCategory(category)}
             onDoubleClick={(event) => {
               if (category === "全部") return;
@@ -2115,12 +2116,12 @@ export function PromptPresetGrid(props) {
             onDrop={(event) => onDropPresetToCategory(event, category)}
           >
             {category}
-          </button>
+          </Button>
         ))}
-        <button className="promptTab promptCategoryAdd" type="button" onClick={onAddCategory} title="新建分类">
+        <Button size="sm" className="promptCategoryAdd" onClick={onAddCategory} title="新建分类">
           <Plus size={13} />
           <span>新建</span>
-        </button>
+        </Button>
       </div>
       <label className="promptSearch">
         <Search size={16} />
@@ -2130,10 +2131,10 @@ export function PromptPresetGrid(props) {
           placeholder="搜索标题或内容..."
         />
       </label>
-      <button className="newPromptButton" type="button" onClick={onCreatePreset}>
+      <Button size="sm" className="promptNewCta" onClick={onCreatePreset}>
         <Plus size={15} />
         <span>新建提示词</span>
-      </button>
+      </Button>
       <div className="promptPresetGrid">
         {presets.map((preset) => (
           <div
