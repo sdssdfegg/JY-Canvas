@@ -218,42 +218,6 @@ textarea:focus {
   font-weight: 800;
 }
 
-.tabButton,
-.toolbarButton,
-.dangerButton,
-.smallButton,
-.modeTab,
-.generateButton,
-.iconButton,
-.promptTab,
-.newPromptButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  height: 30px;
-  padding: 0 10px;
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--panel-strong) 86%, transparent);
-  color: var(--muted);
-  border: 1px solid var(--border);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.tabButton.active,
-.modeTab.active,
-.promptTab.active {
-  color: var(--text);
-  border-color: var(--soft-border);
-  background: color-mix(in srgb, var(--panel-strong) 92%, var(--accent) 8%);
-}
-
-.modeTab.active,
-.promptTab.active {
-  color: var(--accent);
-}
-
 .promptCategoryAdd {
   color: var(--accent);
   border-color: var(--soft-border);
@@ -276,32 +240,6 @@ textarea:focus {
   border: 1px solid var(--border);
   font-size: 12px;
   white-space: nowrap;
-}
-
-.darkButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  height: 30px;
-  padding: 0 11px;
-  border-radius: 7px;
-  color: #ffffff;
-  background: #141416;
-  border: 1px solid color-mix(in srgb, #ffffff 14%, transparent);
-  font-size: 12px;
-  font-weight: 750;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
-}
-
-.darkButton:hover {
-  background: #202024;
-  border-color: color-mix(in srgb, var(--accent) 40%, #ffffff 10%);
-}
-
-.darkButton:disabled {
-  cursor: default;
-  opacity: 0.45;
 }
 
 .toolbarSelect {
@@ -333,12 +271,6 @@ textarea:focus {
   color: var(--muted);
   background: color-mix(in srgb, var(--panel-strong) 68%, transparent);
   border-color: color-mix(in srgb, var(--muted) 28%, var(--border));
-}
-
-.dangerButton {
-  color: #ff8e8e;
-  background: var(--danger-bg);
-  border-color: color-mix(in srgb, var(--danger) 24%, transparent);
 }
 
 .zoomControl {
@@ -1027,12 +959,6 @@ textarea:focus {
   border-color: var(--accent);
 }
 
-.smallButton.active {
-  color: #061515;
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
 .referenceInsertZone {
   align-self: stretch;
   width: 8px;
@@ -1389,14 +1315,6 @@ textarea:focus {
 }
 
 /* 2026-09-26：快捷生成「换装 / SKILL」开关已按用户要求删除，样式一并移除。 */
-
-.generateButton {
-  min-width: 80px;
-  color: #041313;
-  background: var(--accent);
-  border-color: var(--accent);
-  font-weight: 800;
-}
 
 .eventPill {
   position: absolute;
@@ -2569,11 +2487,6 @@ textarea:focus {
   align-items: center;
 }
 
-.canvasConnectionList .iconButton {
-  width: 28px;
-  height: 28px;
-}
-
 .canvasConnectionList p {
   margin: 0;
   color: var(--faint);
@@ -2692,11 +2605,6 @@ textarea:focus {
 .infiniteNode header input:focus {
   border-color: var(--soft-border);
   box-shadow: none;
-}
-
-.infiniteNode header .iconButton {
-  width: 28px;
-  height: 28px;
 }
 
 .nodePort {
@@ -2983,11 +2891,6 @@ textarea:focus {
   font-size: 12px;
 }
 
-.iconButton {
-  width: 32px;
-  padding: 0;
-}
-
 .modalField,
 .skinBlock,
 .debugBlock {
@@ -3215,17 +3118,6 @@ textarea:focus {
   gap: 4px;
 }
 
-.promptTab {
-  height: 24px;
-  padding: 0 10px;
-}
-
-.promptTab.active {
-  color: #041313;
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
 .promptTabs .ui-button.dropTarget {
   color: var(--text);
   border-color: var(--accent);
@@ -3281,11 +3173,6 @@ textarea:focus {
   border: 0;
   background: transparent;
   box-shadow: none;
-}
-
-.newPromptButton {
-  justify-self: start;
-  height: 28px;
 }
 
 .promptNewCta {
@@ -4629,3 +4516,4 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 }
+

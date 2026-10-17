@@ -14,15 +14,5 @@
     "promptTab": 0,
     "newPromptButton": 0
   },
-  "cssDefinitions": {
-    "src/styles.css::smallButton": 2,
-    "src/styles.css::iconButton": 2,
-    "src/styles.css::toolbarButton": 1,
-    "src/styles.css::generateButton": 2,
-    "src/styles.css::dangerButton": 2,
-    "src/styles.css::tabButton": 2,
-    "src/styles.css::modeTab": 3,
-    "src/styles.css::promptTab": 5,
-    "src/styles.css::newPromptButton": 2
-  }
+  "cssDefinitions": {}
 }

@@ -1861,10 +1861,10 @@ function App() {
                 <span>{detailApi.stitchGroup.label} · 共 {detailApi.stitchItems.length} 屏</span>
               </div>
               <div className="stitchHeaderActions">
-                <button className="darkButton" type="button" onClick={() => void detailApi.downloadStitchPreview(detailApi.stitchGroup)}>
+                <Button size="md" tone="primary" onClick={() => void detailApi.downloadStitchPreview(detailApi.stitchGroup)}>
                   <Download size={15} />
                   <span>下载长图</span>
-                </button>
+                </Button>
                 <Button size="sm" iconOnly aria-label="关闭" onClick={detailApi.closeStitchPreview}>
                   <X size={18} />
                 </Button>

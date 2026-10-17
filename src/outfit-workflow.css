@@ -4470,16 +4470,6 @@
   flex-wrap: wrap;
 }
 
-.outfitWorkflowEmbedded .promptTab {
-  height: 28px;
-  padding: 0 11px;
-}
-
-.outfitWorkflowEmbedded .promptTab.dropTarget {
-  border-color: var(--accent-border);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
-}
-
 .outfitWorkflowEmbedded .promptCategoryAdd {
   gap: 6px;
 }
@@ -4503,12 +4493,6 @@
   border: 0;
   background: transparent;
   box-shadow: none;
-}
-
-.outfitWorkflowEmbedded .newPromptButton {
-  justify-self: start;
-  height: 30px;
-  padding: 0 12px;
 }
 
 .outfitWorkflowEmbedded .promptPresetGrid {
@@ -4702,3 +4686,4 @@
   flex-direction: column;
   min-height: 0;
 }
+
