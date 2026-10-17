@@ -3227,22 +3227,22 @@ textarea:focus {
   border-color: var(--accent);
 }
 
-.promptTab.dropTarget {
+.promptTabs .ui-button.dropTarget {
   color: var(--text);
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-.promptTab.categoryDragging {
+.promptTabs .ui-button.categoryDragging {
   opacity: 0.55;
 }
 
-.promptTab.categoryDrop-before {
+.promptTabs .ui-button.categoryDrop-before {
   border-color: var(--accent);
   box-shadow: -3px 0 0 var(--accent), 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
-.promptTab.categoryDrop-after {
+.promptTabs .ui-button.categoryDrop-after {
   border-color: var(--accent);
   box-shadow: 3px 0 0 var(--accent), 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
@@ -3287,6 +3287,10 @@ textarea:focus {
 .newPromptButton {
   justify-self: start;
   height: 28px;
+}
+
+.promptNewCta {
+  justify-self: start;
 }
 
 .promptPresetGrid {
