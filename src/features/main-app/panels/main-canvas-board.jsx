@@ -25,6 +25,7 @@ import {
 import { CachedImage } from "../../../shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "../../../shared/ui/reference-thumb-tray.jsx";
 import { ElapsedTimer } from "../../../shared/ui/elapsed-timer.jsx";
+import { Button } from "../../../shared/ui/Button";
 import DebouncedTextarea from "../../../shared/DebouncedTextarea.jsx";
 import { imageSourceFromResult } from "../../../shared/models.js";
 import { resultImageCardState } from "../../../shared/result-image.js";
@@ -418,10 +419,10 @@ export function MainCanvasBoard({
                 <option key={count} value={count}>{count}张</option>
               ))}
             </select>
-            <button className="generateButton" type="button" onClick={() => generate()}>
+            <Button size="lg" tone="primary" onClick={() => generate()}>
               {runningQuickTasks.length > 0 ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
               <span>生成</span>
-            </button>
+            </Button>
           </div>
         </div>
       </section>
