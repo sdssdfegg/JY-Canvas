@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-17",
-  "reason": "V86 视频与参考生图旧按钮类迁移接线净增行",
+  "reason": "V87 换装提示词库旧按钮类迁移接线净增行",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -41,7 +41,7 @@
     "src/features/outfit/handlers/outfit-save-handlers.js": 196,
     "src/features/outfit/outfit-image-pipeline.js": 568,
     "src/features/outfit/outfit-page-actions.js": 765,
-    "src/features/outfit/outfit-panels.jsx": 2274,
+    "src/features/outfit/outfit-panels.jsx": 2275,
     "src/features/outfit/outfit-task.js": 1058,
     "src/features/outfit/outfit-top.js": 854,
     "src/features/outfit/panels/ImageFactsPanel.jsx": 88,
@@ -157,7 +157,7 @@
     "src/features/outfit/outfit-panels.jsx::BatchResizePanel": 527,
     "src/features/outfit/outfit-panels.jsx::CropModal": 202,
     "src/features/outfit/outfit-panels.jsx::patchJpegDensity": 55,
-    "src/features/outfit/outfit-panels.jsx::PromptPresetGrid": 87,
+    "src/features/outfit/outfit-panels.jsx::PromptPresetGrid": 88,
     "src/features/outfit/outfit-panels.jsx::resizeImageFile": 86,
     "src/features/outfit/outfit-panels.jsx::startVideoGeneration": 93,
     "src/features/outfit/outfit-panels.jsx::UploadZone": 349,

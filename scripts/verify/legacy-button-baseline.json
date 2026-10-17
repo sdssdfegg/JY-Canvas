@@ -2,17 +2,17 @@
   "note": "旧按钮类存量基线（V75 收官单落地）。仅记账、只拦新增：jsx 用量 > 基线即判红（旧类复活/新增）；< 基线只报 improved（存量下降是好事）；基线记了某类/某文件定义、但当前已无（或归零）→ stale 判红逼 --update。新 .css 文件带旧类行首定义 → new-file 判红。基线=0 且当前=0 不判 stale（已归零的类不永久判红）。旧类迁移由 V82+ 接入单推进，定义块删除归收口单；本门禁不删任何旧类定义。",
   "generatedAt": "2026-10-17",
   "jsxUsage": {
-    "smallButton": 39,
-    "iconButton": 12,
+    "smallButton": 23,
+    "iconButton": 9,
     "toolbarButton": 0,
-    "generateButton": 11,
-    "dangerButton": 2,
+    "generateButton": 6,
+    "dangerButton": 1,
     "primaryButton": 0,
     "secondaryButton": 0,
     "tabButton": 0,
     "modeTab": 0,
-    "promptTab": 4,
-    "newPromptButton": 2
+    "promptTab": 0,
+    "newPromptButton": 0
   },
   "cssDefinitions": {
     "src/styles.css::smallButton": 2,
@@ -22,7 +22,7 @@
     "src/styles.css::dangerButton": 2,
     "src/styles.css::tabButton": 2,
     "src/styles.css::modeTab": 3,
-    "src/styles.css::promptTab": 9,
+    "src/styles.css::promptTab": 5,
     "src/styles.css::newPromptButton": 2
   }
 }
