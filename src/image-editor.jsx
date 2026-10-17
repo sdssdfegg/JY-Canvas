@@ -11,7 +11,6 @@ import {
   MousePointer2,
   RefreshCw,
   RotateCcw,
-  Trash2,
   Upload
 } from "lucide-react";
 import { fileSize } from "./lib/format/index.js";
@@ -25,6 +24,7 @@ import { imageBitmapFromFile, isImageFile } from "./shared/image-input.js";
 import { imageBitmapFromDataUrl } from "./shared/local-edit-mask.js";
 import { preventFileDropNavigation } from "./shared/dom-actions.js";
 import { Button } from "./shared/ui/Button";
+import { UploadClearButton } from "./shared/ui/UploadClearButton";
 // 2026-10-16 · P6-6：顶部的 11 个纯函数 helpers 已逐字搬进 features/image-editor/image-editor-helpers.js。
 // 随迁的私有常量：EDITOR_DB_NAME / EDITOR_STORE_NAME / EDITOR_MAX_WORK_SIDE（仅 helpers 使用）；
 // 下面留在本文件的 5 个常量父组件体内仍有引用点，故不随迁。
@@ -83,7 +83,7 @@ function ImageEditorSlot({ title, file, meta, onPick, onClear, resolveDroppedFil
       />
       <header>
         <strong>{title}</strong>
-        {file && <button type="button" onClick={onClear} title="清空"><Trash2 size={13} /></button>}
+        {file && <UploadClearButton onClick={onClear} />}
       </header>
       <button
         className="imageEditorSlotPick"
