@@ -4,7 +4,6 @@
 // 全部数据与回调由 App() 以同名 props 下发（沿用 DetailView / ReferenceRemixView 模式）。
 // 接线完整性由 P6-5 §4 负向对照兜底（scripts/dev/p6-5-propcheck.mjs G 项：props 双向一致）。
 import {
-  Box,
   FileText,
   Layers,
   Brush,
@@ -15,8 +14,6 @@ import {
   Download,
   Trash2,
   Plus,
-  Pencil,
-  Maximize2,
   Minus
 } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
@@ -35,16 +32,6 @@ export function MainTopBar({
   openDirectoryModal,
   detailApi,
   openSaveDirectory,
-  activeCanvasId,
-  canvases,
-  selectCanvas,
-  canvasRunningCount,
-  canvasStatusText,
-  createCanvas,
-  renameCanvas,
-  activeCanvas,
-  fitCanvasView,
-  clearCanvas,
   latestVideoStatusText,
   quickStatus,
   latestStatusText,
@@ -63,12 +50,7 @@ export function MainTopBar({
   return (
     <header className="topBar">
       <div className="resultTabs">
-        {activeView === "infinite-canvas" ? (
-          <div className="viewTitle">
-            <Box size={16} />
-            <span>无限画布</span>
-          </div>
-        ) : activeView === "detail-main" ? (
+        {activeView === "detail-main" ? (
           <div className="viewTitle">
             <FileText size={16} />
             <span>一键详情/主图</span>
@@ -140,30 +122,6 @@ export function MainTopBar({
           <FolderOpen size={15} />
           <span>打开保存目录</span>
         </Button>
-        {activeView === "infinite-canvas" && (
-          <>
-            <select className="toolbarSelect" value={activeCanvasId || ""} onChange={(event) => selectCanvas(event.target.value)}>
-              {canvases.map((canvas) => <option key={canvas.id} value={canvas.id}>{canvas.name}</option>)}
-            </select>
-            <TaskBadge status={canvasRunningCount > 0 ? "running" : "success"}>{canvasStatusText}</TaskBadge>
-            <Button size="sm" type="button" onClick={createCanvas}>
-              <Plus size={15} />
-              <span>新建画布</span>
-            </Button>
-            <Button size="sm" type="button" onClick={renameCanvas} disabled={!activeCanvas}>
-              <Pencil size={15} />
-              <span>重命名</span>
-            </Button>
-            <Button size="sm" type="button" onClick={fitCanvasView} disabled={!activeCanvas}>
-              <Maximize2 size={15} />
-              <span>适配</span>
-            </Button>
-            <Button size="sm" tone="danger" type="button" onClick={clearCanvas} disabled={!activeCanvas}>
-              <Trash2 size={15} />
-              <span>清空</span>
-            </Button>
-          </>
-        )}
         {activeView === "detail-main" && (
           <TaskBadge status={detailApi.detailStatus === "failed" ? "failed" : detailApi.detailRunningCount > 0 || detailApi.detailStatus === "planning" ? "running" : "success"}>{detailApi.detailStatusText}</TaskBadge>
         )}

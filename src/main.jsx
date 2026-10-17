@@ -1,31 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { StableTextarea } from "./shared/ui/stable-textarea.jsx";
-import { ElapsedTimer } from "./shared/ui/elapsed-timer.jsx";
 import { createRoot } from "react-dom/client";
 import {
   Archive,
-  Box,
   ChevronLeft,
   ChevronRight,
   Copy,
   Crop,
   Download,
-  FileText,
   Flame,
   FolderOpen,
-  Image as ImageIcon,
   Layers,
-  Link2,
-  Loader2,
   Move,
-  Pencil,
-  Play,
-  Plus,
   RotateCcw,
   Settings,
-  Sparkles,
   Trash2,
-  Unlink,
   Upload,
   X
 } from "lucide-react";
@@ -48,7 +36,7 @@ import {
   referenceSource,
 } from "./shared/result-image.js";
 import { classifyGenerationError, formatGenerationError } from "./shared/generation-errors.js";
-import { fileSize, formatMs } from "./lib/format/index.js";
+import { fileSize } from "./lib/format/index.js";
 import { normalizePromptCategories, normalizePromptPreset } from "./shared/prompt-library.js";
 import { readJsonStorage, writeJsonStorage } from "./lib/storage/json-storage.js";
 // 建议3b：OutfitWorkflow / ImageEditorPanel 改为 React.lazy 懒加载（见下方 Lazy* 定义），
@@ -63,7 +51,6 @@ import {
 import "./styles.css";
 import { useSaveDirectory } from "./shared/hooks/useSaveDirectory.js";
 import { usePreviewDrag } from "./shared/hooks/usePreviewDrag.js";
-import { incomingCanvasNodes, canvasResultItemsFromNode, canvasImagesForGenerator, canvasImageEntriesForGenerator, splitCanvasBatchEntries } from "./features/canvas/canvas-graph.js";
 import { createCanvasActions, createCanvasInteractions } from "./features/canvas/canvas-actions.js";
 // P6-4：画布 / 生成类 handler 钩（canvasFileFromResult / addCanvasFiles / runCanvasImageRequest / generateCanvasNode /
 // saveProcessedImageFile / optimizePrompt / sendResultToImageEditor / addReferenceThumbToUploads / generate）。
@@ -84,7 +71,7 @@ import { useDetailState } from "./features/detail/detail-state.js";
 // V61（P3-6）：快捷生成 image 模式私有状态与派生收口至 src/features/quickgen/（降级档：仅 state，JSX 留待下轮）
 import { useQuickGenState } from "./features/quickgen/quickgen-state.js";
 import { ACTIVE_VIEW_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState } from "./shared/app-defaults.js";
-import { SHOW_INFINITE_CANVAS, loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
+import { loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
 import { hydrateDetailGroupsWithHistory } from "./features/detail/detail-group.js";
 import { defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
 // V56（P3-1）：设置弹窗抽取为独立 feature
@@ -472,10 +459,10 @@ function App() {
   const [referenceStyleFiles, setReferenceStyleFiles] = useState([]);
   const [infiniteCanvasState, setInfiniteCanvasState] = useState(loadInfiniteCanvasState);
   const [canvasViewport, setCanvasViewport] = useState({ x: 34, y: 18, scale: 1 });
-  const [canvasTasks, setCanvasTasks] = useState([]);
+  const [, setCanvasTasks] = useState([]);
   const [canvasConnectStart, setCanvasConnectStart] = useState(null);
   const [canvasDrag, setCanvasDrag] = useState(null);
-  const [canvasSelectedNodeId, setCanvasSelectedNodeId] = useState("");
+  const [, setCanvasSelectedNodeId] = useState("");
   const [saveDirectory, setSaveDirectory] = useState("");
   const [directoryDraft, setDirectoryDraft] = useState("");
   const [isPickingDirectory, setIsPickingDirectory] = useState(false);
@@ -548,7 +535,6 @@ function App() {
   // 排序松手后会紧接着触发一次 click ⇒ 会误开预览。沿用批量侧的 150ms 抑制窗口。
   const suppressReferencePreviewRef = useRef(false);
   const canvasStageRef = useRef(null);
-  const canvasFileInputRef = useRef(null);
   const previewDragRef = useRef(null);
 
   // P6-5（V4.0）：App() 体其余全部 handler（38 个）收口到 useMainHandlers（src/features/main-app/）。
@@ -561,8 +547,6 @@ function App() {
   const {
     updateSetting,
     canvasCenterPoint,
-    handleCanvasDrop,
-    sendResultToCanvas,
     addEvent,
     copyText,
     onComposerPaste,
@@ -724,12 +708,6 @@ function App() {
   const canvases = infiniteCanvasState.canvases;
   const activeCanvasId = infiniteCanvasState.activeId;
   const activeCanvas = canvases.find((canvas) => canvas.id === activeCanvasId) || canvases[0] || null;
-  const canvasRunningCount = canvasTasks.filter((task) => task.status === "running").length;
-  const canvasStatusText = canvasRunningCount > 0
-    ? `运行中 ${canvasRunningCount} 个任务`
-    : activeCanvas
-      ? `${activeCanvas.nodes.length} 个节点`
-      : "等待新建画布";
   // 结果去重：同一次生成的图若被重复写入 results（同 id 或「同图不同 id」），
   // 画廊会出现「两张一模一样」的卡。按「图片内容签名优先、缺图回退 id」去重，
   // 只保证画廊展示层不重复，不改数据模型、不动存储结构。
@@ -903,9 +881,7 @@ function App() {
   }, [isQuickChannelMenuOpen, setIsQuickChannelMenuOpen]);
 
   const {
-    patchActiveCanvas, patchCanvasById, updateCanvasNode, updateCanvasNodeByCanvasId,
-    createCanvas, renameCanvas, deleteCanvas, clearCanvas, selectCanvas,
-    addCanvasNode, deleteCanvasNode
+    patchActiveCanvas, patchCanvasById, updateCanvasNode, updateCanvasNodeByCanvasId
   } = createCanvasActions({
     setInfiniteCanvasState,
     activeCanvas,
@@ -918,11 +894,9 @@ function App() {
     canvasCenterPoint
   });
 
-  const {
-    fitCanvasView, handleCanvasWheel, beginCanvasPan, beginCanvasNodeDrag,
-    moveCanvasDrag, endCanvasDrag, beginCanvasConnection,
-    completeCanvasConnection, removeCanvasConnection
-  } = createCanvasInteractions({
+  // V93：无限画布视图已删除，本工厂产物（视口/拖拽/连线 handler）不再被任何 JSX 引用；
+  // 保留调用仅用于维持 §1.3 保留的视口状态（canvasDrag / canvasConnectStart 等）仍被引用。深层清理见 V94。
+  createCanvasInteractions({
     activeCanvas,
     canvasStageRef,
     canvasViewport,
@@ -1007,7 +981,6 @@ function App() {
   //   JSX 引用全部位于下方 return 内。runCanvasImageRequest / canvasFileFromResult 仅钩内互相调用，父组件不解构。
   const {
     addCanvasFiles,
-    generateCanvasNode,
     saveProcessedImageFile,
     optimizePrompt,
     sendResultToImageEditor,
@@ -1112,19 +1085,11 @@ function App() {
         .map((item) => item.result)
         .filter(Boolean);
     }
-    if (previewSource === "infinite-canvas") {
-      return results
-        .filter((item) => item.source === "infinite-canvas")
-        .sort((a, b) => (
-          (Number.isFinite(a.submittedAt) ? a.submittedAt : (Number.isFinite(a.createdAt) ? a.createdAt : 0))
-          - (Number.isFinite(b.submittedAt) ? b.submittedAt : (Number.isFinite(b.createdAt) ? b.createdAt : 0))
-        ));
-    }
     return quickGalleryItems
       .filter((item) => item.kind === "result")
       .map((item) => item.result)
       .filter(Boolean);
-  }, [previewResult, detailApi.activeDetailResults, referenceApi.referenceGalleryItems, quickGalleryItems, results]);
+  }, [previewResult, detailApi.activeDetailResults, referenceApi.referenceGalleryItems, quickGalleryItems]);
 
 
 
@@ -1238,16 +1203,6 @@ function App() {
             openDirectoryModal={openDirectoryModal}
             detailApi={detailApi}
             openSaveDirectory={openSaveDirectory}
-            activeCanvasId={activeCanvasId}
-            canvases={canvases}
-            selectCanvas={selectCanvas}
-            canvasRunningCount={canvasRunningCount}
-            canvasStatusText={canvasStatusText}
-            createCanvas={createCanvas}
-            renameCanvas={renameCanvas}
-            activeCanvas={activeCanvas}
-            fitCanvasView={fitCanvasView}
-            clearCanvas={clearCanvas}
             latestVideoStatusText={latestVideoStatusText}
             quickStatus={quickStatus}
             latestStatusText={latestStatusText}
@@ -1314,351 +1269,6 @@ function App() {
             markDeferredFeature={markDeferredFeature}
             onOpenPromptAssistant={() => setIsPromptAssistantOpen(true)}
           />
-        ) : activeView === "infinite-canvas" ? (
-          <section className="infiniteCanvasView">
-            <aside className="canvasToolPanel">
-              <header>
-                <div>
-                  <strong>{activeCanvas?.name || "无限画布"}</strong>
-                  <span>{canvasStatusText}</span>
-                </div>
-              </header>
-
-              <div className="canvasToolGroup">
-                <Button size="sm" onClick={() => addCanvasNode("prompt", canvasCenterPoint(-180, -80))}>
-                  <FileText size={15} />
-                  <span>提示词</span>
-                </Button>
-                <Button size="sm" onClick={() => addCanvasNode("generator", canvasCenterPoint(40, -120))}>
-                  <Sparkles size={15} />
-                  <span>生图</span>
-                </Button>
-                <Button size="sm" onClick={() => canvasFileInputRef.current?.click()}>
-                  <Upload size={15} />
-                  <span>图片</span>
-                </Button>
-                <input
-                  ref={canvasFileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(event) => {
-                    void addCanvasFiles(event.target.files);
-                    event.target.value = "";
-                  }}
-                />
-              </div>
-
-              <div className="canvasToolGroup">
-                <Button size="sm" onClick={createCanvas}>
-                  <Plus size={15} />
-                  <span>新建</span>
-                </Button>
-                <Button size="sm" onClick={renameCanvas} disabled={!activeCanvas}>
-                  <Pencil size={15} />
-                  <span>重命名</span>
-                </Button>
-                <Button size="sm" tone="danger" onClick={deleteCanvas} disabled={!activeCanvas}>
-                  <Trash2 size={15} />
-                  <span>删除画布</span>
-                </Button>
-              </div>
-
-              <section className="canvasConnectionList">
-                <strong>连线</strong>
-                {(activeCanvas?.connections || []).map((connection) => {
-                  const fromNode = activeCanvas.nodes.find((node) => node.id === connection.fromNodeId);
-                  const toNode = activeCanvas.nodes.find((node) => node.id === connection.toNodeId);
-                  return (
-                    <div key={connection.id}>
-                      <span>{fromNode?.title || "节点"} → {toNode?.title || "节点"}</span>
-                      <Button size="sm" iconOnly title="断开" onClick={() => removeCanvasConnection(connection.id)}>
-                        <Unlink size={14} />
-                      </Button>
-                    </div>
-                  );
-                })}
-                {(!activeCanvas || activeCanvas.connections.length === 0) && <p>暂无连线</p>}
-              </section>
-            </aside>
-
-            <section
-              className={`infiniteCanvasStage ${canvasDrag?.type === "pan" ? "panning" : ""}`}
-              ref={canvasStageRef}
-              onWheel={handleCanvasWheel}
-              onPointerDown={beginCanvasPan}
-              onPointerMove={moveCanvasDrag}
-              onPointerUp={endCanvasDrag}
-              onPointerCancel={endCanvasDrag}
-              onDragOver={(event) => {
-                if (!Array.from(event.dataTransfer?.types || []).includes("Files")) return;
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "copy";
-              }}
-              onDrop={handleCanvasDrop}
-            >
-              <div className="infiniteCanvasGrid" />
-              {activeCanvas && (
-                <div
-                  className="infiniteWorld"
-                  style={{ transform: `translate(${canvasViewport.x}px, ${canvasViewport.y}px) scale(${canvasViewport.scale})` }}
-                >
-                  <svg className="infiniteLinks" aria-hidden="true">
-                    {activeCanvas.connections.map((connection) => {
-                      const fromNode = activeCanvas.nodes.find((node) => node.id === connection.fromNodeId);
-                      const toNode = activeCanvas.nodes.find((node) => node.id === connection.toNodeId);
-                      if (!fromNode || !toNode) return null;
-                      const fromX = fromNode.x + fromNode.w;
-                      const fromY = fromNode.y + 44;
-                      const toX = toNode.x;
-                      const toY = toNode.y + 44;
-                      return (
-                        <path
-                          key={connection.id}
-                          d={`M ${fromX} ${fromY} C ${fromX + 90} ${fromY}, ${toX - 90} ${toY}, ${toX} ${toY}`}
-                        />
-                      );
-                    })}
-                  </svg>
-
-                  {activeCanvas.nodes.map((node) => {
-                    const selected = canvasSelectedNodeId === node.id;
-                    const nodeTasks = canvasTasks.filter((task) => task.canvasId === activeCanvas.id && task.nodeId === node.id);
-                    const incomingNodes = node.type === "generator" ? incomingCanvasNodes(activeCanvas, node.id) : [];
-                    const incomingImages = node.type === "generator" ? canvasImagesForGenerator(activeCanvas, node) : [];
-                    const incomingImageEntries = node.type === "generator" ? canvasImageEntriesForGenerator(activeCanvas, node) : [];
-                    const batchParts = node.type === "generator" ? splitCanvasBatchEntries(incomingImageEntries) : { modelEntries: [], fixedEntries: [] };
-                    const resultItems = canvasResultItemsFromNode(node);
-                    const nodeIcon = node.type === "generator"
-                      ? <Sparkles size={15} />
-                      : node.type === "prompt"
-                        ? <FileText size={15} />
-                        : node.type === "output"
-                          ? <Layers size={15} />
-                          : <ImageIcon size={15} />;
-                    return (
-                      <article
-                        className={`infiniteNode ${node.type} ${selected ? "selected" : ""}`}
-                        key={node.id}
-                        style={{ left: node.x, top: node.y, width: node.w, minHeight: node.h }}
-                        onPointerDown={(event) => beginCanvasNodeDrag(event, node.id)}
-                      >
-                        {node.type !== "generator" && (
-                          <button
-                            className={`nodePort output ${canvasConnectStart?.nodeId === node.id ? "active" : ""}`}
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              beginCanvasConnection(node.id);
-                            }}
-                            title="输出"
-                          >
-                            <Link2 size={13} />
-                          </button>
-                        )}
-                        {node.type === "generator" && (
-                          <button
-                            className={`nodePort input ${canvasConnectStart ? "ready" : ""}`}
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              completeCanvasConnection(node.id);
-                            }}
-                            title="输入"
-                          >
-                            <Link2 size={13} />
-                          </button>
-                        )}
-                        <header>
-                          <span>{nodeIcon}</span>
-                          <input
-                            value={node.title}
-                            onChange={(event) => updateCanvasNode(node.id, { title: event.target.value })}
-                            onPointerDown={(event) => event.stopPropagation()}
-                          />
-                          <Button size="sm" iconOnly title="删除节点" onClick={() => deleteCanvasNode(node.id)}>
-                            <X size={14} />
-                          </Button>
-                        </header>
-
-                        {node.type === "prompt" && (
-                          <StableTextarea
-                            className="canvasPromptTextarea"
-                            value={node.text}
-                            onChange={(event) => updateCanvasNode(node.id, { text: event.target.value })}
-                            onPointerDown={(event) => event.stopPropagation()}
-                          />
-                        )}
-
-                        {node.type === "image" && node.result && (
-                          <>
-                            <button
-                              className="canvasImagePreview"
-                              type="button"
-                              onClick={() => openPreview(node.result)}
-                              onContextMenu={(event) => openContextMenu(event, node.result.id)}
-                            >
-                              <CachedImage
-                                src={imageSourceFromResult(node.result.image)}
-                                alt={node.title}
-                                draggable
-                                onDragStart={(event) => beginResultImageDrag(event, node.result)}
-                              />
-                            </button>
-                            <label className="canvasImageRole">
-                              <span>角色</span>
-                              <select
-                                value={node.role || "auto"}
-                                onChange={(event) => updateCanvasNode(node.id, { role: event.target.value })}
-                                onPointerDown={(event) => event.stopPropagation()}
-                              >
-                                {canvasImageRoleOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>{option.label}</option>
-                                ))}
-                              </select>
-                            </label>
-                            <StableTextarea
-                              className="canvasNodePrompt"
-                              value={node.prompt || ""}
-                              onChange={(event) => updateCanvasNode(node.id, { prompt: event.target.value })}
-                              onPointerDown={(event) => event.stopPropagation()}
-                              placeholder="参考备注"
-                            />
-                            <Button size="sm" onClick={() => void downloadItem(node.result, 0)}>
-                              <Download size={14} />
-                              <span>下载</span>
-                            </Button>
-                          </>
-                        )}
-
-                        {node.type === "generator" && (
-                          <div className="canvasGeneratorBody">
-                            <div className="canvasNodeStats">
-                              <span>输入 {incomingNodes.length}</span>
-                              <span>参考图 {incomingImages.length}</span>
-                              <span>模特 {batchParts.modelEntries.length}</span>
-                              <span>固定 {batchParts.fixedEntries.length}</span>
-                            </div>
-                            <label>
-                              <span>模式</span>
-                              <select
-                                value={node.params?.batchMode || "single"}
-                                onChange={(event) => updateCanvasNode(node.id, {
-                                  params: { ...node.params, batchMode: event.target.value }
-                                })}
-                                onPointerDown={(event) => event.stopPropagation()}
-                              >
-                                {canvasBatchModeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                              </select>
-                            </label>
-                            <label>
-                              <span>模型</span>
-                              <select
-                                value={node.params?.model || settings.model}
-                                onChange={(event) => updateCanvasNode(node.id, {
-                                  params: { ...node.params, model: event.target.value }
-                                })}
-                                onPointerDown={(event) => event.stopPropagation()}
-                              >
-                                {models.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
-                              </select>
-                            </label>
-                            <label>
-                              <span>比例</span>
-                              <select
-                                value={node.params?.aspectRatio || settings.aspectRatio}
-                                onChange={(event) => updateCanvasNode(node.id, {
-                                  params: { ...node.params, aspectRatio: event.target.value }
-                                })}
-                                onPointerDown={(event) => event.stopPropagation()}
-                              >
-                                {(models.find((model) => model.value === (node.params?.model || settings.model))?.ratios || ratios).map((ratio) => (
-                                  <option key={ratio} value={ratio}>{ratio}</option>
-                                ))}
-                              </select>
-                            </label>
-                            <label>
-                              <span>清晰度</span>
-                              <select
-                                value={node.params?.imageSize || settings.imageSize}
-                                onChange={(event) => updateCanvasNode(node.id, {
-                                  params: { ...node.params, imageSize: event.target.value }
-                                })}
-                                onPointerDown={(event) => event.stopPropagation()}
-                              >
-                                {quickSizes.map((size) => <option key={size} value={size}>{size}</option>)}
-                              </select>
-                            </label>
-                            <label>
-                              <span>数量</span>
-                              <select
-                                value={node.params?.n || 1}
-                                onChange={(event) => updateCanvasNode(node.id, {
-                                  params: { ...node.params, n: clampCount(event.target.value) }
-                                })}
-                                onPointerDown={(event) => event.stopPropagation()}
-                              >
-                                {COUNT_OPTIONS.map((count) => <option key={count} value={count}>{count}</option>)}
-                              </select>
-                            </label>
-                            <StableTextarea
-                              value={node.prompt || ""}
-                              onChange={(event) => updateCanvasNode(node.id, { prompt: event.target.value })}
-                              onPointerDown={(event) => event.stopPropagation()}
-                              placeholder="补充提示词"
-                            />
-                            <Button size="md" tone="primary" onClick={() => void generateCanvasNode(node.id)}>
-                              {nodeTasks.length > 0 ? <Loader2 className="spin" size={15} /> : <Play size={15} />}
-                              <span>生成输出</span>
-                            </Button>
-                            {nodeTasks.map((task) => (
-                              <small className="canvasTaskLine" key={task.id}>{task.taskLabel || "任务"} · <ElapsedTimer startedAt={task.startedAt} /> · {task.modelLabel}</small>
-                            ))}
-                            {node.error && <strong className="canvasNodeError">{node.error}</strong>}
-                            {node.generationMs && !node.error && <small className="canvasTaskLine">上次 {formatMs(node.generationMs)}</small>}
-                          </div>
-                        )}
-
-                        {node.type === "output" && (
-                          <div className="canvasOutputBody">
-                            <div className="canvasOutputGrid">
-                              {resultItems.map((result, resultIndex) => (
-                                <button
-                                  type="button"
-                                  key={result.id}
-                                  onClick={() => openPreview(result)}
-                                  onContextMenu={(event) => openContextMenu(event, result.id)}
-                                >
-                                  <CachedImage
-                                    src={imageSourceFromResult(result.image)}
-                                    alt={`输出 ${resultIndex + 1}`}
-                                    draggable
-                                    onDragStart={(event) => beginResultImageDrag(event, result, resultIndex)}
-                                  />
-                                </button>
-                              ))}
-                            </div>
-                            <Button size="sm" onClick={() => void copyText(node.prompt, "提示词已复制")}>
-                              <Copy size={14} />
-                              <span>复制提示词</span>
-                            </Button>
-                            {node.generationMs && <small className="canvasTaskLine">用时 {formatMs(node.generationMs)}</small>}
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-
-              {events.length > 0 && (
-                <div className="eventPill">
-                  <strong>{events[0].label}</strong>
-                  <span>{events[0].detail}</span>
-                </div>
-              )}
-            </section>
-          </section>
         ) : activeView === "reference-remix" ? (
           <ReferenceRemixView
             referenceApi={referenceApi}
@@ -2131,12 +1741,6 @@ function App() {
             <Move size={15} />
             <span>设为编辑上层</span>
           </button>
-          {SHOW_INFINITE_CANVAS && (
-            <button type="button" onClick={() => { sendResultToCanvas(contextItem); setContextMenu(null); }}>
-              <Box size={15} />
-              <span>发送到无限画布</span>
-            </button>
-          )}
           <button type="button" onClick={() => { markDeferredFeature("局部编辑"); setContextMenu(null); }}>
             <Crop size={15} />
             <span>局部编辑</span>
