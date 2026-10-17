@@ -4044,17 +4044,6 @@ textarea:focus {
   font-size: 12px;
 }
 
-.imageEditorSlot header button {
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger-bg) 70%, transparent);
-  border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--border));
-}
-
 .imageEditorSlotPick {
   display: grid;
   justify-items: center;

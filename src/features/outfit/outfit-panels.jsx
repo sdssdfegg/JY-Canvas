@@ -1449,6 +1449,7 @@ export function BatchResizePanel({
             {working ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
             <span>{working ? "导出中" : "导出"}</span>
           </Button>
+          {items.length > 0 && <UploadClearButton onClick={clearItems} />}
         </div>
       </header>
 
@@ -1637,10 +1638,6 @@ export function BatchResizePanel({
 
       <footer className="batchResizeFooter">
         <span>{status || `已导入 ${items.length} 张，目标文件夹：${RESIZE_OUTPUT_FOLDER}`}</span>
-        <Button size="sm" tone="danger" type="button" onClick={clearItems} disabled={items.length === 0 || working}>
-          <Trash2 size={15} />
-          <span>清空图片</span>
-        </Button>
       </footer>
 
       <input
@@ -2041,10 +2038,7 @@ export function WorkflowQuickVideoPanel({
               placeholder="图片参考 URL，可留空"
             />
             {(referenceFile || settings.imageUrl) && (
-              <Button size="sm" type="button" onClick={() => { setReferenceFile(null); updateSetting("imageUrl", ""); }}>
-                <Trash2 size={15} />
-                <span>清空参考</span>
-              </Button>
+              <UploadClearButton onClick={() => { setReferenceFile(null); updateSetting("imageUrl", ""); }} />
             )}
           </div>
 
