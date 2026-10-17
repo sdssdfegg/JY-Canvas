@@ -48,6 +48,10 @@ const ORDER = [
   // 里写死的本机绝对路径，任何在本机不存在的都判红，杜绝「文档引用失效/错误位置」漂移。
   // 纯文本扫描，跑得飞快，排在起进程的那批之前。
   "docs-path-check",
+  // V74（2026-10-17）：硬编码 hex 颜色棘轮门禁 —— 扫 src/**/*.css 统计 hex 颜色数，
+  // 存量记账、只拦新增（某文件 hex 数 > 基线即判红；< 基线只报 improved；基线陈旧判 stale）；
+  // 不扫 .jsx 内联 style（动态色合法）。纯源码扫描，跑得飞快（<1s），排在这批纯扫描里。
+  "hardcoded-color-check",
   // V11-RF-019 交付物：前端跨文件同名**顶层函数**棘轮（camelCase 函数，与上面组件的
   //   PascalCase 判据互补；两者允许重叠，如 ReferenceThumbTray 两边都命中，重叠不代表冲突）。
   //   提取逻辑收在 lib/frontend-sources.mjs，与审计脚本共用一份，避免两套正则各自漂移。
@@ -209,6 +213,8 @@ const FAST_ORDER = [
   "app-paths-check",
   "import-path-check",
   "docs-path-check",
+  // V74（2026-10-17）：硬编码 hex 颜色棘轮门禁，纯 CSS 扫描 <1s，正合提交钩子。
+  "hardcoded-color-check",
   "reference-gate-check",
   "reference-policy-verify",
   "tt25-subdirect-wire-check",

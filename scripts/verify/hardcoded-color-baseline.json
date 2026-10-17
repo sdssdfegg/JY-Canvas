@@ -1,0 +1,13 @@
+{
+  "note": "硬编码 hex 颜色存量基线（V74 落地）。仅记账、只拦新增：某 .css 文件 hex 数 > 基线即判红（新增）；< 基线只报 improved（存量被顺手清掉是好事）；基线记了某文件、但该文件已无 hex（或文件没了）→ stale 判红逼 --update。清理存量由各接入单（V76+）顺手清零，全量清零单独开单。不扫 .jsx 内联 style（动态色合法）。rgba()/hsla() 等函数色暂不记账。",
+  "generatedAt": "2026-10-17",
+  "files": {
+    "src/features/outfit/outfit-intent.css": 15,
+    "src/features/outfit/retouch-intent.css": 14,
+    "src/features/outfit/white-refine-split.css": 6,
+    "src/outfit-workflow.css": 102,
+    "src/shared/ui/ui.css": 33,
+    "src/styles.css": 72,
+    "src/styles/tokens.css": 53
+  }
+}

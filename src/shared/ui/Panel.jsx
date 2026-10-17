@@ -7,12 +7,12 @@
 //   替代 .skinBlock / .debugBlock 一类手写卡片容器。
 import "./ui.css";
 
-export function Panel({ padding = "md", tone = "default", className = "", children }) {
+export function Panel({ padding = "md", tone = "default", className = "", children, ...rest }) {
   const classes = [
     "ui-panel",
     `ui-panel--${tone}`,
     `ui-panel--pad-${padding}`,
     className
   ].filter(Boolean).join(" ");
-  return <div className={classes}>{children}</div>;
+  return <div className={classes} {...rest}>{children}</div>;
 }
