@@ -1,6 +1,6 @@
 import { Loader2, Download, CheckSquare, Square, X, RotateCcw, Copy, Sparkles, Plus, Play, Save, FolderOpen, BookOpen, Settings, FileText } from "lucide-react";
 import { StableTextarea } from "../../shared/ui/stable-textarea.jsx";
-import { DetailUploadZone } from "../crop/quick-crop-panels.jsx";
+import { DetailUploadZone } from "../../shared/ui/detail-upload-zone";
 import ChannelPicker from "../../shared/ui/ChannelPicker.jsx";
 import { CachedImage } from "../../shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "../../shared/ui/reference-thumb-tray.jsx";

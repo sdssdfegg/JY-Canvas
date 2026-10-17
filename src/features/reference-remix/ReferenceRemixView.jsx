@@ -1,7 +1,7 @@
 import { Loader2, Download, Check, Layers, Play, Wand2 } from "lucide-react";
 import { StableTextarea } from "../../shared/ui/stable-textarea.jsx";
 import { ElapsedTimer } from "../../shared/ui/elapsed-timer.jsx";
-import { DetailUploadZone } from "../../features/crop/quick-crop-panels.jsx";
+import { DetailUploadZone } from "../../shared/ui/detail-upload-zone";
 import ChannelPicker from "../../shared/ui/ChannelPicker.jsx";
 import { CachedImage } from "../../shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "../../shared/ui/reference-thumb-tray.jsx";

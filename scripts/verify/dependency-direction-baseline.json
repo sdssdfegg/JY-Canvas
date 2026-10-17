@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-15",
-  "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
+  "generatedAt": "2026-10-17",
+  "reason": "V91 DetailUploadZone 归位 shared/ui，消除 features/detail 与 features/reference-remix 对 features/crop 的反向依赖；detail→crop 与 reference-remix→crop 两方向已从代码消失，按检查提示划掉陈旧白名单条目",
   "allowed": [
     {
       "from": "canvas",
@@ -60,13 +60,6 @@
     },
     {
       "from": "detail",
-      "to": "crop",
-      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
-      "refs": 1,
-      "sample": "src/features/detail/DetailView.jsx → src/features/crop/quick-crop-panels.jsx"
-    },
-    {
-      "from": "detail",
       "to": "storage",
       "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
       "refs": 2,
@@ -123,13 +116,6 @@
     },
     {
       "from": "reference-remix",
-      "to": "crop",
-      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
-      "refs": 1,
-      "sample": "src/features/reference-remix/ReferenceRemixView.jsx → src/features/crop/quick-crop-panels.jsx"
-    },
-    {
-      "from": "reference-remix",
       "to": "detail",
       "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
       "refs": 1,
@@ -173,9 +159,9 @@
   ],
   "metrics": {
     "featureFiles": 53,
-    "directions": 24,
-    "crossFeatureRefs": 29,
-    "sharedRefs": 130,
+    "directions": 22,
+    "crossFeatureRefs": 27,
+    "sharedRefs": 160,
     "unresolved": 0
   }
 }

@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 112,
+    "fileCount": 113,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -124,6 +124,7 @@
       "src/shared/ui/Toolbar.jsx",
       "src/shared/ui/UploadClearButton.jsx",
       "src/shared/ui/cached-image.jsx",
+      "src/shared/ui/detail-upload-zone.jsx",
       "src/shared/ui/elapsed-timer.jsx",
       "src/shared/ui/reference-thumb-tray.jsx",
       "src/shared/ui/stable-textarea.jsx",
