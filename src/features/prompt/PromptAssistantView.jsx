@@ -2,6 +2,7 @@
 // 所有状态 / handler 来自 usePromptAssistantState（App 下发 promptApi）。
 // 共享数据 presets / categories 由 App() 持有并下发；isOpen / onClose 控制显隐。
 import { X, Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Button } from "../../shared/ui/Button";
 
 export function PromptAssistantView({ isOpen, categories, onClose, promptApi }) {
   if (!isOpen) return null;
@@ -43,23 +44,22 @@ export function PromptAssistantView({ isOpen, categories, onClose, promptApi }) 
         <section className="promptAssistantModal" onMouseDown={(event) => event.stopPropagation()}>
           <header>
             <h2>提示词助手</h2>
-            <button className="iconButton" type="button" onClick={onClose} aria-label="关闭">
+            <Button size="sm" iconOnly aria-label="关闭" onClick={onClose}>
               <X size={18} />
-            </button>
+            </Button>
           </header>
           <div className="promptAssistantBody">
             <div className="promptTabs">
               {categories.map((category) => (
                 <span className="promptCategoryItem" key={category}>
-                  <button
+                  <Button
+                    size="sm"
+                    active={promptCategory === category}
                     className={[
-                      "promptTab",
-                      promptCategory === category ? "active" : "",
                       promptDropCategory === category ? "dropTarget" : "",
                       draggedPromptCategory === category ? "categoryDragging" : "",
                       promptCategoryDropTarget?.category === category ? `categoryDrop-${promptCategoryDropTarget.edge}` : ""
                     ].filter(Boolean).join(" ")}
-                    type="button"
                     draggable={category !== "全部"}
                     onClick={() => setPromptCategory(category)}
                     onDoubleClick={(event) => {
@@ -79,7 +79,7 @@ export function PromptAssistantView({ isOpen, categories, onClose, promptApi }) 
                     title={category === "全部" ? "全部分类" : "双击改名，按住拖动调整顺序"}
                   >
                     {category}
-                  </button>
+                  </Button>
                   {category !== "全部" && (
                     <button
                       className="promptCategoryDelete"
@@ -97,10 +97,10 @@ export function PromptAssistantView({ isOpen, categories, onClose, promptApi }) 
                   )}
                 </span>
               ))}
-              <button className="promptTab promptCategoryAdd" type="button" onClick={addPromptCategory} title="新建分类">
+              <Button size="sm" className="promptCategoryAdd" onClick={addPromptCategory} title="新建分类">
                 <Plus size={13} />
                 <span>新建</span>
-              </button>
+              </Button>
             </div>
             <label className="promptSearch">
               <Search size={16} />
@@ -110,10 +110,10 @@ export function PromptAssistantView({ isOpen, categories, onClose, promptApi }) 
                 placeholder="搜索标题或内容..."
               />
             </label>
-            <button className="newPromptButton" type="button" onClick={openNewPromptEditor}>
+            <Button size="sm" className="promptNewCta" onClick={openNewPromptEditor}>
               <Plus size={15} />
               <span>新建提示词</span>
-            </button>
+            </Button>
             <div className="promptPresetGrid">
               {filteredPromptPresets.map((preset) => (
                 <div
@@ -152,9 +152,9 @@ export function PromptAssistantView({ isOpen, categories, onClose, promptApi }) 
           <section className="promptEditorModal" onMouseDown={(event) => event.stopPropagation()}>
             <header>
               <h2>编辑提示词</h2>
-              <button className="iconButton" type="button" onClick={() => setEditingPrompt(null)} aria-label="关闭">
+              <Button size="sm" iconOnly aria-label="关闭" onClick={() => setEditingPrompt(null)}>
                 <X size={18} />
-              </button>
+              </Button>
             </header>
             <div className="promptEditorBody">
               <label className="editorField">
@@ -186,12 +186,12 @@ export function PromptAssistantView({ isOpen, categories, onClose, promptApi }) 
               </label>
             </div>
             <footer>
-              <button className="dangerButton editorDeleteButton" type="button" onClick={() => deletePromptPreset(editingPrompt)}>
+              <Button size="sm" tone="danger" className="editorDeleteButton" onClick={() => deletePromptPreset(editingPrompt)}>
                 删除
-              </button>
+              </Button>
               <div>
-                <button className="smallButton" type="button" onClick={() => setEditingPrompt(null)}>取消</button>
-                <button className="generateButton editorSaveButton" type="button" onClick={saveEditingPrompt}>保存</button>
+                <Button size="sm" onClick={() => setEditingPrompt(null)}>取消</Button>
+                <Button size="md" tone="primary" className="editorSaveButton" onClick={saveEditingPrompt}>保存</Button>
               </div>
             </footer>
           </section>
