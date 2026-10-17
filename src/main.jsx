@@ -40,6 +40,7 @@ import {
 import { ErrorBoundary } from "./shared/error-boundary.jsx";
 import { QuickCropViewportModal } from "./features/crop/quick-crop-panels.jsx";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
+import { Button } from "./shared/ui/Button";
 import { createReferenceUpload, quickReferenceOriginalFile } from "./features/upload/reference-upload.js";
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import {
@@ -1324,18 +1325,18 @@ function App() {
               </header>
 
               <div className="canvasToolGroup">
-                <button className="smallButton" type="button" onClick={() => addCanvasNode("prompt", canvasCenterPoint(-180, -80))}>
+                <Button size="sm" onClick={() => addCanvasNode("prompt", canvasCenterPoint(-180, -80))}>
                   <FileText size={15} />
                   <span>提示词</span>
-                </button>
-                <button className="smallButton" type="button" onClick={() => addCanvasNode("generator", canvasCenterPoint(40, -120))}>
+                </Button>
+                <Button size="sm" onClick={() => addCanvasNode("generator", canvasCenterPoint(40, -120))}>
                   <Sparkles size={15} />
                   <span>生图</span>
-                </button>
-                <button className="smallButton" type="button" onClick={() => canvasFileInputRef.current?.click()}>
+                </Button>
+                <Button size="sm" onClick={() => canvasFileInputRef.current?.click()}>
                   <Upload size={15} />
                   <span>图片</span>
-                </button>
+                </Button>
                 <input
                   ref={canvasFileInputRef}
                   type="file"
@@ -1349,18 +1350,18 @@ function App() {
               </div>
 
               <div className="canvasToolGroup">
-                <button className="smallButton" type="button" onClick={createCanvas}>
+                <Button size="sm" onClick={createCanvas}>
                   <Plus size={15} />
                   <span>新建</span>
-                </button>
-                <button className="smallButton" type="button" onClick={renameCanvas} disabled={!activeCanvas}>
+                </Button>
+                <Button size="sm" onClick={renameCanvas} disabled={!activeCanvas}>
                   <Pencil size={15} />
                   <span>重命名</span>
-                </button>
-                <button className="dangerButton" type="button" onClick={deleteCanvas} disabled={!activeCanvas}>
+                </Button>
+                <Button size="sm" tone="danger" onClick={deleteCanvas} disabled={!activeCanvas}>
                   <Trash2 size={15} />
                   <span>删除画布</span>
-                </button>
+                </Button>
               </div>
 
               <section className="canvasConnectionList">
@@ -1371,9 +1372,9 @@ function App() {
                   return (
                     <div key={connection.id}>
                       <span>{fromNode?.title || "节点"} → {toNode?.title || "节点"}</span>
-                      <button className="iconButton" type="button" onClick={() => removeCanvasConnection(connection.id)} title="断开">
+                      <Button size="sm" iconOnly title="断开" onClick={() => removeCanvasConnection(connection.id)}>
                         <Unlink size={14} />
-                      </button>
+                      </Button>
                     </div>
                   );
                 })}
@@ -1475,9 +1476,9 @@ function App() {
                             onChange={(event) => updateCanvasNode(node.id, { title: event.target.value })}
                             onPointerDown={(event) => event.stopPropagation()}
                           />
-                          <button className="iconButton" type="button" onClick={() => deleteCanvasNode(node.id)} title="删除节点">
+                          <Button size="sm" iconOnly title="删除节点" onClick={() => deleteCanvasNode(node.id)}>
                             <X size={14} />
-                          </button>
+                          </Button>
                         </header>
 
                         {node.type === "prompt" && (
@@ -1523,10 +1524,10 @@ function App() {
                               onPointerDown={(event) => event.stopPropagation()}
                               placeholder="参考备注"
                             />
-                            <button className="smallButton" type="button" onClick={() => void downloadItem(node.result, 0)}>
+                            <Button size="sm" onClick={() => void downloadItem(node.result, 0)}>
                               <Download size={14} />
                               <span>下载</span>
-                            </button>
+                            </Button>
                           </>
                         )}
 
@@ -1606,10 +1607,10 @@ function App() {
                               onPointerDown={(event) => event.stopPropagation()}
                               placeholder="补充提示词"
                             />
-                            <button className="generateButton" type="button" onClick={() => void generateCanvasNode(node.id)}>
+                            <Button size="md" tone="primary" onClick={() => void generateCanvasNode(node.id)}>
                               {nodeTasks.length > 0 ? <Loader2 className="spin" size={15} /> : <Play size={15} />}
                               <span>生成输出</span>
-                            </button>
+                            </Button>
                             {nodeTasks.map((task) => (
                               <small className="canvasTaskLine" key={task.id}>{task.taskLabel || "任务"} · <ElapsedTimer startedAt={task.startedAt} /> · {task.modelLabel}</small>
                             ))}
@@ -1637,10 +1638,10 @@ function App() {
                                 </button>
                               ))}
                             </div>
-                            <button className="smallButton" type="button" onClick={() => void copyText(node.prompt, "提示词已复制")}>
+                            <Button size="sm" onClick={() => void copyText(node.prompt, "提示词已复制")}>
                               <Copy size={14} />
                               <span>复制提示词</span>
-                            </button>
+                            </Button>
                             {node.generationMs && <small className="canvasTaskLine">用时 {formatMs(node.generationMs)}</small>}
                           </div>
                         )}
@@ -1775,9 +1776,9 @@ function App() {
                 <h2>指定文件夹</h2>
                 <span>生成图片将保存到这个目录</span>
               </div>
-              <button className="iconButton" type="button" onClick={() => setIsDirectoryModalOpen(false)} aria-label="关闭">
+              <Button size="sm" iconOnly aria-label="关闭" onClick={() => setIsDirectoryModalOpen(false)}>
                 <X size={18} />
-              </button>
+              </Button>
             </header>
             <label className="modalField">
               <span><FolderOpen size={15} /> 保存目录</span>
@@ -1794,8 +1795,8 @@ function App() {
             </label>
             <footer className="directoryModalActions">
               <div>
-                <button className="smallButton" type="button" onClick={() => setIsDirectoryModalOpen(false)}>取消</button>
-                <button className="generateButton" type="button" onClick={() => void confirmSaveDirectory()}>确定</button>
+                <Button size="sm" onClick={() => setIsDirectoryModalOpen(false)}>取消</Button>
+                <Button size="md" tone="primary" onClick={() => void confirmSaveDirectory()}>确定</Button>
               </div>
             </footer>
           </section>
@@ -1810,9 +1811,9 @@ function App() {
                 <h2>加载详情预设</h2>
                 <span>恢复一键详情/主图的参数与文案</span>
               </div>
-              <button className="iconButton" type="button" onClick={() => detailApi.setIsDetailPresetOpen(false)} aria-label="关闭">
+              <Button size="sm" iconOnly aria-label="关闭" onClick={() => detailApi.setIsDetailPresetOpen(false)}>
                 <X size={18} />
-              </button>
+              </Button>
             </header>
             <div className="detailPresetList">
               {detailApi.detailPresets.map((preset) => (
@@ -1821,9 +1822,9 @@ function App() {
                     <strong>{preset.name}</strong>
                     <span>{new Date(preset.createdAt).toLocaleString("zh-CN", { hour12: false })}</span>
                   </button>
-                  <button className="iconButton" type="button" onClick={() => detailApi.deleteDetailPreset(preset.id)} title="删除预设">
+                  <Button size="sm" iconOnly title="删除预设" onClick={() => detailApi.deleteDetailPreset(preset.id)}>
                     <Trash2 size={15} />
-                  </button>
+                  </Button>
                 </article>
               ))}
               {detailApi.detailPresets.length === 0 && <p className="promptEmpty">还没有保存过详情预设</p>}
@@ -1864,9 +1865,9 @@ function App() {
                   <Download size={15} />
                   <span>下载长图</span>
                 </button>
-                <button className="iconButton" type="button" onClick={detailApi.closeStitchPreview} aria-label="关闭">
+                <Button size="sm" iconOnly aria-label="关闭" onClick={detailApi.closeStitchPreview}>
                   <X size={18} />
-                </button>
+                </Button>
               </div>
             </header>
             <div
@@ -1933,9 +1934,9 @@ function App() {
                 <h2>使用图预览</h2>
                 <span>{referencePreview.items[referencePreview.index]?.name || `参考图 ${referencePreview.index + 1}`} · {referencePreview.index + 1}/{referencePreview.items.length}</span>
               </div>
-              <button className="iconButton" type="button" onClick={closeReferencePreview} aria-label="关闭">
+              <Button size="sm" iconOnly aria-label="关闭" onClick={closeReferencePreview}>
                 <X size={18} />
-              </button>
+              </Button>
             </header>
             <div className="previewImageFrame referencePreviewFrame">
               {referencePreview.items.length > 1 && (
@@ -1967,9 +1968,9 @@ function App() {
                 <h2>上传图片预览</h2>
                 <span>{uploadPreview.name} · {fileSize(uploadPreview.size)}</span>
               </div>
-              <button className="iconButton" type="button" onClick={closeUploadPreview} aria-label="关闭">
+              <Button size="sm" iconOnly aria-label="关闭" onClick={closeUploadPreview}>
                 <X size={18} />
-              </button>
+              </Button>
             </header>
             <div className="previewImageFrame uploadPreviewFrame" onMouseDown={closeUploadPreview} title="单击关闭">
               <img
@@ -1991,9 +1992,9 @@ function App() {
                 <h2>图片预览</h2>
                 <span>{previewResult.modelLabel} · {previewResult.imageSize} · {previewResult.aspectRatio}</span>
               </div>
-              <button className="iconButton" type="button" onClick={closePreview} aria-label="关闭">
+              <Button size="sm" iconOnly aria-label="关闭" onClick={closePreview}>
                 <X size={18} />
-              </button>
+              </Button>
             </header>
             <div
               className="previewImageFrame"

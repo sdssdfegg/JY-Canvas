@@ -24,6 +24,7 @@ import { imageBitmapFromFile, isImageFile } from "./shared/image-input.js";
 // （main.jsx / outfit-workflow.jsx 早已 import 它）；4 个调用点全部只"画到 canvas"，消费方式不变。
 import { imageBitmapFromDataUrl } from "./shared/local-edit-mask.js";
 import { preventFileDropNavigation } from "./shared/dom-actions.js";
+import { Button } from "./shared/ui/Button";
 // 2026-10-16 · P6-6：顶部的 11 个纯函数 helpers 已逐字搬进 features/image-editor/image-editor-helpers.js。
 // 随迁的私有常量：EDITOR_DB_NAME / EDITOR_STORE_NAME / EDITOR_MAX_WORK_SIDE（仅 helpers 使用）；
 // 下面留在本文件的 5 个常量父组件体内仍有引用点，故不随迁。
@@ -799,18 +800,18 @@ export default function ImageEditorPanel({
               <em>{Math.round(brush.opacity)}%</em>
             </label>
             <div className="imageEditorActionRow">
-              <button className="smallButton" type="button" onClick={undo} disabled={undoDepth === 0} title="撤销">
+              <Button size="sm" onClick={undo} disabled={undoDepth === 0} title="撤销">
                 <RotateCcw size={14} />
                 <span>撤销</span>
-              </button>
-              <button className="smallButton" type="button" onClick={redo} disabled={redoDepth === 0} title="重做">
+              </Button>
+              <Button size="sm" onClick={redo} disabled={redoDepth === 0} title="重做">
                 <RefreshCw size={14} />
                 <span>重做</span>
-              </button>
-              <button className="smallButton" type="button" onClick={resetMask} disabled={!canEdit} title="重置蒙版">
+              </Button>
+              <Button size="sm" onClick={resetMask} disabled={!canEdit} title="重置蒙版">
                 <Eraser size={14} />
                 <span>重置</span>
-              </button>
+              </Button>
             </div>
           </section>
 
@@ -842,31 +843,31 @@ export default function ImageEditorPanel({
               <em>{Number(transform.rotation).toFixed(1)}°</em>
             </label>
             <div className="imageEditorActionRow">
-              <button className="smallButton" type="button" onClick={resetOverlay} disabled={!overlayFile} title="上层居中">
+              <Button size="sm" onClick={resetOverlay} disabled={!overlayFile} title="上层居中">
                 <Maximize2 size={14} />
                 <span>居中</span>
-              </button>
-              <button className={`smallButton ${differenceMode ? "active" : ""}`} type="button" onClick={() => setDifferenceMode((value) => !value)} disabled={!canEdit} title="差异查看">
+              </Button>
+              <Button size="sm" active={differenceMode} onClick={() => setDifferenceMode((value) => !value)} disabled={!canEdit} title="差异查看">
                 {differenceMode ? <Eye size={14} /> : <EyeOff size={14} />}
                 <span>差异</span>
-              </button>
+              </Button>
             </div>
           </section>
         </div>
 
         <footer className="imageEditorFooter">
-          <button className="smallButton" type="button" onClick={onChooseDirectory}>
+          <Button size="sm" onClick={onChooseDirectory}>
             <FolderOpen size={15} />
             <span>指定文件夹</span>
-          </button>
-          <button className="smallButton" type="button" onClick={onOpenSaveDirectory}>
+          </Button>
+          <Button size="sm" onClick={onOpenSaveDirectory}>
             <FolderOpen size={15} />
             <span>打开目录</span>
-          </button>
-          <button className="generateButton" type="button" onClick={() => void exportMerged()} disabled={!baseFile || status === "exporting"}>
+          </Button>
+          <Button size="lg" tone="primary" onClick={() => void exportMerged()} disabled={!baseFile || status === "exporting"}>
             {status === "exporting" ? <RefreshCw className="spin" size={16} /> : <Download size={16} />}
             <span>合并导出</span>
-          </button>
+          </Button>
         </footer>
       </aside>
 
