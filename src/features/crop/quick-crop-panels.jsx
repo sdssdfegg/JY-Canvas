@@ -5,6 +5,7 @@ import { cropQuickReferenceViewportFile, quickReferenceOriginalFile } from "../u
 import { ratioValue } from "../local-edit/crop-rect-resize.js";
 import { clampCropTransform } from "../../shared/local-edit-geometry.js";
 import { Modal, ModalHeader } from "../../shared/ui/Modal.jsx";
+import { UploadClearButton } from "../../shared/ui/UploadClearButton";
 
 export function DetailUploadZone({
   title,
@@ -17,7 +18,8 @@ export function DetailUploadZone({
   onAddFiles,
   onRemove,
   onPreview,
-  onAssetLibrary
+  onAssetLibrary,
+  onClear
 }) {
   function onDrop(event) {
     event.preventDefault();
@@ -39,10 +41,15 @@ export function DetailUploadZone({
           <strong>{title}</strong>
           <span>{subtitle}</span>
         </div>
-        <button className="smallButton" type="button" onClick={onAssetLibrary}>
-          <Folder size={14} />
-          <span>素材库</span>
-        </button>
+        <div className="detailUploadHeaderActions">
+          <button className="smallButton" type="button" onClick={onAssetLibrary}>
+            <Folder size={14} />
+            <span>素材库</span>
+          </button>
+          {count > 0 && onClear && (
+            <UploadClearButton onClick={onClear} />
+          )}
+        </div>
       </header>
       <button className="detailDropArea" type="button" onClick={() => inputRef.current?.click()}>
         <ImageIcon size={30} />

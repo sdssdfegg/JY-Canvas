@@ -46,6 +46,7 @@ export function ReferenceRemixView({
     referenceStyleInputRef,
     addReferenceRewriteFiles,
     removeReferenceRewriteFile,
+    clearReferenceRewriteFiles,
     updateReferenceSetting,
     isReferencePromptRewriting,
     applySmartReferencePrompt,
@@ -79,6 +80,7 @@ export function ReferenceRemixView({
             onRemove={(index) => removeReferenceRewriteFile("product", index)}
             onPreview={openUploadPreview}
             onAssetLibrary={() => markDeferredFeature("素材库")}
+            onClear={() => clearReferenceRewriteFiles("product")}
           />
 
           <DetailUploadZone
@@ -96,6 +98,7 @@ export function ReferenceRemixView({
             onRemove={(index) => removeReferenceRewriteFile("style", index)}
             onPreview={openUploadPreview}
             onAssetLibrary={() => markDeferredFeature("素材库")}
+            onClear={() => clearReferenceRewriteFiles("style")}
           />
 
           <div className="detailDivider" />

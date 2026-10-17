@@ -29,6 +29,7 @@
 | `Field.jsx` | 表单项三段式：`label`(ReactNode 可含图标) + children(控件) + `hint` + `hintTone`(default/danger/success) + `as`(label/div) + `className` | 2026-10-16 建（V72）。默认 `<label>` 外壳保持点击聚焦（原 `modalField` 语义）；`as="div"` 用于"标题+说明+动作"区块（原 div 语义，避免 label 隐式关联误触）。换装设置弹窗 3 处已接入（API Key / 保存目录 / 连接测试）。 |
 | `Panel.jsx` | 版块外壳：`padding`(md 16px / lg 24px) + `tone`(default / strong) + `className`；grid 堆叠、gap=--space-4、1px 边框 + radius-lg 圆角 + 面板底 | 2026-10-17 建（V73）。替代 `.skinBlock` / `.debugBlock` 一类手写卡片容器；设置视图三分区已接入（皮肤 / 连接测试 / 数据与存储）。 |
 | `ModuleHeader.jsx` | 分区标题：`icon`(可选 lucide) + `title`(14px/500) + `subtitle`(12px muted) + `action`(右侧节点) + `divider`(默认 true 1px 分隔线) | 2026-10-17 建（V73）。替代手写 `<span><Icon/> 标题</span>`；设置视图三分区标题已接入。 |
+| `UploadClearButton.jsx` | 上传模块统一「清除」钮：`sm` 28px / `default` 中性灰、纯文字「清除」、无图标、挂在模块右上角 | 2026-10-17 建（V82）。替代换装 `UploadZone` 旧 `Trash2+清除` 危险钮与视频「清空参考」smallButton 的图标+文字堆叠溢出；详情/参考生图 `DetailUploadZone` 新增同形清除钮。size/tone 不开 prop，统一视觉防分叉；上游模块经 `onClear` 接各自清空 handler。 |
 
 | 局部编辑/裁剪控件 | 快捷和批量都有 | 后续放 `src/features/local-edit/`，公共底层放 `src/shared/` |
 

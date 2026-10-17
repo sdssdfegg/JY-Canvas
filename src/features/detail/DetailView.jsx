@@ -76,6 +76,7 @@ export function DetailView({
     updateDetailSetting,
     addDetailFiles,
     removeDetailFile,
+    clearDetailFiles,
     saveDetailPreset,
     createDetailPromptPlan,
     selectDetailResult,
@@ -109,6 +110,7 @@ export function DetailView({
             onRemove={(index) => removeDetailFile("product", index)}
             onPreview={openUploadPreview}
             onAssetLibrary={() => markDeferredFeature("素材库")}
+            onClear={() => clearDetailFiles("product")}
           />
 
           <DetailUploadZone
@@ -126,6 +128,7 @@ export function DetailView({
             onRemove={(index) => removeDetailFile("reference", index)}
             onPreview={openUploadPreview}
             onAssetLibrary={() => markDeferredFeature("素材库")}
+            onClear={() => clearDetailFiles("reference")}
           />
 
           <div className="detailPresetRow">

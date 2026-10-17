@@ -59,6 +59,7 @@ import {
 import { imageFileFromUrl, dataUrlFromBlob } from "../../shared/result-image.js";
 import { Modal, ModalHeader } from "../../shared/ui/Modal.jsx";
 import { Button } from "../../shared/ui/Button";
+import { UploadClearButton } from "../../shared/ui/UploadClearButton";
 // 与 src/features/video/video-composer.js 的 durationOptionsForVideoModel 逐字等价
 // （仅默认时长常量来源不同，但 QUICK_VIDEO_DEFAULTS 与 videoDefaults 取值完全相同），
 // 故直接复用，消除 28 组近重复里的这一对改名克隆。
@@ -852,10 +853,7 @@ export function UploadZone({
           {/* V77（用户要求·停用）：上传按钮移除（空态点击/拖入仍走 inputRef 链，有图后靠拖入 + 单张替换）；
               右上角仅保留清除钮。 */}
           {items.length > 0 && onClear && (
-            <Button size="sm" tone="danger" type="button" onClick={onClear}>
-              <Trash2 size={15} />
-              <span>清除</span>
-            </Button>
+            <UploadClearButton onClick={onClear} />
           )}
         </div>
       </header>

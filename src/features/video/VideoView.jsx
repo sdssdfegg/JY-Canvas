@@ -1,6 +1,7 @@
-import { Loader2, Download, Video, Plus, Trash2, BookOpen, Flame, Play } from "lucide-react";
+import { Loader2, Download, Video, Plus, BookOpen, Flame, Play } from "lucide-react";
 import { StableTextarea } from "../../shared/ui/stable-textarea.jsx";
 import { ElapsedTimer } from "../../shared/ui/elapsed-timer.jsx";
+import { UploadClearButton } from "../../shared/ui/UploadClearButton";
 import { formatMs } from "../../lib/format/index.js";
 
 // 视频面板视图（V58 从 src/main.jsx 迁出）。纯 JSX，无状态。
@@ -131,10 +132,7 @@ export function VideoView({
             placeholder="图片参考 URL，可留空"
           />
           {(videoReferenceFile || videoSettings.imageUrl) && (
-            <button className="smallButton" type="button" onClick={() => { setVideoReferenceFile(null); updateVideoSetting("imageUrl", ""); }}>
-              <Trash2 size={15} />
-              <span>清空参考</span>
-            </button>
+            <UploadClearButton onClick={() => { setVideoReferenceFile(null); updateVideoSetting("imageUrl", ""); }} />
           )}
         </div>
 
