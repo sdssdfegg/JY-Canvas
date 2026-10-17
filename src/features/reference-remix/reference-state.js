@@ -54,7 +54,8 @@ export function useReferenceState({
   referenceProductFiles,
   referenceStyleFiles,
   addReferenceRewriteFiles,
-  removeReferenceRewriteFile
+  removeReferenceRewriteFile,
+  clearReferenceRewriteFiles
 }) {
   const [referenceSettings, setReferenceSettings] = useState(referenceDefaults);
   const [referenceTasks, setReferenceTasks] = useState([]);
@@ -377,6 +378,7 @@ export function useReferenceState({
     generateReferenceRemix,
     resetReferenceState,
     addReferenceRewriteFiles,
-    removeReferenceRewriteFile
+    removeReferenceRewriteFile,
+    clearReferenceRewriteFiles
   };
 }

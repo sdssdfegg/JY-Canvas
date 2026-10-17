@@ -973,6 +973,7 @@ function App() {
   const {
     addReferenceRewriteFiles,
     removeReferenceRewriteFile,
+    clearReferenceRewriteFiles,
     appendReferenceFiles,
     moveReferenceFile,
     onPickFiles,
@@ -1079,7 +1080,8 @@ function App() {
     referenceProductFiles,
     referenceStyleFiles,
     addReferenceRewriteFiles,
-    removeReferenceRewriteFile
+    removeReferenceRewriteFile,
+    clearReferenceRewriteFiles
   });
 
   // 2026-10-14（V60 浏览器实测时发现）：V58 抽 useVideoState 时把这段派生值留在了 videoApi

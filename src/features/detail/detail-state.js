@@ -256,6 +256,12 @@ export function useDetailState({
     removeFilesByRole(role, index, setDetailProductFiles, setDetailReferenceFiles);
   }
 
+  // V82（上传模块清除按钮统一）：一键清空某 role 全部文件（区别于按 index 删除）。
+  function clearDetailFiles(role) {
+    if (role === "product") setDetailProductFiles([]);
+    else setDetailReferenceFiles([]);
+  }
+
   const {
     stitchDetailGroupBlob,
     detailResultItemsForGroup,
@@ -609,6 +615,7 @@ export function useDetailState({
     updateDetailSetting,
     addDetailFiles,
     removeDetailFile,
+    clearDetailFiles,
     selectDetailResult,
     beginDetailScreenDrag,
     endDetailScreenDrag,

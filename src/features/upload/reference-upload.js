@@ -53,6 +53,12 @@ export function createReferenceUpload(deps) {
     removeFilesByRole(role, index, setReferenceProductFiles, setReferenceStyleFiles);
   }
 
+  // V82（上传模块清除按钮统一）：一键清空某 role 全部文件（区别于按 index 删除）。
+  function clearReferenceRewriteFiles(role) {
+    if (role === "product") setReferenceProductFiles([]);
+    else setReferenceStyleFiles([]);
+  }
+
   function appendReferenceFiles(fileList, options = {}) {
     const picked = imageFilesFromList(fileList);
     if (picked.length === 0) return;
@@ -212,6 +218,7 @@ export function createReferenceUpload(deps) {
   return {
     addReferenceRewriteFiles,
     removeReferenceRewriteFile,
+    clearReferenceRewriteFiles,
     appendReferenceFiles,
     replaceReferenceFiles,
     insertReferenceFiles,
