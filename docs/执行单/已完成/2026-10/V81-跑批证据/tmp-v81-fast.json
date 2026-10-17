@@ -1,0 +1,30 @@
+▶ run-node-check … 通过 (781 ms)
+▶ image-host-allowlist-check … 通过 (16857 ms)  ok=true
+▶ shared-ui-duplication-check … 通过 (419 ms)  ok=true
+▶ docs-path-check … 通过 (408 ms)  ok=true
+▶ frontend-duplication-check … 通过 (533 ms)  ok=true
+▶ api-layering-check … 通过 (395 ms)  ok=true
+▶ dead-export-check … 通过 (595 ms)  ok=true
+▶ size-ratchet-check … 通过 (402 ms)  ok=true
+▶ dependency-direction-check … 通过 (372 ms)  ok=true
+▶ bundle-budget-check … 通过 (328 ms)  ok=true
+▶ source-hygiene-check … 通过 (466 ms)  ok=true
+▶ main-render-tdz-check … 通过 (399 ms)  ok=true
+▶ runtime-config-baseline-check … 通过 (333 ms)
+▶ auth-key-parity-check … 通过 (331 ms)  ok=true
+▶ state-singleton-check … 通过 (416 ms)  ok=true
+▶ server-duplication-check … 通过 (349 ms)  ok=true
+▶ app-paths-check … 通过 (315 ms)
+▶ import-path-check … 通过 (380 ms)  ok=true
+▶ canvas-asset-check … 通过 (3468 ms)  ok=true
+▶ history-repair-check … 通过 (8924 ms)  ok=true
+▶ history-integrity-check … 通过 (352 ms)  ok=true
+▶ local-edit-ratio-check … 通过 (316 ms)  ok=true
+▶ local-edit-base-file-check … 通过 (26327 ms)  passed 36/36
+▶ resize-long-edge-check … 通过 (37956 ms)  ok=true
+▶ generation-error-check … 通过 (326 ms)  ok=true
+▶ reference-gate-check … 通过 (321 ms)  失败 0 / 共 62 项
+▶ reference-policy-verify … 通过 (342 ms)
+▶ batch-prompt-passthrough-check … 通过 (19347 ms)  ok=true
+▶ connection-test-check … 通过 (19182 ms)  ok=true
+▶ http-mock-check … 

@@ -1,0 +1,60 @@
+▶ run-node-check … 通过 (772 ms)
+▶ image-host-allowlist-check … 通过 (15264 ms)  ok=true
+▶ shared-ui-duplication-check … 通过 (420 ms)  ok=true
+▶ docs-path-check … 通过 (472 ms)  ok=true
+▶ frontend-duplication-check … 通过 (536 ms)  ok=true
+▶ api-layering-check … 通过 (370 ms)  ok=true
+▶ dead-export-check … 通过 (583 ms)  ok=true
+▶ size-ratchet-check … 通过 (400 ms)  ok=true
+▶ dependency-direction-check … 通过 (367 ms)  ok=true
+▶ bundle-budget-check … 通过 (327 ms)  ok=true
+▶ source-hygiene-check … 通过 (447 ms)  ok=true
+▶ main-render-tdz-check … 通过 (389 ms)  ok=true
+▶ runtime-config-baseline-check … 通过 (312 ms)
+▶ auth-key-parity-check … 通过 (309 ms)  ok=true
+▶ state-singleton-check … 通过 (415 ms)  ok=true
+▶ server-duplication-check … 通过 (344 ms)  ok=true
+▶ app-paths-check … 通过 (352 ms)
+▶ import-path-check … 通过 (357 ms)  ok=true
+▶ canvas-asset-check … 通过 (3390 ms)  ok=true
+▶ history-repair-check … 通过 (8572 ms)  ok=true
+▶ history-integrity-check … 通过 (339 ms)  ok=true
+▶ local-edit-ratio-check … 通过 (352 ms)  ok=true
+▶ local-edit-base-file-check … 通过 (32088 ms)  passed 36/36
+▶ resize-long-edge-check … 通过 (36447 ms)  ok=true
+▶ generation-error-check … 通过 (314 ms)  ok=true
+▶ reference-gate-check … 通过 (337 ms)  失败 0 / 共 62 项
+▶ reference-policy-verify … 通过 (346 ms)
+▶ batch-prompt-passthrough-check … 通过 (15777 ms)  ok=true
+▶ connection-test-check … 通过 (18804 ms)  ok=true
+▶ http-mock-check … 通过 (557361 ms)  失败 0 / 共 60 项
+▶ generation-failure-path-check … 通过 (278799 ms)  ok=true
+▶ outfit-defer-autosave-check … 通过 (57615 ms)  ok=true
+▶ pro-wire-check … 通过 (151537 ms)  ok=true
+▶ error-boundary-check … 通过 (10502 ms)  ok=true
+▶ tt25-subdirect-wire-check … 通过 (480 ms)
+▶ routing-check … 通过 (656 ms)  失败 0 / 共 192 项
+▶ ui-duplication-check … 通过 (524 ms)  失败 0 / 共 60 项
+▶ modal-shell-check … 通过 (54879 ms)  ok=true
+▶ composer-stable-height-check … 失败 (30720 ms)  ok=false
+  失败详情（末 14 行）：
+          "detail": "36px+占位"
+        },
+        {
+          "name": "CSS：.outfitIntentBar min-height 且含 --placeholder 不可见占位",
+          "pass": true,
+          "detail": "32px+占位"
+        },
+        {
+          "name": "浏览器探针未执行",
+          "pass": false,
+          "detail": "浏览器回执无法解析（长度 1054）"
+        }
+      ]
+    }
+▶ quickgen-prompt-passthrough-check … 通过 (343 ms)  失败 0 / 共 29 项
+▶ outfit-intent-check … 通过 (357 ms)  ok=true
+▶ outfit-intent-request-check … 通过 (570832 ms)  ok=true
+▶ white-refine-split-check … 通过 (21488 ms)  ok=true
+▶ retouch-intent-check … 通过 (302 ms)  ok=true
+▶ retouch-intent-request-check … 
