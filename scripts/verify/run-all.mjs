@@ -9,6 +9,8 @@
 //   node scripts/verify/run-all.mjs --skip-launcher # 跳过启动器检查（会起子进程，较慢）
 //   node scripts/verify/run-all.mjs --json          # 输出机器可读结果
 //   node scripts/verify/run-all.mjs --list          # 只打印这次会跑哪些脚本，不执行
+//   node scripts/verify/run-all.mjs --jobs 4        # 并发调度（默认 1=纯串行；仅互不踩共享资源的脚本并发，
+//                                                   #   ROOT/data 与端口撞车组仍串行，判定语义零变化）
 //   node scripts/verify/run-all.mjs --fast          # 只跑纯源码/逻辑快速子集（给提交前钩子用，
 //                                                   #   避开需起服务/VAE/网络 mock 的慢脚本）
 //
@@ -237,6 +239,57 @@ const TOOLS = [
   "block-clone-advisory"
 ];
 
+/**
+ * 并发调度分类（V81）：哪些脚本必须串行、哪些可进并发池。
+ *
+ * 调研（§3.1）结论 —— 全量套件的共享可变资源只有一处：`ROOT/data/history.json`（以及浏览器类共用的 tabbit profile）。
+ *   - 7 支浏览器脚本（tabbit）跑的是真实 app（不能带沙盒 root，Vite 的 root 就是它），**真实写入** `ROOT/data/history.json` + 共用单一 tabbit profile（开关态跨次残留）；
+ *   - `pro-wire-check` / `outfit-defer-autosave-check` / `history-repair-check` 各自起 `SANDBOX_ROOT` 服务（写**沙盒** data，不碰 `ROOT/data`），
+ *     但都读并断言「真实 `ROOT/data/history.json` 未被改动」；`history-integrity-check` 只读并校验真实 data 完好。
+ *   - 因此这 4 支（读/断言真实 data 不变）+ 7 支浏览器（真实写 data）必须同一时刻最多 1 支在跑，否则断言会被彼此的写入误伤 / 互相污染。
+ * 因此「触碰 ROOT/data 的脚本」必须同一时刻最多跑 1 支 —— 这一条同时覆盖了
+ * §2 的「tabbit 共享 profile 互相污染」与 §3.1 的「data/ 写」两个硬约束，合称为 `rootdata` 串行 lane（容量 1）。
+ *
+ * 其余脚本互不踩共享资源，可进并发池（全局并发度 = --jobs）：
+ *   - 纯源码/纯逻辑扫描（无端口、无 data 写）；
+ *   - 走 `SANDBOX_ROOT`（JINGYIN_RELEASE_ROOT=SANDBOX_ROOT）的端口类：端口按脚本唯一分配、
+ *     vite 预构建缓存按端口分目录，与 `ROOT/data` 完全隔离。
+ *
+ * 另设端口撞车组（COLLISION_GROUPS）：同组脚本占用同一端口，组内同一时刻最多 1 支（容量见 SCHED_RESOURCES）。
+ * 已知唯一撞车为 8888（outfit-intent-request 与 outfit-defer-autosave 共用）——outfit-intent-request 并不在
+ * rootdata lane（它走 SANDBOX_ROOT 端口隔离），所以必须由撞车组单独约束，否则 --jobs 下两者可同时占用
+ * 8888 导致其一起服失败；本组在 SCHED_RESOURCES 里容量为 1，与 rootdata（outfit-defer-autosave 已在其中）共同兜底。
+ */
+const ROOT_DATA_SCRIPTS = new Set([
+  // 浏览器类（tabbit 单一 profile + 真实 app → ROOT/data）
+  "composer-stable-height-check",
+  "detail-stylepack-off-browser-check",
+  "error-boundary-check",
+  "local-edit-base-file-check",
+  "modal-shell-check",
+  "resize-long-edge-check",
+  "retouch-frontback-check",
+  // 服务端：各自起 SANDBOX_ROOT 服务（写沙盒 data），但都读/断言真实 ROOT/data/history.json 未被改；history-integrity 只读校验
+  "pro-wire-check",
+  "outfit-defer-autosave-check",
+  "history-integrity-check",
+  "history-repair-check"
+]);
+const COLLISION_GROUPS = {
+  "8888": ["outfit-intent-request-check", "outfit-defer-autosave-check"]
+};
+/** 某脚本占用的调度资源（key → 容量见 SCHED_RESOURCES）。空数组 = 仅受全局 --jobs 限制。 */
+function resourcesFor(name) {
+  const r = [];
+  if (ROOT_DATA_SCRIPTS.has(name)) r.push("rootdata");
+  for (const [key, members] of Object.entries(COLLISION_GROUPS)) {
+    if (members.includes(name)) r.push(`group:${key}`);
+  }
+  return r;
+}
+/** 串行 lane / 撞车组的容量（其余资源容量 = 全局 --jobs）。 */
+const SCHED_RESOURCES = { rootdata: 1, "group:8888": 1 };
+
 /** 可直接执行的脚本（.mjs）；.js/.jsx 是浏览器侧模块，由脚本内部或手工加载。 */
 function discoverRunnable() {
   if (!existsSync(VERIFY_DIR)) return [];
@@ -275,6 +328,21 @@ const skipLauncher = args.includes("--skip-launcher");
 const fast = args.includes("--fast");
 const asJson = args.includes("--json");
 const listOnly = args.includes("--list");
+
+// --jobs N：并发调度的最大全局并发度（V81）。默认 1 = 与改造前纯串行逐字节一致；
+// N>1 时把互不踩共享资源的脚本放进并发池，ROOT/data 与端口撞车组各自串行（见 SCHED_RESOURCES / COLLISION_GROUPS）。
+const jobsIndex = args.indexOf("--jobs");
+let jobs = 1;
+if (jobsIndex > -1) {
+  const raw = String(args[jobsIndex + 1] || "").trim();
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isInteger(parsed) && parsed >= 1) {
+    jobs = parsed;
+  } else {
+    console.error("--jobs 后面要跟一个 ≥1 的整数，例如 --jobs 4");
+    process.exit(2);
+  }
+}
 
 if (onlyIndex > -1 && !only) {
   console.error("--only 后面要跟名字片段，例如 --only history");
@@ -342,17 +410,90 @@ function summarize(name, stdout, stderr) {
   return "";
 }
 
+/**
+ * 资源受限的并发调度（--jobs N，N>1）：在「判定语义零变化、输出顺序一致、默认串行行为不变」前提下，
+ * 把互不踩共享资源的脚本放进并发池（全局并发度 = jobs），把 `rootdata`（触碰 ROOT/data，含浏览器类与
+ * 数据断言类）与端口撞车组各自放进容量为 1 的串行 lane。
+ *
+ * 资源模型：每个脚本声明它占用的资源（见 resourcesFor）；某资源当前在飞的脚本数达到其容量即阻塞新启动。
+ * 全局在飞数受 jobs 限制。N=1 时全局容量 1 → 退化为纯串行。
+ * 不会死锁：并发池脚本只受全局容量约束，任何在飞脚本完成都会释放全局槽，池脚本即可补位。
+ */
+async function runPooled(names, jobs) {
+  const tasks = names.map((name, index) => ({ index, name, resources: resourcesFor(name) }));
+  const remaining = tasks.slice();
+  const inFlight = new Map();
+  const out = new Array(tasks.length);
+  const active = { total: 0, res: new Map() };
+
+  const canStart = (task) => {
+    if (active.total >= jobs) return false;
+    for (const res of task.resources) {
+      const cap = SCHED_RESOURCES[res] ?? Number.POSITIVE_INFINITY;
+      if ((active.res.get(res) || 0) >= cap) return false;
+    }
+    return true;
+  };
+  const start = (task) => {
+    active.total += 1;
+    for (const res of task.resources) active.res.set(res, (active.res.get(res) || 0) + 1);
+    process.stderr.write(`▶ ${task.name} … `);
+    const promise = runOne(task.name).then((result) => {
+      active.total -= 1;
+      for (const res of task.resources) active.res.set(res, (active.res.get(res) || 0) - 1);
+      out[task.index] = result;
+      inFlight.delete(task);
+      process.stderr.write(`${result.ok ? "通过" : "失败"} (${result.ms} ms)\n`);
+      return result;
+    });
+    inFlight.set(task, promise);
+    return promise;
+  };
+
+  while (remaining.length > 0 || inFlight.size > 0) {
+    for (let i = 0; i < remaining.length; ) {
+      if (canStart(remaining[i])) {
+        const task = remaining[i];
+        remaining.splice(i, 1);
+        start(task);
+      } else {
+        i += 1;
+      }
+    }
+    if (inFlight.size > 0) {
+      await Promise.race(inFlight.values());
+    } else {
+      break; // 无在飞且仍有 remaining —— 仅防御性兜底（正常不会触发）
+    }
+  }
+  return out;
+}
+
 const results = [];
 const overallStart = Date.now();
-for (const name of scripts) {
-  process.stdout.write(`▶ ${name} … `);
-  // 顺序执行便于定位失败点（且部分脚本要占用端口，不能并发）
-  const result = await runOne(name);
-  results.push(result);
-  process.stdout.write(`${result.ok ? "通过" : "失败"} (${result.ms} ms)${result.summary ? "  " + result.summary : ""}\n`);
-  if (!result.ok) {
-    const tail = `${result.stdout}\n${result.stderr}`.split(/\r?\n/).filter(Boolean).slice(-14);
-    process.stdout.write(`  失败详情（末 14 行）：\n${tail.map((line) => "    " + line).join("\n")}\n`);
+if (jobs > 1) {
+  // 并发调度：结果表仍按原 ORDER 顺序呈现（与串行一致），实时进度走 stderr 不污染 stdout/--json。
+  results.push(...await runPooled(scripts, jobs));
+  for (const result of results) {
+    process.stdout.write(`${result.name}: ${result.ok ? "通过" : "失败"} (${result.ms} ms)${result.summary ? "  " + result.summary : ""}\n`);
+  }
+  for (const result of results) {
+    if (!result.ok) {
+      const tail = `${result.stdout}\n${result.stderr}`.split(/\r?\n/).filter(Boolean).slice(-14);
+      process.stdout.write(`  失败详情（${result.name}，末 14 行）：\n${tail.map((line) => "    " + line).join("\n")}\n`);
+    }
+  }
+} else {
+  for (const name of scripts) {
+    process.stdout.write(`▶ ${name} … `);
+    // 顺序执行便于定位失败点（且部分脚本要占用端口，不能并发）
+    const result = await runOne(name);
+    results.push(result);
+    process.stdout.write(`${result.ok ? "通过" : "失败"} (${result.ms} ms)${result.summary ? "  " + result.summary : ""}\n`);
+    if (!result.ok) {
+      const tail = `${result.stdout}\n${result.stderr}`.split(/\r?\n/).filter(Boolean).slice(-14);
+      process.stdout.write(`  失败详情（末 14 行）：\n${tail.map((line) => "    " + line).join("\n")}\n`);
+    }
   }
 }
 
