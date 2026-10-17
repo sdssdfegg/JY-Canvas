@@ -4,6 +4,7 @@ import { DetailUploadZone } from "../crop/quick-crop-panels.jsx";
 import ChannelPicker from "../../shared/ui/ChannelPicker.jsx";
 import { CachedImage } from "../../shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "../../shared/ui/reference-thumb-tray.jsx";
+import { Button } from "../../shared/ui/Button";
 import { imageSourceFromResult } from "../../shared/models.js";
 import { formatMs } from "../../lib/format/index.js";
 
@@ -132,14 +133,14 @@ export function DetailView({
           />
 
           <div className="detailPresetRow">
-            <button className="smallButton" type="button" onClick={saveDetailPreset}>
+            <Button size="sm" type="button" onClick={saveDetailPreset}>
               <Save size={15} />
               <span>保存预设</span>
-            </button>
-            <button className="smallButton" type="button" onClick={() => setIsDetailPresetOpen(true)}>
+            </Button>
+            <Button size="sm" type="button" onClick={() => setIsDetailPresetOpen(true)}>
               <FolderOpen size={15} />
               <span>加载预设</span>
-            </button>
+            </Button>
           </div>
 
           <div className="detailDivider" />
@@ -312,15 +313,16 @@ export function DetailView({
         </div>
 
         <div className="detailPanelFooter">
-          <button
-            className="generateButton"
+          <Button
+            size="md"
+            tone="primary"
             type="button"
             disabled={detailStatus === "planning"}
             onClick={() => void createDetailPromptPlan()}
           >
             {detailStatus === "planning" ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
             <span>{detailStatus === "planning" ? "分析中..." : "生成分段提示词"}</span>
-          </button>
+          </Button>
         </div>
       </aside>
 
@@ -380,30 +382,31 @@ export function DetailView({
                       </span>
                     </div>
                     <div className="detailGroupActions">
-                      <button
-                        className="smallButton"
+                      <Button
+                        size="sm"
                         type="button"
                         onClick={() => markDeferredFeature("切换模型")}
                       >
                         <Settings size={14} />
                         <span>切换模型</span>
-                      </button>
-                      <button className="smallButton" type="button" onClick={() => downloadDetailGroup(activeDetailGroup)}>
+                      </Button>
+                      <Button size="sm" type="button" onClick={() => downloadDetailGroup(activeDetailGroup)}>
                         <Download size={14} />
                         <span>下载全部</span>
-                      </button>
-                      <button className="smallButton" type="button" disabled={selectedCount === 0} onClick={() => downloadDetailGroup(activeDetailGroup, true)}>
+                      </Button>
+                      <Button size="sm" type="button" disabled={selectedCount === 0} onClick={() => downloadDetailGroup(activeDetailGroup, true)}>
                         <Download size={14} />
                         <span>下载选中</span>
-                      </button>
-                      <button
-                        className="generateButton"
+                      </Button>
+                      <Button
+                        size="md"
+                        tone="primary"
                         type="button"
                         onClick={() => void generateDetailGroup(activeDetailGroup.id)}
                       >
                         {detailRunningCount > 0 ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
                         <span>批量生成</span>
-                      </button>
+                      </Button>
                     </div>
                   </header>
 
@@ -436,23 +439,23 @@ export function DetailView({
                             onChange={(event) => updateDetailPrompt(activeDetailGroup.id, prompt.screen, { text: event.target.value })}
                           />
                           <div className="detailPromptActions">
-                            <button className="smallButton" type="button" onClick={() => void copyText(prompt.text, `第${prompt.screen}屏提示词已复制`)}>
+                            <Button size="sm" type="button" onClick={() => void copyText(prompt.text, `第${prompt.screen}屏提示词已复制`)}>
                               <Copy size={14} />
                               <span>复制</span>
-                            </button>
-                            <button className="smallButton" type="button" onClick={() => applyDetailPromptToQuickgen(prompt)}>
+                            </Button>
+                            <Button size="sm" type="button" onClick={() => applyDetailPromptToQuickgen(prompt)}>
                               <Sparkles size={14} />
                               <span>推送</span>
-                            </button>
-                            <button
-                              className="smallButton"
+                            </Button>
+                            <Button
+                              size="sm"
                               type="button"
                               disabled={prompt.status === "running"}
                               onClick={() => void generateDetailPrompt(activeDetailGroup, prompt, prompt.screen)}
                             >
                               {prompt.status === "running" ? <Loader2 className="spin" size={14} /> : <Play size={14} />}
                               <span>生成</span>
-                            </button>
+                            </Button>
                           </div>
                           {(prompt.generationMs || prompt.status === "failed") && (
                             <div className="detailPromptStatus">
@@ -553,9 +556,9 @@ export function DetailView({
                 <strong>生图信息</strong>
                 <span>第{detailInfoItem.prompt.screen}屏 · {detailInfoItem.prompt.title}</span>
               </div>
-              <button className="iconButton" type="button" onClick={() => setDetailInfoSelection(null)} aria-label="关闭">
+              <Button size="sm" iconOnly aria-label="关闭" type="button" onClick={() => setDetailInfoSelection(null)}>
                 <X size={16} />
-              </button>
+              </Button>
             </header>
             <button
               className="detailInfoPreview"
@@ -587,18 +590,18 @@ export function DetailView({
               <textarea value={detailInfoItem.prompt.text} readOnly />
             </label>
             <div className="detailInfoActions">
-              <button className="smallButton" type="button" onClick={() => void copyText(detailInfoItem.prompt.text, "提示词已复制")}>
+              <Button size="sm" type="button" onClick={() => void copyText(detailInfoItem.prompt.text, "提示词已复制")}>
                 <Copy size={14} />
                 <span>复制提示词</span>
-              </button>
-              <button className="smallButton" type="button" onClick={() => rerunResult(detailInfoItem.result, 1)}>
+              </Button>
+              <Button size="sm" type="button" onClick={() => rerunResult(detailInfoItem.result, 1)}>
                 <RotateCcw size={14} />
                 <span>重刷</span>
-              </button>
-              <button className="smallButton" type="button" onClick={() => void downloadItem(detailInfoItem.result, 0)}>
+              </Button>
+              <Button size="sm" type="button" onClick={() => void downloadItem(detailInfoItem.result, 0)}>
                 <Download size={14} />
                 <span>下载</span>
-              </button>
+              </Button>
             </div>
           </aside>
         )}

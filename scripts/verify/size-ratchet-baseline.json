@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-17",
-  "reason": "V82 上传模块清除按钮统一接线净增行",
+  "reason": "V84 详情旧按钮类迁移接线净增行",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -26,7 +26,7 @@
     "src/features/crop/quick-crop-panels.jsx": 249,
     "src/features/detail/detail-group.js": 391,
     "src/features/detail/detail-state.js": 654,
-    "src/features/detail/DetailView.jsx": 615,
+    "src/features/detail/DetailView.jsx": 618,
     "src/features/image-editor/image-editor-helpers.js": 169,
     "src/features/local-edit/crop-drag.js": 117,
     "src/features/local-edit/crop-rect-resize.js": 199,
@@ -135,7 +135,7 @@
     "src/features/detail/detail-state.js::createDetailPromptPlan": 50,
     "src/features/detail/detail-state.js::generateDetailPrompt": 93,
     "src/features/detail/detail-state.js::useDetailState": 543,
-    "src/features/detail/DetailView.jsx::DetailView": 598,
+    "src/features/detail/DetailView.jsx::DetailView": 600,
     "src/features/local-edit/LocalEditBrushTools.jsx::LocalEditBrushTools": 71,
     "src/features/local-edit/LocalEditModal.jsx::LocalEditModal": 336,
     "src/features/main-app/main-handlers.js::useMainHandlers": 546,
