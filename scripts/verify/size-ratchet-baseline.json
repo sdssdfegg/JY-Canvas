@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-17",
-  "reason": "V90 接入 TaskBadge 共享组件，outfit-panels/OutfitWorkbench 各补 1 行 import（§3.2 强制，不可避）",
+  "reason": "V91 DetailUploadZone 从 quick-crop-panels.jsx 归位 shared/ui，旧路径函数级基线条目失效，刷新",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -23,7 +23,7 @@
     "src/features/canvas/canvas-actions.js": 313,
     "src/features/canvas/canvas-generation-handlers.js": 731,
     "src/features/canvas/canvas-graph.js": 102,
-    "src/features/crop/quick-crop-panels.jsx": 250,
+    "src/features/crop/quick-crop-panels.jsx": 169,
     "src/features/detail/detail-group.js": 391,
     "src/features/detail/detail-state.js": 654,
     "src/features/detail/DetailView.jsx": 618,
@@ -108,6 +108,7 @@
     "src/shared/ui/Button.jsx": 53,
     "src/shared/ui/cached-image.jsx": 223,
     "src/shared/ui/ChannelPicker.jsx": 110,
+    "src/shared/ui/detail-upload-zone.jsx": 84,
     "src/shared/ui/elapsed-timer.jsx": 20,
     "src/shared/ui/Field.jsx": 21,
     "src/shared/ui/Modal.jsx": 45,
@@ -130,7 +131,6 @@
     "src/features/canvas/canvas-generation-handlers.js::optimizePrompt": 60,
     "src/features/canvas/canvas-generation-handlers.js::runCanvasImageRequest": 81,
     "src/features/canvas/canvas-generation-handlers.js::useCanvasGenerationHandlers": 631,
-    "src/features/crop/quick-crop-panels.jsx::DetailUploadZone": 79,
     "src/features/crop/quick-crop-panels.jsx::QuickCropViewportModal": 160,
     "src/features/detail/detail-group.js::createDetailGroup": 266,
     "src/features/detail/detail-state.js::createDetailPromptPlan": 50,
@@ -220,6 +220,7 @@
     "src/shared/prompt-library.js::usePromptLibrary": 181,
     "src/shared/ui/cached-image.jsx::CachedImage": 120,
     "src/shared/ui/ChannelPicker.jsx::ChannelPicker": 80,
+    "src/shared/ui/detail-upload-zone.jsx::DetailUploadZone": 79,
     "src/shared/ui/reference-thumb-tray.jsx::ReferenceThumbTray": 72
   }
 }
