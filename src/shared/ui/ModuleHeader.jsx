@@ -8,14 +8,14 @@
 //   替代手写 `<span><Icon/> 标题</span>`。
 import "./ui.css";
 
-export function ModuleHeader({ icon, title, subtitle, action, divider = true, className = "" }) {
+export function ModuleHeader({ icon, title, subtitle, action, divider = true, className = "", ...rest }) {
   const classes = [
     "ui-module-header",
     divider && "ui-module-header--divider",
     className
   ].filter(Boolean).join(" ");
   return (
-    <div className={classes}>
+    <div className={classes} {...rest}>
       {icon && <span className="ui-module-header__icon">{icon}</span>}
       <div className="ui-module-header__text">
         {title && <span className="ui-module-header__title">{title}</span>}

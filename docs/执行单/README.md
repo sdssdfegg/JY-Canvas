@@ -171,3 +171,21 @@
 
 新纪律：① bash 删除只用 `/usr/bin/rm -rf`；② 仓库验证/工具脚本内删文件一律 `spawnSync("/usr/bin/rm", ...)`（`recycle-bin-lock-clean.mjs` 已按此修复——它自己用 `fs.rmSync` 删回收站条目同样会被拦截，"删回收站里的 .lock"会变成"把 .lock 再移入回收站"边删边涨，此为自指陷阱）；③ 禁止裸 `rm`/`rmdir`/`unlink` 与裸 node 删文件脚本；④ 收尾核对两处增量——`%TEMP%\codebuddy-safe-delete*` 目录数、回收站 `$I*.lock` 索引数（并行 AI 会话在场时增量需先归因，本仓实测并行会话确实持续生产）；⑤ 已写入口径：`AGENTS.md`「删除操作纪律」节。
 **存量清理**：`scripts/dev/recycle-bin-lock-clean.mjs`（默认 dry-run 只读，`$I` 索引解码验证来源 100% 确认后才删、`--apply` 才真删、非 `.lock` 一律不碰、默认扫 C/D 两盘）。**「回收站→属性→不将文件移到回收站」方案已被用户否决**（误删恢复是刚需，且只防新增不清存量，勿再推荐）。
+
+## UI 规范化接入单模板（V74 落定·后续 V82+ 版块接入复制即用）
+
+> 本模板由 V4.0 执行单 V74 固化为开单模板。每接入一个主应用版块，复制本模板开新单，按总纲 `docs/V4.0-前端UI全局规范方案.md` 接入 Button/Field/Panel/ModuleHeader/Toolbar，并受 V74「硬编码颜色棘轮」约束（只拦新增、存量顺手清零）。
+
+```
+单名：V4.0-执行单-Vxx-UI规范-<版块名>接入
+范围：仅 <版块> 文件的按钮/字段/分区外壳接入 Button/Field/Panel/ModuleHeader/Toolbar
+固定动作：
+  1. grep 旧按钮类（smallButton/iconButton/toolbarButton/generateButton/dangerButton/primaryButton/secondaryButton/tabButton/modeTab/promptTab/newPromptButton/legacyAction）→ 逐个按总纲 §4.2 映射
+  2. 分区标题 → ModuleHeader；卡片容器 → Panel；表单项 → Field；操作行 → Toolbar
+  3. 所碰文件 hex 顺手清零（硬编码色 → 令牌）；注意 V74 棘轮只拦新增——新写 hex 判红，清理只报 improved
+  4. 更新 shared/ui/README.md（如有新变体需求，先回报统筹再加 props，禁止版块内私扩）
+固定验收：--fast 全绿 + vite build + ESLint 0 + 死 export 绿 + 旧类 grep 清零 + 四主题走查（执行者环境无显示器/浏览器时挂起，由统筹 tabbit 探针补做或标注待用户本地验证——V73 先例）
+固定禁止：不改业务逻辑/不并行跑套件/不碰 server/api/prompts
+```
+
+接入顺序建议（按风险从低到高，统筹可按需调整）：提示词库 → 结果图库 → 参考生图 → 快捷生成 → 详情主图 → 视频 → 无限画板；共享面按 02 登记表逐单抽取（`UploadZone`/`ResultCard`/`ReferenceThumbTray`/`TaskBadge`/`TopToolbar`/`AppSidebar`/`SettingsModal`）。
