@@ -2548,8 +2548,7 @@ textarea:focus {
   display: none;
 }
 
-.canvasToolGroup .smallButton,
-.canvasToolGroup .dangerButton {
+.canvasToolGroup .ui-button {
   width: 100%;
 }
 
@@ -4243,7 +4242,7 @@ textarea:focus {
 }
 
 .imageEditorSegment button.active,
-.imageEditorActionRow .smallButton.active {
+.imageEditorActionRow .ui-button--active {
   color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
   background: color-mix(in srgb, var(--accent) 14%, var(--panel-strong));
@@ -4270,7 +4269,7 @@ textarea:focus {
   flex-wrap: wrap;
 }
 
-.imageEditorActionRow .smallButton {
+.imageEditorActionRow .ui-button {
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -4282,7 +4281,7 @@ textarea:focus {
   border-top: 1px solid var(--border);
 }
 
-.imageEditorFooter .generateButton {
+.imageEditorFooter .ui-button--primary {
   flex: 1 1 100%;
 }
 
