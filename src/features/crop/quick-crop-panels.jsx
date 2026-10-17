@@ -6,6 +6,7 @@ import { ratioValue } from "../local-edit/crop-rect-resize.js";
 import { clampCropTransform } from "../../shared/local-edit-geometry.js";
 import { Modal, ModalHeader } from "../../shared/ui/Modal.jsx";
 import { UploadClearButton } from "../../shared/ui/UploadClearButton";
+import { Button } from "../../shared/ui/Button";
 
 export function DetailUploadZone({
   title,
@@ -42,10 +43,10 @@ export function DetailUploadZone({
           <span>{subtitle}</span>
         </div>
         <div className="detailUploadHeaderActions">
-          <button className="smallButton" type="button" onClick={onAssetLibrary}>
+          <Button size="sm" onClick={onAssetLibrary}>
             <Folder size={14} />
             <span>素材库</span>
-          </button>
+          </Button>
           {count > 0 && onClear && (
             <UploadClearButton onClick={onClear} />
           )}
@@ -232,16 +233,16 @@ export function QuickCropViewportModal({ item, ratio, onClose, onApply, onClear 
           <span>拖动画面调整位置，滚轮缩放图片，确认后只保存裁剪后的参考图。</span>
           <div>
             {savedCrop && (
-              <button className="smallButton" type="button" onClick={() => onClear(item.id)}>
+              <Button size="sm" onClick={() => onClear(item.id)}>
                 <RotateCcw size={15} />
                 <span>取消裁剪</span>
-              </button>
+              </Button>
             )}
-            <button className="smallButton" type="button" onClick={onClose}>取消</button>
-            <button className="generateButton quickLocalApplyButton" type="button" onClick={applyCrop} disabled={working}>
+            <Button size="sm" onClick={onClose}>取消</Button>
+            <Button size="md" tone="primary" className="quickLocalApplyButton" onClick={applyCrop} disabled={working}>
               {working ? <Loader2 size={16} className="spin" /> : <Crop size={16} />}
               <span>应用裁剪</span>
-            </button>
+            </Button>
           </div>
         </footer>
     </Modal>

@@ -32,6 +32,7 @@ import { changeCropScale } from "./crop-drag.js";
 import { LocalEditBrushTools } from "./LocalEditBrushTools.jsx";
 import { LocalEditCropOverlay } from "./LocalEditCropOverlay.jsx";
 import { ratioValue } from "./crop-rect-resize.js";
+import { Button } from "../../shared/ui/Button";
 
 // ratioValue 定义已迁至 crop-rect-resize.js（RF-082 S5：打破 crop-rect-resize ↔ LocalEditModal 循环依赖），
 // 此处重新导出供 main.jsx / outfit-panels.jsx 复用（顶部已 import 引入本地作用域）。
@@ -361,16 +362,16 @@ export function LocalEditModal({
           <span>{isMaskMode ? resolvedMaskHint : resolvedRectHint}</span>
           <div>
             {savedEdit && (
-              <button className="smallButton" type="button" onClick={isMaskMode ? clearMask : () => onClear(item.id)}>
+              <Button size="sm" onClick={isMaskMode ? clearMask : () => onClear(item.id)}>
                 {isMaskMode ? <Brush size={15} /> : (clearIconName === "RefreshCw" ? <RefreshCw size={15} /> : isLocalMode ? <RotateCcw size={15} /> : <Crop size={15} />)}
                 <span>{isMaskMode ? "清除涂抹" : isLocalMode ? "取消局部回贴" : "取消裁剪"}</span>
-              </button>
+              </Button>
             )}
-            <button className="smallButton" type="button" onClick={onClose}>取消</button>
-            <button className="generateButton quickLocalApplyButton" type="button" onClick={applyLocalEdit} disabled={applyDisabled}>
+            <Button size="sm" onClick={onClose}>取消</Button>
+            <Button size="md" tone="primary" className="quickLocalApplyButton" onClick={applyLocalEdit} disabled={applyDisabled}>
               {working ? <Loader2 size={16} className="spin" /> : isMaskMode ? <Brush size={16} /> : isLocalMode ? <Scissors size={16} /> : <Crop size={16} />}
               <span>{isMaskMode ? "应用蒙版回贴" : isLocalMode ? "应用局部回贴" : "应用裁剪"}</span>
-            </button>
+            </Button>
           </div>
         </footer>
     </Modal>

@@ -12,6 +12,7 @@
 import React from "react";
 import { emitClientDiagnosticEvent } from "../api/client.js";
 import { formatRenderErrorReport, describeRenderError } from "./error-report.js";
+import { Button } from "./ui/Button";
 
 export { describeRenderError } from "./error-report.js";
 
@@ -88,9 +89,9 @@ export class ErrorBoundary extends React.Component {
         <p>{describeRenderError(this.state.error)}</p>
         <p className="errorBoundaryHint">其它功能仍可继续使用；也可以重试这一块、或重新加载页面。</p>
         <div className="errorBoundaryActions">
-          <button className="smallButton" type="button" onClick={this.handleRetry}>重试这一块</button>
-          <button className="smallButton" type="button" onClick={this.handleReload}>重新加载页面</button>
-          <button className="smallButton" type="button" onClick={() => void this.handleCopy()}>复制诊断</button>
+          <Button size="sm" onClick={this.handleRetry}>重试这一块</Button>
+          <Button size="sm" onClick={this.handleReload}>重新加载页面</Button>
+          <Button size="sm" onClick={() => void this.handleCopy()}>复制诊断</Button>
         </div>
       </section>
     );
