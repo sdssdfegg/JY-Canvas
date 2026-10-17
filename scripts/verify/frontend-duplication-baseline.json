@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 111,
+    "fileCount": 112,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -120,6 +120,7 @@
       "src/shared/ui/Modal.jsx",
       "src/shared/ui/ModuleHeader.jsx",
       "src/shared/ui/Panel.jsx",
+      "src/shared/ui/TaskBadge.jsx",
       "src/shared/ui/Toolbar.jsx",
       "src/shared/ui/UploadClearButton.jsx",
       "src/shared/ui/cached-image.jsx",

@@ -16,7 +16,6 @@
 | 结果图库卡片 | 快捷结果、参考结果、批量结果都有 | `ResultCard.jsx`、`ResultGrid.jsx` |
 | 参考图缩略条 | 快捷、批量、详情结果都可能用 | `ReferenceThumbTray.jsx` |
 | 顶部工具栏 | 主画板和批量页都有刷新、下载、清空、打开目录 | `TopToolbar.jsx` |
-| 状态徽标 | running/success/failed/queued 多处重复 | `TaskBadge.jsx` |
 | 弹窗底层 | 设置、预览、提示词、裁剪都用 | **已抽：`Modal.jsx`（`Modal` + `ModalHeader`）** |
 
 ## 已抽取的组件
@@ -30,6 +29,7 @@
 | `Panel.jsx` | 版块外壳：`padding`(md 16px / lg 24px) + `tone`(default / strong) + `className`；grid 堆叠、gap=--space-4、1px 边框 + radius-lg 圆角 + 面板底 | 2026-10-17 建（V73）。替代 `.skinBlock` / `.debugBlock` 一类手写卡片容器；设置视图三分区已接入（皮肤 / 连接测试 / 数据与存储）。 |
 | `ModuleHeader.jsx` | 分区标题：`icon`(可选 lucide) + `title`(14px/500) + `subtitle`(12px muted) + `action`(右侧节点) + `divider`(默认 true 1px 分隔线) | 2026-10-17 建（V73）。替代手写 `<span><Icon/> 标题</span>`；设置视图三分区标题已接入。 |
 | `UploadClearButton.jsx` | 上传模块统一「清除」钮：`sm` 28px / `default` 中性灰、纯文字「清除」、无图标、挂在模块右上角 | 2026-10-17 建（V82）。替代换装 `UploadZone` 旧 `Trash2+清除` 危险钮与视频「清空参考」smallButton 的图标+文字堆叠溢出；详情/参考生图 `DetailUploadZone` 新增同形清除钮。size/tone 不开 prop，统一视觉防分叉；上游模块经 `onClear` 接各自清空 handler。 |
+| `TaskBadge.jsx` | 任务状态徽章：`status`(idle/running/success/failed/detached) + `className`/`...rest` 透传；文案由调用方 `children` 传入，组件内不做任何状态→文案映射 | 2026-10-18 建（V90）。收敛 7 处内联 `taskBadge` 三元（main-top-bar×5 / outfit-panels / OutfitWorkbench）；换装 `outfit-workflow.css` 三条 `.taskBadge` 覆盖 + 旧 hex 状态色套（#1fcfc3/#ffb3b3/#b8fff9）归顺主应用全局基色。刻意不开 `size`/`tone` prop（同 UploadClearButton 规矩，统一视觉防分叉）；`...rest` 透传（V73 教训）。样式唯一来源 = `src/styles.css` 全局 `.taskBadge` 基色 + `.task-*` 状态色。 |
 
 | 局部编辑/裁剪控件 | 快捷和批量都有 | 后续放 `src/features/local-edit/`，公共底层放 `src/shared/` |
 
