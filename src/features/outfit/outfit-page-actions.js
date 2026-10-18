@@ -9,11 +9,11 @@
 import { normalizeApiKeyInput } from "../auth/api-key.js";
 import { DEFAULT_PREPROCESS_MODE, makeId } from "./outfit-panels.jsx";
 import { OUTFIT_DRAFT_DB_KEY, hydrateTasksWithUploadReferences, normalizeCropReturnMeta, normalizeQualityCheck, normalizeRandomBackgroundFocus, outfitLocalGet, outfitLocalSet, readTaskHistory, recoverPersistedTasks, sanitizeTaskHistoryItem } from "./outfit-task.js";
-import { readJsonStorage } from "../../lib/storage/json-storage.js";
+import { readJsonStorage, writeJsonStorage } from "../../lib/storage/json-storage.js";
 import { LOCAL_EDIT_BRUSH_DEFAULT, LOCAL_EDIT_MASK_OPACITY_DEFAULT, LOCAL_EDIT_RECT_MODE } from "../../shared/local-edit-mask.js";
 import { normalizeOutfitIntent } from "../../shared/outfit-intent.js";
 import { WHITE_REFINE_BATCH_LEGACY_DEFAULT_PROMPT, WHITE_REFINE_COLOR_LOCK_LEGACY_DEFAULT_PROMPT, WHITE_REFINE_DEFAULT_PROMPT, normalizeRetouchIntent } from "../../shared/retouch-intent.js";
-import { BATCH_CONCURRENCY_DEFAULT_MIGRATION_KEY, GENERATION_COUNT_AUTOLINK_MIGRATION_KEY, OUTFIT_PAGES_KEY, DEFAULT_OUTFIT_PAGE_NAME, DEFAULT_POSE_REMIX_PAGE_NAME, DEFAULT_LOCAL_DETAIL_PAGE_NAME, DEFAULT_BACKGROUND_CHANGE_PAGE_NAME, DEFAULT_RANDOM_BACKGROUND_PAGE_NAME, DEFAULT_OUTPAINT_PAGE_NAME, DEFAULT_RECOLOR_PAGE_NAME, DEFAULT_WHITE_REFINE_PAGE_NAME, DEFAULT_FACE_SWAP_PAGE_NAME, DEFAULT_DESIGN_DRAFT_PAGE_NAME, SINGLETON_WORKFLOW_MODES, POSE_REMIX_DEFAULT_PROMPT, POSE_MOTHER_FACE_SWAP_DEFAULT_PROMPT, FACE_SWAP_SHORT_DEFAULT_PROMPT, FACE_SWAP_BATCH_TONE_LEGACY_DEFAULT_PROMPT, FACE_SWAP_HEAD_LOCK_LEGACY_DEFAULT_PROMPT, FACE_SWAP_DEFAULT_PROMPT, FACE_SWAP_PRE_HEAD_LOCK_SHORT_DEFAULT_PROMPT, FACE_SWAP_PRE_HEAD_LOCK_DEFAULT_PROMPT, LEGACY_FACE_SWAP_DEFAULT_PROMPT, FACE_SWAP_LOOSE_DEFAULT_PROMPT, BACKGROUND_CHANGE_LEGACY_DEFAULT_PROMPT, BACKGROUND_CHANGE_PERSON_LIGHT_LEGACY_DEFAULT_PROMPT, BACKGROUND_CHANGE_DEFAULT_PROMPT, RANDOM_BACKGROUND_LIGHT_LEGACY_DEFAULT_PROMPT, RANDOM_BACKGROUND_NEUTRAL_DAYLIGHT_LEGACY_DEFAULT_PROMPT, RANDOM_BACKGROUND_RELIGHT_LEGACY_DEFAULT_PROMPT, RANDOM_BACKGROUND_DEFAULT_PROMPT, RANDOM_BACKGROUND_LEGACY_DEFAULT_PROMPT, OUTPAINT_DEFAULT_PROMPT, RECOLOR_COLOR_LEGACY_DEFAULT_PROMPT, RECOLOR_DEFAULT_PROMPT, DESIGN_DRAFT_DEFAULT_PROMPT, DEFAULT_BATCH_CONCURRENCY, DEFAULT_GARMENT_PARTS, DEFAULT_GARMENT_COMPOSITION, DEFAULT_UPLOAD_LABELS, POSE_REMIX_UPLOAD_LABELS, LEGACY_POSE_REMIX_UPLOAD_LABELS, LOCAL_DETAIL_UPLOAD_LABELS, CUSTOM_UPLOAD_LABELS, BACKGROUND_CHANGE_UPLOAD_LABELS, RANDOM_BACKGROUND_UPLOAD_LABELS, RECOLOR_UPLOAD_LABELS, LEGACY_WHITE_REFINE_UPLOAD_LABELS_1, LEGACY_WHITE_REFINE_UPLOAD_LABELS_2, WHITE_REFINE_UPLOAD_LABELS, OUTPAINT_UPLOAD_LABELS, POSE_MOTHER_FACE_SWAP_UPLOAD_LABELS, FACE_SWAP_UPLOAD_LABELS, LEGACY_FACE_SWAP_UPLOAD_LABELS, DESIGN_DRAFT_UPLOAD_LABELS, OUTFIT_DEFAULT_PROMPT, LOCAL_DETAIL_DEFAULT_PROMPT, shouldRepairOutfitPrompt, normalizeSmartIntervention, normalizeGarmentParts, normalizeGarmentComposition, defaultSettings, readSettings, normalizeTheme, normalizeGenerationCount, normalizeBatchConcurrency, shouldUpgradeLegacyBatchConcurrency } from "./outfit-top.js";
+import { BATCH_CONCURRENCY_DEFAULT_MIGRATION_KEY, GENERATION_COUNT_AUTOLINK_MIGRATION_KEY, OUTFIT_PAGES_KEY, OUTFIT_DELETED_WORKFLOW_MODES_KEY, DEFAULT_OUTFIT_PAGE_NAME, DEFAULT_POSE_REMIX_PAGE_NAME, DEFAULT_LOCAL_DETAIL_PAGE_NAME, DEFAULT_BACKGROUND_CHANGE_PAGE_NAME, DEFAULT_RANDOM_BACKGROUND_PAGE_NAME, DEFAULT_OUTPAINT_PAGE_NAME, DEFAULT_RECOLOR_PAGE_NAME, DEFAULT_WHITE_REFINE_PAGE_NAME, DEFAULT_FACE_SWAP_PAGE_NAME, DEFAULT_DESIGN_DRAFT_PAGE_NAME, SINGLETON_WORKFLOW_MODES, POSE_REMIX_DEFAULT_PROMPT, POSE_MOTHER_FACE_SWAP_DEFAULT_PROMPT, FACE_SWAP_SHORT_DEFAULT_PROMPT, FACE_SWAP_BATCH_TONE_LEGACY_DEFAULT_PROMPT, FACE_SWAP_HEAD_LOCK_LEGACY_DEFAULT_PROMPT, FACE_SWAP_DEFAULT_PROMPT, FACE_SWAP_PRE_HEAD_LOCK_SHORT_DEFAULT_PROMPT, FACE_SWAP_PRE_HEAD_LOCK_DEFAULT_PROMPT, LEGACY_FACE_SWAP_DEFAULT_PROMPT, FACE_SWAP_LOOSE_DEFAULT_PROMPT, BACKGROUND_CHANGE_LEGACY_DEFAULT_PROMPT, BACKGROUND_CHANGE_PERSON_LIGHT_LEGACY_DEFAULT_PROMPT, BACKGROUND_CHANGE_DEFAULT_PROMPT, RANDOM_BACKGROUND_LIGHT_LEGACY_DEFAULT_PROMPT, RANDOM_BACKGROUND_NEUTRAL_DAYLIGHT_LEGACY_DEFAULT_PROMPT, RANDOM_BACKGROUND_RELIGHT_LEGACY_DEFAULT_PROMPT, RANDOM_BACKGROUND_DEFAULT_PROMPT, RANDOM_BACKGROUND_LEGACY_DEFAULT_PROMPT, OUTPAINT_DEFAULT_PROMPT, RECOLOR_COLOR_LEGACY_DEFAULT_PROMPT, RECOLOR_DEFAULT_PROMPT, DESIGN_DRAFT_DEFAULT_PROMPT, DEFAULT_BATCH_CONCURRENCY, DEFAULT_GARMENT_PARTS, DEFAULT_GARMENT_COMPOSITION, DEFAULT_UPLOAD_LABELS, POSE_REMIX_UPLOAD_LABELS, LEGACY_POSE_REMIX_UPLOAD_LABELS, LOCAL_DETAIL_UPLOAD_LABELS, CUSTOM_UPLOAD_LABELS, BACKGROUND_CHANGE_UPLOAD_LABELS, RANDOM_BACKGROUND_UPLOAD_LABELS, RECOLOR_UPLOAD_LABELS, LEGACY_WHITE_REFINE_UPLOAD_LABELS_1, LEGACY_WHITE_REFINE_UPLOAD_LABELS_2, WHITE_REFINE_UPLOAD_LABELS, OUTPAINT_UPLOAD_LABELS, POSE_MOTHER_FACE_SWAP_UPLOAD_LABELS, FACE_SWAP_UPLOAD_LABELS, LEGACY_FACE_SWAP_UPLOAD_LABELS, DESIGN_DRAFT_UPLOAD_LABELS, OUTFIT_DEFAULT_PROMPT, LOCAL_DETAIL_DEFAULT_PROMPT, shouldRepairOutfitPrompt, normalizeSmartIntervention, normalizeGarmentParts, normalizeGarmentComposition, defaultSettings, readSettings, normalizeTheme, normalizeGenerationCount, normalizeBatchConcurrency, shouldUpgradeLegacyBatchConcurrency } from "./outfit-top.js";
 
 export function normalizeOutfitPageName(value, fallback = DEFAULT_OUTFIT_PAGE_NAME) {
   const name = String(value || "").replace(/\s+/g, " ").trim();
@@ -24,7 +24,6 @@ export function normalizeOutfitPageName(value, fallback = DEFAULT_OUTFIT_PAGE_NA
   if (/随机背景|随机场景|随机实景|random\s*background/i.test(name)) return DEFAULT_RANDOM_BACKGROUND_PAGE_NAME;
   if (/换固定背景|固定背景|换背景|換背景|背景更换|背景替换|换场景|換場景/i.test(name)) return DEFAULT_BACKGROUND_CHANGE_PAGE_NAME;
   if (/批量扩图|扩图|扩画布|向下扩|下半身扩图|补全下半身|outpaint|expand/i.test(name)) return DEFAULT_OUTPAINT_PAGE_NAME;
-  if (/批量改色|改色|换色|服装改色|颜色替换|颜色参考|recolor/i.test(name)) return DEFAULT_RECOLOR_PAGE_NAME;
   // 「精修」是新的短名字；旧的「批量白底（图）精修」仍然识别，老存档读取时自动迁移。
   if (/精修|白底精修|白底图精修|服装精修|平铺精修|挂拍精修|去衣架|去掉衣架|white\s*refine/i.test(name)) return DEFAULT_WHITE_REFINE_PAGE_NAME;
   return (name || fallback).slice(0, 18);
@@ -113,7 +112,9 @@ export function workflowModeFromPage(pageName, uploadLabels) {
     return "white-refine";
   }
   if (isRecolorPageName(pageName) || isRecolorPageName(text) || /改色服装参考图|目标颜色|颜色替换/.test(text)) {
-    return "recolor";
+    // 2026-10-18 V110 裁决：改色页并入「自定义改色页」（旧 recolor workflow 退役，UI 由 V111 的
+    // 「更换部位」行取代）。服务端仍按页面名识别 recolor 且两条路线提示词拼装一致，兼容无碍。
+    return "custom";
   }
   if (isPoseRemixPageName(text) || /固定母版成片|批量姿势参考图|批量姿态图|姿态参考图|只提取姿势|固定成片/i.test(text)) {
     return "pose-remix";
@@ -483,21 +484,52 @@ export function makeFaceSwapPage(baseSettings = readSettings(), patch = {}) {
     uploadLabels: patch.uploadLabels || FACE_SWAP_UPLOAD_LABELS
   });
 }
+/** 用户主动删除过的 singleton workflow 模式留痕（V110）：ensureWorkflowPages 不再补建这些页。 */
+export function readDeletedWorkflowModes() {
+  const stored = readJsonStorage(OUTFIT_DELETED_WORKFLOW_MODES_KEY, []);
+  return Array.isArray(stored) ? stored.filter((mode) => typeof mode === "string" && mode) : [];
+}
+export function rememberDeletedWorkflowMode(mode) {
+  const value = String(mode || "");
+  if (!value) return;
+  const current = readDeletedWorkflowModes();
+  if (current.includes(value)) return;
+  writeJsonStorage(OUTFIT_DELETED_WORKFLOW_MODES_KEY, [...current, value]);
+}
+export function forgetDeletedWorkflowMode(mode) {
+  const value = String(mode || "");
+  if (!value) return;
+  const next = readDeletedWorkflowModes().filter((item) => item !== value);
+  writeJsonStorage(OUTFIT_DELETED_WORKFLOW_MODES_KEY, next);
+}
+/**
+ * 删除留痕专用判别（V110-R1）：与 ensureWorkflowPages 的补建读条件保持同一口径——
+ * recolor 类名字按名判 "recolor"（§1.2 改向后 inferOutfitWorkflowMode 对它们返回 "custom"，
+ * 删除端若沿用 infer 判别，批量改色页永远记不上留痕、下次启动又被补建）。
+ * 非 singleton 模式返回 ""（调用方据此跳过留痕）。
+ */
+export function deletionTrackingMode(pageName, uploadLabels) {
+  if (isRecolorPageName(pageName)) return "recolor";
+  const mode = inferOutfitWorkflowMode(pageName, uploadLabels);
+  return isSingletonWorkflowMode(mode) ? mode : "";
+}
+
 export function ensureWorkflowPages(pages = [], baseSettings = readSettings()) {
   let output = dedupeSingletonWorkflowPages(Array.isArray(pages) ? pages.filter(Boolean) : [])
     .filter((page) => {
       const mode = inferOutfitWorkflowMode(page.name, page.uploadLabels);
       return mode !== "local-detail" && mode !== "outpaint";
     });
+  const deletedModes = readDeletedWorkflowModes();
   const hasPoseRemixPage = output.some((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "pose-remix");
   const hasBackgroundChangePage = output.some((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "background-change");
   const hasRandomBackgroundPage = output.some((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "random-background");
-  const hasRecolorPage = output.some((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "recolor");
+  const hasRecolorPage = output.some((page) => isRecolorPageName(page.name));
   const hasWhiteRefinePage = output.some((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "white-refine");
   const hasFaceSwapPage = output.some((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "face-swap");
   const hasDesignDraftPage = output.some((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "design-draft");
 
-  if (!hasPoseRemixPage) {
+  if (!hasPoseRemixPage && !deletedModes.includes("pose-remix")) {
     const outfitIndex = output.findIndex((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "outfit");
     const poseRemixPage = makePoseRemixPage(baseSettings);
     output = outfitIndex >= 0
@@ -505,7 +537,7 @@ export function ensureWorkflowPages(pages = [], baseSettings = readSettings()) {
       : [poseRemixPage, ...output];
   }
 
-  if (!hasBackgroundChangePage) {
+  if (!hasBackgroundChangePage && !deletedModes.includes("background-change")) {
     const designIndex = output.findIndex((page) => ["face-swap", "design-draft"].includes(inferOutfitWorkflowMode(page.name, page.uploadLabels)));
     const backgroundPage = makeBackgroundChangePage(baseSettings);
     output = designIndex >= 0
@@ -513,7 +545,7 @@ export function ensureWorkflowPages(pages = [], baseSettings = readSettings()) {
       : [...output, backgroundPage];
   }
 
-  if (!hasRandomBackgroundPage) {
+  if (!hasRandomBackgroundPage && !deletedModes.includes("random-background")) {
     const backgroundIndex = output.findIndex((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "background-change");
     const recolorIndex = output.findIndex((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "recolor");
     const designIndex = output.findIndex((page) => ["face-swap", "design-draft"].includes(inferOutfitWorkflowMode(page.name, page.uploadLabels)));
@@ -527,7 +559,7 @@ export function ensureWorkflowPages(pages = [], baseSettings = readSettings()) {
           : [...output, randomBackgroundPage];
   }
 
-  if (!hasRecolorPage) {
+  if (!hasRecolorPage && !deletedModes.includes("recolor")) {
     const randomBackgroundIndex = output.findIndex((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "random-background");
     const backgroundIndex = output.findIndex((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "background-change");
     const designIndex = output.findIndex((page) => ["face-swap", "design-draft"].includes(inferOutfitWorkflowMode(page.name, page.uploadLabels)));
@@ -541,7 +573,7 @@ export function ensureWorkflowPages(pages = [], baseSettings = readSettings()) {
         : [...output, recolorPage];
   }
 
-  if (!hasWhiteRefinePage) {
+  if (!hasWhiteRefinePage && !deletedModes.includes("white-refine")) {
     const recolorIndex = output.findIndex((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "recolor");
     const designIndex = output.findIndex((page) => ["face-swap", "design-draft"].includes(inferOutfitWorkflowMode(page.name, page.uploadLabels)));
     const whiteRefinePage = makeWhiteRefinePage(baseSettings);
@@ -552,7 +584,7 @@ export function ensureWorkflowPages(pages = [], baseSettings = readSettings()) {
         : [...output, whiteRefinePage];
   }
 
-  if (!hasFaceSwapPage) {
+  if (!hasFaceSwapPage && !deletedModes.includes("face-swap")) {
     const designIndex = output.findIndex((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "design-draft");
     const faceSwapPage = makeFaceSwapPage(baseSettings);
     output = designIndex >= 0
@@ -560,7 +592,7 @@ export function ensureWorkflowPages(pages = [], baseSettings = readSettings()) {
       : [...output, faceSwapPage];
   }
 
-  if (!hasDesignDraftPage) {
+  if (!hasDesignDraftPage && !deletedModes.includes("design-draft")) {
     output = [...output, makeDesignDraftPage(baseSettings)];
   }
 

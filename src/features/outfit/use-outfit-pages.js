@@ -35,11 +35,14 @@ import {
 import {
   defaultPromptForWorkflowMode,
   defaultUploadLabelsForPage,
+  deletionTrackingMode,
+  forgetDeletedWorkflowMode,
   inferOutfitWorkflowMode,
   makeOutfitPage,
   mergeOutfitPageSettings,
   normalizeOutfitPageName,
   normalizeUploadLabels,
+  rememberDeletedWorkflowMode,
   sameUploadLabels,
   stripOutfitPageGlobalSettings
 } from "./outfit-page-actions.js";
@@ -209,6 +212,8 @@ export function useOutfitPages(deps) {
       setUploadLabels(nextUploadLabels);
       if (shouldApplyPromptDefault) setSettings(nextSettings);
     }
+    const trackedNextMode = deletionTrackingMode(name, nextUploadLabels);
+    if (trackedNextMode) forgetDeletedWorkflowMode(trackedNextMode);
     addEvent("页面名称", `已改为「${name}」`);
   }
 
@@ -258,6 +263,8 @@ export function useOutfitPages(deps) {
     const remaining = pagesWithCurrent.filter((page) => page.id !== pageId);
     const nextPage = remaining[Math.min(targetIndex, remaining.length - 1)] || remaining[0];
     revokeOutfitPageAssets(target);
+    const trackedMode = deletionTrackingMode(target.name, target.uploadLabels);
+    if (trackedMode) rememberDeletedWorkflowMode(trackedMode);
     setOutfitPages(remaining);
     if (pageId === activeOutfitPageId && nextPage) {
       setActiveOutfitPageId(nextPage.id);

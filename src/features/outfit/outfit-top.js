@@ -20,6 +20,7 @@ export const STORAGE_KEY = "jingyin-outfit-workflow-settings-v1";
 export const BATCH_CONCURRENCY_DEFAULT_MIGRATION_KEY = "batchConcurrencyDefaultV5Applied";
 export const GENERATION_COUNT_AUTOLINK_MIGRATION_KEY = "generationCountAutoLinkV11Applied";
 export const OUTFIT_PAGES_KEY = "jingyin-outfit-workflow-pages-v1";
+export const OUTFIT_DELETED_WORKFLOW_MODES_KEY = "jingyin-outfit-workflow-deleted-modes-v1";
 export const PROMPT_LIBRARY_VERSION = "v2-20260802";
 export const PROMPT_PRESETS_KEY = `jingyin-outfit-workflow-prompt-library-${PROMPT_LIBRARY_VERSION}`;
 export const PROMPT_CATEGORIES_KEY = `jingyin-outfit-workflow-prompt-categories-${PROMPT_LIBRARY_VERSION}`;
