@@ -3,7 +3,7 @@
 // 从 server/index.js 原样搬来，逐字节等价，调用点零改动。
 //
 // 关键不变量（行为变更 = 「数据与存储」面板显示与实际磁盘不符）：
-//   - STORAGE_TARGETS 六项的 key / label / imagesOnly / resetsHistory 逐字不改
+//   - STORAGE_TARGETS 五项的 key / label / imagesOnly / resetsHistory 逐字不改
 //     （前端按 key 取项、按 label 显示，改了会串项）；
 //   - 目录不存在视为 0 且不抛异常、单文件读不到跳过 —— 两个 catch 分支逐字保持；
 //   - 返回字段 rootDir / dataDir / logsDir / items / totalBytes / historyCount 不变。
@@ -11,7 +11,6 @@
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import {
-  canvasAssetDir,
   dataDir,
   historyImageDir,
   referenceAssetDir,
@@ -25,7 +24,6 @@ const STORAGE_TARGETS = [
   { key: "historyImages", label: "历史图片", resolve: () => historyImageDir, imagesOnly: true, resetsHistory: true },
   { key: "references", label: "参考图缓存", resolve: () => referenceAssetDir, imagesOnly: true },
   { key: "results", label: "结果图缓存", resolve: () => resultDir, imagesOnly: true },
-  { key: "canvasAssets", label: "画布资源", resolve: () => canvasAssetDir, imagesOnly: true },
   { key: "logs", label: "运行日志", resolve: () => path.join(rootDir, "logs"), imagesOnly: false },
   { key: "tmpUploads", label: "上传临时文件", resolve: () => uploadTempDir, imagesOnly: false }
 ];

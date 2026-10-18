@@ -123,7 +123,6 @@ const ORDER = [
   // 复用 RF-010 的真相源收集器，将来 server/routes/** 写错同样自动点名。
   // 无基线无棘轮：坏路径任何时刻都是错。纯源码检查，跑得很快。
   "import-path-check",
-  "canvas-asset-check",
   "history-repair-check",
   "history-integrity-check",
   "local-edit-ratio-check",

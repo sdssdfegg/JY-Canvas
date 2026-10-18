@@ -10,7 +10,7 @@
 // 因为 filename 是从 URL 里取出来的，可被构造。
 
 import path from "node:path";
-import { canvasAssetDir, historyImageDir, referenceAssetDir } from "./app-paths.js";
+import { historyImageDir, referenceAssetDir } from "./app-paths.js";
 
 export function historyImageUrl(filename) {
   return `/api/history-image/${encodeURIComponent(filename)}`;
@@ -34,15 +34,6 @@ export function referenceAssetPath(filename) {
   const resolved = path.resolve(referenceAssetDir, safeName);
   if (!resolved.startsWith(path.resolve(referenceAssetDir) + path.sep)) {
     throw new Error("invalid_reference_asset_path");
-  }
-  return resolved;
-}
-
-export function canvasAssetPath(filename) {
-  const safeName = path.basename(String(filename || ""));
-  const resolved = path.resolve(canvasAssetDir, safeName);
-  if (!resolved.startsWith(path.resolve(canvasAssetDir) + path.sep)) {
-    throw new Error("invalid_canvas_asset_path");
   }
   return resolved;
 }

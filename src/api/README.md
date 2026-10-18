@@ -14,7 +14,7 @@
 | `prompts.js` | `/api/quick-prompt-rewrite`、`/api/reference-prompt-rewrite`、`/api/detail-prompts` | 提示词重写和详情提示词生成 |
 | `save.js` | `/api/save-directory`、`/api/pick-directory`、`/api/open-save-directory`、`/api/save-image`、`/api/save-processed-image` | 保存目录的读取/设置/选择/打开，以及把结果图片落盘（P7-6 从 feature 侧收口进来，见下方「返回原始 Response 的例外」） |
 | `history.js` | `/api/history` | 历史记录读取、保存、删除、清空 |
-| `assets.js` | `/api/image-proxy`、`/api/canvas-assets`、`/api/cache-result-image` | 图片代理读取、画布素材上传、结果图缓存；另含两个本地取流的 `fetchBlobWithTimeout`（带超时+强制缓存）与 `fetchLocalBlob`（data:/blob: URL 本地读取，非后端请求） |
+| `assets.js` | `/api/image-proxy`、`/api/cache-result-image` | 图片代理读取、结果图缓存；另含两个本地取流的 `fetchBlobWithTimeout`（带超时+强制缓存）与 `fetchLocalBlob`（data:/blob: URL 本地读取，非后端请求） |
 | `debug.js` | `/api/debug/image-request-params` | 传参自检，不调用上游、不扣费 |
 
 ## 维护规则

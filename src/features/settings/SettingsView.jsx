@@ -135,7 +135,7 @@ export function SettingsView({
             <Button size="sm" disabled={Boolean(storageBusy)} onClick={() => void handleCleanStorage(["references"], "参考图缓存")}>
               <Trash2 size={15} /><span>清理参考图</span>
             </Button>
-            <Button size="sm" disabled={Boolean(storageBusy)} onClick={() => void handleCleanStorage(["results", "canvasAssets"], "结果图缓存")}>
+            <Button size="sm" disabled={Boolean(storageBusy)} onClick={() => void handleCleanStorage(["results"], "结果图缓存")}>
               <Trash2 size={15} /><span>清理结果缓存</span>
             </Button>
             <Button size="sm" onClick={() => void refreshStorageUsage()}>

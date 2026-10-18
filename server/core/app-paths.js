@@ -53,7 +53,6 @@ export const historyFile = path.join(dataDir, "history.json");
 export const historyBackupFile = path.join(dataDir, "history.backup.json");
 export const historyImageDir = path.join(dataDir, "history-images");
 export const referenceAssetDir = path.join(dataDir, "reference-assets");
-export const canvasAssetDir = path.join(dataDir, "canvas-assets");
 export const resultDir = path.join(dataDir, "results");
 export const uploadTempDir = path.join(rootDir, "tmp", "uploads");
 export const appSettingsFile = path.join(dataDir, "app-settings.json");

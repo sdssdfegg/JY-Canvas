@@ -5,9 +5,8 @@
 // 撑起这套很像 mic 的原因是历史数据里同一张图可能以五种形态存在：
 //   ① 已归档到本地的 archiveFile；
 //   ② /api/history-image/xxx 的本地地址；
-//   ③ /api/canvas-asset/xxx 的画布素材地址；
-//   ④ /api/result/xxx 的批量结果地址；
-//   ⑤ 上游给的 http(s) 远程地址或 base64。
+//   ③ /api/result/xxx 的批量结果地址；
+//   ④ 上游给的 http(s) 远程地址或 base64。
 // 只要有一个形态漏掉，前端就会显示"图裂"，而且很难查。
 //
 // 要注意的两条约定：
@@ -19,7 +18,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { resultDir } from "./app-paths.js";
-import { canvasAssetPath, historyImagePath, historyImageUrl } from "./asset-urls.js";
+import { historyImagePath, historyImageUrl } from "./asset-urls.js";
 import { downloadExternalImageWithFallback, remoteUrlFromImageProxyPath } from "./image-proxy.js";
 import { mimeTypeFromFile } from "./file-naming.js";
 import { IMAGE_PROXY_TIMEOUT_MS } from "./runtime-config.js";
@@ -69,16 +68,6 @@ export async function imageBufferFromPayload(image, timeoutMs = IMAGE_PROXY_TIME
   if (localUrl.startsWith("/api/history-image/")) {
     const filename = decodeURIComponent(localUrl.split("/").pop() || "");
     const file = historyImagePath(filename);
-    return {
-      buffer: await readFile(file),
-      mimeType: mimeTypeFromFile(filename),
-      sourceUrl: localUrl
-    };
-  }
-
-  if (localUrl.startsWith("/api/canvas-asset/")) {
-    const filename = decodeURIComponent(localUrl.split("/").pop() || "");
-    const file = canvasAssetPath(filename);
     return {
       buffer: await readFile(file),
       mimeType: mimeTypeFromFile(filename),

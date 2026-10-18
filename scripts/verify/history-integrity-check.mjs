@@ -19,7 +19,6 @@ const DATA = path.join(ROOT, "data");
 const DIRS = {
   history: path.join(DATA, "history-images"),
   reference: path.join(DATA, "reference-assets"),
-  canvas: path.join(DATA, "canvas-assets"),
   result: path.join(DATA, "results")
 };
 
@@ -29,7 +28,6 @@ function localPathFromUrl(localUrl) {
   const map = [
     ["/api/history-image/", DIRS.history],
     ["/api/reference-asset/", DIRS.reference],
-    ["/api/canvas-asset/", DIRS.canvas],
     ["/api/result/", DIRS.result]
   ];
   for (const [prefix, dir] of map) {
