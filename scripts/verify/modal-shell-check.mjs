@@ -82,9 +82,11 @@ check("批量裁剪弹窗改用共享外壳且面板类名不变",
 check("批量局部回贴改用共享组件 LocalEditModal（outfit 侧引用到位）",
   outfitSrc.includes('from "./features/local-edit/LocalEditModal.jsx"') && outfitSrc.includes("<LocalEditModal"),
   "LocalEditModal(batch)");
-// 重定位后的期望值：main 1（普通裁剪）+ outfit 1（批量裁剪）+ LocalEditModal 1（两侧共用的局部回贴）= 3。
+// 重定位后的期望值（仅指"三个承载文件"的裁剪/局部回贴外壳）：main 1（普通裁剪）+ outfit 1（批量裁剪）+ LocalEditModal 1 = 3。
 // RF-077 之前是 4（两侧各自一份局部回贴）；合并进共享组件后剩下的第 4 份确实不存在了，
 // 数字跟着结构走，不是为了让门禁变绿而随手改的常量。
+// V100 另行把 main.jsx 自身 6 个、outfit-workflow.jsx 自身 2 个"其它"弹窗壳也迁到 <Modal>，
+// 故下方断言的 main/outfit 计数不再是 0 而是 6/2（合计 11），裁剪/局部回贴的 3 份守卫不变。
 const modalCounts = {
   main: (mainSrc.match(/<Modal(?![A-Za-z])/g) || []).length,
   outfit: (outfitSrc.match(/<Modal(?![A-Za-z])/g) || []).length,
@@ -92,8 +94,8 @@ const modalCounts = {
   outfitPanel: (outfitPanelSrc.match(/<Modal(?![A-Za-z])/g) || []).length,
   localEdit: (localEditSrc.match(/<Modal(?![A-Za-z])/g) || []).length
 };
-check("三个承载文件各 1 个 <Modal，旧页必须为 0（合计仍 3，防止搬回去造成双份）",
-  modalCounts.main === 0 && modalCounts.outfit === 0
+check("主壳/outfit 壳迁移后：main 6 + outfit 2 个 <Modal（预览/目录/预设/拼图/提示词/灯箱），三个承载文件仍各 1（合计 11，防止搬回去造成双份）",
+  modalCounts.main === 6 && modalCounts.outfit === 2
     && modalCounts.quickCrop === 1 && modalCounts.outfitPanel === 1 && modalCounts.localEdit === 1,
   `main=${modalCounts.main} outfit=${modalCounts.outfit} quickCrop=${modalCounts.quickCrop} outfitPanel=${modalCounts.outfitPanel} localEdit=${modalCounts.localEdit}`);
 check("旧的 div+section 外壳写法在这四个弹窗里已清除（剩余的 preview 弹窗不在本次范围）",
