@@ -1,5 +1,5 @@
 // storage-store.js —— RF-082 从 src/main.jsx 逐字抽出（加 export），未改逻辑。
-import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, PUBLIC_RELEASE_MODE, PUBLIC_RELEASE_RESET_KEY, STORAGE_KEY, STORAGE_PREFIX, defaultState } from "../../shared/app-defaults.js";
+import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, PUBLIC_RELEASE_MODE, PUBLIC_RELEASE_RESET_KEY, STORAGE_KEY, STORAGE_PREFIX, defaultState } from "../../shared/app-defaults.js";
 import { BookOpen, Brush, Crop, FileText, Layers, Sparkles, Wand2 } from "lucide-react";
 import { readJsonStorage, removeStorageItem, writeJsonStorage } from "../../lib/storage/json-storage.js";
 import { canonicalModel } from "../../shared/routing.js";
@@ -69,7 +69,7 @@ export function runPublicReleaseStorageReset() {
       PROMPT_CATEGORIES_KEY,
       DETAIL_PRESETS_KEY,
       DETAIL_GROUPS_KEY,
-      INFINITE_CANVAS_KEY,
+      "jingyin-infinite-canvases-v1",
       "jingyin-outfit-workflow-task-history-v1",
       "jingyin-outfit-workflow-settings-v1",
       "jingyin-outfit-workflow-pages-v1",

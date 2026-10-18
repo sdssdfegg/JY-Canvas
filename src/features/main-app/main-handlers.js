@@ -1,7 +1,7 @@
 // src/features/main-app/main-handlers.js
 // P6-5 (V4.0) 2026-10-15：从 src/main.jsx App() 体抽出的「其余全部 handler」钩。
 // 内容（38 个，逐字搬运，仅闭包引用改 ctx / lateRef）：
-//   updateSetting / screenToCanvasPoint / canvasCenterPoint / handleCanvasDrop / sendResultToCanvas /
+//   updateSetting /
 //   addEvent / copyText / onComposerPaste / downloadVideoResult / removeReferenceImage /
 //   openQuickCropEdit / openQuickLocalEdit / applyQuickCropEdit / applyQuickLocalEdit /
 //   clearQuickCropEdit / clearQuickLocalEdit / clearAll / openSaveDirectory / onQuickBoardWheel /
@@ -31,7 +31,6 @@ import {
   LOCAL_EDIT_MASK_OPACITY_DEFAULT,
   LOCAL_EDIT_RECT_MODE
 } from "../../shared/local-edit-mask.js";
-import { screenPointToCanvas, canvasCenterFromRect } from "../../features/canvas/canvas-graph.js";
 import {
   channelsForModel,
   convergeSettingsForModel,
@@ -44,7 +43,6 @@ export function useMainHandlers(ctx) {
     settings,
     setSettings,
     activeView,
-    setActiveView,
     quickMode,
       setFiles,
     quickResults,
@@ -77,19 +75,12 @@ export function useMainHandlers(ctx) {
     setReferenceProductFiles,
     setReferenceStyleFiles,
     setEvents,
-    setCanvasSelectedNodeId,
-    canvasViewport,
-    createCanvasNode,
-    makeResultId,
-    CANVAS_NODE_WIDTH,
-    CANVAS_NODE_HEIGHT,
     clampCount,
     QUICK_LOCAL_EDIT_RATIOS,
     referencePointerSortRef,
     suppressReferencePreviewRef,
     previewDragRef,
     quickGalleryRef,
-    canvasStageRef,
     lateRef
   } = ctx;
 
@@ -111,44 +102,9 @@ export function useMainHandlers(ctx) {
     });
   }
 
-  function screenToCanvasPoint(clientX, clientY) {
-    return screenPointToCanvas(canvasStageRef.current?.getBoundingClientRect(), canvasViewport, clientX, clientY);
-  }
 
-  function canvasCenterPoint(offsetX = 0, offsetY = 0) {
-    return canvasCenterFromRect(canvasStageRef.current?.getBoundingClientRect(), canvasViewport, offsetX, offsetY);
-  }
 
-  function handleCanvasDrop(event) {
-    if (!Array.from(event.dataTransfer?.types || []).includes("Files")) return;
-    event.preventDefault();
-    void lateRef.current.addCanvasFiles(event.dataTransfer.files, screenToCanvasPoint(event.clientX, event.clientY));
-  }
 
-  function sendResultToCanvas(item) {
-    if (!item) return;
-    const point = canvasCenterPoint(-CANVAS_NODE_WIDTH / 2, -CANVAS_NODE_HEIGHT / 2);
-    const copy = {
-      ...item,
-      id: makeResultId(),
-      source: "infinite-canvas",
-      copiedFromResultId: item.id,
-      copiedToCanvasAt: Date.now()
-    };
-    const node = createCanvasNode("image", {
-      title: item.modelLabel || "跨模块图片",
-      x: point.x,
-      y: point.y,
-      result: copy,
-      prompt: item.prompt || ""
-    });
-    lateRef.current.patchActiveCanvas((canvas) => ({
-      nodes: [...canvas.nodes, node]
-    }));
-    setActiveView("infinite-canvas");
-    setCanvasSelectedNodeId(node.id);
-    addEvent("无限画布", "已发送副本到当前画布");
-  }
 
   function addEvent(label, detail) {
     setEvents((current) => [
@@ -525,11 +481,6 @@ export function useMainHandlers(ctx) {
   }
 
   function rerunResult(item, count = 1) {
-    if (item.source === "infinite-canvas") {
-      setActiveView("infinite-canvas");
-      addEvent("无限画布", "画布结果请通过生图节点继续生成");
-      return;
-    }
     const detailMatch = lateRef.current.detailApi.findDetailPromptByResult(item.id);
     if (detailMatch) {
       void lateRef.current.detailApi.generateDetailPrompt(detailMatch.group, detailMatch.prompt, detailMatch.prompt.screen, count);
@@ -546,9 +497,6 @@ export function useMainHandlers(ctx) {
 
   return {
     updateSetting,
-    canvasCenterPoint,
-    handleCanvasDrop,
-    sendResultToCanvas,
     addEvent,
     copyText,
     onComposerPaste,

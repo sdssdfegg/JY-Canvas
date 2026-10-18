@@ -51,7 +51,7 @@ V60 `detail/` 保持同一收口范式：`useQuickGenState()` 持有状态，`ma
 ## 下轮计划（抽取 QuickGenView.jsx）
 
 1. **先解耦顶部 tab / 工具条与共享 `topBar`**：当前 quickgen 的 tab（全部/图片/视频）与
-   工具条块嵌在 `topBar` 内，与 infinite-canvas / detail-main / reference-remix 的标题和工具条同体。
+   工具条块嵌在 `topBar` 内，与 detail-main / reference-remix 的标题和工具条同体。
    需要让 `topBar` 不再渲染 quickgen 分支，由 `QuickGenView` 自带头部，否则会重复渲染或丢失
    「指定文件夹 / 打开保存目录 / 拼图预览」等共享入口。
 2. 将 image 主内容段（原 `2867–3199`）与五处私有浮层（原 `3332 / 3342 / 3392 / 3416 / 3532`）

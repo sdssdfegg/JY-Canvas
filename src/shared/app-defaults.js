@@ -13,8 +13,6 @@ export const DETAIL_PRESETS_KEY = `${STORAGE_PREFIX}-detail-presets-v1`;
 
 export const DETAIL_GROUPS_KEY = `${STORAGE_PREFIX}-detail-groups-v1`;
 
-export const INFINITE_CANVAS_KEY = `${STORAGE_PREFIX}-infinite-canvases-v1`;
-
 export const PUBLIC_RELEASE_MODE = import.meta.env.VITE_JINGYIN_PUBLIC_RELEASE === "1";
 
 export const PUBLIC_RELEASE_ID = import.meta.env.VITE_JINGYIN_RELEASE_ID || STORAGE_PREFIX;

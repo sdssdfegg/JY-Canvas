@@ -1,7 +1,6 @@
 // src/features/canvas/canvas-generation-handlers.js
 // P6-4 (V4.0) 2026-10-15：从 src/main.jsx 抽出的「画布 / 生成」类 handler 钩。
-// 内容：canvasFileFromResult / addCanvasFiles / runCanvasImageRequest / generateCanvasNode /
-//   saveProcessedImageFile / optimizePrompt / sendResultToImageEditor / addReferenceThumbToUploads / generate，
+// 内容：saveProcessedImageFile / optimizePrompt / sendResultToImageEditor / addReferenceThumbToUploads / generate，
 //   以及仅被 generate 使用的 4 个模块级辅助（ensureQuickUploadCanvasRatio / fileToCompactJpegDataUrl /
 //   JSON_IMAGE_URLS_MODELS / shouldNormalizeQuickUploadForModel —— 父文件中已无其他引用，随本钩整体搬迁，
 //   父文件对应定义与 import 一并删除）。
@@ -13,10 +12,10 @@
 //   canvasCenterPoint / addEvent / autoSaveEventText / updateSetting 为父组件 hoisted 函数声明，作 ctx 传入安全。
 import { clampPromptForModel, isBanana2Model, routingFields } from "../../shared/routing.js";
 import { classifyQuickPrimaryLocalIntent, promptForQuickGeneration } from "../../shared/quickgen-prompt-rules.js";
-import { imageBitmapFromFile, imageExtension, imageFilesFromList } from "../../shared/image-input.js";
+import { imageBitmapFromFile, imageExtension } from "../../shared/image-input.js";
 import { dataUrlFromBlob, imageFileFromUrl, referenceSource } from "../../shared/result-image.js";
 import { fileBaseName } from "../../shared/file-name.js";
-import { fileSize, formatMs } from "../../lib/format/index.js";
+import { formatMs } from "../../lib/format/index.js";
 import { isAuthErrorMessage, normalizeApiKeyInput } from "../../features/auth/api-key.js";
 import { LOCAL_EDIT_RECT_MODE } from "../../shared/local-edit-mask.js";
 import { LOCAL_EDIT_CROP_UPLOAD_TARGET_BYTES } from "../../shared/local-edit-geometry.js";
@@ -32,16 +31,9 @@ import { composeQuickLocalEditBlob } from "../../features/local-edit/crop-rect-r
 import { dedupeResults, normalizeQuickReferenceItem } from "../../features/quickgen/quickgen-state.js";
 import { removeHistoryResults, saveHistoryResults } from "../../features/storage/storage-store.js";
 import { defaultState } from "../../shared/app-defaults.js";
-import { uploadCanvasAssets } from "../../api/assets.js";
 import { saveProcessedImageRequest } from "../../api/save.js";
 import { generateImages } from "../../api/images.js";
 import { rewriteQuickPrompt } from "../../api/prompts.js";
-import {
-  buildCanvasBatchPrompt,
-  canvasImageEntriesForGenerator,
-  canvasPromptForGenerator,
-  splitCanvasBatchEntries
-} from "./canvas-graph.js";
 
 // 以下 4 项自 src/main.jsx 模块级整体搬迁（父文件中仅 generate 引用，随 handler 一并搬出）。
 // 2026-09-25 对齐 3.0：删除了"把上传图补白到模型比例"的逻辑。
@@ -104,7 +96,6 @@ export function useCanvasGenerationHandlers(ctx) {
     config,
     settings,
     models,
-    activeCanvas,
     files,
     saveDirectory,
     isQuickPromptOptimizing,
@@ -116,8 +107,6 @@ export function useCanvasGenerationHandlers(ctx) {
     setQuickTasks,
     setActiveView,
     setIsSettingsOpen,
-    setCanvasTasks,
-    setCanvasSelectedNodeId,
     setSaveDirectory,
     setDirectoryDraft,
     setReferenceContextMenu,
@@ -127,257 +116,21 @@ export function useCanvasGenerationHandlers(ctx) {
     addEvent,
     autoSaveEventText,
     updateSetting,
-    canvasCenterPoint,
-    patchActiveCanvas,
-    patchCanvasById,
-    updateCanvasNodeByCanvasId,
     refreshSaveDirectory,
     appendReferenceFiles,
     blobFromImageItem,
     autoSaveGeneratedItems,
     makeResultId,
     clampCount,
-    createCanvasNode,
     normalizeGenerationErrorMessage,
     // 模块级常量（父组件仍需持有，经 ctx 注入）
-    CANVAS_NODE_HEIGHT,
     DETAIL_ANALYSIS_MODEL,
     CLIENT_SESSION_ID
   } = ctx;
 
-  async function canvasFileFromResult(item, index) {
-    const blob = await blobFromImageItem(item);
-    return new File([blob], `canvas-ref-${index + 1}.${imageExtension(blob.type)}`, {
-      type: blob.type || "image/png"
-    });
-  }
 
-  async function addCanvasFiles(fileList, point = canvasCenterPoint()) {
-    const picked = imageFilesFromList(fileList);
-    if (picked.length === 0) return;
-    const form = new FormData();
-    picked.slice(0, 12).forEach((file) => form.append("image", file, file.name));
-    try {
-      const payload = await uploadCanvasAssets(form);
-      if (!payload?.ok) throw new Error(payload?.message || "Canvas assets upload failed");
-      const nodes = (payload.assets || []).map((asset, index) => createCanvasNode("image", {
-        title: asset.name || `图片 ${index + 1}`,
-        x: point.x + index * 28,
-        y: point.y + index * 28,
-        result: {
-          id: asset.id || makeResultId(),
-          image: { type: "url", value: asset.url, localUrl: asset.url },
-          prompt: "",
-          modelLabel: "画布素材",
-          imageSize: fileSize(asset.size),
-          aspectRatio: "",
-          referenceCount: 0,
-          source: "infinite-canvas",
-          originalName: asset.name,
-          createdAt: asset.createdAt || Date.now() + index
-        }
-      }));
-      patchActiveCanvas((canvas) => ({ nodes: [...canvas.nodes, ...nodes] }));
-      if (nodes[0]) setCanvasSelectedNodeId(nodes[0].id);
-      addEvent("无限画布", `已加入 ${nodes.length} 张图片节点`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      addEvent("无限画布上传失败", message);
-    }
-  }
 
-  async function runCanvasImageRequest({ canvasId, nodeId, params, runModel, prompt, referenceItems, taskLabel }) {
-    const taskId = makeResultId();
-    const startedAt = Date.now();
-    setCanvasTasks((current) => [{
-      id: taskId,
-      canvasId,
-      nodeId,
-      startedAt,
-      prompt,
-      taskLabel,
-      modelLabel: runModel.label,
-      imageSize: params.imageSize,
-      aspectRatio: params.aspectRatio
-    }, ...current]);
 
-    try {
-      const filesFromNodes = await Promise.all(referenceItems.slice(0, 6).map((item, index) => canvasFileFromResult(item, index)));
-      const form = new FormData();
-      form.set("baseUrl", config.defaultBaseUrl || settings.baseUrl || defaultState.baseUrl);
-      form.set("apiKey", normalizeApiKeyInput(settings.apiKey));
-      const canvasRoute = routingFields(params.model, settings.channelId, config.routing);
-      form.set("model", canvasRoute.model);
-      form.set("channelId", canvasRoute.channelId);
-      form.set("dispatchMode", canvasRoute.dispatchMode);
-      form.set("prompt", prompt);
-      form.set("imageSize", params.imageSize);
-    form.set("aspectRatio", params.aspectRatio);
-    form.set("n", String(params.n));
-    form.set("source", "infinite-canvas");
-    form.set("referenceMeta", JSON.stringify(referenceItems.slice(0, 6).map((item, index) => ({
-      name: item.originalName || item.modelLabel || item.taskLabel || `canvas-reference-${index + 1}`,
-      role: item.source === "quickgen" ? "reference" : (item.source || "reference"),
-      index,
-      size: 0,
-      type: ""
-    }))));
-    const upload = await prepareImageFilesForChannel(filesFromNodes);
-      if (upload.compressedCount > 0) {
-        addEvent("图片压缩", `画布节点已压缩 ${upload.compressedCount} 张素材到 4MB 内`);
-      }
-      upload.files.forEach((file) => form.append("image", file, file.name));
-
-      const started = performance.now();
-      const payload = await generateImages(form);
-      if (!payload.images?.length) throw new Error("接口返回成功，但没有解析到图片");
-
-      const totalMs = Number.isFinite(payload.timing?.totalMs) ? payload.timing.totalMs : performance.now() - started;
-      const returnedItems = Array.isArray(payload.historyItems) && payload.historyItems.length > 0
-        ? payload.historyItems
-        : null;
-      const nextResults = (returnedItems || payload.images).map((entry, index) => {
-        const serverItem = returnedItems ? entry : null;
-        return {
-          ...serverItem,
-          id: serverItem?.id || makeResultId(),
-          image: serverItem?.image || entry,
-          prompt,
-          modelLabel: runModel.label,
-          imageSize: params.imageSize,
-          aspectRatio: params.aspectRatio,
-          referenceCount: filesFromNodes.length,
-          generationMs: totalMs,
-          source: "infinite-canvas",
-          canvasId,
-          generatorNodeId: nodeId,
-          taskLabel,
-          createdAt: serverItem?.createdAt || Date.now() + index
-        };
-      });
-      if (nextResults.length === 0) throw new Error("接口返回成功，但没有解析到图片");
-
-      return {
-        prompt,
-        results: nextResults,
-        totalMs,
-        taskLabel
-      };
-    } finally {
-      setCanvasTasks((current) => current.filter((task) => task.id !== taskId));
-    }
-  }
-
-  async function generateCanvasNode(nodeId) {
-    const canvas = activeCanvas;
-    const node = canvas?.nodes.find((item) => item.id === nodeId);
-    if (!canvas || !node || node.type !== "generator") return;
-    if (!normalizeApiKeyInput(settings.apiKey) && !config.hasServerKey) {
-      setIsSettingsOpen(true);
-      addEvent("无限画布", "请先在设置里填写 API Key");
-      updateCanvasNodeByCanvasId(canvas.id, nodeId, { status: "failed", error: "missing_api_key" });
-      return;
-    }
-
-    const prompt = canvasPromptForGenerator(canvas, node);
-    if (!prompt) {
-      updateCanvasNodeByCanvasId(canvas.id, nodeId, { status: "failed", error: "请连接提示词节点，或在生图节点里输入提示词" });
-      addEvent("无限画布", "缺少提示词");
-      return;
-    }
-
-    const params = {
-      model: node.params?.model || settings.model,
-      imageSize: node.params?.imageSize || settings.imageSize,
-      aspectRatio: node.params?.aspectRatio || settings.aspectRatio,
-      n: clampCount(node.params?.n || 1),
-      batchMode: node.params?.batchMode || "single"
-    };
-    const runModel = models.find((item) => item.value === params.model) || models[0];
-    const imageEntries = canvasImageEntriesForGenerator(canvas, node);
-    const startedAt = Date.now();
-    updateCanvasNodeByCanvasId(canvas.id, nodeId, { status: "running", error: "", generationMs: null });
-
-    try {
-      const runs = params.batchMode === "by-model"
-        ? (() => {
-            const { modelEntries, fixedEntries } = splitCanvasBatchEntries(imageEntries);
-            if (modelEntries.length === 0) {
-              throw new Error("按模特批量需要至少连接一张模特图");
-            }
-            return modelEntries.map((entry, index) => ({
-              prompt: buildCanvasBatchPrompt(prompt, index, modelEntries.length, fixedEntries.length),
-              referenceItems: [entry.result, ...fixedEntries.map((item) => item.result)],
-              taskLabel: `模特 ${index + 1}/${modelEntries.length}`,
-              yOffset: index * 42
-            }));
-          })()
-        : [{
-            prompt,
-            referenceItems: imageEntries.map((entry) => entry.result),
-            taskLabel: "单次生成",
-            yOffset: 0
-          }];
-
-      addEvent("无限画布", params.batchMode === "by-model"
-        ? `并发提交 ${runs.length} 个模特任务`
-        : `${runModel.label} / ${params.imageSize} / ${params.aspectRatio}`);
-
-      const settled = await Promise.allSettled(runs.map((run) => runCanvasImageRequest({
-        canvasId: canvas.id,
-        nodeId,
-        params,
-        runModel,
-        prompt: run.prompt,
-        referenceItems: run.referenceItems,
-        taskLabel: run.taskLabel
-      })));
-
-      const successfulRuns = settled
-        .map((item, index) => ({ item, index }))
-        .filter(({ item }) => item.status === "fulfilled")
-        .map(({ item, index }) => ({ ...item.value, index }));
-      const failedRuns = settled.filter((item) => item.status === "rejected");
-      if (successfulRuns.length === 0) {
-        const firstError = failedRuns[0]?.reason;
-        throw firstError instanceof Error ? firstError : new Error(String(firstError || "画布批量生成失败"));
-      }
-
-      const outputNodes = successfulRuns.map((run) => createCanvasNode("output", {
-        title: params.batchMode === "by-model" ? run.taskLabel : `输出 ${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`,
-        x: node.x + node.w + 86,
-        y: node.y + (params.batchMode === "by-model" ? run.index * (CANVAS_NODE_HEIGHT + 24) : Math.max(0, canvas.nodes.filter((item) => item.type === "output").length % 4) * 36),
-        results: run.results,
-        prompt: run.prompt,
-        generationMs: run.totalMs,
-        status: "success"
-      }));
-      const allResults = successfulRuns.flatMap((run) => run.results);
-      patchCanvasById(canvas.id, (currentCanvas) => ({
-        nodes: [...currentCanvas.nodes, ...outputNodes],
-        connections: [
-          ...currentCanvas.connections,
-          ...outputNodes.map((outputNode) => ({ id: makeResultId(), fromNodeId: nodeId, toNodeId: outputNode.id }))
-        ]
-      }));
-      setResults((current) => [...allResults, ...current]);
-      void saveHistoryResults(allResults);
-      updateCanvasNodeByCanvasId(canvas.id, nodeId, {
-        status: failedRuns.length > 0 ? "partial" : "success",
-        generationMs: Date.now() - startedAt,
-        error: failedRuns.length > 0 ? `${failedRuns.length} 个任务失败，其余已输出` : ""
-      });
-      if (outputNodes[0]) setCanvasSelectedNodeId(outputNodes[0].id);
-      addEvent("无限画布", failedRuns.length > 0
-        ? `完成 ${allResults.length} 张，${failedRuns.length} 个任务失败`
-        : `生成 ${allResults.length} 张，用时 ${formatMs(Date.now() - startedAt)}`);
-    } catch (err) {
-      const message = normalizeGenerationErrorMessage(err);
-      if (isAuthErrorMessage(message)) setIsSettingsOpen(true);
-      updateCanvasNodeByCanvasId(canvas.id, nodeId, { status: "failed", error: message, generationMs: Date.now() - startedAt });
-      addEvent("无限画布失败", message);
-    }
-  }
 
   async function saveProcessedImageFile(file, subfolder = "") {
     const directory = saveDirectory || await refreshSaveDirectory();
@@ -718,10 +471,6 @@ export function useCanvasGenerationHandlers(ctx) {
   }
 
   return {
-    canvasFileFromResult,
-    addCanvasFiles,
-    runCanvasImageRequest,
-    generateCanvasNode,
     saveProcessedImageFile,
     optimizePrompt,
     sendResultToImageEditor,
