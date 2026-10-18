@@ -3405,12 +3405,6 @@ textarea:focus {
   font-size: 12px;
 }
 
-.stitchHeaderActions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .stitchCanvasFrame {
   display: grid;
   place-items: start center;

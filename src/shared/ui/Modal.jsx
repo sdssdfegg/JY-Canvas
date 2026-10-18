@@ -14,8 +14,8 @@
 //
 // 参数：
 //   Modal:       layerClassName / panelClassName / onClose / children
-//   ModalHeader: title / subtitle / onClose / closeLabel（不传就不渲染 aria-label，
-//                保持与抽取前完全一致的 DOM）
+//   ModalHeader: title / subtitle / onClose / closeLabel / action（action 为关闭钮
+//                左侧可选插槽；不传 closeLabel 就不渲染 aria-label，保持与抽取前完全一致的 DOM）
 
 import { X } from "lucide-react";
 import { Button } from "./Button";
@@ -30,16 +30,19 @@ export function Modal({ layerClassName = "modalLayer", panelClassName = "", onCl
   );
 }
 
-export function ModalHeader({ title, subtitle, onClose, closeLabel }) {
+export function ModalHeader({ title, subtitle, onClose, closeLabel, action }) {
   return (
     <header>
       <div>
         <h2>{title}</h2>
         <span>{subtitle}</span>
       </div>
-      <Button size="md" iconOnly aria-label={closeLabel} onClick={onClose}>
-        <X size={16} />
-      </Button>
+      <div className="ui-modal-header__actions">
+        {action}
+        <Button size="md" iconOnly aria-label={closeLabel} onClick={onClose}>
+          <X size={16} />
+        </Button>
+      </div>
     </header>
   );
 }
