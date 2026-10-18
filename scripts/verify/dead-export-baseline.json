@@ -1,5 +1,10 @@
 {
-  "generatedAt": "2026-10-15",
-  "reason": "P7-6 B 组：删 2 条真死导出（image-hosts.js::isAllowedImageSource、models.js::IMAGE_SIZES）；2 条经修正后判明为活——被 scripts/verify 直接引用（routing.js::defaultChannelForModel、retouch-intent.js::summarizeRetouchIntent）；余 7 条在代码中补 @internal 保留原因注解，由门禁按注解豁免。基线归零，新增即判红",
-  "items": []
+  "generatedAt": "2026-10-17",
+  "reason": "V93 表层删除无限画布视图后，canvas-graph.js::canvasImagesForGenerator 失去唯一消费者（被删视图），按 §3.4 预授权刷新基线；深层清理顺延 V94",
+  "items": [
+    {
+      "file": "src/features/canvas/canvas-graph.js",
+      "name": "canvasImagesForGenerator"
+    }
+  ]
 }

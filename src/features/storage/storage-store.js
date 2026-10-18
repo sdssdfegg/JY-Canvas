@@ -1,6 +1,6 @@
 // storage-store.js —— RF-082 从 src/main.jsx 逐字抽出（加 export），未改逻辑。
 import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, PUBLIC_RELEASE_MODE, PUBLIC_RELEASE_RESET_KEY, STORAGE_KEY, STORAGE_PREFIX, defaultState } from "../../shared/app-defaults.js";
-import { BookOpen, Box, Brush, Crop, FileText, Layers, Sparkles, Wand2 } from "lucide-react";
+import { BookOpen, Brush, Crop, FileText, Layers, Sparkles, Wand2 } from "lucide-react";
 import { readJsonStorage, removeStorageItem, writeJsonStorage } from "../../lib/storage/json-storage.js";
 import { canonicalModel } from "../../shared/routing.js";
 import { appendHistoryResults, deleteHistoryResults, getHistoryResults } from "../../api/history.js";
@@ -15,8 +15,6 @@ export const HISTORY_STORE_NAME = "results";
 
 export const HISTORY_FALLBACK_KEY = `${STORAGE_PREFIX}-history-fallback-v1`;
 
-export const SHOW_INFINITE_CANVAS = false;
-
 export const navItems = [
   { id: "quickgen", label: "快捷生成", icon: Sparkles },
   { id: "outfit", label: "批量生成", icon: Wand2 },
@@ -24,7 +22,6 @@ export const navItems = [
   { id: "resize", label: "批量改尺寸", icon: Crop },
   { id: "reference-remix", label: "参考生图", icon: Layers },
   { id: "detail-main", label: "一键详情/主图", icon: FileText },
-  ...(SHOW_INFINITE_CANVAS ? [{ id: "infinite-canvas", label: "无限画布", icon: Box }] : []),
   { id: "prompts", label: "提示词助手", icon: BookOpen }
 ];
 
