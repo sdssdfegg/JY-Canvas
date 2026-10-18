@@ -26,6 +26,7 @@ import {
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import { Button } from "./shared/ui/Button";
 import { Modal } from "./shared/ui/Modal.jsx";
+import { ModuleHeader } from "./shared/ui/ModuleHeader";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
   OUTFIT_AUTO_PROMPT_CHAR_LIMIT,
@@ -1911,12 +1912,10 @@ function freezeIntentIntoTask(intentCtx) {
         </section>
 
         <section className={`viewPanel ${activeView === "resize" ? "active" : ""}`}>
-          <header className="moduleHeader">
-            <div>
-              <h2>批量尺寸导出</h2>
-              <span>独立本地处理栏目，只负责批量缩放、转格式、补边、裁剪和导出。</span>
-            </div>
-          </header>
+          <ModuleHeader
+            title="批量尺寸导出"
+            subtitle="独立本地处理栏目，只负责批量缩放、转格式、补边、裁剪和导出。"
+          />
           <BatchResizePanel
             saveDirectory={saveDirectory}
             onChooseDirectory={openDirectoryModal}

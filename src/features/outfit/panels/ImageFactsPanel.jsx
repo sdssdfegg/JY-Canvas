@@ -8,6 +8,7 @@
 import { ChevronDown, ChevronUp, Loader2, Sparkles } from "lucide-react";
 import { FACT_UNRECOGNIZED, OUTFIT_FACT_FIELDS } from "../../../shared/outfit-intent.js";
 import { Button } from "../../../shared/ui/Button";
+import { ModuleHeader } from "../../../shared/ui/ModuleHeader";
 
 export function ImageFactsPanel({
   outfitIntent,
@@ -35,17 +36,16 @@ export function ImageFactsPanel({
     .join("；");
   return (
     <div className="imageFactPanel">
-      <div className="imageFactHeader">
-        <strong><Sparkles size={13} /> 图2服装事实</strong>
-        <span>
-          {outfitIntent.parts.length === 0
-            ? "先在下方「更换部位」里选部位，分析才知道该提取什么"
-            : stale
-              ? "图2已更换，这份事实可能过期，建议重新分析"
-              : `只保留本次所选部位（${outfitIntentSummary.replaceText}）的服装事实`}
-        </span>
-        <em>{outfitRecognizedFacts.length > 0 ? `已识别 ${outfitRecognizedFacts.length} 项` : "未识别"}</em>
-      </div>
+      <ModuleHeader
+        icon={<Sparkles size={13} />}
+        title="图2服装事实"
+        subtitle={outfitIntent.parts.length === 0
+          ? "先在下方「更换部位」里选部位，分析才知道该提取什么"
+          : stale
+            ? "图2已更换，这份事实可能过期，建议重新分析"
+            : `只保留本次所选部位（${outfitIntentSummary.replaceText}）的服装事实`}
+        action={<em>{outfitRecognizedFacts.length > 0 ? `已识别 ${outfitRecognizedFacts.length} 项` : "未识别"}</em>}
+      />
       <div className="imageFactActions">
         <Button
           size="sm"

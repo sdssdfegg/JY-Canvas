@@ -58,6 +58,7 @@ import {
 } from "../../shared/local-edit-geometry.js";
 import { imageFileFromUrl, dataUrlFromBlob } from "../../shared/result-image.js";
 import { Modal, ModalHeader } from "../../shared/ui/Modal.jsx";
+import { ModuleHeader } from "../../shared/ui/ModuleHeader";
 import { Button } from "../../shared/ui/Button";
 import { TaskBadge } from "../../shared/ui/TaskBadge";
 import { UploadClearButton } from "../../shared/ui/UploadClearButton";
@@ -1421,12 +1422,10 @@ export function BatchResizePanel({
         addFiles(pastedImages);
       }}
     >
-      <header className="batchResizeHeader">
-        <div>
-          <h3>批量尺寸导出</h3>
-          <span>本地批量改尺寸和转格式，不消费 API；默认 JPG、最长边 3500、72DPI，导出到「{RESIZE_OUTPUT_FOLDER}」。</span>
-        </div>
-        <div className="batchResizeActions">
+      <ModuleHeader
+        title="批量尺寸导出"
+        subtitle="本地批量改尺寸和转格式，不消费 API；默认 JPG、最长边 3500、72DPI，导出到「{RESIZE_OUTPUT_FOLDER}」。"
+        action={<div className="batchResizeActions">
           <Button size="sm" type="button" onClick={() => folderInputRef.current?.click()}>
             <FolderOpen size={15} />
             <span>选择文件夹</span>
@@ -1448,8 +1447,8 @@ export function BatchResizePanel({
             <span>{working ? "导出中" : "导出"}</span>
           </Button>
           <UploadClearButton onClick={clearItems} disabled={items.length === 0} />
-        </div>
-      </header>
+        </div>}
+      />
 
       <div className="resizeControlGrid">
         {!isOriginalSizeMode && (
@@ -1960,12 +1959,10 @@ export function WorkflowQuickVideoPanel({
 
   return (
     <section className="workflowVideoPanel">
-      <header className="moduleHeader">
-        <div>
-          <h2>快捷视频生成</h2>
-          <span>参考图、提示词和视频参数独立管理，不读取批量换装上传区。</span>
-        </div>
-        <div className="moduleHeaderActions">
+      <ModuleHeader
+        title="快捷视频生成"
+        subtitle="参考图、提示词和视频参数独立管理，不读取批量换装上传区。"
+        action={<div className="moduleHeaderActions">
           <TaskBadge status={status === "running" || tasks.length ? "running" : status}>{statusText}</TaskBadge>
           <Button size="sm" type="button" onClick={() => results[0] && downloadVideo(results[0])} disabled={!results.length}>
             <Download size={15} />
@@ -1975,8 +1972,8 @@ export function WorkflowQuickVideoPanel({
             <Trash2 size={15} />
             <span>清空视频</span>
           </Button>
-        </div>
-      </header>
+        </div>}
+      />
 
       <div className="workflowVideoLayout">
         <section className="workflowVideoResults">
@@ -2169,9 +2166,7 @@ export function LocalPasteDiagnosticsPanel({ image }) {
   if (!summary) return null;
   return (
     <section className="previewLocalPastePanel">
-      <header>
-        <strong>{summary.title}</strong>
-      </header>
+      <ModuleHeader title={summary.title} />
       <div className="previewQualityFacts">
         {summary.items.map((item) => <span key={item}>{item}</span>)}
       </div>
@@ -2183,9 +2178,7 @@ export function CropReturnDiagnosticsPanel({ image }) {
   if (!summary) return null;
   return (
     <section className="previewCropReturnPanel">
-      <header>
-        <strong>{summary.title}</strong>
-      </header>
+      <ModuleHeader title={summary.title} />
       <div className="previewQualityFacts">
         {summary.items.map((item) => <span key={item}>{item}</span>)}
       </div>
@@ -2195,13 +2188,11 @@ export function CropReturnDiagnosticsPanel({ image }) {
 export function LegacyModulePanel({ title, subtitle, icon, children }) {
   return (
     <section className="legacyPanel">
-      <header className="moduleHeader">
-        <div>
-          <h2>{title}</h2>
-          <span>{subtitle}</span>
-        </div>
-        <div className="legacyPanelIcon">{icon}</div>
-      </header>
+      <ModuleHeader
+        title={title}
+        subtitle={subtitle}
+        action={icon ? <div className="legacyPanelIcon">{icon}</div> : undefined}
+      />
       {children}
     </section>
   );

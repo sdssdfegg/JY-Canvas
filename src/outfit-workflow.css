@@ -178,29 +178,6 @@
   display: block;
 }
 
-.outfitWorkflowEmbedded .moduleHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 14px;
-  padding: 13px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  background: var(--panel-bg);
-}
-
-.outfitWorkflowEmbedded .moduleHeader h2 {
-  margin: 0;
-  font-size: 20px;
-}
-
-.outfitWorkflowEmbedded .moduleHeader span {
-  color: var(--text-soft);
-  font-size: 12px;
-}
-
 .outfitWorkflowEmbedded .moduleHeaderActions {
   display: flex;
   flex-wrap: wrap;
@@ -2182,22 +2159,6 @@
   border-color: color-mix(in srgb, #5bc9b8 42%, var(--border));
 }
 
-.outfitWorkflowEmbedded .previewLocalPastePanel header,
-.outfitWorkflowEmbedded .previewCropReturnPanel header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.outfitWorkflowEmbedded .previewLocalPastePanel header strong,
-.outfitWorkflowEmbedded .previewCropReturnPanel header strong {
-  font-size: 13px;
-}
-
 .outfitWorkflowEmbedded .previewQualityPanel.pass {
   border-color: color-mix(in srgb, #49c85b 44%, var(--border));
 }
@@ -2597,10 +2558,6 @@
   background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-}
-
-.outfitWorkflowEmbedded .legacyPanel .moduleHeader {
-  align-items: center;
 }
 
 .outfitWorkflowEmbedded .legacyPanelIcon {
@@ -3890,7 +3847,6 @@
   display: none;
 }
 
-.outfitWorkflowEmbedded .batchResizeHeader,
 .outfitWorkflowEmbedded .batchResizeFooter {
   display: flex;
   align-items: center;
@@ -3898,11 +3854,6 @@
   gap: 12px;
 }
 
-.outfitWorkflowEmbedded .batchResizeHeader h3 {
-  margin: 0;
-}
-
-.outfitWorkflowEmbedded .batchResizeHeader span,
 .outfitWorkflowEmbedded .batchResizeFooter span,
 .outfitWorkflowEmbedded .resizeMeta span,
 .outfitWorkflowEmbedded .resizeDropHint em {
