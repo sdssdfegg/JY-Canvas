@@ -29,6 +29,7 @@ import { QuickCropViewportModal } from "./features/crop/quick-crop-panels.jsx";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { Button } from "./shared/ui/Button";
 import { AppSidebar } from "./shared/ui/AppSidebar";
+import { Modal } from "./shared/ui/Modal.jsx";
 import { createReferenceUpload, quickReferenceOriginalFile } from "./features/upload/reference-upload.js";
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import {
@@ -1133,8 +1134,7 @@ function App() {
       </section>
 
       {isDirectoryModalOpen && (
-        <div className="modalLayer" onMouseDown={() => setIsDirectoryModalOpen(false)}>
-          <section className="saveDirectoryModal" onMouseDown={(event) => event.stopPropagation()}>
+        <Modal layerClassName="modalLayer" panelClassName="saveDirectoryModal" onClose={() => setIsDirectoryModalOpen(false)}>
             <header>
               <div>
                 <h2>指定文件夹</h2>
@@ -1163,13 +1163,11 @@ function App() {
                 <Button size="md" tone="primary" onClick={() => void confirmSaveDirectory()}>确定</Button>
               </div>
             </footer>
-          </section>
-        </div>
+          </Modal>
       )}
 
       {detailApi.isDetailPresetOpen && (
-        <div className="modalLayer" onMouseDown={() => detailApi.setIsDetailPresetOpen(false)}>
-          <section className="detailPresetModal" onMouseDown={(event) => event.stopPropagation()}>
+        <Modal layerClassName="modalLayer" panelClassName="detailPresetModal" onClose={() => detailApi.setIsDetailPresetOpen(false)}>
             <header>
               <div>
                 <h2>加载详情预设</h2>
@@ -1193,8 +1191,7 @@ function App() {
               ))}
               {detailApi.detailPresets.length === 0 && <p className="promptEmpty">还没有保存过详情预设</p>}
             </div>
-          </section>
-        </div>
+          </Modal>
       )}
 
       {isSettingsOpen && (
@@ -1217,8 +1214,7 @@ function App() {
       />
 
       {detailApi.stitchPreview && detailApi.stitchGroup && (
-        <div className="modalLayer stitchLayer" onMouseDown={detailApi.closeStitchPreview}>
-          <section className="stitchPreviewModal" onMouseDown={(event) => event.stopPropagation()}>
+        <Modal layerClassName="modalLayer stitchLayer" panelClassName="stitchPreviewModal" onClose={detailApi.closeStitchPreview}>
             <header>
               <div>
                 <h2>拼图预览</h2>
@@ -1257,11 +1253,10 @@ function App() {
                     onDragStart={(event) => beginResultImageDrag(event, result, stitchIndex)}
                     diagnostic={{ requestId: result.requestId || result.id, endpoint: "/api/images", module: "一键详情", placement: "stitch-preview" }}
                   />
-                ))}
+                )                )}
               </div>
             </div>
-          </section>
-        </div>
+          </Modal>
       )}
 
       {quickCropEditTarget && (
@@ -1291,8 +1286,7 @@ function App() {
       )}
 
       {referencePreview && (
-        <div className="modalLayer previewLayer" onMouseDown={closeReferencePreview}>
-          <section className="previewModal referencePreviewModal" onMouseDown={(event) => event.stopPropagation()}>
+        <Modal layerClassName="modalLayer previewLayer" panelClassName="previewModal referencePreviewModal" onClose={closeReferencePreview}>
             <header>
               <div>
                 <h2>使用图预览</h2>
@@ -1320,13 +1314,11 @@ function App() {
                 </button>
               )}
             </div>
-          </section>
-        </div>
+          </Modal>
       )}
 
       {uploadPreview && (
-        <div className="modalLayer previewLayer" onMouseDown={closeUploadPreview}>
-          <section className="previewModal" onMouseDown={(event) => event.stopPropagation()}>
+        <Modal layerClassName="modalLayer previewLayer" panelClassName="previewModal" onClose={closeUploadPreview}>
             <header>
               <div>
                 <h2>上传图片预览</h2>
@@ -1344,13 +1336,11 @@ function App() {
                 onDragStart={(event) => beginImageDownloadDrag(event, uploadPreview.url, uploadPreview.name || "上传图片")}
               />
             </div>
-          </section>
-        </div>
+          </Modal>
       )}
 
       {previewResult && (
-        <div className="modalLayer previewLayer" onMouseDown={closePreview}>
-          <section className="previewModal" onMouseDown={(event) => event.stopPropagation()}>
+        <Modal layerClassName="modalLayer previewLayer" panelClassName="previewModal" onClose={closePreview}>
             <header>
               <div>
                 <h2>图片预览</h2>
@@ -1424,8 +1414,7 @@ function App() {
                 {previewResult.prompt}
               </button>
             )}
-          </section>
-        </div>
+          </Modal>
       )}
 
       {referenceContextMenu?.reference && (

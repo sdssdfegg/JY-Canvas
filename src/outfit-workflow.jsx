@@ -25,6 +25,7 @@ import {
 // CachedImage 已随 preview 浮层迁至 src/features/outfit/panels/ResultPreviewModal.jsx
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import { Button } from "./shared/ui/Button";
+import { Modal } from "./shared/ui/Modal.jsx";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
   OUTFIT_AUTO_PROMPT_CHAR_LIMIT,
@@ -1952,8 +1953,7 @@ function freezeIntentIntoTask(intentCtx) {
       />
 
       {isPromptAssistantOpen && (
-        <div className="modalLayer promptLayer" onMouseDown={() => setIsPromptAssistantOpen(false)}>
-          <section className="promptAssistantModal" onMouseDown={(event) => event.stopPropagation()}>
+        <Modal layerClassName="modalLayer promptLayer" panelClassName="promptAssistantModal" onClose={() => setIsPromptAssistantOpen(false)}>
             <header>
               <h2>提示词助手</h2>
               <Button size="md" iconOnly onClick={() => setIsPromptAssistantOpen(false)}>
@@ -1973,8 +1973,7 @@ function freezeIntentIntoTask(intentCtx) {
                 onEditPreset={editPromptPreset} onDeletePreset={deletePromptPreset}
               />
             </div>
-          </section>
-        </div>
+          </Modal>
       )}
 
       {editingPrompt && (
@@ -2058,8 +2057,7 @@ function freezeIntentIntoTask(intentCtx) {
         />
       )}
       {imageLightbox && (
-        <div className="modalLayer" onMouseDown={() => setImageLightbox(null)}>
-          <section className="previewModal" onMouseDown={(event) => event.stopPropagation()}>
+        <Modal layerClassName="modalLayer" panelClassName="previewModal" onClose={() => setImageLightbox(null)}>
             <header>
               <div>
                 <h2>{imageLightbox.title}</h2>
@@ -2083,8 +2081,7 @@ function freezeIntentIntoTask(intentCtx) {
                 style={{ transform: `translate(${previewPan.x}px, ${previewPan.y}px) scale(${previewZoom})` }}
               />
             </div>
-          </section>
-        </div>
+          </Modal>
       )}
     </main>
   );
