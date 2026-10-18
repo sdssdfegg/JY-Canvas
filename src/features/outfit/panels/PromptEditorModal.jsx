@@ -5,6 +5,7 @@
 //   图标 X / Save 直接 import；setEditingPrompt(null) 收敛为 onClose prop。
 import { X, Save } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
+import { Modal } from "../../../shared/ui/Modal";
 
 export default function PromptEditorModal({
   editingPrompt,
@@ -14,8 +15,7 @@ export default function PromptEditorModal({
   saveEditingPrompt
 }) {
   return (
-<div className="modalLayer promptEditorLayer" onMouseDown={() => onClose()}>
-  <section className="promptEditorModal" onMouseDown={(event) => event.stopPropagation()}>
+<Modal layerClassName="modalLayer promptEditorLayer" panelClassName="promptEditorModal" onClose={() => onClose()}>
     <header>
       <h2>编辑提示词</h2>
       <Button size="md" iconOnly type="button" onClick={() => onClose()} title="关闭">
@@ -58,7 +58,6 @@ export default function PromptEditorModal({
         <span>保存</span>
       </Button>
     </footer>
-  </section>
-</div>
+</Modal>
   );
 }

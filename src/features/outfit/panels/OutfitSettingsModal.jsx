@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
 import { Field } from "../../../shared/ui/Field";
+import { Modal } from "../../../shared/ui/Modal";
 import { THEME_OPTIONS } from "../outfit-top.js";
 
 export default function OutfitSettingsModal({
@@ -44,8 +45,7 @@ export default function OutfitSettingsModal({
   return (
     <>
       {isSettingsOpen && !embeddedMode && (
-        <div className="modalLayer" onMouseDown={() => setIsSettingsOpen(false)}>
-          <section className="settingsModal" onMouseDown={(event) => event.stopPropagation()}>
+        <Modal layerClassName="modalLayer" panelClassName="settingsModal" onClose={() => setIsSettingsOpen(false)}>
             <header>
               <div>
                 <h2>设置</h2>
@@ -100,13 +100,11 @@ export default function OutfitSettingsModal({
                 <Button size="md" loading={isConnectionTesting} disabled={isConnectionTesting} onClick={() => void runConnectionTest()}>连接测试</Button>
               </div>
             </Field>
-          </section>
-        </div>
+          </Modal>
       )}
 
       {isDirectoryModalOpen && (
-        <div className="modalLayer" onMouseDown={() => setIsDirectoryModalOpen(false)}>
-          <section className="saveDirectoryModal" onMouseDown={(event) => event.stopPropagation()}>
+        <Modal layerClassName="modalLayer" panelClassName="saveDirectoryModal" onClose={() => setIsDirectoryModalOpen(false)}>
             <header>
               <div>
                 <h2>指定文件夹</h2>
@@ -135,8 +133,7 @@ export default function OutfitSettingsModal({
                 <span>确定</span>
               </Button>
             </footer>
-          </section>
-        </div>
+          </Modal>
       )}
     </>
   );

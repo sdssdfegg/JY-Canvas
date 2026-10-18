@@ -12,6 +12,7 @@ import { qualityStatusClass, qualityStatusLabel, formatClock } from "../outfit-t
 import { imageSource, displayResultImageSource } from "../outfit-task.js";
 import { formatWholeSecondMs as formatMs } from "../../../lib/format/index.js";
 import { Button } from "../../../shared/ui/Button";
+import { Modal } from "../../../shared/ui/Modal";
 
 export default function ResultPreviewModal({
   preview,
@@ -31,8 +32,7 @@ export default function ResultPreviewModal({
   activeOutfitPage
 }) {
   return (
-<div className="modalLayer" onMouseDown={() => onClose()}>
-  <section className="previewModal" onMouseDown={(event) => event.stopPropagation()}>
+<Modal layerClassName="modalLayer" panelClassName="previewModal" onClose={() => onClose()}>
     <header>
       <div>
         <h2>结果预览 #{preview.order}</h2>
@@ -115,7 +115,6 @@ export default function ResultPreviewModal({
         <span>新窗口打开</span>
       </Button>
     </footer>
-  </section>
-</div>
+</Modal>
   );
 }

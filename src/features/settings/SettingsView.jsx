@@ -8,6 +8,7 @@ import {
 import { formatStorageSize } from "../storage/storage-store.js";
 import { themeOptions } from "./settings-state.js";
 import { Button } from "../../shared/ui/Button.jsx";
+import { Modal } from "../../shared/ui/Modal.jsx";
 import { Field } from "../../shared/ui/Field.jsx";
 import { Toolbar } from "../../shared/ui/Toolbar.jsx";
 import { Panel } from "../../shared/ui/Panel.jsx";
@@ -24,8 +25,7 @@ export function SettingsView({
   } = settingsApi;
 
   return (
-    <div className="modalLayer" onMouseDown={onClose}>
-      <section className="settingsModal" onMouseDown={(event) => event.stopPropagation()}>
+    <Modal layerClassName="modalLayer" panelClassName="settingsModal" onClose={onClose}>
         <header>
           <div>
             <h2>设置</h2>
@@ -144,7 +144,6 @@ export function SettingsView({
           </Toolbar>
           {storageStatus && <small className="ui-field__hint">{storageStatus}</small>}
         </Panel>
-      </section>
-    </div>
+    </Modal>
   );
 }
