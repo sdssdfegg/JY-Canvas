@@ -3,6 +3,7 @@
 // 共享数据 presets / categories 由 App() 持有并下发；isOpen / onClose 控制显隐。
 import { X, Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { Button } from "../../shared/ui/Button";
+import { Modal } from "../../shared/ui/Modal";
 
 export function PromptAssistantView({ isOpen, categories, onClose, promptApi }) {
   if (!isOpen) return null;
@@ -40,8 +41,7 @@ export function PromptAssistantView({ isOpen, categories, onClose, promptApi }) 
 
   return (
     <>
-      <div className="modalLayer promptLayer" onMouseDown={onClose}>
-        <section className="promptAssistantModal" onMouseDown={(event) => event.stopPropagation()}>
+      <Modal layerClassName="modalLayer promptLayer" panelClassName="promptAssistantModal" onClose={onClose}>
           <header>
             <h2>提示词助手</h2>
             <Button size="sm" iconOnly aria-label="关闭" onClick={onClose}>
@@ -144,12 +144,10 @@ export function PromptAssistantView({ isOpen, categories, onClose, promptApi }) 
               {filteredPromptPresets.length === 0 && <p className="promptEmpty">没有找到匹配的提示词</p>}
             </div>
           </div>
-        </section>
-      </div>
+      </Modal>
 
       {editingPrompt && (
-        <div className="modalLayer promptEditorLayer" onMouseDown={() => setEditingPrompt(null)}>
-          <section className="promptEditorModal" onMouseDown={(event) => event.stopPropagation()}>
+        <Modal layerClassName="modalLayer promptEditorLayer" panelClassName="promptEditorModal" onClose={() => setEditingPrompt(null)}>
             <header>
               <h2>编辑提示词</h2>
               <Button size="sm" iconOnly aria-label="关闭" onClick={() => setEditingPrompt(null)}>
@@ -194,8 +192,7 @@ export function PromptAssistantView({ isOpen, categories, onClose, promptApi }) 
                 <Button size="md" tone="primary" className="editorSaveButton" onClick={saveEditingPrompt}>保存</Button>
               </div>
             </footer>
-          </section>
-        </div>
+        </Modal>
       )}
     </>
   );
