@@ -8,6 +8,7 @@ import { ReferenceThumbTray } from "../../shared/ui/reference-thumb-tray.jsx";
 import { MAX_REFERENCE_REWRITE_FILES } from "../../features/upload/reference-upload.js";
 import { imageSourceFromResult } from "../../shared/models.js";
 import { Button } from "../../shared/ui/Button";
+import { ModuleHeader } from "../../shared/ui/ModuleHeader";
 import { formatMs } from "../../lib/format/index.js";
 
 // 参考生图面板视图（V59 从 src/main.jsx 迁出）。纯 JSX，无状态。
@@ -171,13 +172,13 @@ export function ReferenceRemixView({
           </section>
 
           <section className="detailFormSection">
-            <div className="referencePromptHeader">
-              <h3>整体提示词</h3>
-              <Button size="sm" onClick={() => void applySmartReferencePrompt()} disabled={isReferencePromptRewriting}>
+            <ModuleHeader
+              title="整体提示词"
+              action={<Button size="sm" onClick={() => void applySmartReferencePrompt()} disabled={isReferencePromptRewriting}>
                 {isReferencePromptRewriting ? <Loader2 className="spin" size={15} /> : <Wand2 size={15} />}
                 <span>智能扩写提示词</span>
-              </Button>
-            </div>
+              </Button>}
+            />
             <label className="detailField">
               <span>生成要求</span>
               <StableTextarea
@@ -201,12 +202,10 @@ export function ReferenceRemixView({
       </aside>
 
       <section className="referenceResultBoard">
-        <header className="referenceBoardHeader">
-          <div>
-            <strong>参考生图结果</strong>
-            <span>结果只保存在参考生图模块，不进入快捷生成和一键详情分屏。</span>
-          </div>
-        </header>
+        <ModuleHeader
+          title="参考生图结果"
+          subtitle="结果只保存在参考生图模块，不进入快捷生成和一键详情分屏。"
+        />
 
         <div className="referenceGallery">
           {referenceGalleryItems.map((galleryItem, index) => {
