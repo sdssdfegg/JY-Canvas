@@ -9,7 +9,7 @@
 //   闭包引用在钩顶 const 解构自 ctx（handler 体逐字未改）。
 // ⚠️ ctx 漏项 = 运行期 undefined（vite build 验不出），由 P6-4 §4 负向对照兜底（scripts/dev/p6-4-handlercheck.mjs）。
 // TDZ：钩调用点置于父组件 createReferenceUpload（appendReferenceFiles，最后一项 ctx 字段）之后；
-//   canvasCenterPoint / addEvent / autoSaveEventText / updateSetting 为父组件 hoisted 函数声明，作 ctx 传入安全。
+//   addEvent / autoSaveEventText / updateSetting 为父组件 hoisted 函数声明，作 ctx 传入安全。
 import { clampPromptForModel, isBanana2Model, routingFields } from "../../shared/routing.js";
 import { classifyQuickPrimaryLocalIntent, promptForQuickGeneration } from "../../shared/quickgen-prompt-rules.js";
 import { imageBitmapFromFile, imageExtension } from "../../shared/image-input.js";
