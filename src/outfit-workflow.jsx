@@ -97,7 +97,8 @@ import {
   WorkflowQuickVideoPanel,
     preprocessModeLabel
     } from "./features/outfit/outfit-panels.jsx";
-import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeGarmentComposition, normalizeGarmentParts, normalizeRecolorPart, replaceRecolorPartWords, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
+import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeGarmentComposition, normalizeGarmentParts, normalizeRecolorPart, normalizeRecolorUpperLayer, replaceRecolorPartWords, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
+import { UPPER_LAYER_OPTIONS } from "./shared/outfit-intent.js";
 import { ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import {  createAsyncLimiter, defaultLocalEditCrop, groupPreprocessValue, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
 import { useOutfitSettingsIntent } from "./features/outfit/use-outfit-settings-intent.js";
@@ -452,14 +453,22 @@ export default function OutfitWorkflow({
   const selectedGarmentParts = normalizeGarmentParts(settings.garmentParts);
   // V111（用户要求·1板块）：自定义改色页的「更换部位」单选 —— 切换时把提示词正文里旧部位的类别词全部换成新部位的词。
   const recolorPart = normalizeRecolorPart(settings.recolorPart);
+  const recolorUpperLayer = normalizeRecolorUpperLayer(settings.recolorUpperLayer);
   function selectRecolorPart(nextPart) {
     const part = normalizeRecolorPart(nextPart);
-    if (part === recolorPart) return;
-    // 用户主动切部位：提示词正文里旧部位的类别词全部换成新部位的词（用户手改的其它文字不动）。
+    // 用户主动切部位：提示词正文里全部部位类别词统一换成新部位的词（单部位改色，4 处词应始终一致；
+    // 即便之前手动改过词导致状态与正文错位，切一次部位也整体对齐。不再早退，保证实时同步）。
     const nextPrompt = replaceRecolorPartWords(settings.prompt, recolorPart, part);
     setSettings((current) => ({ ...current, recolorPart: part, prompt: nextPrompt }));
     const label = OUTFIT_PART_OPTIONS.find((item) => item.value === part)?.label || part;
     addEvent("更换部位", `改色部位已切换为「${label}」`);
+  }
+  function selectRecolorUpperLayer(nextLayer) {
+    const layer = normalizeRecolorUpperLayer(nextLayer);
+    if (layer === recolorUpperLayer) return;
+    setSettings((current) => ({ ...current, recolorUpperLayer: layer }));
+    const label = UPPER_LAYER_OPTIONS.find((item) => item.value === layer)?.label || layer;
+    addEvent("上装层级", `已切换为「${label}」`);
   }
   const selectedGarmentComposition = normalizeGarmentComposition(settings.garmentComposition, selectedGarmentParts);
   // 批量换装的结构化意图（唯一来源）。
@@ -1908,6 +1917,8 @@ function freezeIntentIntoTask(intentCtx) {
           isCustomWorkflow={isCustomWorkflow}
           recolorPart={recolorPart}
           onSelectRecolorPart={selectRecolorPart}
+          recolorUpperLayer={recolorUpperLayer}
+          onSelectRecolorUpperLayer={selectRecolorUpperLayer}
           clothingImages={clothingImages}
           clothingBulkMode={clothingBulkMode}
           setMasterClothing={setMasterClothing}

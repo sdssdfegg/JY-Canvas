@@ -12,7 +12,7 @@ import { OutfitPageRow } from "./OutfitPageRow.jsx";
 import { Button } from "../../../shared/ui/Button";
 import { MAX_UPLOAD_IMAGES, UploadZone } from "../outfit-panels.jsx";
 import { GARMENT_PART_OPTIONS, garmentCompositionLabel, normalizeGarmentComposition, sameGarmentParts } from "../outfit-top.js";
-import { OUTFIT_PART_OPTIONS } from "../../../shared/outfit-intent.js";
+import { OUTFIT_PART_OPTIONS, UPPER_LAYER_OPTIONS } from "../../../shared/outfit-intent.js";
 
 export default function OutfitComposer({
   isOutfitWorkflow,
@@ -104,6 +104,8 @@ export default function OutfitComposer({
   isCustomWorkflow,
   recolorPart,
   onSelectRecolorPart,
+  recolorUpperLayer,
+  onSelectRecolorUpperLayer,
   clothingImages,
   /* V77 Park：统一处理/新上传默认停用，但数据流保留 —— 以下 4 个 props 仍由父级按原名传入，
      本地别名成 _ 前缀（eslint 允许的未使用参数命名）。恢复 = 去掉 _ 前缀并传回 UploadZone。 */
@@ -313,6 +315,33 @@ export default function OutfitComposer({
               >
                 {active && <Check size={13} />}
                 <span>{part.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    )}
+
+    {/* V112（用户要求）：服装改色页「更换部位」行后面加「上装层级」行（换装同款控件，仅选上装时出现；
+        复用换装设置行既有类名与视觉，靠 .outfitIntentRow 的 padding-top/边框自然留出间距，零新增 CSS。
+        只记录选择，不自动改写提示词正文（避免动用户手写的提示词）。 */}
+    {isCustomWorkflow && recolorPart === "upper" && (
+      <div className="outfitIntentRow recolorUpperLayerRow">
+        <span className="outfitIntentRowTitle">上装层级</span>
+        <div className="outfitIntentChips">
+          {UPPER_LAYER_OPTIONS.map((option) => {
+            const active = recolorUpperLayer === option.value;
+            return (
+              <button
+                className={active ? "active" : ""}
+                key={option.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onSelectRecolorUpperLayer(option.value)}
+                title={`上装层级：${option.label}`}
+              >
+                {active && <Check size={13} />}
+                <span>{option.label}</span>
               </button>
             );
           })}
