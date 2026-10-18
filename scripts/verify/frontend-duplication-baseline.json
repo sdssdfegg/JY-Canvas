@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 111,
+    "fileCount": 112,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -112,6 +112,7 @@
       "src/shared/retouch-intent.js",
       "src/shared/routing.js",
       "src/shared/text-normalize.js",
+      "src/shared/ui/AppSidebar.jsx",
       "src/shared/ui/Button.jsx",
       "src/shared/ui/ChannelPicker.jsx",
       "src/shared/ui/Field.jsx",
