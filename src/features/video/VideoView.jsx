@@ -132,9 +132,7 @@ export function VideoView({
             onChange={(event) => updateVideoSetting("imageUrl", event.target.value)}
             placeholder="图片参考 URL，可留空"
           />
-          {(videoReferenceFile || videoSettings.imageUrl) && (
-            <UploadClearButton onClick={() => { setVideoReferenceFile(null); updateVideoSetting("imageUrl", ""); }} />
-          )}
+          <UploadClearButton onClick={() => { setVideoReferenceFile(null); updateVideoSetting("imageUrl", ""); }} disabled={!videoReferenceFile && !videoSettings.imageUrl} />
         </div>
 
         <StableTextarea

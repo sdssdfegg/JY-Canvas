@@ -853,9 +853,7 @@ export function UploadZone({
         <div className="uploadHeaderActions">
           {/* V77（用户要求·停用）：上传按钮移除（空态点击/拖入仍走 inputRef 链，有图后靠拖入 + 单张替换）；
               右上角仅保留清除钮。 */}
-          {items.length > 0 && onClear && (
-            <UploadClearButton onClick={onClear} />
-          )}
+          <UploadClearButton onClick={onClear} disabled={!onClear || items.length === 0} />
         </div>
       </header>
       <div className="uploadZoneBody">
@@ -1449,7 +1447,7 @@ export function BatchResizePanel({
             {working ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
             <span>{working ? "导出中" : "导出"}</span>
           </Button>
-          {items.length > 0 && <UploadClearButton onClick={clearItems} />}
+          <UploadClearButton onClick={clearItems} disabled={items.length === 0} />
         </div>
       </header>
 
@@ -2037,9 +2035,7 @@ export function WorkflowQuickVideoPanel({
               onChange={(event) => updateSetting("imageUrl", event.target.value)}
               placeholder="图片参考 URL，可留空"
             />
-            {(referenceFile || settings.imageUrl) && (
-              <UploadClearButton onClick={() => { setReferenceFile(null); updateSetting("imageUrl", ""); }} />
-            )}
+            <UploadClearButton onClick={() => { setReferenceFile(null); updateSetting("imageUrl", ""); }} disabled={!referenceFile && !settings.imageUrl} />
           </div>
 
           <label className="composerField">
