@@ -31,7 +31,7 @@ export function normalizeQuickReferenceItem(item) {
 //      不能「删除声明」，只能「搬进本 hook 并以原名返回、App 解构后继续供共享工厂使用」，
 //      与 V58 videoApi / V60 detailApi 的模式一致。
 //   2. 顶部 tab / 工具条（执行单 §2 标注 2296–2320 / 2324–2424）嵌在共享 topBar 内，
-//      与 infinite-canvas / detail-main / reference-remix 的标题与工具条同体，
+//      与 detail-main / reference-remix 的标题与工具条同体，
 //      单独抽进 QuickGenView 需要重构 topBar（否则会重复渲染或丢失共享入口），
 //      故本单留待下轮，不在无浏览器实测的自动化环境里冒险重构。
 //   3. 快捷生成私有 handler（generate / optimizePrompt / openPreview / 参考排序 等）与

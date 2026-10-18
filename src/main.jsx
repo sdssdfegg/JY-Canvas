@@ -51,9 +51,7 @@ import {
 import "./styles.css";
 import { useSaveDirectory } from "./shared/hooks/useSaveDirectory.js";
 import { usePreviewDrag } from "./shared/hooks/usePreviewDrag.js";
-import { createCanvasActions, createCanvasInteractions } from "./features/canvas/canvas-actions.js";
-// P6-4：画布 / 生成类 handler 钩（canvasFileFromResult / addCanvasFiles / runCanvasImageRequest / generateCanvasNode /
-// saveProcessedImageFile / optimizePrompt / sendResultToImageEditor / addReferenceThumbToUploads / generate）。
+// P6-4：画布 / 生成类 handler 钩（saveProcessedImageFile / optimizePrompt / sendResultToImageEditor / addReferenceThumbToUploads / generate）。
 import { useCanvasGenerationHandlers } from "./features/canvas/canvas-generation-handlers.js";
 // P6-5：App() 体其余全部 handler 钩（updateSetting / addEvent / copyText / 预览三态 / 参考图排序 / 右键菜单 / rerun 等 38 个）。
 import { useMainHandlers } from "./features/main-app/main-handlers.js";
@@ -70,7 +68,7 @@ import { DetailView } from "./features/detail/DetailView.jsx";
 import { useDetailState } from "./features/detail/detail-state.js";
 // V61（P3-6）：快捷生成 image 模式私有状态与派生收口至 src/features/quickgen/（降级档：仅 state，JSX 留待下轮）
 import { useQuickGenState } from "./features/quickgen/quickgen-state.js";
-import { ACTIVE_VIEW_KEY, INFINITE_CANVAS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState } from "./shared/app-defaults.js";
+import { ACTIVE_VIEW_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState } from "./shared/app-defaults.js";
 import { loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
 import { hydrateDetailGroupsWithHistory } from "./features/detail/detail-group.js";
 import { defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
@@ -126,10 +124,6 @@ const DETAIL_ANALYSIS_MODEL = "gpt-5.4-mini";
 
 
 
-const CANVAS_NODE_WIDTH = 236;
-const CANVAS_NODE_HEIGHT = 260;
-const CANVAS_GENERATOR_WIDTH = 286;
-const CANVAS_GENERATOR_HEIGHT = 360;
 const COUNT_OPTIONS = Array.from({ length: 12 }, (_, index) => index + 1);
 const REFERENCE_STRENGTH_OPTIONS = Array.from({ length: 8 }, (_, index) => 30 + index * 10);
 
@@ -151,17 +145,6 @@ const referenceControlOptions = [
   { value: "strong", label: "重点参考" }
 ];
 
-const canvasImageRoleOptions = [
-  { value: "auto", label: "自动" },
-  { value: "model", label: "模特图" },
-  { value: "fixed", label: "固定服装" },
-  { value: "reference", label: "通用参考" }
-];
-
-const canvasBatchModeOptions = [
-  { value: "single", label: "单次生成" },
-  { value: "by-model", label: "按模特批量" }
-];
 
 
 
@@ -192,148 +175,7 @@ function loadPromptCategories() {
   return normalizePromptCategories([...base, ...presetCategories]);
 }
 
-function createCanvasNode(type, patch = {}) {
-  const now = Date.now();
-  const size = type === "generator"
-    ? { w: CANVAS_GENERATOR_WIDTH, h: CANVAS_GENERATOR_HEIGHT }
-    : { w: CANVAS_NODE_WIDTH, h: CANVAS_NODE_HEIGHT };
-  const base = {
-    id: patch.id || makeResultId(),
-    type,
-    title: patch.title || (type === "generator" ? "生图节点" : type === "prompt" ? "提示词节点" : type === "output" ? "输出节点" : "图片节点"),
-    x: Number.isFinite(patch.x) ? patch.x : 120,
-    y: Number.isFinite(patch.y) ? patch.y : 120,
-    w: Number.isFinite(patch.w) ? patch.w : size.w,
-    h: Number.isFinite(patch.h) ? patch.h : size.h,
-    createdAt: patch.createdAt || now,
-    updatedAt: now
-  };
 
-  if (type === "prompt") {
-    return {
-      ...base,
-      text: patch.text || "输入你要生成的画面要求，连接到生图节点后会自动读取。"
-    };
-  }
-
-  if (type === "generator") {
-    return {
-      ...base,
-      params: {
-        model: patch.params?.model || defaultState.model,
-        imageSize: patch.params?.imageSize || defaultState.imageSize,
-        aspectRatio: patch.params?.aspectRatio || defaultState.aspectRatio,
-        n: clampCount(patch.params?.n || 1),
-        batchMode: canvasBatchModeOptions.some((option) => option.value === patch.params?.batchMode)
-          ? patch.params.batchMode
-          : "single"
-      },
-      prompt: patch.prompt || "",
-      status: patch.status || "idle",
-      error: patch.error || "",
-      generationMs: Number.isFinite(patch.generationMs) ? patch.generationMs : null
-    };
-  }
-
-  if (type === "output") {
-    return {
-      ...base,
-      results: Array.isArray(patch.results) ? patch.results : [],
-      prompt: patch.prompt || "",
-      status: patch.status || "success",
-      generationMs: Number.isFinite(patch.generationMs) ? patch.generationMs : null
-    };
-  }
-
-  return {
-    ...base,
-    result: patch.result || null,
-    role: canvasImageRoleOptions.some((option) => option.value === patch.role) ? patch.role : "auto",
-    prompt: patch.prompt || patch.result?.prompt || ""
-  };
-}
-
-function createInfiniteCanvas(name = "") {
-  const createdAt = Date.now();
-  const promptNode = createCanvasNode("prompt", {
-    title: "画面提示词",
-    x: 80,
-    y: 100,
-    text: "输入本次画面的核心要求。连接图片节点后，生图节点会自动把连入图片当成参考图。"
-  });
-  const generatorNode = createCanvasNode("generator", {
-    title: "API 生图",
-    x: 420,
-    y: 78
-  });
-
-  return {
-    id: `canvas_${createdAt}_${Math.random().toString(36).slice(2, 7)}`,
-    name: name || `画布 ${new Date(createdAt).toLocaleString("zh-CN", { hour12: false }).slice(5, 16)}`,
-    createdAt,
-    updatedAt: createdAt,
-    nodes: [promptNode, generatorNode],
-    connections: [{
-      id: makeResultId(),
-      fromNodeId: promptNode.id,
-      toNodeId: generatorNode.id
-    }]
-  };
-}
-
-function normalizeCanvasNode(node, index = 0) {
-  if (!node || typeof node !== "object") return null;
-  const type = ["image", "prompt", "generator", "output"].includes(node.type) ? node.type : "image";
-  return createCanvasNode(type, {
-    ...node,
-    id: String(node.id || `canvas_node_${index}`),
-    x: Number(node.x),
-    y: Number(node.y),
-    w: Number(node.w),
-    h: Number(node.h)
-  });
-}
-
-function normalizeInfiniteCanvasState(raw) {
-  const incoming = raw && typeof raw === "object" ? raw : {};
-  const canvases = Array.isArray(incoming.canvases)
-    ? incoming.canvases.map((canvas, canvasIndex) => {
-        const normalizedNodes = Array.isArray(canvas?.nodes)
-          ? canvas.nodes.map(normalizeCanvasNode).filter(Boolean)
-          : [];
-        const nodeIds = new Set(normalizedNodes.map((node) => node.id));
-        const connections = Array.isArray(canvas?.connections)
-          ? canvas.connections.filter((connection) => (
-              connection?.fromNodeId
-              && connection?.toNodeId
-              && nodeIds.has(connection.fromNodeId)
-              && nodeIds.has(connection.toNodeId)
-            )).map((connection, index) => ({
-              id: String(connection.id || `canvas_link_${canvasIndex}_${index}`),
-              fromNodeId: String(connection.fromNodeId),
-              toNodeId: String(connection.toNodeId)
-            }))
-          : [];
-        return {
-          id: String(canvas?.id || `canvas_${canvasIndex}_${Date.now()}`),
-          name: String(canvas?.name || `画布 ${canvasIndex + 1}`),
-          createdAt: Number(canvas?.createdAt || Date.now()),
-          updatedAt: Number(canvas?.updatedAt || Date.now()),
-          nodes: normalizedNodes.length > 0 ? normalizedNodes : createInfiniteCanvas().nodes,
-          connections
-        };
-      }).filter(Boolean)
-    : [];
-  const nextCanvases = canvases.length > 0 ? canvases : [createInfiniteCanvas("默认画布")];
-  const activeId = nextCanvases.some((canvas) => canvas.id === incoming.activeId)
-    ? incoming.activeId
-    : nextCanvases[0].id;
-  return { activeId, canvases: nextCanvases };
-}
-
-function loadInfiniteCanvasState() {
-  return normalizeInfiniteCanvasState(readJsonStorage(INFINITE_CANVAS_KEY, null));
-}
 
 
 
@@ -457,12 +299,6 @@ function App() {
   const [activeView, setActiveView] = useState(loadActiveView);
   const [referenceProductFiles, setReferenceProductFiles] = useState([]);
   const [referenceStyleFiles, setReferenceStyleFiles] = useState([]);
-  const [infiniteCanvasState, setInfiniteCanvasState] = useState(loadInfiniteCanvasState);
-  const [canvasViewport, setCanvasViewport] = useState({ x: 34, y: 18, scale: 1 });
-  const [, setCanvasTasks] = useState([]);
-  const [canvasConnectStart, setCanvasConnectStart] = useState(null);
-  const [canvasDrag, setCanvasDrag] = useState(null);
-  const [, setCanvasSelectedNodeId] = useState("");
   const [saveDirectory, setSaveDirectory] = useState("");
   const [directoryDraft, setDirectoryDraft] = useState("");
   const [isPickingDirectory, setIsPickingDirectory] = useState(false);
@@ -534,7 +370,6 @@ function App() {
   const referencePointerSortRef = useRef(null);
   // 排序松手后会紧接着触发一次 click ⇒ 会误开预览。沿用批量侧的 150ms 抑制窗口。
   const suppressReferencePreviewRef = useRef(false);
-  const canvasStageRef = useRef(null);
   const previewDragRef = useRef(null);
 
   // P6-5（V4.0）：App() 体其余全部 handler（38 个）收口到 useMainHandlers（src/features/main-app/）。
@@ -546,7 +381,6 @@ function App() {
   const handlerLateRef = useRef({});
   const {
     updateSetting,
-    canvasCenterPoint,
     addEvent,
     copyText,
     onComposerPaste,
@@ -585,7 +419,6 @@ function App() {
     settings,
     setSettings,
     activeView,
-    setActiveView,
     quickMode,
     setFiles,
     quickResults,
@@ -618,19 +451,12 @@ function App() {
     setReferenceProductFiles,
     setReferenceStyleFiles,
     setEvents,
-    setCanvasSelectedNodeId,
-    canvasViewport,
-    createCanvasNode,
-    makeResultId,
-    CANVAS_NODE_WIDTH,
-    CANVAS_NODE_HEIGHT,
     clampCount,
     QUICK_LOCAL_EDIT_RATIOS,
     referencePointerSortRef,
     suppressReferencePreviewRef,
     previewDragRef,
     quickGalleryRef,
-    canvasStageRef,
     lateRef: handlerLateRef
   });
   // V56（P3-1）：设置弹窗私有状态与副作用统一收口到 useSettingsState，App() 只持有共享状态。BUG02 修复：须置于 useMainHandlers 之后（消费其产出的 addEvent），前置触发 const TDZ 首屏白屏。
@@ -705,9 +531,6 @@ function App() {
   const quickChannels = channelsForModel(settings.model, config.routing || config);
   const quickChannel = quickChannels.find((item) => item.id === settings.channelId) || quickChannels[0] || null;
   const billingGatewayEnabled = Boolean(config.billingGatewayPolicy?.enabled);
-  const canvases = infiniteCanvasState.canvases;
-  const activeCanvasId = infiniteCanvasState.activeId;
-  const activeCanvas = canvases.find((canvas) => canvas.id === activeCanvasId) || canvases[0] || null;
   // 结果去重：同一次生成的图若被重复写入 results（同 id 或「同图不同 id」），
   // 画廊会出现「两张一模一样」的卡。按「图片内容签名优先、缺图回退 id」去重，
   // 只保证画廊展示层不重复，不改数据模型、不动存储结构。
@@ -769,12 +592,6 @@ function App() {
   }, [settings]);
 
 
-  useEffect(() => {
-    if (!writeJsonStorage(INFINITE_CANVAS_KEY, infiniteCanvasState)) {
-      addEvent("无限画布", "画布内容较大，部分临时图片可能无法写入本地缓存");
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [infiniteCanvasState]);
 
   useEffect(() => {
     writeJsonStorage(ACTIVE_VIEW_KEY, activeView);
@@ -880,37 +697,6 @@ function App() {
     };
   }, [isQuickChannelMenuOpen, setIsQuickChannelMenuOpen]);
 
-  const {
-    patchActiveCanvas, patchCanvasById, updateCanvasNode, updateCanvasNodeByCanvasId
-  } = createCanvasActions({
-    setInfiniteCanvasState,
-    activeCanvas,
-    addEvent,
-    setCanvasSelectedNodeId,
-    setCanvasViewport,
-    setCanvasConnectStart,
-    createInfiniteCanvas,
-    createCanvasNode,
-    canvasCenterPoint
-  });
-
-  // V93：无限画布视图已删除，本工厂产物（视口/拖拽/连线 handler）不再被任何 JSX 引用；
-  // 保留调用仅用于维持 §1.3 保留的视口状态（canvasDrag / canvasConnectStart 等）仍被引用。深层清理见 V94。
-  createCanvasInteractions({
-    activeCanvas,
-    canvasStageRef,
-    canvasViewport,
-    setCanvasViewport,
-    canvasDrag,
-    setCanvasDrag,
-    canvasConnectStart,
-    setCanvasConnectStart,
-    setCanvasSelectedNodeId,
-    patchActiveCanvas,
-    updateCanvasNode,
-    addEvent,
-    makeResultId,
-  });
 
   const resultDownloadDeps = { quickResults, selectedIds, addEvent, quickResultDragIdRef, QUICK_RESULT_DRAG_TYPE, copyText, saveDirectory, refreshSaveDirectory, setSaveDirectory, setDirectoryDraft, setDownloadFeedbackIds, downloadFeedbackTimersRef };
   const { blobFromImageItem, beginResultImageDrag, beginReferenceImageDrag, copyImage, downloadItem, autoSaveGeneratedItems, downloadSelected, downloadAll } = createResultDownload(resultDownloadDeps);
@@ -980,7 +766,6 @@ function App() {
   //   兄弟函数 handleCanvasDrop / rerunResult 对 addCanvasFiles / generate 的引用均在事件回调体内、渲染期之后求值，无前向引用；
   //   JSX 引用全部位于下方 return 内。runCanvasImageRequest / canvasFileFromResult 仅钩内互相调用，父组件不解构。
   const {
-    addCanvasFiles,
     saveProcessedImageFile,
     optimizePrompt,
     sendResultToImageEditor,
@@ -990,7 +775,6 @@ function App() {
     config,
     settings,
     models,
-    activeCanvas,
     saveDirectory,
     isQuickPromptOptimizing,
     setError,
@@ -1000,8 +784,6 @@ function App() {
     setQuickTasks,
     setActiveView,
     setIsSettingsOpen,
-    setCanvasTasks,
-    setCanvasSelectedNodeId,
     setSaveDirectory,
     setDirectoryDraft,
     setReferenceContextMenu,
@@ -1010,19 +792,13 @@ function App() {
     addEvent,
     autoSaveEventText,
     updateSetting,
-    canvasCenterPoint,
-    patchActiveCanvas,
-    patchCanvasById,
-    updateCanvasNodeByCanvasId,
     refreshSaveDirectory,
     appendReferenceFiles,
     blobFromImageItem,
     autoSaveGeneratedItems,
     makeResultId,
     clampCount,
-    createCanvasNode,
     normalizeGenerationErrorMessage,
-    CANVAS_NODE_HEIGHT,
     DETAIL_ANALYSIS_MODEL,
     CLIENT_SESSION_ID
   });
@@ -1105,8 +881,6 @@ function App() {
   //   moveReferenceFile(createReferenceUpload) /
   //   detailApi / generate(P6-4 钩) 均已初始化；handler 只在事件回调 / effect 内调用，无 TDZ）。
   handlerLateRef.current = {
-    addCanvasFiles,
-    patchActiveCanvas,
     moveReferenceFile,
     videoApi,
     appendReferenceFiles,

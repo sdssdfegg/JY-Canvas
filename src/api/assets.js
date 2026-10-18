@@ -1,5 +1,3 @@
-import { postForm } from "./client.js";
-
 const IMAGE_BLOB_FETCH_TIMEOUT_MS = 120000;
 
 export function displayImageRequestUrl(src) {
@@ -25,10 +23,6 @@ export async function fetchImageBlob(src, fallbackMessage = "Image request faile
   } finally {
     if (timer) window.clearTimeout(timer);
   }
-}
-
-export function uploadCanvasAssets(form) {
-  return postForm("/api/canvas-assets", form, "Canvas assets upload failed");
 }
 
 /**

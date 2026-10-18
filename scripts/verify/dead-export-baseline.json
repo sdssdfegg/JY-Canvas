@@ -1,10 +1,5 @@
 {
-  "generatedAt": "2026-10-17",
-  "reason": "V93 表层删除无限画布视图后，canvas-graph.js::canvasImagesForGenerator 失去唯一消费者（被删视图），按 §3.4 预授权刷新基线；深层清理顺延 V94",
-  "items": [
-    {
-      "file": "src/features/canvas/canvas-graph.js",
-      "name": "canvasImagesForGenerator"
-    }
-  ]
+  "generatedAt": "2026-10-18",
+  "reason": "V94 清除无限画布死代码(B层)：整删 canvas-actions.js/canvas-graph.js，剥离 canvas-generation-handlers 的 infinite 部分，删 main.jsx 状态层与工厂调用、main-handlers 死分支与 sendResultToCanvas、INFINITE_CANVAS_KEY；纯删除使体量只降不升，刷新陈旧基线",
+  "items": []
 }

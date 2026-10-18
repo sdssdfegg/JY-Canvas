@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-17",
-  "reason": "V91 DetailUploadZone 归位 shared/ui，消除 features/detail 与 features/reference-remix 对 features/crop 的反向依赖；detail→crop 与 reference-remix→crop 两方向已从代码消失，按检查提示划掉陈旧白名单条目",
+  "generatedAt": "2026-10-18",
+  "reason": "V94 清除无限画布死代码(B层)：整删 canvas-actions.js/canvas-graph.js，剥离 canvas-generation-handlers 的 infinite 部分，删 main.jsx 状态层与工厂调用、main-handlers 死分支与 sendResultToCanvas、INFINITE_CANVAS_KEY；纯删除使体量只降不升，刷新陈旧基线",
   "allowed": [
     {
       "from": "canvas",
@@ -71,13 +71,6 @@
       "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
       "refs": 1,
       "sample": "src/features/detail/detail-state.js → src/features/upload/reference-upload.js"
-    },
-    {
-      "from": "main-app",
-      "to": "canvas",
-      "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
-      "refs": 1,
-      "sample": "src/features/main-app/main-handlers.js → src/features/canvas/canvas-graph.js"
     },
     {
       "from": "main-app",
@@ -158,9 +151,9 @@
     }
   ],
   "metrics": {
-    "featureFiles": 53,
-    "directions": 22,
-    "crossFeatureRefs": 27,
+    "featureFiles": 51,
+    "directions": 21,
+    "crossFeatureRefs": 26,
     "sharedRefs": 160,
     "unresolved": 0
   }
