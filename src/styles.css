@@ -2501,30 +2501,19 @@ textarea:focus {
   font-size: 12px;
 }
 
-.modalField,
-.skinBlock,
-.debugBlock {
+.modalField {
   display: grid;
   gap: 8px;
   margin-top: 14px;
 }
 
-.modalField > span,
-.skinBlock > span,
-.debugBlock > span {
+.modalField > span {
   display: flex;
   align-items: center;
   gap: 7px;
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
-}
-
-.debugBlock p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.55;
 }
 
 .debugActions {

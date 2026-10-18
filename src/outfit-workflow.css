@@ -4291,26 +4291,12 @@
   gap: 7px;
 }
 
-.outfitWorkflowEmbedded .modalField > span,
-.outfitWorkflowEmbedded .skinBlock > span,
-.outfitWorkflowEmbedded .debugBlock > span {
+.outfitWorkflowEmbedded .modalField > span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   color: var(--text-soft);
   font-size: 12px;
-}
-
-.outfitWorkflowEmbedded .debugBlock {
-  display: grid;
-  gap: 8px;
-}
-
-.outfitWorkflowEmbedded .debugBlock p {
-  margin: 0;
-  color: var(--text-soft);
-  font-size: 12px;
-  line-height: 1.55;
 }
 
 .outfitWorkflowEmbedded .debugActions {
@@ -4365,11 +4351,6 @@
 
 .outfitWorkflowEmbedded .saveKeyButton {
   min-width: 82px;
-}
-
-.outfitWorkflowEmbedded .skinBlock {
-  display: grid;
-  gap: 10px;
 }
 
 .outfitWorkflowEmbedded .themeGrid {
