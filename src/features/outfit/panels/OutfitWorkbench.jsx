@@ -26,6 +26,7 @@ import { ResultQueue } from "./ResultQueue.jsx";
 import { ImageFactsPanel as _ImageFactsPanel } from "./ImageFactsPanel.jsx"; // V76（用户要求·暂时隐藏）停用：图2服装事实面板（原 sideControls 改传 null）；组件与 import 保留，恢复时传回 <ImageFactsPanel>。V80：_ 前缀标记停用
 import { Button } from "../../../shared/ui/Button";
 import { TaskBadge } from "../../../shared/ui/TaskBadge";
+import { ModuleHeader } from "../../../shared/ui/ModuleHeader";
 
 export default function OutfitWorkbench({
   resultFilter,
@@ -198,13 +199,11 @@ export default function OutfitWorkbench({
             这里不再占一整块竖向空间，图1~图3 下面直接就是原图库。 */}
 
         <section className="originalLibraryPanel">
-        <header>
-          <div>
-            <h3>原图库</h3>
-            <span>保留你上传的原始图片，方便后续重新取细节。</span>
-          </div>
-          <span>{originalLibrary.length} 张</span>
-        </header>
+        <ModuleHeader
+          title="原图库"
+          subtitle="保留你上传的原始图片，方便后续重新取细节。"
+          action={<span>{originalLibrary.length} 张</span>}
+        />
         <div className="originalLibraryGrid">
           {originalLibrary.map((item) => (
             <article className="originalLibraryCard" key={item.id}>

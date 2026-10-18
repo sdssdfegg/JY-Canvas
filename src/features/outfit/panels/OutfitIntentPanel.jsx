@@ -13,6 +13,7 @@ import {
   UPPER_LAYER_OPTIONS,
   WEARING_MODE_OPTIONS
 } from "../../../shared/outfit-intent.js";
+import { ModuleHeader } from "../../../shared/ui/ModuleHeader";
 
 export function OutfitIntentPanel({
   outfitIntent,
@@ -34,15 +35,12 @@ export function OutfitIntentPanel({
 
   return (
     <section className="outfitIntentPanel" aria-label="换装设置">
-      <header>
-        <div>
-          <h3>换装设置</h3>
-          {/* V77（§3.5 已确认删）：「这里的选择会进入最终提示词；批次开始后再改只影响下一批。」 */}
-        </div>
-        <span className={`outfitIntentCount ${parts.length === 0 ? "warn" : ""}`}>
+      <ModuleHeader
+        title="换装设置"
+        action={<span className={`outfitIntentCount ${parts.length === 0 ? "warn" : ""}`}>
           {parts.length === 0 ? "未选择更换部位" : `已选 ${parts.length} 个部位`}
-        </span>
-      </header>
+        </span>}
+      />
 
       <div className="outfitIntentRow">
         <span className="outfitIntentRowTitle">更换部位</span>

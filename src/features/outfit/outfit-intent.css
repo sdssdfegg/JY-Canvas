@@ -204,31 +204,6 @@
   background: color-mix(in srgb, var(--panel-strong) 42%, transparent);
 }
 
-.outfitWorkflowEmbedded .imageFactHeader {
-  display: grid;
-  gap: 3px;
-}
-
-.outfitWorkflowEmbedded .imageFactHeader strong {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--text);
-  font-size: 12px;
-}
-
-.outfitWorkflowEmbedded .imageFactHeader span {
-  color: var(--text-soft);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.outfitWorkflowEmbedded .imageFactHeader em {
-  color: var(--text-soft);
-  font-size: 11px;
-  font-style: normal;
-}
-
 .outfitWorkflowEmbedded .imageFactActions {
   display: flex;
   flex-wrap: wrap;
