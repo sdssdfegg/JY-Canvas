@@ -17,6 +17,8 @@ import {
 import { Button } from "../../../shared/ui/Button";
 import { Field } from "../../../shared/ui/Field";
 import { Modal } from "../../../shared/ui/Modal";
+import { Panel } from "../../../shared/ui/Panel";
+import { ModuleHeader } from "../../../shared/ui/ModuleHeader";
 import { THEME_OPTIONS } from "../outfit-top.js";
 
 export default function OutfitSettingsModal({
@@ -56,7 +58,7 @@ export default function OutfitSettingsModal({
               </Button>
             </header>
 
-            <Field label={<span><Lock size={15} /> API Key</span>} hint={apiSaveStatus || undefined}>
+            <Field label={<><Lock size={15} /> API Key</>} hint={apiSaveStatus || undefined}>
               <div className="apiKeyRow">
                 <input
                   type={showKey ? "text" : "password"}
@@ -71,8 +73,8 @@ export default function OutfitSettingsModal({
               </div>
             </Field>
 
-            <div className="skinBlock">
-              <span><Palette size={15} /> 皮肤</span>
+            <Panel>
+              <ModuleHeader icon={<Palette size={15} />} title="皮肤" />
               <div className="themeGrid">
                 {THEME_OPTIONS.map((theme) => (
                   <button
@@ -86,20 +88,20 @@ export default function OutfitSettingsModal({
                   </button>
                 ))}
               </div>
-            </div>
+            </Panel>
 
-            <Field
-              as="div"
-              className="debugBlock"
-              label={<span><Settings size={15} /> 连接测试</span>}
-              hint={connectionStatus || undefined}
-              hintTone={connectionState === "error" ? "danger" : connectionState === "ok" ? "success" : "default"}
-            >
+            <Panel>
+              <ModuleHeader icon={<Settings size={15} />} title="连接测试" />
               <p>只向上游请求模型清单探测连通性，<strong>不调用生图、不上传图片、不扣费</strong>，也不会显示或保存你的 API Key。</p>
               <div className="debugActions">
                 <Button size="md" loading={isConnectionTesting} disabled={isConnectionTesting} onClick={() => void runConnectionTest()}>连接测试</Button>
               </div>
-            </Field>
+              {connectionStatus && (
+                <small className={`ui-field__hint${connectionState === "error" ? " ui-field__hint--danger" : connectionState === "ok" ? " ui-field__hint--success" : ""}`}>
+                  {connectionStatus}
+                </small>
+              )}
+            </Panel>
           </Modal>
       )}
 
@@ -115,7 +117,7 @@ export default function OutfitSettingsModal({
               </Button>
             </header>
             <Field
-              label={<span><FolderOpen size={15} /> 保存目录</span>}
+              label={<><FolderOpen size={15} /> 保存目录</>}
               hint={isPickingDirectory ? "正在等待目录选择..." : "点击输入框选择目录，点确定后生效"}
             >
               <input
