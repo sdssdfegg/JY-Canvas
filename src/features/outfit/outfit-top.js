@@ -223,16 +223,24 @@ export const RECOLOR_PART_WORDS = Object.freeze({
 export function normalizeRecolorPart(value) {
   return RECOLOR_PART_WORDS[value] ? value : "upper";
 }
-/** 把 prompt 里"旧部位"的类别词全部替换为"新部位"的词；旧词不在文中则原样返回。 */
-export function replaceRecolorPartWords(prompt, fromPart, toPart) {
-  const fromWords = RECOLOR_PART_WORDS[normalizeRecolorPart(fromPart)] || [];
+/** 把 prompt 里「实际出现过的部位类别词」统一替换成新部位的词（单部位改色：提示词里 4 处应为同一部位的词）。
+   忽略 fromPart —— 直接按正文里出现过的部位词来换，这样即便之前手动改词导致状态与正文错位，
+   只要正文里是某部位的词，切一次部位就能整体对齐；正文没出现过的部位词（如偶然提到的「鞋子不动」）不会被误伤。 */
+export function replaceRecolorPartWords(prompt, _fromPart, toPart) {
   const toWord = (RECOLOR_PART_WORDS[normalizeRecolorPart(toPart)] || [])[0];
   if (!toWord) return String(prompt || "");
   let text = String(prompt || "");
-  fromWords.forEach((word) => {
+  const presentWords = Object.values(RECOLOR_PART_WORDS).flat().filter((word) => text.includes(word));
+  if (presentWords.length === 0) return text;
+  presentWords.forEach((word) => {
     text = text.split(word).join(toWord);
   });
   return text;
+}
+// 上装层级取值（与 shared/outfit-intent.js 的 UPPER_LAYER_OPTIONS 保持一致；此处就近放一份归一化）。
+const RECOLOR_UPPER_LAYER_VALUES = ["single", "inner", "outer", "inner-outer"];
+export function normalizeRecolorUpperLayer(value) {
+  return RECOLOR_UPPER_LAYER_VALUES.includes(value) ? value : "single";
 }
 export const GARMENT_COMPOSITION_OPTIONS = [
   { value: "single-upper", label: "单件上衣", parts: ["upper"] },
@@ -662,6 +670,8 @@ export const defaultSettings = {
   garmentParts: DEFAULT_GARMENT_PARTS,
   // 1板块（自定义改色页）的更换部位（单选；驱动提示词类别词联动）。
   recolorPart: "upper",
+  // 1板块（自定义改色页）的上装层级（仅选「上装」部位时出现；仅记录，不自动改写提示词正文）。
+  recolorUpperLayer: "single",
   garmentComposition: DEFAULT_GARMENT_COMPOSITION,
   // 批量换装的结构化意图（唯一来源）：更换部位 / 上装层级 / 穿法 / 图2服装事实。
   outfitIntent: defaultOutfitIntent(),
@@ -692,6 +702,7 @@ export function readSettings() {
     settings.qualityCheck = normalizeQualityCheck(settings.qualityCheck);
     settings.garmentParts = normalizeGarmentParts(settings.garmentParts);
     settings.recolorPart = normalizeRecolorPart(settings.recolorPart);
+    settings.recolorUpperLayer = normalizeRecolorUpperLayer(settings.recolorUpperLayer);
     settings.garmentComposition = normalizeGarmentComposition(settings.garmentComposition, settings.garmentParts);
     settings.outfitIntent = normalizeOutfitIntent(settings.outfitIntent);
     settings.retouchIntent = normalizeRetouchIntent(settings.retouchIntent);
