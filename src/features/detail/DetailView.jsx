@@ -412,12 +412,11 @@ export function DetailView({
                   />
 
                   <section className="detailPromptConfirm">
-                    <header>
-                      <div>
-                        <strong>分段提示词确认</strong>
-                        <span>确认每一屏内容无误后，再点击批量生成或单屏生成。</span>
-                      </div>
-                    </header>
+                    <ModuleHeader
+                      title="分段提示词确认"
+                      subtitle="确认每一屏内容无误后，再点击批量生成或单屏生成。"
+                      divider={false}
+                    />
                     <div className="detailPromptGrid">
                       {visibleDetailPrompts.map((prompt) => (
                         <article className={`detailPromptCard ${prompt.status}`} key={`${activeDetailGroup.id}-${prompt.screen}`}>
@@ -471,12 +470,11 @@ export function DetailView({
 
                   {activeDetailResults.length > 0 && (
                     <section className="detailImageSection">
-                      <header>
-                        <div>
-                          <strong>生成分屏</strong>
-                          <span>左键点击查看信息，按住拖拽调整拼图顺序，右键打开图片操作。</span>
-                        </div>
-                      </header>
+                      <ModuleHeader
+                        title="生成分屏"
+                        subtitle="左键点击查看信息，按住拖拽调整拼图顺序，右键打开图片操作。"
+                        divider={false}
+                      />
                       <div className="detailScreensGrid" style={{ "--detail-columns": detailColumns }}>
                         {activeDetailResults.map(({ prompt, result }, resultIndex) => {
                           const src = imageSourceFromResult(result.image);
@@ -552,15 +550,14 @@ export function DetailView({
 
         {detailInfoItem && (
           <aside className="detailInfoPanel">
-            <header>
-              <div>
-                <strong>生图信息</strong>
-                <span>第{detailInfoItem.prompt.screen}屏 · {detailInfoItem.prompt.title}</span>
-              </div>
-              <Button size="sm" iconOnly aria-label="关闭" type="button" onClick={() => setDetailInfoSelection(null)}>
+            <ModuleHeader
+              title="生图信息"
+              subtitle={`第${detailInfoItem.prompt.screen}屏 · ${detailInfoItem.prompt.title}`}
+              action={<Button size="sm" iconOnly aria-label="关闭" type="button" onClick={() => setDetailInfoSelection(null)}>
                 <X size={16} />
-              </Button>
-            </header>
+              </Button>}
+              divider={false}
+            />
             <button
               className="detailInfoPreview"
               type="button"
