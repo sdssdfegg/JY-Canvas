@@ -13,11 +13,11 @@
 //   钩内不记忆化，handler 每次 render 重建，与搬出前（组件内函数声明）行为完全一致；
 //   闭包引用在钩顶 const 解构自 ctx（handler 体逐字未改，仅晚期产出改 lateRef.current.xxx）。
 // ⚠️ ctx 漏项 = 运行期 undefined（vite build 验不出），由 P6-5 §4 负向对照兜底（scripts/dev/p6-5-propcheck.mjs）。
-// TDZ：钩调用点置于 usePreviewDrag / useSettingsState / usePromptAssistantState / useSaveDirectory /
-//   createCanvasActions 之前——这些下游 deps 引用 addEvent / updateSetting / closePreview / canvasCenterPoint
+// TDZ：钩调用点置于 usePreviewDrag / useSettingsState / usePromptAssistantState / useSaveDirectory 之前——
+//   这些下游 deps 引用 addEvent / updateSetting / closePreview
 //   （搬出前依赖函数提升，现由本钩产出，调用点必须在前）。
 //   钩内 9 项晚期产出引用统一走 lateRef.current（渲染期之后的回填点赋值）：
-//   addCanvasFiles(P6-4 钩) / patchActiveCanvas(createCanvasActions) / videoApi / appendReferenceFiles(createReferenceUpload) /
+//   videoApi / appendReferenceFiles(createReferenceUpload) /
 //   referenceApi / refreshSaveDirectory(useSaveDirectory) / previewNavigationItems(useMemo) / detailApi / generate(P6-4 钩)。
 //   handler 只在事件回调与 effect 内被调用（均在渲染之后），无前向引用；effect 的依赖数组不含 handler。
 import { imageFilesFromClipboard } from "../../shared/image-input.js";

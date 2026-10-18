@@ -374,7 +374,7 @@ function App() {
 
   // P6-5（V4.0）：App() 体其余全部 handler（38 个）收口到 useMainHandlers（src/features/main-app/）。
   // useMainHandlers 必须先于其下游消费方执行：它解构产出 addEvent / updateSetting /
-  //   closePreview / canvasCenterPoint 等；useSettingsState（已移至本钩之后）与 usePreviewDrag /
+  //   closePreview 等；useSettingsState（已移至本钩之后）与 usePreviewDrag /
   //   usePromptAssistantState / useSaveDirectory 都依赖这些产出，调用点必须在其后。
   // TDZ：钩内 10 项晚期产出引用统一走 handlerLateRef.current，回填点在 syncHistoryFromServerRef 回填处
   //   （渲染期，此时各产出均已初始化；handler 只在事件回调 / effect 内被调用，均在渲染之后，无前向引用）。
@@ -763,8 +763,8 @@ function App() {
 
   // 2026-10-15 P6-4：画布 / 生成类 handler 搬入 useCanvasGenerationHandlers（src/features/canvas/）。
   // TDZ：本调用点置于全部 ctx 字段初始化之后（appendReferenceFiles 为最后一项，由上方 createReferenceUpload 产出）；
-  //   兄弟函数 handleCanvasDrop / rerunResult 对 addCanvasFiles / generate 的引用均在事件回调体内、渲染期之后求值，无前向引用；
-  //   JSX 引用全部位于下方 return 内。runCanvasImageRequest / canvasFileFromResult 仅钩内互相调用，父组件不解构。
+  //   兄弟函数 rerunResult 对 generate 的引用在事件回调体内、渲染期之后求值，无前向引用；
+  //   JSX 引用全部位于下方 return 内。
   const {
     saveProcessedImageFile,
     optimizePrompt,
@@ -875,8 +875,8 @@ function App() {
   // 回填晚绑定 ref：详情生成完成后（2.4s 延时）用它回载历史。
   syncHistoryFromServerRef.current = syncHistoryFromServer;
 
-  // P6-5：useMainHandlers 晚绑定 ref 回填（渲染期执行；此时 addCanvasFiles(P6-4 钩) /
-  //   patchActiveCanvas(createCanvasActions) / videoApi / appendReferenceFiles(createReferenceUpload) /
+  // P6-5：useMainHandlers 晚绑定 ref 回填（渲染期执行；此时 videoApi /
+  //   appendReferenceFiles(createReferenceUpload) /
   //   referenceApi / refreshSaveDirectory(useSaveDirectory) / previewNavigationItems(useMemo) /
   //   moveReferenceFile(createReferenceUpload) /
   //   detailApi / generate(P6-4 钩) 均已初始化；handler 只在事件回调 / effect 内调用，无 TDZ）。
