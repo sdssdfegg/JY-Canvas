@@ -307,7 +307,7 @@ function App() {
   // 与 JSX 继续按同名引用，行为不变。JSX 抽取待下轮。
   const quickApi = useQuickGenState();
   const {
-    setFiles,
+    files, setFiles,
     results, setResults,
     brokenResultImages, setBrokenResultImages,
     resultFilter, setResultFilter,
@@ -775,6 +775,7 @@ function App() {
     config,
     settings,
     models,
+    files,
     saveDirectory,
     isQuickPromptOptimizing,
     setError,
