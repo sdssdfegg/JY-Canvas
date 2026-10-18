@@ -13,8 +13,7 @@ import {
   Move,
   RotateCcw,
   Trash2,
-  Upload,
-  X
+  Upload
 } from "lucide-react";
 import { DEFAULT_MODELS, imageSourceFromResult } from "./shared/models.js";
 import {
@@ -29,7 +28,7 @@ import { QuickCropViewportModal } from "./features/crop/quick-crop-panels.jsx";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { Button } from "./shared/ui/Button";
 import { AppSidebar } from "./shared/ui/AppSidebar";
-import { Modal } from "./shared/ui/Modal.jsx";
+import { Modal, ModalHeader } from "./shared/ui/Modal.jsx";
 import { createReferenceUpload, quickReferenceOriginalFile } from "./features/upload/reference-upload.js";
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import {
@@ -1135,15 +1134,12 @@ function App() {
 
       {isDirectoryModalOpen && (
         <Modal layerClassName="modalLayer" panelClassName="saveDirectoryModal" onClose={() => setIsDirectoryModalOpen(false)}>
-            <header>
-              <div>
-                <h2>指定文件夹</h2>
-                <span>生成图片将保存到这个目录</span>
-              </div>
-              <Button size="sm" iconOnly aria-label="关闭" onClick={() => setIsDirectoryModalOpen(false)}>
-                <X size={18} />
-              </Button>
-            </header>
+            <ModalHeader
+              title="指定文件夹"
+              subtitle="生成图片将保存到这个目录"
+              onClose={() => setIsDirectoryModalOpen(false)}
+              closeLabel="关闭"
+            />
             <label className="modalField">
               <span><FolderOpen size={15} /> 保存目录</span>
               <input
@@ -1168,15 +1164,12 @@ function App() {
 
       {detailApi.isDetailPresetOpen && (
         <Modal layerClassName="modalLayer" panelClassName="detailPresetModal" onClose={() => detailApi.setIsDetailPresetOpen(false)}>
-            <header>
-              <div>
-                <h2>加载详情预设</h2>
-                <span>恢复一键详情/主图的参数与文案</span>
-              </div>
-              <Button size="sm" iconOnly aria-label="关闭" onClick={() => detailApi.setIsDetailPresetOpen(false)}>
-                <X size={18} />
-              </Button>
-            </header>
+            <ModalHeader
+              title="加载详情预设"
+              subtitle="恢复一键详情/主图的参数与文案"
+              onClose={() => detailApi.setIsDetailPresetOpen(false)}
+              closeLabel="关闭"
+            />
             <div className="detailPresetList">
               {detailApi.detailPresets.map((preset) => (
                 <article className="detailPresetItem" key={preset.id}>
@@ -1215,21 +1208,16 @@ function App() {
 
       {detailApi.stitchPreview && detailApi.stitchGroup && (
         <Modal layerClassName="modalLayer stitchLayer" panelClassName="stitchPreviewModal" onClose={detailApi.closeStitchPreview}>
-            <header>
-              <div>
-                <h2>拼图预览</h2>
-                <span>{detailApi.stitchGroup.label} · 共 {detailApi.stitchItems.length} 屏</span>
-              </div>
-              <div className="stitchHeaderActions">
-                <Button size="md" tone="primary" onClick={() => void detailApi.downloadStitchPreview(detailApi.stitchGroup)}>
-                  <Download size={15} />
-                  <span>下载长图</span>
-                </Button>
-                <Button size="sm" iconOnly aria-label="关闭" onClick={detailApi.closeStitchPreview}>
-                  <X size={18} />
-                </Button>
-              </div>
-            </header>
+            <ModalHeader
+              title="拼图预览"
+              subtitle={`${detailApi.stitchGroup.label} · 共 ${detailApi.stitchItems.length} 屏`}
+              onClose={detailApi.closeStitchPreview}
+              closeLabel="关闭"
+              action={<Button size="md" tone="primary" onClick={() => void detailApi.downloadStitchPreview(detailApi.stitchGroup)}>
+                <Download size={15} />
+                <span>下载长图</span>
+              </Button>}
+            />
             <div
               className="stitchCanvasFrame"
               onWheel={detailApi.handleStitchWheel}
@@ -1287,15 +1275,14 @@ function App() {
 
       {referencePreview && (
         <Modal layerClassName="modalLayer previewLayer" panelClassName="previewModal referencePreviewModal" onClose={closeReferencePreview}>
-            <header>
-              <div>
-                <h2>使用图预览</h2>
-                <span>{referencePreview.items[referencePreview.index]?.name || `参考图 ${referencePreview.index + 1}`} · {referencePreview.index + 1}/{referencePreview.items.length}</span>
-              </div>
-              <Button size="sm" iconOnly aria-label="关闭" onClick={closeReferencePreview}>
-                <X size={18} />
-              </Button>
-            </header>
+            <ModalHeader
+              title="使用图预览"
+              subtitle={<>
+                {referencePreview.items[referencePreview.index]?.name || `参考图 ${referencePreview.index + 1}`} · {referencePreview.index + 1}/{referencePreview.items.length}
+              </>}
+              onClose={closeReferencePreview}
+              closeLabel="关闭"
+            />
             <div className="previewImageFrame referencePreviewFrame">
               {referencePreview.items.length > 1 && (
                 <button className="previewArrow previewArrowLeft" type="button" onClick={(event) => { event.stopPropagation(); shiftReferencePreview(-1); }} disabled={referencePreview.index <= 0}>
@@ -1319,15 +1306,12 @@ function App() {
 
       {uploadPreview && (
         <Modal layerClassName="modalLayer previewLayer" panelClassName="previewModal" onClose={closeUploadPreview}>
-            <header>
-              <div>
-                <h2>上传图片预览</h2>
-                <span>{uploadPreview.name} · {fileSize(uploadPreview.size)}</span>
-              </div>
-              <Button size="sm" iconOnly aria-label="关闭" onClick={closeUploadPreview}>
-                <X size={18} />
-              </Button>
-            </header>
+            <ModalHeader
+              title="上传图片预览"
+              subtitle={`${uploadPreview.name} · ${fileSize(uploadPreview.size)}`}
+              onClose={closeUploadPreview}
+              closeLabel="关闭"
+            />
             <div className="previewImageFrame uploadPreviewFrame" onMouseDown={closeUploadPreview} title="单击关闭">
               <img
                 src={uploadPreview.url}
@@ -1341,15 +1325,12 @@ function App() {
 
       {previewResult && (
         <Modal layerClassName="modalLayer previewLayer" panelClassName="previewModal" onClose={closePreview}>
-            <header>
-              <div>
-                <h2>图片预览</h2>
-                <span>{previewResult.modelLabel} · {previewResult.imageSize} · {previewResult.aspectRatio}</span>
-              </div>
-              <Button size="sm" iconOnly aria-label="关闭" onClick={closePreview}>
-                <X size={18} />
-              </Button>
-            </header>
+            <ModalHeader
+              title="图片预览"
+              subtitle={`${previewResult.modelLabel} · ${previewResult.imageSize} · ${previewResult.aspectRatio}`}
+              onClose={closePreview}
+              closeLabel="关闭"
+            />
             <div
               className="previewImageFrame"
               onWheel={handlePreviewWheel}
