@@ -1425,7 +1425,6 @@ textarea:focus {
 .detailUploadBox header,
 .detailPresetRow,
 .detailPromptActions,
-.detailGroupHeader,
 .detailPromptCard header,
 .detailCheck {
   display: flex;
@@ -1452,7 +1451,6 @@ textarea:focus {
 
 .detailUploadBox strong,
 .detailFormSection h3,
-.detailGroupHeader strong,
 .detailPromptCard h3 {
   color: var(--text);
 }
@@ -1460,7 +1458,6 @@ textarea:focus {
 .detailUploadBox header span,
 .detailUploadBox small,
 .detailFormSection span,
-.detailGroupHeader span,
 .detailPromptCard p,
 .detailPromptCard small,
 .detailPromptStatus span {
@@ -1695,20 +1692,6 @@ textarea:focus {
   font-size: 11px;
 }
 
-.referencePromptHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.referencePromptHeader .ui-button {
-  height: 28px;
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 26%, var(--border));
-  background: color-mix(in srgb, var(--panel-strong) 82%, var(--accent) 8%);
-}
-
 .detailParamGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1928,21 +1911,6 @@ textarea:focus {
   display: grid;
   gap: 14px;
   margin-bottom: 18px;
-}
-
-.detailGroupHeader {
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 8px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-}
-
-.detailGroupHeader div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
 }
 
 .detailGroupActions {
@@ -2350,33 +2318,6 @@ textarea:focus {
   background:
     radial-gradient(circle at 52% 70%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 24%),
     var(--app-bg);
-}
-
-.referenceBoardHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-  padding: 12px 14px;
-  border-radius: 8px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-}
-
-.referenceBoardHeader div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.referenceBoardHeader strong {
-  color: var(--text);
-  font-size: 14px;
-}
-
-.referenceBoardHeader span {
-  color: var(--muted);
-  font-size: 12px;
 }
 
 .referenceGallery {
@@ -4079,7 +4020,6 @@ textarea:focus {
   }
 
   .detailGroupTabs,
-  .detailGroupHeader,
   .detailPromptConfirm > header,
   .detailImageSection > header {
     align-items: stretch;

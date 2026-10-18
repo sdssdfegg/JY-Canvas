@@ -5,6 +5,7 @@ import ChannelPicker from "../../shared/ui/ChannelPicker.jsx";
 import { CachedImage } from "../../shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "../../shared/ui/reference-thumb-tray.jsx";
 import { Button } from "../../shared/ui/Button";
+import { ModuleHeader } from "../../shared/ui/ModuleHeader";
 import { imageSourceFromResult } from "../../shared/models.js";
 import { formatMs } from "../../lib/format/index.js";
 
@@ -371,44 +372,44 @@ export function DetailView({
 
               {activeDetailGroup && (
                 <article className="detailGroup" key={activeDetailGroup.id}>
-                  <header className="detailGroupHeader">
-                    <div>
-                      <strong>{activeDetailGroup.label}</strong>
-                      <span>
-                        {activeDetailGroup.stylePack ? `${activeDetailGroup.stylePack.id}·${activeDetailGroup.stylePack.name} · ` : ""}
-                        {activeDetailGroup.params.platform}{activeDetailGroup.params.pageType} ·
-                        {activeDetailGroup.params.model} · {activeDetailGroup.params.ratio} · {activeDetailGroup.params.imageSize} ·
-                        已出图 {activeDetailResults.length} 屏
-                      </span>
-                    </div>
-                    <div className="detailGroupActions">
-                      <Button
-                        size="sm"
-                        type="button"
-                        onClick={() => markDeferredFeature("切换模型")}
-                      >
-                        <Settings size={14} />
-                        <span>切换模型</span>
-                      </Button>
-                      <Button size="sm" type="button" onClick={() => downloadDetailGroup(activeDetailGroup)}>
-                        <Download size={14} />
-                        <span>下载全部</span>
-                      </Button>
-                      <Button size="sm" type="button" disabled={selectedCount === 0} onClick={() => downloadDetailGroup(activeDetailGroup, true)}>
-                        <Download size={14} />
-                        <span>下载选中</span>
-                      </Button>
-                      <Button
-                        size="md"
-                        tone="primary"
-                        type="button"
-                        onClick={() => void generateDetailGroup(activeDetailGroup.id)}
-                      >
-                        {detailRunningCount > 0 ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
-                        <span>批量生成</span>
-                      </Button>
-                    </div>
-                  </header>
+                  <ModuleHeader
+                    title={activeDetailGroup.label}
+                    subtitle={
+                      <>{activeDetailGroup.stylePack ? `${activeDetailGroup.stylePack.id}·${activeDetailGroup.stylePack.name} · ` : ""}
+                      {activeDetailGroup.params.platform}{activeDetailGroup.params.pageType} ·
+                      {activeDetailGroup.params.model} · {activeDetailGroup.params.ratio} · {activeDetailGroup.params.imageSize} ·
+                      已出图 {activeDetailResults.length} 屏</>
+                    }
+                    action={
+                      <div className="detailGroupActions">
+                        <Button
+                          size="sm"
+                          type="button"
+                          onClick={() => markDeferredFeature("切换模型")}
+                        >
+                          <Settings size={14} />
+                          <span>切换模型</span>
+                        </Button>
+                        <Button size="sm" type="button" onClick={() => downloadDetailGroup(activeDetailGroup)}>
+                          <Download size={14} />
+                          <span>下载全部</span>
+                        </Button>
+                        <Button size="sm" type="button" disabled={selectedCount === 0} onClick={() => downloadDetailGroup(activeDetailGroup, true)}>
+                          <Download size={14} />
+                          <span>下载选中</span>
+                        </Button>
+                        <Button
+                          size="md"
+                          tone="primary"
+                          type="button"
+                          onClick={() => void generateDetailGroup(activeDetailGroup.id)}
+                        >
+                          {detailRunningCount > 0 ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
+                          <span>批量生成</span>
+                        </Button>
+                      </div>
+                    }
+                  />
 
                   <section className="detailPromptConfirm">
                     <header>
