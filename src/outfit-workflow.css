@@ -302,7 +302,7 @@
 .outfitWorkflowEmbedded .thumbActions button:hover,
 .outfitWorkflowEmbedded .cropModeTabs button:hover {
   color: #ffffff;
-  border-color: rgba(31, 207, 195, 0.45);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .outfitWorkflowEmbedded .settingsGrid {
@@ -395,7 +395,7 @@
 
 .outfitWorkflowEmbedded .uploadZone.dragging {
   border-color: var(--accent-border);
-  box-shadow: 0 0 0 3px rgba(31, 207, 195, 0.12);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .outfitWorkflowEmbedded .uploadZone header,
@@ -543,7 +543,7 @@
   width: 3px;
   border-radius: 999px;
   background: var(--accent);
-  box-shadow: 0 0 0 3px rgba(31, 207, 195, 0.16);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .outfitWorkflowEmbedded .thumbCard.dropBefore::before {
@@ -625,7 +625,7 @@
 }
 
 .outfitWorkflowEmbedded .thumbImage .thumbLocalEditOverlay rect {
-  fill: rgba(31, 207, 195, 0.08);
+  fill: color-mix(in srgb, var(--accent) 8%, transparent);
   stroke: var(--accent);
   stroke-width: 10;
   stroke-dasharray: 28 18;
@@ -740,12 +740,12 @@
 }
 
 .outfitWorkflowEmbedded .taskCard.success {
-  border-color: rgba(31, 207, 195, 0.5);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 .outfitWorkflowEmbedded .taskCard.selected {
   border-color: var(--accent-border);
-  box-shadow: 0 0 0 2px rgba(31, 207, 195, 0.16);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .outfitWorkflowEmbedded .taskCard.downloaded {
