@@ -644,7 +644,6 @@
   color: #f3fbfb;
   background: rgba(6, 21, 21, 0.72);
   backdrop-filter: blur(8px);
-  pointer-events: none;
 }
 
 .outfitWorkflowEmbedded .thumbMeta {

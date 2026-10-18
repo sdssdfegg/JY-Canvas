@@ -30,7 +30,7 @@ import { ModuleHeader } from "./shared/ui/ModuleHeader";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
   OUTFIT_AUTO_PROMPT_CHAR_LIMIT,
-  compileOutfitPrompt,
+  compileOutfitPrompt, OUTFIT_PART_OPTIONS,
   normalizeOutfitIntent,
   recognizedFactKeys,
   resolveUpperLayer,
@@ -97,7 +97,7 @@ import {
   WorkflowQuickVideoPanel,
     preprocessModeLabel
     } from "./features/outfit/outfit-panels.jsx";
-import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeGarmentComposition, normalizeGarmentParts, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
+import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeGarmentComposition, normalizeGarmentParts, normalizeRecolorPart, replaceRecolorPartWords, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
 import { ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import {  createAsyncLimiter, defaultLocalEditCrop, groupPreprocessValue, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
 import { useOutfitSettingsIntent } from "./features/outfit/use-outfit-settings-intent.js";
@@ -450,6 +450,17 @@ export default function OutfitWorkflow({
   const selectedFixedClothing = clothingImages.find((item) => item.id === fixedClothingId) || activeClothes[0] || clothingImages[0];
   // 批量改色的改色范围（只有 recolor 还在用这套旧机制）。
   const selectedGarmentParts = normalizeGarmentParts(settings.garmentParts);
+  // V111（用户要求·1板块）：自定义改色页的「更换部位」单选 —— 切换时把提示词正文里旧部位的类别词全部换成新部位的词。
+  const recolorPart = normalizeRecolorPart(settings.recolorPart);
+  function selectRecolorPart(nextPart) {
+    const part = normalizeRecolorPart(nextPart);
+    if (part === recolorPart) return;
+    // 用户主动切部位：提示词正文里旧部位的类别词全部换成新部位的词（用户手改的其它文字不动）。
+    const nextPrompt = replaceRecolorPartWords(settings.prompt, recolorPart, part);
+    setSettings((current) => ({ ...current, recolorPart: part, prompt: nextPrompt }));
+    const label = OUTFIT_PART_OPTIONS.find((item) => item.value === part)?.label || part;
+    addEvent("更换部位", `改色部位已切换为「${label}」`);
+  }
   const selectedGarmentComposition = normalizeGarmentComposition(settings.garmentComposition, selectedGarmentParts);
   // 批量换装的结构化意图（唯一来源）。
   const outfitIntent = normalizeOutfitIntent(settings.outfitIntent);
@@ -528,7 +539,9 @@ export default function OutfitWorkflow({
                 ? "批量换脸"
                 : isLocalDetailWorkflow
                   ? "局部回贴"
-                  : "换装";
+                  : isCustomWorkflow
+                    ? (activeOutfitPage.name || "自定义")
+                    : "换装";
   const promptFieldTitle = isDesignDraftWorkflow
     ? "通用设计稿提示词"
     : isPoseRemixWorkflow
@@ -548,7 +561,7 @@ export default function OutfitWorkflow({
                 : isLocalDetailWorkflow
                   ? "通用局部回贴提示词"
                   : isCustomWorkflow
-                    ? "本次临时提示词"
+                    ? "通用改色提示词"
                     : "通用换装提示词";
   const promptFieldPlaceholder = isDesignDraftWorkflow
     ? "长期复用的设计稿规则，例如笔触压感、手稿风格、服装结构和辅助短线。"
@@ -569,7 +582,7 @@ export default function OutfitWorkflow({
                 : isLocalDetailWorkflow
                   ? "长期复用的局部服装细节规则，例如只改点名细节、图2只取结构、颜色材质跟图1。"
                   : isCustomWorkflow
-                    ? "这个页面不会自动套用后台 SKILL；按你当前临时需求直接写。"
+                    ? "长期复用的改色规则，例如：把图1模特的上衣改成图2上衣的颜色，仅改变上衣颜色，不添加缝线、不改变纹理、不添加细节。"
                     : "长期复用的换装规则，例如保留人物、锁定服装版型、真实贴合、批量一致。";
   // 2026-09-26：精修页把「本次需求 / 商品补充信息」改名叫「用户补充」——
   // 它就是精修的补充要求，会被编译器并入最终提示词的【用户补充】段。
@@ -1892,6 +1905,9 @@ function freezeIntentIntoTask(intentCtx) {
           openLocalEdit={openLocalEdit}
           isDesignDraftWorkflow={isDesignDraftWorkflow}
           isRecolorWorkflow={isRecolorWorkflow}
+          isCustomWorkflow={isCustomWorkflow}
+          recolorPart={recolorPart}
+          onSelectRecolorPart={selectRecolorPart}
           clothingImages={clothingImages}
           clothingBulkMode={clothingBulkMode}
           setMasterClothing={setMasterClothing}

@@ -731,7 +731,10 @@ export function UploadZone({
   function beginPointerSort(event, item) {
     if (event.button !== 0 || items.length <= 1) return;
     const target = event.target instanceof Element ? event.target : null;
-    if (target?.closest(".thumbActions,.thumbImage")) return;
+    if (target?.closest(".thumbActions")) return;
+    // V111（用户要求）：拖拽手柄 .dragHandle 位于 .thumbImage 内部（outfit-panels.jsx L885），
+    // 曾被 .thumbImage 整体排除而导致"手柄看得见按不动"；手柄要能发起排序。
+    if (!target?.closest(".dragHandle") && target?.closest(".thumbImage")) return;
     pointerSortRef.current = {
       id: item.id,
       startX: event.clientX,

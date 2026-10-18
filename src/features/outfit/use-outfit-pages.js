@@ -24,6 +24,7 @@ import {
   LEGACY_FACE_SWAP_DEFAULT_PROMPT,
   LOCAL_DETAIL_DEFAULT_PROMPT,
   OUTFIT_DEFAULT_PROMPT,
+  GARMENT_RECOLOR_DEFAULT_PROMPT,
   POSE_MOTHER_FACE_SWAP_DEFAULT_PROMPT,
   POSE_REMIX_DEFAULT_PROMPT,
   RANDOM_BACKGROUND_DEFAULT_PROMPT,
@@ -99,7 +100,7 @@ export function useOutfitPages(deps) {
     const page = makeOutfitPage(`${DEFAULT_CUSTOM_PAGE_NAME} ${outfitPages.length + 1}`, {
       settings: {
         ...settings,
-        prompt: "",
+        prompt: GARMENT_RECOLOR_DEFAULT_PROMPT,
         productNote: "",
         smartIntervention: false
       },
