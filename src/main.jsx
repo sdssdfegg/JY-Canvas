@@ -12,7 +12,6 @@ import {
   Layers,
   Move,
   RotateCcw,
-  Settings,
   Trash2,
   Upload,
   X
@@ -29,6 +28,7 @@ import { ErrorBoundary } from "./shared/error-boundary.jsx";
 import { QuickCropViewportModal } from "./features/crop/quick-crop-panels.jsx";
 import { CachedImage } from "./shared/ui/cached-image.jsx";
 import { Button } from "./shared/ui/Button";
+import { AppSidebar } from "./shared/ui/AppSidebar";
 import { createReferenceUpload, quickReferenceOriginalFile } from "./features/upload/reference-upload.js";
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import {
@@ -934,33 +934,13 @@ function App() {
           </div>
         </div>
 
-        <nav className="navList">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.label}
-                className={`navItem ${activeView === item.id ? "active" : ""} ${item.child ? "subNavItem" : ""}`}
-                type="button"
-                onClick={() => {
-                  if (item.id === "prompts") {
-                    setIsPromptAssistantOpen(true);
-                    return;
-                  }
-                  setActiveView(item.id);
-                }}
-              >
-                <Icon size={17} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        <button className="settingsEntry" type="button" onClick={() => openSettingsPanel()}>
-          <Settings size={17} />
-          <span>设置</span>
-        </button>
+        <AppSidebar
+          navItems={navItems}
+          activeView={activeView}
+          onSelectView={setActiveView}
+          onOpenPrompts={() => setIsPromptAssistantOpen(true)}
+          onOpenSettings={() => openSettingsPanel()}
+        />
       </aside>
 
       <section className={`quickgenArea ${["outfit", "resize"].includes(activeView) ? "embeddedWorkflowArea" : ""}`}>
