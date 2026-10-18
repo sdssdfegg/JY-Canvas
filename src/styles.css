@@ -1929,28 +1929,28 @@ textarea:focus {
   gap: 12px;
 }
 
-.detailPromptConfirm > header,
-.detailImageSection > header {
+.detailPromptConfirm > .ui-module-header,
+.detailImageSection > .ui-module-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-width: 0;
 }
 
-.detailPromptConfirm > header div,
-.detailImageSection > header div {
+.detailPromptConfirm > .ui-module-header .ui-module-header__text,
+.detailImageSection > .ui-module-header .ui-module-header__text {
   display: grid;
   gap: 3px;
 }
 
-.detailPromptConfirm > header strong,
-.detailImageSection > header strong {
+.detailPromptConfirm > .ui-module-header .ui-module-header__title,
+.detailImageSection > .ui-module-header .ui-module-header__title {
   color: var(--text);
   font-size: 14px;
 }
 
-.detailPromptConfirm > header span,
-.detailImageSection > header span {
+.detailPromptConfirm > .ui-module-header .ui-module-header__subtitle,
+.detailImageSection > .ui-module-header .ui-module-header__subtitle {
   color: var(--muted);
   font-size: 12px;
 }
@@ -2202,26 +2202,26 @@ textarea:focus {
   border-left: 1px solid var(--border);
 }
 
-.detailInfoPanel header {
+.detailInfoPanel .ui-module-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
 
-.detailInfoPanel header div {
+.detailInfoPanel .ui-module-header__text {
   display: grid;
   gap: 3px;
   min-width: 0;
 }
 
-.detailInfoPanel header strong,
+.detailInfoPanel .ui-module-header__title,
 .detailInfoMeta strong,
 .detailInfoPrompt span {
   color: var(--text);
 }
 
-.detailInfoPanel header span,
+.detailInfoPanel .ui-module-header__subtitle,
 .detailInfoMeta span {
   color: var(--muted);
   font-size: 12px;
@@ -4014,8 +4014,8 @@ textarea:focus {
   }
 
   .detailGroupTabs,
-  .detailPromptConfirm > header,
-  .detailImageSection > header {
+  .detailPromptConfirm > .ui-module-header,
+  .detailImageSection > .ui-module-header {
     align-items: stretch;
     flex-direction: column;
   }
