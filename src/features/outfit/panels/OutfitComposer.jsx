@@ -12,6 +12,7 @@ import { OutfitPageRow } from "./OutfitPageRow.jsx";
 import { Button } from "../../../shared/ui/Button";
 import { MAX_UPLOAD_IMAGES, UploadZone } from "../outfit-panels.jsx";
 import { GARMENT_PART_OPTIONS, garmentCompositionLabel, normalizeGarmentComposition, sameGarmentParts } from "../outfit-top.js";
+import { OUTFIT_PART_OPTIONS } from "../../../shared/outfit-intent.js";
 
 export default function OutfitComposer({
   isOutfitWorkflow,
@@ -100,6 +101,9 @@ export default function OutfitComposer({
   openLocalEdit,
   isDesignDraftWorkflow,
   isRecolorWorkflow,
+  isCustomWorkflow,
+  recolorPart,
+  onSelectRecolorPart,
   clothingImages,
   /* V77 Park：统一处理/新上传默认停用，但数据流保留 —— 以下 4 个 props 仍由父级按原名传入，
      本地别名成 _ 前缀（eslint 允许的未使用参数命名）。恢复 = 去掉 _ 前缀并传回 UploadZone。 */
@@ -287,6 +291,32 @@ export default function OutfitComposer({
           onToggleSplitHalves={onToggleSplitHalves}
           splitNote={splitNote}
         />
+      </div>
+    )}
+
+    {/* V111（用户要求）：1板块（自定义页）的「更换部位」行——像换装设置一样，但只保留部位、排成一条，
+        不要上装层级/穿法，不占地方。复用换装设置行的既有类名与视觉，零新增 CSS。 */}
+    {isCustomWorkflow && (
+      <div className="outfitIntentRow recolorPartRow">
+        <span className="outfitIntentRowTitle">更换部位</span>
+        <div className="outfitIntentChips">
+          {OUTFIT_PART_OPTIONS.map((part) => {
+            const active = recolorPart === part.value;
+            return (
+              <button
+                className={active ? "active" : ""}
+                key={part.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onSelectRecolorPart(part.value)}
+                title={`改色部位：${part.label}`}
+              >
+                {active && <Check size={13} />}
+                <span>{part.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     )}
 

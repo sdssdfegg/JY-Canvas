@@ -184,6 +184,8 @@ export const RECOLOR_COLOR_LEGACY_DEFAULT_PROMPT = [
   "同一批结果颜色要统一稳定，目标部位颜色要自然贴合图1原有光影、褶皱、材质纹理和边缘阴影；不要出现断层、涂抹感、边缘溢色、皮肤染色、场景变色或整张图偏色。",
   "如果图1开启局部回贴，只处理选区或蒙版范围内的目标服装颜色，输出必须和选区同构图、同角度、同光影，方便系统贴回原图。"
 ].join("\n");
+// 旧批量改色默认提示词：2026-10-18 起仅作老页面迁移基准（见 makeOutfitPage custom 迁移分支），新页面一律用 GARMENT_RECOLOR_DEFAULT_PROMPT。
+export const GARMENT_RECOLOR_DEFAULT_PROMPT = "把图1模特的上衣改成图2上衣的颜色，仅改变上衣颜色，不要添加缝线，不要改变纹理，不要添加细节，图2的上衣细节样式不作为参考";
 export const RECOLOR_DEFAULT_PROMPT = [
   "批量改色任务：图1上传区是要保留的人物原图，图2上传区是目标颜色/服装颜色参考图，图3上传区是可选补充信息。",
   "只改变图1中被图2选项指定的服装部位颜色；人物脸、发型、肤色、身体姿势、手脚、场景、背景、镜头、构图、服装款式、版型、衣长、袖长、扣子、拉链、腰带、图案、刺绣、口袋、面料纹理和褶皱结构都保持图1原样。",
@@ -209,6 +211,29 @@ export const GARMENT_PART_OPTIONS = [
   { value: "lower", label: "下装" },
   { value: "shoes", label: "鞋子" }
 ];
+// V111（用户要求·1板块）：自定义改色页的部位类别词。
+// ⚠️ UI 标签（上装/下装）与提示词里的类别词（上衣/下衣）不是一套词，分别维护；
+//    换装侧编译用的 promptLabel 在 shared/outfit-intent.js，不复用。
+export const RECOLOR_PART_WORDS = Object.freeze({
+  upper: ["上衣", "上装"],
+  lower: ["下衣", "下装"],
+  dress: ["连衣裙"],
+  shoes: ["鞋子"]
+});
+export function normalizeRecolorPart(value) {
+  return RECOLOR_PART_WORDS[value] ? value : "upper";
+}
+/** 把 prompt 里"旧部位"的类别词全部替换为"新部位"的词；旧词不在文中则原样返回。 */
+export function replaceRecolorPartWords(prompt, fromPart, toPart) {
+  const fromWords = RECOLOR_PART_WORDS[normalizeRecolorPart(fromPart)] || [];
+  const toWord = (RECOLOR_PART_WORDS[normalizeRecolorPart(toPart)] || [])[0];
+  if (!toWord) return String(prompt || "");
+  let text = String(prompt || "");
+  fromWords.forEach((word) => {
+    text = text.split(word).join(toWord);
+  });
+  return text;
+}
 export const GARMENT_COMPOSITION_OPTIONS = [
   { value: "single-upper", label: "单件上衣", parts: ["upper"] },
   { value: "upper-layer", label: "外套+内搭", parts: ["upper"] },
@@ -635,6 +660,8 @@ export const defaultSettings = {
   qualityCheck: false,
   // 批量改色的改色范围（旧机制，只有 recolor 还在用）。
   garmentParts: DEFAULT_GARMENT_PARTS,
+  // 1板块（自定义改色页）的更换部位（单选；驱动提示词类别词联动）。
+  recolorPart: "upper",
   garmentComposition: DEFAULT_GARMENT_COMPOSITION,
   // 批量换装的结构化意图（唯一来源）：更换部位 / 上装层级 / 穿法 / 图2服装事实。
   outfitIntent: defaultOutfitIntent(),
@@ -664,6 +691,7 @@ export function readSettings() {
     settings.smartIntervention = normalizeSmartIntervention(settings.smartIntervention);
     settings.qualityCheck = normalizeQualityCheck(settings.qualityCheck);
     settings.garmentParts = normalizeGarmentParts(settings.garmentParts);
+    settings.recolorPart = normalizeRecolorPart(settings.recolorPart);
     settings.garmentComposition = normalizeGarmentComposition(settings.garmentComposition, settings.garmentParts);
     settings.outfitIntent = normalizeOutfitIntent(settings.outfitIntent);
     settings.retouchIntent = normalizeRetouchIntent(settings.retouchIntent);
