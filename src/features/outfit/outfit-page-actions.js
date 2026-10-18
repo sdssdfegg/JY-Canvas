@@ -502,6 +502,17 @@ export function forgetDeletedWorkflowMode(mode) {
   const next = readDeletedWorkflowModes().filter((item) => item !== value);
   writeJsonStorage(OUTFIT_DELETED_WORKFLOW_MODES_KEY, next);
 }
+/**
+ * 删除留痕专用判别（V110-R1）：与 ensureWorkflowPages 的补建读条件保持同一口径——
+ * recolor 类名字按名判 "recolor"（§1.2 改向后 inferOutfitWorkflowMode 对它们返回 "custom"，
+ * 删除端若沿用 infer 判别，批量改色页永远记不上留痕、下次启动又被补建）。
+ * 非 singleton 模式返回 ""（调用方据此跳过留痕）。
+ */
+export function deletionTrackingMode(pageName, uploadLabels) {
+  if (isRecolorPageName(pageName)) return "recolor";
+  const mode = inferOutfitWorkflowMode(pageName, uploadLabels);
+  return isSingletonWorkflowMode(mode) ? mode : "";
+}
 
 export function ensureWorkflowPages(pages = [], baseSettings = readSettings()) {
   let output = dedupeSingletonWorkflowPages(Array.isArray(pages) ? pages.filter(Boolean) : [])
