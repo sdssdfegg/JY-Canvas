@@ -128,6 +128,10 @@ export function useCanvasGenerationHandlers(ctx) {
     CLIENT_SESSION_ID
   } = ctx;
 
+  // V109：files 历史上因调用方漏传而为 undefined（P6-5 回归）。兜底为空数组，
+  // 万一未来再断链，降级为"无参考图生成"而不是崩溃。
+  const fileList = Array.isArray(files) ? files : [];
+
 
 
 
@@ -161,7 +165,7 @@ export function useCanvasGenerationHandlers(ctx) {
     setIsQuickPromptOptimizing(true);
     setError("");
     try {
-      const quickFiles = quickReferenceUploadFiles(files.map(normalizeQuickReferenceItem).filter(Boolean));
+      const quickFiles = quickReferenceUploadFiles(fileList.map(normalizeQuickReferenceItem).filter(Boolean));
       const upload = await prepareImageFilesForChannel(quickFiles);
       if (upload.compressedCount > 0) {
         addEvent("图片压缩", `优化提示词已压缩 ${upload.compressedCount} 张参考图到 4MB 内`);
@@ -256,7 +260,7 @@ export function useCanvasGenerationHandlers(ctx) {
       n: clampCount(settingOverrides.n ?? settings.n),
       baseUrl: config.defaultBaseUrl || settings.baseUrl || defaultState.baseUrl
     };
-    const runItems = files.map(normalizeQuickReferenceItem).filter(Boolean);
+    const runItems = fileList.map(normalizeQuickReferenceItem).filter(Boolean);
     const localEditItems = runItems.filter(quickReferenceHasLocalEdit);
     const primaryRunItem = runItems[0] || null;
     const localEditItem = quickReferenceHasLocalEdit(primaryRunItem) ? primaryRunItem : null;
