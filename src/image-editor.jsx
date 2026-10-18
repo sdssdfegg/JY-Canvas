@@ -83,7 +83,7 @@ function ImageEditorSlot({ title, file, meta, onPick, onClear, resolveDroppedFil
       />
       <header>
         <strong>{title}</strong>
-        {file && <UploadClearButton onClick={onClear} />}
+        <UploadClearButton onClick={onClear} disabled={!file} />
       </header>
       <button
         className="imageEditorSlotPick"

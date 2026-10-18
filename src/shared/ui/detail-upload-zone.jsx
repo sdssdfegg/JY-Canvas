@@ -42,9 +42,7 @@ export function DetailUploadZone({
             <Folder size={14} />
             <span>素材库</span>
           </Button>
-          {count > 0 && onClear && (
-            <UploadClearButton onClick={onClear} />
-          )}
+          <UploadClearButton onClick={onClear} disabled={!onClear || count === 0} />
         </div>
       </header>
       <button className="detailDropArea" type="button" onClick={() => inputRef.current?.click()}>
