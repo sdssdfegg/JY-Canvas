@@ -106,6 +106,7 @@ export default function OutfitComposer({
   onSelectRecolorPart,
   recolorUpperLayer,
   onSelectRecolorUpperLayer,
+  onResetRecolorPromptTemplate,
   clothingImages,
   /* V77 Park：统一处理/新上传默认停用，但数据流保留 —— 以下 4 个 props 仍由父级按原名传入，
      本地别名成 _ 前缀（eslint 允许的未使用参数命名）。恢复 = 去掉 _ 前缀并传回 UploadZone。 */
@@ -296,55 +297,49 @@ export default function OutfitComposer({
       </div>
     )}
 
-    {/* V111（用户要求）：1板块（自定义页）的「更换部位」行——像换装设置一样，但只保留部位、排成一条，
-        不要上装层级/穿法，不占地方。复用换装设置行的既有类名与视觉，零新增 CSS。 */}
+    {/* V111/V117（用户要求）：改色页「更换部位」+「上装层级」排成一行（层级常显，不再随部位隐藏）；
+        复用 .outfitIntentRow 的行框 + .outfitIntentInline 的横向排布 + .outfitIntentChips 的 chip 组，零新增 CSS。 */}
     {isCustomWorkflow && (
       <div className="outfitIntentRow recolorPartRow">
-        <span className="outfitIntentRowTitle">更换部位</span>
-        <div className="outfitIntentChips">
-          {RECOLOR_PART_OPTIONS.map((part) => {
-            const active = recolorPart === part.value;
-            return (
-              <button
-                className={active ? "active" : ""}
-                key={part.value}
-                type="button"
-                aria-pressed={active}
-                onClick={() => onSelectRecolorPart(part.value)}
-                title={`改色部位：${part.label}`}
-              >
-                {active && <Check size={13} />}
-                <span>{part.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    )}
-
-    {/* V112（用户要求）：服装改色页「更换部位」行后面加「上装层级」行（换装同款控件，仅选上装时出现；
-        复用换装设置行既有类名与视觉，靠 .outfitIntentRow 的 padding-top/边框自然留出间距，零新增 CSS。
-        只记录选择，不自动改写提示词正文（避免动用户手写的提示词）。 */}
-    {isCustomWorkflow && recolorPart === "upper" && (
-      <div className="outfitIntentRow recolorUpperLayerRow">
-        <span className="outfitIntentRowTitle">上装层级</span>
-        <div className="outfitIntentChips">
-          {UPPER_LAYER_OPTIONS.map((option) => {
-            const active = recolorUpperLayer === option.value;
-            return (
-              <button
-                className={active ? "active" : ""}
-                key={option.value}
-                type="button"
-                aria-pressed={active}
-                onClick={() => onSelectRecolorUpperLayer(option.value)}
-                title={`上装层级：${option.label}`}
-              >
-                {active && <Check size={13} />}
-                <span>{option.label}</span>
-              </button>
-            );
-          })}
+        <div className="outfitIntentInline">
+          <span className="outfitIntentRowTitle">更换部位</span>
+          <div className="outfitIntentChips">
+            {RECOLOR_PART_OPTIONS.map((part) => {
+              const active = recolorPart === part.value;
+              return (
+                <button
+                  className={active ? "active" : ""}
+                  key={part.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onSelectRecolorPart(part.value)}
+                  title={`改色部位：${part.label}`}
+                >
+                  {active && <Check size={13} />}
+                  <span>{part.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <span className="outfitIntentRowTitle recolorUpperLayerRow">上装层级</span>
+          <div className="outfitIntentChips">
+            {UPPER_LAYER_OPTIONS.map((option) => {
+              const active = recolorUpperLayer === option.value;
+              return (
+                <button
+                  className={active ? "active" : ""}
+                  key={option.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onSelectRecolorUpperLayer(option.value)}
+                  title={`上装层级：${option.label}`}
+                >
+                  {active && <Check size={13} />}
+                  <span>{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     )}
@@ -358,6 +353,11 @@ export default function OutfitComposer({
           )}
           {isWhiteRefineWorkflow && (
             <em className="composerFieldHint">按精修设置自动生成，也可以直接手改</em>
+          )}
+          {isCustomWorkflow && (
+            <Button size="sm" tone="ghost" onClick={onResetRecolorPromptTemplate}>
+              用默认模板
+            </Button>
           )}
         </span>
         {/* 换装 / 精修：这个框就是**真正发送的内容**。
