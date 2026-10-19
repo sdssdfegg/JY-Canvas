@@ -37,8 +37,8 @@ import {
 } from "./shared/result-image.js";
 import { classifyGenerationError, formatGenerationError } from "./shared/generation-errors.js";
 import { fileSize } from "./lib/format/index.js";
-import { normalizePromptCategories, normalizePromptPreset } from "./shared/prompt-library.js";
-import { readJsonStorage, writeJsonStorage } from "./lib/storage/json-storage.js";
+import { loadPromptLibraryCategories, loadPromptLibraryPresets } from "./shared/prompt-library.js";
+import { writeJsonStorage } from "./lib/storage/json-storage.js";
 // 建议3b：OutfitWorkflow / ImageEditorPanel 改为 React.lazy 懒加载（见下方 Lazy* 定义），
 // 使其脱离首屏 index 主包；feat-outfit(182KB) 等依赖仅在对应视图打开时再拉取，降低首屏 load。
 // 注意：release 模式下默认视图是 outfit，首次打开会短暂显示 VIEW_LOADING，属预期行为。
@@ -68,7 +68,7 @@ import { DetailView } from "./features/detail/DetailView.jsx";
 import { useDetailState } from "./features/detail/detail-state.js";
 // V61（P3-6）：快捷生成 image 模式私有状态与派生收口至 src/features/quickgen/（降级档：仅 state，JSX 留待下轮）
 import { useQuickGenState } from "./features/quickgen/quickgen-state.js";
-import { ACTIVE_VIEW_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, builtinPrompts, defaultState } from "./shared/app-defaults.js";
+import { ACTIVE_VIEW_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, defaultState } from "./shared/app-defaults.js";
 import { loadActiveView, loadHistoryResults, loadState, navItems, publicReleaseStorageResetPromise, removeHistoryResults, saveHistoryResults } from "./features/storage/storage-store.js";
 import { hydrateDetailGroupsWithHistory } from "./features/detail/detail-group.js";
 import { defaultQuickLocalEditCrop } from "./features/local-edit/crop-rect-resize.js";
@@ -148,7 +148,7 @@ const referenceControlOptions = [
 
 
 
-const promptCategories = ["全部", "常用", "批量复刻", "批量sku", "局部迁移"];
+// V118：提示词分类兜底不再用内置常量；改由 loadPromptLibraryCategories 从用户预设派生（见 §1.1）。
 
 
 
@@ -162,17 +162,9 @@ const promptCategories = ["全部", "常用", "批量复刻", "批量sku", "局�
 
 
 
-// 🔴 与 src/outfit-workflow.jsx 的 `loadOutfitPromptCategories` **同名不同义**（V11-RF-040 裁定：改名不合并，勿合并）。跨文件引用只写函数名、不写行号（V11-RF-040c 裁决）。
+// V118（2026-10-19）：分类加载收口到共享 loadPromptLibraryCategories（§1.2），见 loadPromptPresets 说明。
 function loadPromptCategories() {
-  const storedCategories = readJsonStorage(PROMPT_CATEGORIES_KEY, null);
-  const storedPrompts = readJsonStorage(PROMPT_PRESETS_KEY, null) || [];
-  const presetCategories = Array.isArray(storedPrompts)
-    ? storedPrompts.map((preset) => preset?.category)
-    : [];
-  const base = Array.isArray(storedCategories) && storedCategories.length > 0
-    ? ["全部", ...storedCategories]
-    : promptCategories;
-  return normalizePromptCategories([...base, ...presetCategories]);
+  return loadPromptLibraryCategories({ categoriesKey: PROMPT_CATEGORIES_KEY, presetsKey: PROMPT_PRESETS_KEY });
 }
 
 
@@ -189,14 +181,11 @@ function loadPromptCategories() {
 
 
 
-// 🔴 与 src/outfit-workflow.jsx 的 `loadOutfitPromptPresets` **同名不同义**（V11-RF-040 裁定：改名不合并，勿合并）。跨文件引用只写函数名、不写行号（V11-RF-040c 裁决）。
+// V118（2026-10-19）：提示词助手改为纯用户自建库。两侧加载口径已收口到
+// src/shared/prompt-library.js 的 loadPromptLibraryPresets / loadPromptLibraryCategories
+// （执行单 §1.2），此处只做薄封装、传各自的 storage key，行为两侧一致。
 function loadPromptPresets() {
-  const stored = readJsonStorage(PROMPT_PRESETS_KEY, null);
-  if (Array.isArray(stored) && stored.length > 0) {
-    return stored.map(normalizePromptPreset).filter((preset) => preset.content);
-  }
-
-  return builtinPrompts;
+  return loadPromptLibraryPresets({ presetsKey: PROMPT_PRESETS_KEY });
 }
 
 

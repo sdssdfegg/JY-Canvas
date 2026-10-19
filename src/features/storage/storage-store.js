@@ -1,5 +1,5 @@
 // storage-store.js —— RF-082 从 src/main.jsx 逐字抽出（加 export），未改逻辑。
-import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, PUBLIC_RELEASE_MODE, PUBLIC_RELEASE_RESET_KEY, STORAGE_KEY, STORAGE_PREFIX, defaultState } from "../../shared/app-defaults.js";
+import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, PUBLIC_RELEASE_MODE, PUBLIC_RELEASE_RESET_KEY, STORAGE_KEY, STORAGE_PREFIX, defaultState } from "../../shared/app-defaults.js";
 import { BookOpen, Brush, Crop, FileText, Layers, Sparkles, Wand2 } from "lucide-react";
 import { readJsonStorage, removeStorageItem, writeJsonStorage } from "../../lib/storage/json-storage.js";
 import { canonicalModel } from "../../shared/routing.js";
@@ -62,21 +62,19 @@ export function runPublicReleaseStorageReset() {
       return Promise.resolve();
     }
 
+    // V118（用户硬要求）：提示词助手的预设/分类属于**用户自建资产**，任何发布重置都不得清除
+    // —— 用户会把模板写给客户用，丢了就是不可恢复的事故。下面这些键**不在**重置清单内：
+    // PROMPT_PRESETS_KEY / PROMPT_CATEGORIES_KEY 及其历史版本键
+    //（jingyin-outfit-workflow-prompt-library-v1 / -v2-20260802 等同族键）。
     [
       STORAGE_KEY,
       ACTIVE_VIEW_KEY,
-      PROMPT_PRESETS_KEY,
-      PROMPT_CATEGORIES_KEY,
       DETAIL_PRESETS_KEY,
       DETAIL_GROUPS_KEY,
       "jingyin-infinite-canvases-v1",
       "jingyin-outfit-workflow-task-history-v1",
       "jingyin-outfit-workflow-settings-v1",
       "jingyin-outfit-workflow-pages-v1",
-      "jingyin-outfit-workflow-prompt-library-v1",
-      "jingyin-outfit-workflow-prompt-categories-v1",
-      "jingyin-outfit-workflow-prompt-library-v2-20260802",
-      "jingyin-outfit-workflow-prompt-categories-v2-20260802",
       "jingyin-outfit-workflow-resize-settings-v3",
       "jingyin-outfit-workflow-resize-batch-crop-v1",
       HISTORY_FALLBACK_KEY

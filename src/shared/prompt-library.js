@@ -1,3 +1,6 @@
+import { readJsonStorage, writeJsonStorage } from "../lib/storage/json-storage.js";
+import { PROMPT_LIBRARY_VERSION } from "./app-defaults.js";
+
 // 提示词库的**归一化口径**（唯一实现）。
 //
 // 为什么要有这个文件（前端专项阶段 B · 刀 5）：
@@ -9,7 +12,9 @@
 //   同一个预设在一处显示成 A、在另一处显示成 B —— 这正是阶段 B 要拆的病根。
 //
 // 纪律：
-//   - **纯函数 + 1 个无副作用 hook**，不 import React、不碰 localStorage（存储读写是 loader 的事）；
+//   - **纯函数 + 1 个无副作用 hook**：归一化与工厂不碰 localStorage；
+//     V118 起新增的 `loadPromptLibraryPresets` / `loadPromptLibraryCategories` 是两侧唯一加载口径
+//     （执行单 §1.2），确需 `readJsonStorage`（含历史键迁移），收口于此以保证「改一次两边一致」。
 //   - 归一化口径**只此一份**，改这里等于同时改两处（这正是收口的目的）；
 //   - ⚠️ 本次是**纯搬运**：三对均字节一致 ⇒ 行为零变化，未改任何截断长度/默认值/文案。
 //
@@ -57,6 +62,13 @@
 //     `loadOutfitPromptPresets` / `loadOutfitPromptCategories`（在 src/outfit-workflow.jsx 内），
 //     main 侧保留原名 `loadPromptPresets` / `loadPromptCategories`。
 //     storage key 是否合一仍是**未决的产品决策**（REFACTOR_TICKETS §8 待决策项 1）。
+//
+// 🔴 V118（2026-10-19）更新：上面的「改名不合并」裁定已被本单推翻——两侧提示词助手改为
+// 纯用户自建库，内置注入/回灌/覆盖逻辑两侧**都**删除，行为口径已统一，故收口为
+// loadPromptLibraryPresets / loadPromptLibraryCategories（见下方「V118 加载口径」段）。
+// 注意：**storage key 仍是两个前缀**（main=`${STORAGE_PREFIX}-…`、outfit=`jingyin-outfit-workflow-…`），
+// 这一产品决策未变，两侧仍各自传自己的 key 给共享加载函数。上面 outfit 侧的
+// loadOutfitPromptPresets / loadOutfitPromptCategories 现在只是薄封装、转发给共享函数。
 
 /** 分类名归一化：折叠空白、去首尾空格、截到 18 字。 */
 export function normalizePromptCategoryName(value) {
@@ -86,6 +98,58 @@ export function normalizePromptPreset(preset, index = 0) {
     content: String(preset?.content || "").trim(),
     custom: Boolean(preset?.custom)
   };
+}
+
+// ============================================================================
+// V118（2026-10-19）：提示词助手改为**纯用户自建库**。下面两个函数是
+// src/main.jsx 与 src/features/outfit/outfit-top.js 两侧**唯一**的提示词
+// 预设 / 分类加载口径（执行单 §1.2 收口）：不再注入任何内置词、空库返回 `[]`、
+// 分类恒以「全部」开头并由用户预设派生。两侧各自的加载入口改为调用它们、传各自
+// 的 storage key，保证「改一次两边一致」。加载函数需读 localStorage（readJsonStorage），
+// 故收口于此是为了统一行为——这是 V118 的核心诉求。
+// ============================================================================
+
+/**
+ * 读取提示词存储（含一次性历史键迁移，§1.4）。
+ * 当前键有数据 → 直接返回；当前键为空但历史 v1 键有数据 → 迁移过来并保留历史键
+ *（不删），然后返回；迁移失败不阻断启动。
+ */
+function readPromptStorageWithMigration(key) {
+  const current = readJsonStorage(key, null);
+  if (Array.isArray(current) && current.length > 0) return current;
+  const legacyKey = key.replace(PROMPT_LIBRARY_VERSION, "v1");
+  if (legacyKey === key) return current; // 版本段不在键里时不做无意义回退
+  const legacy = readJsonStorage(legacyKey, null);
+  if (Array.isArray(legacy) && legacy.length > 0) {
+    try {
+      writeJsonStorage(key, legacy);
+      console.info(`[V118 迁移] 已从历史键 ${legacyKey} 迁移提示词数据到 ${key}（保留历史键）`);
+    } catch {
+      // 迁移失败不阻断启动
+    }
+    return legacy;
+  }
+  return current;
+}
+
+/** 加载用户提示词预设：逐条归一化、过滤空内容；空库 → `[]`，**不注入任何内置**。 */
+export function loadPromptLibraryPresets({ presetsKey }) {
+  const stored = readPromptStorageWithMigration(presetsKey);
+  if (!Array.isArray(stored) || stored.length === 0) return [];
+  return stored.map(normalizePromptPreset).filter((preset) => preset.content);
+}
+
+/** 加载用户提示词分类：恒以「全部」开头 + 用户自定义分类存档 + 由用户预设派生的分类。 */
+export function loadPromptLibraryCategories({ categoriesKey, presetsKey }) {
+  const storedCategories = readPromptStorageWithMigration(categoriesKey);
+  const storedPrompts = readPromptStorageWithMigration(presetsKey);
+  const presetCategories = Array.isArray(storedPrompts)
+    ? storedPrompts.map((preset) => preset?.category)
+    : [];
+  const base = Array.isArray(storedCategories) && storedCategories.length > 0
+    ? ["全部", ...storedCategories]
+    : [];
+  return normalizePromptCategories([...base, ...presetCategories]);
 }
 
 /**
