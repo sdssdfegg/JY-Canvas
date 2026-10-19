@@ -1,5 +1,9 @@
 # 批量改色 workflow
 
+> 🚧 **2026-10-19 退役声明**：本 workflow 前端实现已退役（V110 起含「改色」字样的页判为 `custom`；V113 起「批量改色」单例不再自动补建）。
+> 注意：**服务端仍按页面名识别 recolor**（`server/routes/outfit.routes.js:202-205` 的 `recolorWorkflow` 判定仍在用，用于关闭智能介入与定制报错文案），**该服务端分支不得删除**。
+> 当前服装改色工作页 = `custom`（见 `custom/README.md`）。本目录文档仅供参考，不要据此新建 recolor 分支。
+
 > **⚠️ 当前实现仍在 `src/outfit-workflow.jsx`（迁移中）。本目录目前只有约定与规划，无实现代码 —— 搜代码请去那里。**
 
 | 项 | 内容 |
