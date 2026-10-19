@@ -10,8 +10,11 @@
 //     因此种子目标键始终对应当前运行环境的真实键。
 //   · importReleaseSeed 被串在 publicReleaseStorageResetPromise 之后（storage-store.js），
 //     在 reset 清空目标键、删掉草稿 IndexedDB 之后填空；main.jsx 的 render 门禁天然成为导入完成的闸门。
+//   · 网络出口走 src/api/ 准入层（V121-R1 统筹裁决，P7-6「网络出口只此一处」口径）：
+//     种子清单读取用 api/assets.js 的 fetchSeedManifest，本模块不出现裸 fetch。
 
 import { readJsonStorage, writeJsonStorage } from "../lib/storage/json-storage.js";
+import { fetchSeedManifest } from "../api/assets.js";
 import {
   PUBLIC_RELEASE_MODE,
   STORAGE_PREFIX,
@@ -38,7 +41,6 @@ import {
   fnv1a32Hex
 } from "./release-seed-schema.js";
 
-const SEED_PATH = "/seed/manifest.json";
 const SEED_IMPORTED_PREFIX = `${STORAGE_PREFIX}-seed-imported-`;
 // 个别 entry 的原始存储不是 JSON（如 split-halves 存 "0"/"1" 字符串），需按原样读写。
 const RAW_STRING_ENTRY_IDS = new Set(["white-refine-split-halves"]);
@@ -156,7 +158,8 @@ export function buildReleaseSeed() {
  * 行为铁律：
  *   · 非 public 模式 → 立即 resolve（internal 模式零影响）；
  *   · 读一次性标记 {STORAGE_PREFIX}-seed-imported-{seedId}：已导过这份种子 → 跳过；
- *   · fetch /seed/manifest.json（AbortController 3s 超时）；404/网络失败/JSON 坏 → catch 后 resolve，不阻断启动；
+ *   · 经 src/api/assets.js 的 fetchSeedManifest 读 /seed/manifest.json（3s 超时）；
+ *     404/网络失败/JSON 坏 → catch 后 resolve，不阻断启动；
  *   · 逐 entry：目标键为空/null/空数组/空对象才写入；非空（回头客已有数据）→ 跳过不覆盖（红线③）；
  *   · 全部处理完写一次性标记。
  */
@@ -165,18 +168,9 @@ export async function importReleaseSeed() {
 
   let manifest;
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3000);
-    let resp;
-    try {
-      resp = await fetch(SEED_PATH, { signal: controller.signal });
-    } finally {
-      clearTimeout(timer);
-    }
-    if (!resp || !resp.ok) return;
-    manifest = await resp.json();
+    manifest = await fetchSeedManifest();
   } catch {
-    return; // 404 / 网络失败 / JSON 坏 → 不阻断启动
+    return; // 404 / 超时 / 网络失败 / JSON 坏 → 不阻断启动
   }
   if (!manifest || !Array.isArray(manifest.entries)) return;
 

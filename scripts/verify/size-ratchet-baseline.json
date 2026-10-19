@@ -1,13 +1,13 @@
 {
   "generatedAt": "2026-10-19",
-  "reason": "V121 封装种子机制：新增 release-seed-schema/release-seed/构建注入/设置页导出按钮/门禁脚本，storage-store 接入种子链；功能必要最小净增。",
+  "reason": "V121-R1（统筹裁决收尾）：api/assets.js 新增 fetchSeedManifest（+22 行）——种子清单读取按 P7-6「网络出口只此一处」口径从 release-seed.js 收口进 src/api/ 准入层，同时 api-layering 基线恢复零违规（撤销执行方原方案的豁免entry）。属门禁强化型必要增量。",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
     "functionMinLines": 50
   },
   "files": {
-    "src/api/assets.js": 71,
+    "src/api/assets.js": 98,
     "src/api/client.js": 293,
     "src/api/config.js": 5,
     "src/api/connection.js": 36,
@@ -100,7 +100,7 @@
     "src/shared/quickgen-prompt-rules.js": 36,
     "src/shared/reference-policy.js": 183,
     "src/shared/release-seed-schema.js": 134,
-    "src/shared/release-seed.js": 250,
+    "src/shared/release-seed.js": 240,
     "src/shared/result-image.js": 334,
     "src/shared/retouch-intent.js": 284,
     "src/shared/routing.js": 433,
@@ -215,7 +215,6 @@
     "src/shared/outfit-intent.js::validateOutfitIntent": 56,
     "src/shared/prompt-library.js::usePromptLibrary": 181,
     "src/shared/release-seed.js::buildReleaseSeed": 78,
-    "src/shared/release-seed.js::importReleaseSeed": 59,
     "src/shared/ui/cached-image.jsx::CachedImage": 120,
     "src/shared/ui/ChannelPicker.jsx::ChannelPicker": 80,
     "src/shared/ui/detail-upload-zone.jsx::DetailUploadZone": 77,

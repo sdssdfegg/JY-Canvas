@@ -1,7 +1,5 @@
 {
-  "generatedAt": "2026-10-19",
-  "reason": "V121 封装种子：release-seed.js 的 importReleaseSeed 需 fetch 内嵌静态资源 /seed/manifest.json（非后端 API 请求，等同 local-edit-mask.js 的 data: URL 字节读取先例），属静态资源读取豁免。",
-  "violations": [
-    "src/shared/release-seed.js:172"
-  ]
+  "generatedAt": "2026-10-15",
+  "reason": "P7-6：9 处散写 fetch 全部收口进 src/api/（save.js/assets.js），准入层恢复零违规",
+  "violations": []
 }
