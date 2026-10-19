@@ -11,8 +11,8 @@ import { RetouchIntentPanel } from "./RetouchIntentPanel.jsx";
 import { OutfitPageRow } from "./OutfitPageRow.jsx";
 import { Button } from "../../../shared/ui/Button";
 import { MAX_UPLOAD_IMAGES, UploadZone } from "../outfit-panels.jsx";
-import { GARMENT_PART_OPTIONS, garmentCompositionLabel, normalizeGarmentComposition, sameGarmentParts } from "../outfit-top.js";
-import { OUTFIT_PART_OPTIONS, UPPER_LAYER_OPTIONS } from "../../../shared/outfit-intent.js";
+import { GARMENT_PART_OPTIONS, RECOLOR_PART_OPTIONS, garmentCompositionLabel, normalizeGarmentComposition, sameGarmentParts } from "../outfit-top.js";
+import { UPPER_LAYER_OPTIONS } from "../../../shared/outfit-intent.js";
 
 export default function OutfitComposer({
   isOutfitWorkflow,
@@ -302,7 +302,7 @@ export default function OutfitComposer({
       <div className="outfitIntentRow recolorPartRow">
         <span className="outfitIntentRowTitle">更换部位</span>
         <div className="outfitIntentChips">
-          {OUTFIT_PART_OPTIONS.map((part) => {
+          {RECOLOR_PART_OPTIONS.map((part) => {
             const active = recolorPart === part.value;
             return (
               <button

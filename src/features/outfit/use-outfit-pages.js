@@ -213,8 +213,12 @@ export function useOutfitPages(deps) {
       setUploadLabels(nextUploadLabels);
       if (shouldApplyPromptDefault) setSettings(nextSettings);
     }
+    // V113-R1：仅当「改名前不属于该 singleton 家族 → 改名后属于」才解除留痕（用户主动重建该 singleton）；
+    // 家族内部改名（如 服装改色→服装改色2）不再误删用户之前删除其他页留下的留痕（例如删掉「批量改色」后，
+    // 给自定义页改任何含「改色」的名字都不应解除 recolor 留痕）。
+    const trackedPrevMode = deletionTrackingMode(page.name, page.id === activeOutfitPageId ? uploadLabels : page.uploadLabels);
     const trackedNextMode = deletionTrackingMode(name, nextUploadLabels);
-    if (trackedNextMode) forgetDeletedWorkflowMode(trackedNextMode);
+    if (trackedNextMode && trackedNextMode !== trackedPrevMode) forgetDeletedWorkflowMode(trackedNextMode);
     addEvent("页面名称", `已改为「${name}」`);
   }
 

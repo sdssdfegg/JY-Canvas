@@ -30,7 +30,7 @@ import { ModuleHeader } from "./shared/ui/ModuleHeader";
 // 结构化换装意图 + 唯一精简提示词编译器（前端预览与服务端发送同一份实现）。
 import {
   OUTFIT_AUTO_PROMPT_CHAR_LIMIT,
-  compileOutfitPrompt, OUTFIT_PART_OPTIONS,
+  compileOutfitPrompt,
   normalizeOutfitIntent,
   recognizedFactKeys,
   resolveUpperLayer,
@@ -97,7 +97,7 @@ import {
   WorkflowQuickVideoPanel,
     preprocessModeLabel
     } from "./features/outfit/outfit-panels.jsx";
-import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeGarmentComposition, normalizeGarmentParts, normalizeRecolorPart, normalizeRecolorUpperLayer, replaceRecolorPartWords, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
+import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeGarmentComposition, normalizeGarmentParts, normalizeRecolorPart, normalizeRecolorUpperLayer, RECOLOR_PART_WORDS, replaceRecolorPartWords, replaceRecolorUpperLayerWords, RECOLOR_PART_OPTIONS, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
 import { UPPER_LAYER_OPTIONS } from "./shared/outfit-intent.js";
 import { ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import {  createAsyncLimiter, defaultLocalEditCrop, groupPreprocessValue, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
@@ -460,13 +460,17 @@ export default function OutfitWorkflow({
     // 即便之前手动改过词导致状态与正文错位，切一次部位也整体对齐。不再早退，保证实时同步）。
     const nextPrompt = replaceRecolorPartWords(settings.prompt, recolorPart, part);
     setSettings((current) => ({ ...current, recolorPart: part, prompt: nextPrompt }));
-    const label = OUTFIT_PART_OPTIONS.find((item) => item.value === part)?.label || part;
+    const label = RECOLOR_PART_OPTIONS.find((item) => item.value === part)?.label || part;
     addEvent("更换部位", `改色部位已切换为「${label}」`);
   }
   function selectRecolorUpperLayer(nextLayer) {
     const layer = normalizeRecolorUpperLayer(nextLayer);
     if (layer === recolorUpperLayer) return;
-    setSettings((current) => ({ ...current, recolorUpperLayer: layer }));
+    // V113-R1（用户要求）：层级切换联动提示词——把正文里的层级词（single 时为上装部位词）整体换成新层级的词；
+    // 正文没有任何层级词/部位词时不改动（保护手写内容，与「更换部位」联动同一口径）。
+    const partWord = (RECOLOR_PART_WORDS[normalizeRecolorPart(settings.recolorPart)] || RECOLOR_PART_WORDS.upper)[0] || "上衣";
+    const nextPrompt = replaceRecolorUpperLayerWords(settings.prompt, recolorUpperLayer, layer, partWord);
+    setSettings((current) => ({ ...current, recolorUpperLayer: layer, prompt: nextPrompt }));
     const label = UPPER_LAYER_OPTIONS.find((item) => item.value === layer)?.label || layer;
     addEvent("上装层级", `已切换为「${label}」`);
   }
