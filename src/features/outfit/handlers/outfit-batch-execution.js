@@ -40,11 +40,7 @@ import {
   revokeResultImageRuntimeCache
 } from "../outfit-task.js";
 import { makeId } from "../outfit-panels.jsx";
-import {
-  normalizeGarmentParts,
-  normalizeGarmentComposition,
-  normalizeBatchConcurrency
-} from "../outfit-top.js";
+import { normalizeBatchConcurrency } from "../outfit-top.js";
 import { mentionsOptionalReferenceImage } from "../outfit-page-actions.js";
 import {
   blobFromOutfitImage,
@@ -72,7 +68,6 @@ export function useOutfitBatchExecution(ctx) {
     isDesignDraftWorkflow,
     activeModels,
     activeClothes,
-    isRecolorWorkflow,
     workflowMode,
     activeOutfitPage,
     uploadLabels,
@@ -128,7 +123,7 @@ export function useOutfitBatchExecution(ctx) {
       // 设计稿与精修都是「多图进、一张出」：图1 的其余几张要作为图2…图N 一起带上去。
       const extraModelItems = isDesignDraftWorkflow || isWhiteRefineWorkflow ? activeModels.slice(1) : [];
       const clothingItem = isOutpaintWorkflow || isRandomBackgroundWorkflow ? null : clothingForIndex(index);
-      const extraClothingItems = isRecolorWorkflow || isWhiteRefineWorkflow
+      const extraClothingItems = isWhiteRefineWorkflow
         ? activeClothes.filter((item) => item.id !== clothingItem?.id)
         : [];
       const localEdit = !isDesignDraftWorkflow && !isPoseRemixWorkflow && !isOutpaintWorkflow && !isWhiteRefineWorkflow && !isRandomBackgroundWorkflow && modelItem?.localEdit?.cropFile && modelItem?.localEdit?.cropRect ? modelItem.localEdit : null;
@@ -167,8 +162,6 @@ export function useOutfitBatchExecution(ctx) {
         createdAt: Date.now() + index,
         imageSize: settings.imageSize,
         aspectRatio: localEdit?.aspectRatio || cropReturn?.aspectRatio || settings.aspectRatio,
-        garmentParts: isRecolorWorkflow ? normalizeGarmentParts(settings.garmentParts) : undefined,
-        garmentComposition: isRecolorWorkflow ? normalizeGarmentComposition(settings.garmentComposition, settings.garmentParts) : undefined,
         randomBackgroundFocus: isRandomBackgroundWorkflow ? normalizeRandomBackgroundFocus(settings.randomBackgroundFocus) : undefined,
         ...freezeIntentIntoTask(intentCtx),
         pairingMode: settings.pairingMode,
@@ -254,7 +247,6 @@ export function useOutfitBatchExecution(ctx) {
     const taskIsWhiteRefine = taskWorkflowMode === "white-refine";
     const taskIsRandomBackground = taskWorkflowMode === "random-background";
     const taskIsOutfit = taskWorkflowMode === "outfit";
-    const taskIsRecolor = taskWorkflowMode === "recolor";
     const taskModelFile = imageItemUploadFile(task.modelItem);
     const taskClothingFile = imageItemUploadFile(task.clothingItem);
     let localEdit = taskIsOutpaint || taskIsWhiteRefine || taskIsRandomBackground
@@ -342,8 +334,6 @@ export function useOutfitBatchExecution(ctx) {
       prompt: settings.prompt,
       productNote: settings.productNote,
       smartIntervention: settings.smartIntervention,
-      garmentParts: taskIsRecolor ? normalizeGarmentParts(task.garmentParts || settings.garmentParts) : undefined,
-      garmentComposition: taskIsRecolor ? normalizeGarmentComposition(task.garmentComposition || settings.garmentComposition, task.garmentParts || settings.garmentParts) : undefined,
       randomBackgroundFocus: taskIsRandomBackground ? normalizeRandomBackgroundFocus(task.randomBackgroundFocus || settings.randomBackgroundFocus) : undefined,
       // 结构化换装意图：只认任务快照（批次开始后就冻结），不再读当前界面设置。
       outfitIntent: taskIsOutfit ? normalizeOutfitIntent(task.outfitIntent || settings.outfitIntent) : undefined,
@@ -690,8 +680,6 @@ export function useOutfitBatchExecution(ctx) {
           ? "至少上传 1 张图1待扩图原图"
           : isWhiteRefineWorkflow
             ? "至少上传 1 张图1平铺图/挂拍图；图2参考图可选"
-          : isRecolorWorkflow
-                  ? "至少上传 1 张图1原图和 1 张图2颜色参考图"
                   : isFaceSwapWorkflow
                     ? "至少上传 1 张图1目标人物图和 1 张图2人脸参考图"
                     : isLocalDetailWorkflow
@@ -721,7 +709,7 @@ export function useOutfitBatchExecution(ctx) {
     beginGenerationRun();
     addEvent(
       workflowEventTitle,
-      `已创建 ${nextTasks.length} 个任务，${isDesignDraftWorkflow ? "设计稿SKILL" : isPoseRemixWorkflow ? "批量姿态常规文本" : isRandomBackgroundWorkflow ? settings.smartIntervention ? "随机背景智能文本" : "随机背景常规文本" : isBackgroundChangeWorkflow ? settings.smartIntervention ? "固定背景智能文本" : "固定背景常规文本" : isOutpaintWorkflow ? "批量扩图常规文本" : isRecolorWorkflow ? "改色常规文本" : isFaceSwapWorkflow ? settings.smartIntervention ? "换脸智能文本" : "换脸常规文本" : isLocalDetailWorkflow ? settings.smartIntervention ? "局部回贴智能文本" : "局部回贴常规文本" : settings.smartIntervention ? "智能介入" : "常规模式"}；并发 ${hasLocalEditBatch ? localEditWorkerCount : configuredWorkerCount}`
+      `已创建 ${nextTasks.length} 个任务，${isDesignDraftWorkflow ? "设计稿SKILL" : isPoseRemixWorkflow ? "批量姿态常规文本" : isRandomBackgroundWorkflow ? settings.smartIntervention ? "随机背景智能文本" : "随机背景常规文本" : isBackgroundChangeWorkflow ? settings.smartIntervention ? "固定背景智能文本" : "固定背景常规文本" : isOutpaintWorkflow ? "批量扩图常规文本" : isFaceSwapWorkflow ? settings.smartIntervention ? "换脸智能文本" : "换脸常规文本" : isLocalDetailWorkflow ? settings.smartIntervention ? "局部回贴智能文本" : "局部回贴常规文本" : settings.smartIntervention ? "智能介入" : "常规模式"}；并发 ${hasLocalEditBatch ? localEditWorkerCount : configuredWorkerCount}`
     );
 
     let cursor = 0;
@@ -787,3 +775,4 @@ export function useOutfitBatchExecution(ctx) {
     startBatch
   };
 }
+

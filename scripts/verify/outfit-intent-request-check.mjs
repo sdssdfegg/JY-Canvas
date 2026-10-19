@@ -97,8 +97,6 @@ async function callGenerateOutfit({ taskId, payloadPatch = {}, model = "tt-image
     workflowMode: "outfit",
     pageName: "换装",
     pairingMode: "fixed",
-    garmentParts: { upper: true, lower: true, shoes: false },
-    garmentComposition: "套装",
     garmentLengths: { upper: "knee", lower: "ankle" },
     masterFitLock: true,
     masterFitSpec: "旧的母版规格整段文本；旧的整段提示词；旧的整段提示词",
@@ -209,7 +207,7 @@ try {
 
   // —— 4) 旧开关字段不影响结构化换装目标（SKILL 开/关）
   const withLegacySkillOff = await promptFor("legacy-skill-off", { parts: ["upper"], upperLayer: "inner-outer" }, { skillRulesEnabled: false, smartIntervention: false });
-  const withLegacySkillOn = await promptFor("legacy-skill-on", { parts: ["upper"], upperLayer: "inner-outer" }, { skillRulesEnabled: true, smartIntervention: false, garmentParts: ["upper"], garmentComposition: "upper-layer" });
+  const withLegacySkillOn = await promptFor("legacy-skill-on", { parts: ["upper"], upperLayer: "inner-outer" }, { skillRulesEnabled: true, smartIntervention: false });
   const targetOf = (prompt) => (prompt.match(/让图1模特[^\n]*/) || [""])[0];
   check("旧 SKILL 开关关闭时换装目标仍在",
     withLegacySkillOff.prompt.includes("让图1模特穿着图2的内搭和外套。"), targetOf(withLegacySkillOff.prompt));

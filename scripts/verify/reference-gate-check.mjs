@@ -44,8 +44,6 @@ const BASE = {
   imageSize: "2K",
   aspectRatio: "3:4",
   prompt: "把图2的衣服穿到图1模特身上",
-  garmentParts: { upper: "single-upper", lower: "" },
-  garmentComposition: "single-upper",
   garmentLengths: { upper: "", lower: "" },
   referenceCount: 2
 };

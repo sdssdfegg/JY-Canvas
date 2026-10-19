@@ -37,7 +37,7 @@
 界面（更换部位/上装层级/穿法/图2事实）
   → settings.outfitIntent（唯一来源，持久化在页面设置里）
   → buildTasks() 冻结进每个任务快照 task.outfitIntent（批次开始后再改界面只影响下一批）
-  → POST /api/generate-outfit 的 payload.outfitIntent（不再发旧的 garmentParts/garmentLengths/masterFitSpec）
+  → POST /api/generate-outfit 的 payload.outfitIntent（旧的 garmentParts/garmentLengths/masterFitSpec 已于 V115 彻底删除）
   → 服务端 validateOutfitIntent() 权威校验（非法枚举 400 invalid_outfit_intent）
   → compileOutfitPrompt() 生成最终提示词
   → 发给模型
@@ -69,3 +69,4 @@
 5. **不再有 masterWearingLockLines 之类的整块模板**：规则只以"结构化选择 + 图2事实"的形式进入。
 6. **图1～图3 上传区不动**：上传/删除/预览/拖拽/裁剪/局部回贴/顺序/角色都不属于这次改造范围。
 7. **改这页要跑**：`npm run check`（含两个 outfit-intent 脚本）与 `npm run build`。
+

@@ -26,7 +26,7 @@ server/features/api-gateway/       中转站链路地图
 | 批量换脸 | `face-swap` | `DEFAULT_FACE_SWAP_PAGE_NAME`、`FACE_SWAP_DEFAULT_PROMPT`、`isFaceSwapWorkflow` | `face-swap/` |
 | 固定背景 | `background-change` | `DEFAULT_BACKGROUND_CHANGE_PAGE_NAME`、`BACKGROUND_CHANGE_DEFAULT_PROMPT`、`isBackgroundChangeWorkflow` | `background-change/` |
 | 随机背景 | `random-background` | `DEFAULT_RANDOM_BACKGROUND_PAGE_NAME`、`RANDOM_BACKGROUND_DEFAULT_PROMPT`、`isRandomBackgroundWorkflow` | `random-background/` |
-| 批量改色 | `recolor` | `DEFAULT_RECOLOR_PAGE_NAME`、`RECOLOR_DEFAULT_PROMPT`、`isRecolorWorkflow` | `recolor/` |
+| 批量改色 | `recolor` | `DEFAULT_RECOLOR_PAGE_NAME`、`RECOLOR_DEFAULT_PROMPT` | `recolor/` |
 | 精修（旧名：批量白底图精修） | `white-refine` | `DEFAULT_WHITE_REFINE_PAGE_NAME`、`WHITE_REFINE_DEFAULT_PROMPT`、`isWhiteRefineWorkflow` | `white-refine/` |
 | 设计稿 | `design-draft` | `DEFAULT_DESIGN_DRAFT_PAGE_NAME`、`DESIGN_DRAFT_DEFAULT_PROMPT`、`isDesignDraftWorkflow` | `design-draft/` |
 | 批量扩图 | `outpaint` | `DEFAULT_OUTPAINT_PAGE_NAME`、`OUTPAINT_DEFAULT_PROMPT`、`isOutpaintWorkflow` | `outpaint/` |

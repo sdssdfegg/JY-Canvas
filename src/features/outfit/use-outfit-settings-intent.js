@@ -2,7 +2,7 @@
 // V64 (P5-2) 2026-10-15：从 src/outfit-workflow.jsx（1156–1484，派发日偏移后实测）整块搬出的「设置与意图」handler 钩。
 // 内容：updateSetting / enableGenerationCountAutoLink / analyzeImageFacts / setMasterClothing /
 //   换装意图 patch 簇（patchOutfitIntent / toggleOutfitPart / updateOutfitWearingValue / updateOutfitFact /
-//   wearingFieldValue）/ 精修意图（patchRetouchIntent）/ 改色部位（toggleGarmentPart / applyGarmentPartPreset）/
+//   wearingFieldValue）/ 精修意图（patchRetouchIntent）/ 改色部位（selectRecolorPart / selectRecolorUpperLayer，见 src/outfit-workflow.jsx）/
 //   连接测试闭包壳 runConnectionTest / openSettings / saveSettings / usePromptLibrary 接线及 preset 三函数 /
 //   事件日志 addEvent / 任务运行时 updateTaskRuntime / 生成轮次 begin/endGenerationRun。
 // 模式：沿用 features/savedir/save-directory.js 的 deps 注入薄壳——每次 render 由调用方重建 deps 对象
@@ -16,7 +16,7 @@ import { recognizedFactKeys, normalizeOutfitIntent } from "../../shared/outfit-i
 import { normalizeRetouchIntent } from "../../shared/retouch-intent.js";
 import { usePromptLibrary } from "../../shared/prompt-library.js";
 import { convergeSettingsForModel, channelsForModel } from "../../shared/routing.js";
-import { normalizeGenerationCount, normalizeSmartIntervention, normalizeGarmentParts, normalizeGarmentComposition, GENERATION_COUNT_AUTOLINK_MIGRATION_KEY } from "./outfit-top.js";
+import { normalizeGenerationCount, normalizeSmartIntervention, GENERATION_COUNT_AUTOLINK_MIGRATION_KEY } from "./outfit-top.js";
 import { normalizeQualityCheck, publishOutfitLiveRun } from "./outfit-task.js";
 import { makeId } from "./outfit-panels.jsx";
 export function useOutfitSettingsIntent(deps) {
@@ -71,12 +71,10 @@ export function useOutfitSettingsIntent(deps) {
       }));
       return;
     }
-    const normalizeValue = (current) => {
+    const normalizeValue = (_current) => {
       if (key === "generationCount") return normalizeGenerationCount(value);
       if (key === "smartIntervention") return normalizeSmartIntervention(value);
       if (key === "qualityCheck") return normalizeQualityCheck(value);
-      if (key === "garmentParts") return normalizeGarmentParts(value);
-      if (key === "garmentComposition") return normalizeGarmentComposition(value, current.garmentParts);
       if (key === "outfitIntent") return normalizeOutfitIntent(value);
       return value;
     };
@@ -238,32 +236,6 @@ export function useOutfitSettingsIntent(deps) {
     });
   }
 
-  // 中文注释：批量改色的改色范围（只有 recolor 还在用这套旧机制）。
-  function toggleGarmentPart(part) {
-    const currentParts = normalizeGarmentParts(settings.garmentParts);
-    const nextParts = currentParts.includes(part)
-      ? currentParts.filter((item) => item !== part)
-      : [...currentParts, part];
-    if (nextParts.length === 0) {
-      addEvent("图2部位", "至少保留一个改色部位");
-      return;
-    }
-    setSettings((current) => ({
-      ...current,
-      garmentParts: nextParts,
-      garmentComposition: normalizeGarmentComposition(current.garmentComposition, nextParts)
-    }));
-  }
-
-  function applyGarmentPartPreset(preset) {
-    const nextParts = normalizeGarmentParts(preset?.parts);
-    const nextComposition = normalizeGarmentComposition(preset?.composition || preset?.value, nextParts);
-    setSettings((current) => ({
-      ...current,
-      garmentParts: nextParts,
-      garmentComposition: nextComposition
-    }));
-  }
 
   /**
    * 连接测试：对齐 3.0 `/api/providers/test-connection` 的做法 —— 只探测 /v1/models。
@@ -409,8 +381,6 @@ export function useOutfitSettingsIntent(deps) {
     updateOutfitFact,
     wearingFieldValue,
     patchRetouchIntent,
-    toggleGarmentPart,
-    applyGarmentPartPreset,
     runConnectionTest,
     openSettings,
     saveSettings,
@@ -434,3 +404,4 @@ export function useOutfitSettingsIntent(deps) {
     endGenerationRun
   };
 }
+
