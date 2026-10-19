@@ -1,6 +1,6 @@
 # 批量工作流分区
 
-> **⚠️ 当前实现仍在 `src/outfit-workflow.jsx`（迁移中）。本目录目前只有约定与规划，无实现代码 —— 搜代码请去那里。**
+> **⚠️ 当前实现仍在 `src/outfit-workflow.jsx`（迁移中）。本目录目前只有约定与规划，无实现代码 —— 搜代码请去那里。** 该目录仍是约定与规划地图，非真实包边界。
 
 这里对应截图里的批量 tab。当前主要代码还在 `src/outfit-workflow.jsx`，本目录先作为拆分地图，后续每次只迁一个 workflow。
 
@@ -26,7 +26,7 @@ server/features/api-gateway/       中转站链路地图
 | 批量换脸 | `face-swap` | `DEFAULT_FACE_SWAP_PAGE_NAME`、`FACE_SWAP_DEFAULT_PROMPT`、`isFaceSwapWorkflow` | `face-swap/` |
 | 固定背景 | `background-change` | `DEFAULT_BACKGROUND_CHANGE_PAGE_NAME`、`BACKGROUND_CHANGE_DEFAULT_PROMPT`、`isBackgroundChangeWorkflow` | `background-change/` |
 | 随机背景 | `random-background` | `DEFAULT_RANDOM_BACKGROUND_PAGE_NAME`、`RANDOM_BACKGROUND_DEFAULT_PROMPT`、`isRandomBackgroundWorkflow` | `random-background/` |
-| 批量改色 | `recolor` | `DEFAULT_RECOLOR_PAGE_NAME`、`RECOLOR_DEFAULT_PROMPT` | `recolor/` |
+| 批量改色 | `recolor`（**已退役**） | 前端已无 `recolor` workflow mode（V110 起含「改色」字样的页判为 `custom`，V113 起「批量改色」单例不再自动补建）；由 `custom` 页承接（见 `custom/README.md`） | —（不看 `recolor/`） |
 | 精修（旧名：批量白底图精修） | `white-refine` | `DEFAULT_WHITE_REFINE_PAGE_NAME`、`WHITE_REFINE_DEFAULT_PROMPT`、`isWhiteRefineWorkflow` | `white-refine/` |
 | 设计稿 | `design-draft` | `DEFAULT_DESIGN_DRAFT_PAGE_NAME`、`DESIGN_DRAFT_DEFAULT_PROMPT`、`isDesignDraftWorkflow` | `design-draft/` |
 | 批量扩图 | `outpaint` | `DEFAULT_OUTPAINT_PAGE_NAME`、`OUTPAINT_DEFAULT_PROMPT`、`isOutpaintWorkflow` | `outpaint/` |
