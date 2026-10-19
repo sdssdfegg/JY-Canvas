@@ -39,7 +39,6 @@ export function ResultQueue({
   isPoseRemixWorkflow,
   isRandomBackgroundWorkflow,
   isOutpaintWorkflow,
-  isRecolorWorkflow,
   isFaceSwapWorkflow,
   toggleTaskSelected,
   retryTask,
@@ -240,7 +239,7 @@ export function ResultQueue({
         {visibleTasks.length === 0 && (
           <div className="emptyTasks">
             <Sparkles size={28} />
-            <span>{resultFilter === "video" ? "视频模块暂未接入。" : isPoseRemixWorkflow ? "上传图1姿态参考图和图2固定母版成片后，点击生成。" : isRandomBackgroundWorkflow ? "上传图1人物图，并在场景补充里写大概场景后，点击生成。" : isOutpaintWorkflow ? "上传图1半身照后，点击生成向下扩图。" : isRecolorWorkflow ? "上传图1原图和图2颜色参考图后，点击生成。" : isFaceSwapWorkflow ? "上传图1目标人物图和图2人脸参考图后，点击生成。" : "上传模特图和服装图后，点击生成。"}</span>
+            <span>{resultFilter === "video" ? "视频模块暂未接入。" : isPoseRemixWorkflow ? "上传图1姿态参考图和图2固定母版成片后，点击生成。" : isRandomBackgroundWorkflow ? "上传图1人物图，并在场景补充里写大概场景后，点击生成。" : isOutpaintWorkflow ? "上传图1半身照后，点击生成向下扩图。" : isFaceSwapWorkflow ? "上传图1目标人物图和图2人脸参考图后，点击生成。" : "上传模特图和服装图后，点击生成。"}</span>
           </div>
         )}
       </div>

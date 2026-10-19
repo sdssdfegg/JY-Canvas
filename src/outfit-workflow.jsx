@@ -97,7 +97,7 @@ import {
   WorkflowQuickVideoPanel,
     preprocessModeLabel
     } from "./features/outfit/outfit-panels.jsx";
-import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeGarmentComposition, normalizeGarmentParts, normalizeRecolorPart, normalizeRecolorUpperLayer, RECOLOR_PART_WORDS, replaceRecolorPartWords, replaceRecolorUpperLayerWords, RECOLOR_PART_OPTIONS, GARMENT_RECOLOR_DEFAULT_PROMPT, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
+import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeRecolorPart, normalizeRecolorUpperLayer, RECOLOR_PART_WORDS, replaceRecolorPartWords, replaceRecolorUpperLayerWords, RECOLOR_PART_OPTIONS, GARMENT_RECOLOR_DEFAULT_PROMPT, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
 import { UPPER_LAYER_OPTIONS } from "./shared/outfit-intent.js";
 import { ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import {  createAsyncLimiter, defaultLocalEditCrop, groupPreprocessValue, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
@@ -160,13 +160,6 @@ const CROP_RETURN_RATIOS = ["1:1", "3:4", "4:3", "16:9", "9:16"];
 // 2026-09-25：局部回贴选框要能锁定 2:3（竖版服装图常用），但**不改**裁剪回流
 // 用的 CROP_RETURN_RATIOS（那是另一条产品语义），所以这里单独一份列表。
 const BATCH_LOCAL_EDIT_RATIOS = ["1:1", "2:3", "3:4", "4:3", "16:9", "9:16"];
-// 2026-09-26：`GARMENT_COMPOSITION_OPTIONS` / `GARMENT_PART_PRESET_OPTIONS`（单件上衣 /
-// 外套+内搭 / 套装）只服务"批量改色"的改色范围，批量换装不再使用这套旧式顶层切换。
-const GARMENT_PART_PRESET_OPTIONS = [
-  { value: "single-upper", label: "单件上衣", parts: ["upper"], composition: "single-upper" },
-  { value: "upper-layer", label: "外套+内搭", parts: ["upper"], composition: "upper-layer" },
-  { value: "outfit-set", label: "套装", parts: ["upper", "lower"], composition: "outfit-set" }
-];
 // 2026-09-25：批量尺寸导出的「自动裁剪」功能已整体移除（UI / 状态 / 持久化 / 专用逻辑）。
 // 与它无关的导出设置（格式、DPI、最长边、适配方式、填充色、裁剪方式、批量裁剪区域）全部保留。
 // 2026-09-26 历次精修上传区标题（只用于把还停在旧标题上的页面迁移过来；用户改过的标题不动）：
@@ -424,7 +417,6 @@ export default function OutfitWorkflow({
   const isBackgroundChangeWorkflow = workflowMode === "background-change";
   const isRandomBackgroundWorkflow = workflowMode === "random-background";
   const isOutpaintWorkflow = workflowMode === "outpaint";
-  const isRecolorWorkflow = workflowMode === "recolor";
   const isWhiteRefineWorkflow = workflowMode === "white-refine";
   const isFaceSwapWorkflow = workflowMode === "face-swap";
   const isLocalDetailWorkflow = workflowMode === "local-detail";
@@ -445,8 +437,6 @@ export default function OutfitWorkflow({
   const activeModels = modelImages.filter((item) => item.selected);
   const activeClothes = clothingImages.filter((item) => item.selected);
   const selectedFixedClothing = clothingImages.find((item) => item.id === fixedClothingId) || activeClothes[0] || clothingImages[0];
-  // 批量改色的改色范围（只有 recolor 还在用这套旧机制）。
-  const selectedGarmentParts = normalizeGarmentParts(settings.garmentParts);
   // V111（用户要求·1板块）：自定义改色页的「更换部位」单选 —— 切换时把提示词正文里旧部位的类别词全部换成新部位的词。
   const recolorPart = normalizeRecolorPart(settings.recolorPart);
   const recolorUpperLayer = normalizeRecolorUpperLayer(settings.recolorUpperLayer);
@@ -490,7 +480,6 @@ export default function OutfitWorkflow({
     setSettings((current) => ({ ...current, prompt: nextPrompt }));
     addEvent("通用改色提示词", "已恢复默认模板（当前部位/层级已套用）");
   }
-  const selectedGarmentComposition = normalizeGarmentComposition(settings.garmentComposition, selectedGarmentParts);
   // 批量换装的结构化意图（唯一来源）。
   const outfitIntent = normalizeOutfitIntent(settings.outfitIntent);
   const outfitLayer = resolveUpperLayer(outfitIntent);
@@ -560,17 +549,15 @@ export default function OutfitWorkflow({
           ? "固定背景"
         : isOutpaintWorkflow
           ? "批量扩图"
-          : isRecolorWorkflow
-            ? "批量改色"
-            : isWhiteRefineWorkflow
-              ? "精修"
-              : isFaceSwapWorkflow
-                ? "批量换脸"
-                : isLocalDetailWorkflow
-                  ? "局部回贴"
-                  : isCustomWorkflow
-                    ? (activeOutfitPage.name || "自定义")
-                    : "换装";
+          : isWhiteRefineWorkflow
+            ? "精修"
+            : isFaceSwapWorkflow
+              ? "批量换脸"
+              : isLocalDetailWorkflow
+                ? "局部回贴"
+                : isCustomWorkflow
+                  ? (activeOutfitPage.name || "自定义")
+                  : "换装";
   const promptFieldTitle = isDesignDraftWorkflow
     ? "通用设计稿提示词"
     : isPoseRemixWorkflow
@@ -581,17 +568,15 @@ export default function OutfitWorkflow({
           ? "通用固定背景提示词"
         : isOutpaintWorkflow
           ? "通用批量扩图提示词"
-          : isRecolorWorkflow
-            ? "通用改色提示词"
-            : isWhiteRefineWorkflow
-              ? "通用白底精修提示词"
-              : isFaceSwapWorkflow
-                ? "通用换脸提示词"
-                : isLocalDetailWorkflow
-                  ? "通用局部回贴提示词"
-                  : isCustomWorkflow
-                    ? "通用改色提示词"
-                    : "通用换装提示词";
+          : isWhiteRefineWorkflow
+            ? "通用白底精修提示词"
+            : isFaceSwapWorkflow
+              ? "通用换脸提示词"
+              : isLocalDetailWorkflow
+                ? "通用局部回贴提示词"
+                : isCustomWorkflow
+                  ? "通用改色提示词"
+                  : "通用换装提示词";
   const promptFieldPlaceholder = isDesignDraftWorkflow
     ? "长期复用的设计稿规则，例如笔触压感、手稿风格、服装结构和辅助短线。"
     : isPoseRemixWorkflow
@@ -602,24 +587,22 @@ export default function OutfitWorkflow({
           ? "长期复用的固定背景规则，例如锁定人物结构、统一目标背景光影和整体色温。"
         : isOutpaintWorkflow
           ? "长期复用的批量扩图规则，例如锁定图1已有内容，只向下补出下半身、鞋子和原场景延展。"
-          : isRecolorWorkflow
-            ? "长期复用的改色规则，例如只改指定服装颜色，人物、场景、款式和材质细节不变。"
-            : isWhiteRefineWorkflow
-              ? "长期复用的白底精修规则，例如去衣架、换白底、整理压痕和褶皱，但不改服装细节颜色。"
-              : isFaceSwapWorkflow
-                ? "长期复用的换脸规则，例如图1锁定身体衣服姿势背景，图2只提供脸部身份和可融合发型方向。"
-                : isLocalDetailWorkflow
-                  ? "长期复用的局部服装细节规则，例如只改点名细节、图2只取结构、颜色材质跟图1。"
-                  : isCustomWorkflow
-                    ? "长期复用的改色规则，例如：把图1模特的上衣改成图2上衣的颜色，仅改变上衣颜色，不添加缝线、不改变纹理、不添加细节。"
-                    : "长期复用的换装规则，例如保留人物、锁定服装版型、真实贴合、批量一致。";
+          : isWhiteRefineWorkflow
+            ? "长期复用的白底精修规则，例如去衣架、换白底、整理压痕和褶皱，但不改服装细节颜色。"
+            : isFaceSwapWorkflow
+              ? "长期复用的换脸规则，例如图1锁定身体衣服姿势背景，图2只提供脸部身份和可融合发型方向。"
+              : isLocalDetailWorkflow
+                ? "长期复用的局部服装细节规则，例如只改点名细节、图2只取结构、颜色材质跟图1。"
+                : isCustomWorkflow
+                  ? "长期复用的改色规则，例如：把图1模特的上衣改成图2上衣的颜色，仅改变上衣颜色，不添加缝线、不改变纹理、不添加细节。"
+                  : "长期复用的换装规则，例如保留人物、锁定服装版型、真实贴合、批量一致。";
   // 2026-09-26：精修页把「本次需求 / 商品补充信息」改名叫「用户补充」——
   // 它就是精修的补充要求，会被编译器并入最终提示词的【用户补充】段。
   const productNoteFieldTitle = isRandomBackgroundWorkflow
     ? "场景补充"
-    : isWhiteRefineWorkflow
-      ? "用户补充"
-      : "本次需求 / 商品补充信息";
+  : isWhiteRefineWorkflow
+    ? "用户补充"
+    : "本次需求 / 商品补充信息";
   const productNotePlaceholder = isRandomBackgroundWorkflow
     ? "写你想要的大概场景需求，例如：早秋休闲度假实景街景，少量斑马线，适度景深虚化，平视机位，画面干净。"
     : "只写这次要额外控制的内容，例如袖长、裙长、SKU颜色、背景、鞋包是否保留。";
@@ -1069,8 +1052,6 @@ export default function OutfitWorkflow({
     updateOutfitFact: _updateOutfitFact, // V76（用户要求·暂时隐藏）停用；hook 导出保留，恢复时去掉 _ 前缀（V80 标记）
     wearingFieldValue,
     patchRetouchIntent,
-    toggleGarmentPart,
-    applyGarmentPartPreset,
     runConnectionTest,
     openSettings,
     saveSettings,
@@ -1402,7 +1383,6 @@ export default function OutfitWorkflow({
     isDesignDraftWorkflow,
     activeModels,
     activeClothes,
-    isRecolorWorkflow,
     workflowMode,
     activeOutfitPage,
     uploadLabels,
@@ -1825,7 +1805,6 @@ function freezeIntentIntoTask(intentCtx) {
           isPoseRemixWorkflow={isPoseRemixWorkflow}
           isRandomBackgroundWorkflow={isRandomBackgroundWorkflow}
           isOutpaintWorkflow={isOutpaintWorkflow}
-          isRecolorWorkflow={isRecolorWorkflow}
           isFaceSwapWorkflow={isFaceSwapWorkflow}
           toggleTaskSelected={toggleTaskSelected}
           retryTask={retryTask}
@@ -1933,7 +1912,6 @@ function freezeIntentIntoTask(intentCtx) {
           setCropTarget={setCropTarget}
           openLocalEdit={openLocalEdit}
           isDesignDraftWorkflow={isDesignDraftWorkflow}
-          isRecolorWorkflow={isRecolorWorkflow}
           isCustomWorkflow={isCustomWorkflow}
           recolorPart={recolorPart}
           onSelectRecolorPart={selectRecolorPart}
@@ -1944,11 +1922,6 @@ function freezeIntentIntoTask(intentCtx) {
           clothingBulkMode={clothingBulkMode}
           setMasterClothing={setMasterClothing}
           fixedClothingId={fixedClothingId}
-          GARMENT_PART_PRESET_OPTIONS={GARMENT_PART_PRESET_OPTIONS}
-          selectedGarmentParts={selectedGarmentParts}
-          selectedGarmentComposition={selectedGarmentComposition}
-          applyGarmentPartPreset={applyGarmentPartPreset}
-          toggleGarmentPart={toggleGarmentPart}
           referenceImages={referenceImages}
           referenceBulkMode={referenceBulkMode}
           setActiveUploadGroup={setActiveUploadGroup}

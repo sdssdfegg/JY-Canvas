@@ -4,8 +4,8 @@
 //   2026-09-26 的 commit d4127ec 把批量侧的 SKILL / 图1图2 规则整块删了，
 //   服务端最终提示词只剩 `buildUserPromptOnly()`（= 用户原话）。
 //   结果是：界面上选的「上装 / 下装 / 鞋子 / 上装长度 / 下装长度 / 单件上衣 / 外套+内搭 / 套装」
-//   虽然一路传到服务端（`payload.garmentParts` 等），**在最后一步被完全忽略** ——
-//   所以以前那些选择对出图没有任何影响。
+//   结果是：早期界面上选的更换部位/上装层级/穿法曾以 `garmentParts` / `garmentComposition` 之类的
+//   零散字段传参（V115 已彻底删除），**在最后一步被完全忽略** ——
 //
 // 本文件就是那一层的唯一实现：
 //   - 前端（摘要 + 最终提示词预览）和服务端（真正发给模型的提示词）**调用同一个
@@ -225,7 +225,7 @@ export function normalizeOutfitFacts(value) {
 /**
  * 结构化换装意图归一化。
  * 返回值永远是一个形状完整、枚举合法的对象；旧存档里没有 outfitIntent 时返回默认值，
- * 且**不会**去读 garmentComposition / garmentLengths 这些已删除的旧字段。
+ * 且**不会**去读 garmentLengths 这类旧字段（garmentComposition 等已于 V115 删除）。
  */
 export function normalizeOutfitIntent(value) {
   const source = value && typeof value === "object" ? value : {};

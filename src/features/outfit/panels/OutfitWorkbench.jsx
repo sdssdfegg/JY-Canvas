@@ -5,9 +5,8 @@
 //   ② outfitScrollArea（ResultQueue + assetGrid 上传区 + originalLibraryPanel 原图库）
 //   ③ composerPanel（换装/精修设置 + 提示词/补充 + 底部生成控制条）—— 后续 commit 追加
 // 模式：原闭包捕获的 state / handler / 派生值全部改为同名 props（调用方每次 render 重建传参，JSX 一行不动）；
-//   模块级工具/常量（MAX_UPLOAD_IMAGES / GARMENT_PART_OPTIONS / sameGarmentParts /
-//   normalizeGarmentComposition / garmentCompositionLabel / fileSize）与子组件（ResultQueue / UploadZone /
-//   ImageFactsPanel）直接 import；GARMENT_PART_PRESET_OPTIONS 为父模块级常量，以同名 prop 传入。
+//   模块级工具/常量（MAX_UPLOAD_IMAGES / fileSize）与子组件（ResultQueue / UploadZone /
+//   ImageFactsPanel）直接 import；GARMENT_* 系工具函数已随 V115 退役，不再从这里出。
 //   ⚠️ props 漏项 = 运行期 undefined（vite build 验不出），由 V68 §3.2 负向对照 + v68-free-idents 兜底。
 import {
   Crop,
@@ -64,7 +63,6 @@ export default function OutfitWorkbench({
   isPoseRemixWorkflow,
   isRandomBackgroundWorkflow,
   isOutpaintWorkflow,
-  isRecolorWorkflow,
   isFaceSwapWorkflow,
   toggleTaskSelected,
   retryTask,
@@ -172,7 +170,6 @@ export default function OutfitWorkbench({
           isPoseRemixWorkflow={isPoseRemixWorkflow}
           isRandomBackgroundWorkflow={isRandomBackgroundWorkflow}
           isOutpaintWorkflow={isOutpaintWorkflow}
-          isRecolorWorkflow={isRecolorWorkflow}
           isFaceSwapWorkflow={isFaceSwapWorkflow}
           toggleTaskSelected={toggleTaskSelected}
           retryTask={retryTask}

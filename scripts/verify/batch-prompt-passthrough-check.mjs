@@ -133,8 +133,6 @@ async function callGenerateOutfit({ batchSkillRules }) {
     workflowMode: "outfit",
     pageName: "批量AI换装",
     pairingMode: "fixed",
-    garmentParts: { upper: "single-upper", lower: "" },
-    garmentComposition: "single-upper",
     garmentLengths: { upper: "", lower: "" },
     referenceCount: 0,
     deferAutoSave: true

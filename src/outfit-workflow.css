@@ -3058,57 +3058,6 @@
   background: var(--option-bg);
 }
 
-.outfitWorkflowEmbedded .garmentPartPresetGroup,
-.outfitWorkflowEmbedded .garmentPartPicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 32px;
-  padding: 3px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--input-bg);
-}
-
-.outfitWorkflowEmbedded .garmentPartPresetGroup button,
-.outfitWorkflowEmbedded .garmentPartPicker button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  height: 24px;
-  min-width: 50px;
-  padding: 0 7px;
-  border-radius: 5px;
-  color: var(--text-soft);
-  background: transparent;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.outfitWorkflowEmbedded .garmentPartPresetGroup button svg,
-.outfitWorkflowEmbedded .garmentPartPicker button svg {
-  opacity: 0;
-}
-
-.outfitWorkflowEmbedded .garmentPartPresetGroup button.active,
-.outfitWorkflowEmbedded .garmentPartPicker button.active {
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent) 78%, transparent);
-}
-
-.outfitWorkflowEmbedded .garmentPartPresetGroup button.active svg,
-.outfitWorkflowEmbedded .garmentPartPicker button.active svg {
-  opacity: 1;
-}
-
-.outfitWorkflowEmbedded .garmentTransferControls {
-  display: grid;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-}
 
 .outfitWorkflowEmbedded .garmentLengthControls {
   display: flex;

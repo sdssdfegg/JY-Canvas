@@ -1,8 +1,8 @@
 // src/features/outfit/outfit-top.js
 // RF-081 (V26): 从 src/outfit-workflow.jsx 抽出的模块顶层纯函数 + 常量。
 // V64 (P5-2) 2026-10-15 三拆后残留「L0 基础层」：存储键、页面名/上传标签/各模式默认提示词常量、
-//   readSettings/defaultSettings、结构化意图 normalize 一族（smartIntervention/garmentParts/
-//   garmentComposition/generationCount/batchConcurrency）、主题、提示词库加载、质检徽标、formatClock，
+//   readSettings/defaultSettings、结构化意图 normalize 一族（smartIntervention/
+//   generationCount/batchConcurrency）、主题、提示词库加载、质检徽标、formatClock，
 //   以及 moveItemByDrop 兼容 re-export（排序内核 2026-10-06 已抽到 src/shared/list-order.js）。
 // 页面生命周期与草稿持久化 -> outfit-page-actions.js；图片/画布管线 -> outfit-image-pipeline.js。
 // 形态：普通模块导出（非 B3 工厂）；只被 outfit-workflow.jsx 单向 import，自身绝不反向 import outfit，
@@ -208,11 +208,6 @@ export const LOCAL_EDIT_OUTPUT_JPEG_QUALITIES = [0.985, 0.975, 0.965, 0.95, 0.94
 export const DEFAULT_BATCH_CONCURRENCY = 5;
 export const CROP_RETURN_OUTPUT_TARGET_BYTES = 64 * 1024 * 1024;
 export const CROP_RETURN_OUTPUT_JPEG_QUALITIES = [0.985, 0.975, 0.965, 0.95, 0.94];
-export const GARMENT_PART_OPTIONS = [
-  { value: "upper", label: "上装" },
-  { value: "lower", label: "下装" },
-  { value: "shoes", label: "鞋子" }
-];
 // V111（用户要求·1板块）：自定义改色页的部位类别词。
 // ⚠️ UI 标签（上装/下装）与提示词里的类别词（上衣/下衣）不是一套词，分别维护；
 //    换装侧编译用的 promptLabel 在 shared/outfit-intent.js，不复用。
@@ -282,14 +277,6 @@ export function replaceRecolorUpperLayerWords(prompt, fromLayer, toLayer, partWo
   });
   return replaced ? text : String(prompt || "");
 }
-export const GARMENT_COMPOSITION_OPTIONS = [
-  { value: "single-upper", label: "单件上衣", parts: ["upper"] },
-  { value: "upper-layer", label: "外套+内搭", parts: ["upper"] },
-  { value: "outfit-set", label: "套装", parts: ["upper", "lower"] },
-  { value: "custom", label: "自定义范围", parts: [] }
-];
-export const DEFAULT_GARMENT_PARTS = ["upper"];
-export const DEFAULT_GARMENT_COMPOSITION = "single-upper";
 export const DEFAULT_UPLOAD_LABELS = {
   model: {
     title: "带场景模特图",
@@ -673,31 +660,6 @@ export function normalizeSmartIntervention(value) {
   const text = String(value ?? "false").trim().toLowerCase();
   return ["1", "true", "on", "smart", "智能", "开启"].includes(text);
 }
-export function normalizeGarmentParts(value) {
-  const raw = Array.isArray(value) ? value : String(value || "").split(/[,\s|，、]+/);
-  const next = GARMENT_PART_OPTIONS
-    .map((option) => option.value)
-    .filter((part) => raw.includes(part));
-  return next.length > 0 ? next : DEFAULT_GARMENT_PARTS;
-}
-export function sameGarmentParts(left, right) {
-  const leftParts = normalizeGarmentParts(left).slice().sort();
-  const rightParts = normalizeGarmentParts(right).slice().sort();
-  return leftParts.length === rightParts.length && leftParts.every((part, index) => part === rightParts[index]);
-}
-export function normalizeGarmentComposition(value, garmentParts = DEFAULT_GARMENT_PARTS) {
-  const allowed = new Set(GARMENT_COMPOSITION_OPTIONS.map((option) => option.value));
-  const parts = normalizeGarmentParts(garmentParts);
-  const next = allowed.has(String(value || "")) ? String(value) : DEFAULT_GARMENT_COMPOSITION;
-  const upperOnly = parts.length === 1 && parts.includes("upper");
-  const upperLowerOnly = parts.length === 2 && parts.includes("upper") && parts.includes("lower");
-  if (["single-upper", "upper-layer"].includes(next)) return upperOnly ? next : "custom";
-  if (next === "outfit-set") return upperLowerOnly ? next : "custom";
-  return "custom";
-}
-export function garmentCompositionLabel(value) {
-  return GARMENT_COMPOSITION_OPTIONS.find((option) => option.value === value)?.label || "自定义范围";
-}
 export const defaultSettings = {
   apiKey: "",
   // canonical ID：旧存档里的 gpt-image / nano-banana2 会由 canonicalModel 在读取时映射。
@@ -710,13 +672,10 @@ export const defaultSettings = {
   generationCount: "auto",
   smartIntervention: false,
   qualityCheck: false,
-  // 批量改色的改色范围（旧机制，只有 recolor 还在用）。
-  garmentParts: DEFAULT_GARMENT_PARTS,
   // 1板块（自定义改色页）的更换部位（单选；驱动提示词类别词联动）。
   recolorPart: "upper",
   // 1板块（自定义改色页）的上装层级（仅选「上装」部位时出现；仅记录，不自动改写提示词正文）。
   recolorUpperLayer: "single",
-  garmentComposition: DEFAULT_GARMENT_COMPOSITION,
   // 批量换装的结构化意图（唯一来源）：更换部位 / 上装层级 / 穿法 / 图2服装事实。
   outfitIntent: defaultOutfitIntent(),
   // 服装精修的结构化意图（唯一来源）：对称 / 衣摆或裙摆 / 版型 / 用户补充。
@@ -744,10 +703,8 @@ export function readSettings() {
     settings.generationCount = normalizeGenerationCount(settings.generationCount);
     settings.smartIntervention = normalizeSmartIntervention(settings.smartIntervention);
     settings.qualityCheck = normalizeQualityCheck(settings.qualityCheck);
-    settings.garmentParts = normalizeGarmentParts(settings.garmentParts);
     settings.recolorPart = normalizeRecolorPart(settings.recolorPart);
     settings.recolorUpperLayer = normalizeRecolorUpperLayer(settings.recolorUpperLayer);
-    settings.garmentComposition = normalizeGarmentComposition(settings.garmentComposition, settings.garmentParts);
     settings.outfitIntent = normalizeOutfitIntent(settings.outfitIntent);
     settings.retouchIntent = normalizeRetouchIntent(settings.retouchIntent);
     settings.randomBackgroundFocus = normalizeRandomBackgroundFocus(settings.randomBackgroundFocus);

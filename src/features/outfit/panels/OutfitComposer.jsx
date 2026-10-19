@@ -11,7 +11,7 @@ import { RetouchIntentPanel } from "./RetouchIntentPanel.jsx";
 import { OutfitPageRow } from "./OutfitPageRow.jsx";
 import { Button } from "../../../shared/ui/Button";
 import { MAX_UPLOAD_IMAGES, UploadZone } from "../outfit-panels.jsx";
-import { GARMENT_PART_OPTIONS, RECOLOR_PART_OPTIONS, garmentCompositionLabel, normalizeGarmentComposition, sameGarmentParts } from "../outfit-top.js";
+import { RECOLOR_PART_OPTIONS } from "../outfit-top.js";
 import { UPPER_LAYER_OPTIONS } from "../../../shared/outfit-intent.js";
 
 export default function OutfitComposer({
@@ -100,7 +100,6 @@ export default function OutfitComposer({
   setCropTarget,
   openLocalEdit,
   isDesignDraftWorkflow,
-  isRecolorWorkflow,
   isCustomWorkflow,
   recolorPart,
   onSelectRecolorPart,
@@ -113,11 +112,6 @@ export default function OutfitComposer({
   clothingBulkMode: _clothingBulkMode,
   setMasterClothing,
   fixedClothingId,
-  GARMENT_PART_PRESET_OPTIONS,
-  selectedGarmentParts,
-  selectedGarmentComposition,
-  applyGarmentPartPreset,
-  toggleGarmentPart,
   referenceImages,
   referenceBulkMode: _referenceBulkMode,
   setActiveUploadGroup,
@@ -178,7 +172,7 @@ export default function OutfitComposer({
         onClear={() => clearImageGroup("clothing")}
         onSetFixed={isWhiteRefineWorkflow ? null : isPoseRemixWorkflow ? settings.pairingMode === "fixed" ? setMasterClothing : null : setMasterClothing}
         fixedId={isWhiteRefineWorkflow || (isPoseRemixWorkflow && settings.pairingMode !== "fixed") ? "" : fixedClothingId}
-        fixedTitle={isPoseRemixWorkflow ? "设为固定母版" : isFaceSwapWorkflow ? "设为固定人脸" : isBackgroundChangeWorkflow ? "设为固定场景" : isOutpaintWorkflow ? "设为主扩图参考" : isRecolorWorkflow ? "设为主颜色参考" : "设为固定服装"}
+        fixedTitle={isPoseRemixWorkflow ? "设为固定母版" : isFaceSwapWorkflow ? "设为固定人脸" : isBackgroundChangeWorkflow ? "设为固定场景" : isOutpaintWorkflow ? "设为主扩图参考" : "设为固定服装"}
         onPreview={(item) => setImageLightbox({ title: item.name, src: item.previewUrl })}
         onOpenCrop={(item) => setCropTarget({ group: "clothing", item })}
         maxCount={(isOutfitWorkflow || isPoseRemixWorkflow || isFaceSwapWorkflow) ? 2 : MAX_UPLOAD_IMAGES}
@@ -186,47 +180,8 @@ export default function OutfitComposer({
         onActivate={() => setActiveUploadGroup("clothing")}
         /* V77（用户要求·停用）：统一处理/新上传默认停用；数据流与 handler 保留，
            恢复时传回 bulkMode={clothingBulkMode}、onBulkModeChange={(mode) => void applyGroupPreprocess("clothing", mode)} */
-        footerControls={isRecolorWorkflow ? (
-          <div className="garmentTransferControls" aria-label="图2改色范围设置">
-            <div className="garmentPartPresetGroup" aria-label="图2常用改色范围">
-              {GARMENT_PART_PRESET_OPTIONS.map((preset) => {
-                const active = sameGarmentParts(selectedGarmentParts, preset.parts)
-                  && selectedGarmentComposition === normalizeGarmentComposition(preset.composition, preset.parts);
-                return (
-                  <button
-                    className={active ? "active" : ""}
-                    key={preset.value}
-                    type="button"
-                    onClick={() => applyGarmentPartPreset(preset)}
-                    aria-pressed={active}
-                    title={`改色范围：${preset.label}；当前按${garmentCompositionLabel(preset.composition)}理解图2服装结构`}
-                  >
-                    <Check size={13} />
-                    <span>{preset.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="garmentPartPicker" aria-label="图2改色部位">
-              {GARMENT_PART_OPTIONS.map((part) => {
-                const active = selectedGarmentParts.includes(part.value);
-                return (
-                  <button
-                    className={active ? "active" : ""}
-                    key={part.value}
-                    type="button"
-                    onClick={() => toggleGarmentPart(part.value)}
-                    aria-pressed={active}
-                    title={`图2改色${part.label}`}
-                  >
-                    <Check size={13} />
-                    <span>{part.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
+        /* V115：UploadZone 的 footerControls 插槽保留（通用组件能力）；旧 recolor「改色范围」UI 已随旧机制退役 */
+        footerControls={null}
         sideControls={null}
       />
     )}

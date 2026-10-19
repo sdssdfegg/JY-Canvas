@@ -323,12 +323,10 @@ check("连衣裙也会带上装/下装那种穿法字段（外套状态除外）
   })(),
   visibleWearingFields(intent({ parts: ["dress"] })).map((field) => field.key).join(","));
 
-// —— 11) 旧存档字段安全：旧 garmentComposition/garmentLengths 存在也不会覆盖新选择、不会抛错
+// —— 11) 旧存档字段安全：legacy 字段（garmentLengths / masterFitSpec 等）存在也不会覆盖新选择、不会抛错
 const legacy = normalizeOutfitIntent({
   parts: ["lower"],
   upperLayer: "outer",
-  garmentParts: ["upper", "lower"],
-  garmentComposition: "outfit-set",
   garmentLengths: { upper: "knee", lower: "ankle" },
   masterFitSpec: "旧的母版规格整段文本",
   masterFitLock: true
@@ -336,8 +334,8 @@ const legacy = normalizeOutfitIntent({
 check("旧存档字段被安全忽略（不覆盖新意图、不抛错）",
   legacy.parts.length === 1 && legacy.parts[0] === "lower" && legacy.upperLayer === "outer",
   JSON.stringify(legacy.parts));
-check("旧 garmentComposition/garmentLengths 不再进入意图",
-  !("garmentComposition" in legacy) && !("garmentLengths" in legacy) && !("masterFitSpec" in legacy));
+check("旧 legacy 字段不再进入意图",
+  !("garmentLengths" in legacy) && !("masterFitSpec" in legacy));
 check("默认意图默认就选中「上装」且层级是「仅一件上装」",
   defaultOutfitIntent().parts.length === 1
     && defaultOutfitIntent().parts[0] === "upper"
