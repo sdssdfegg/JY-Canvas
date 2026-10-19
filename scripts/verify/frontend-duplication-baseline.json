@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 114,
+    "fileCount": 115,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -49,6 +49,7 @@
       "src/features/outfit/outfit-image-pipeline.js",
       "src/features/outfit/outfit-page-actions.js",
       "src/features/outfit/outfit-panels.jsx",
+      "src/features/outfit/outfit-storage-keys.js",
       "src/features/outfit/outfit-task.js",
       "src/features/outfit/outfit-top.js",
       "src/features/outfit/panels/ImageFactsPanel.jsx",

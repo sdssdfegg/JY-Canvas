@@ -12,6 +12,9 @@
 //     在 reset 清空目标键、删掉草稿 IndexedDB 之后填空；main.jsx 的 render 门禁天然成为导入完成的闸门。
 //   · 网络出口走 src/api/ 准入层（V121-R1 统筹裁决，P7-6「网络出口只此一处」口径）：
 //     种子清单读取用 api/assets.js 的 fetchSeedManifest，本模块不出现裸 fetch。
+//   · outfit 侧存储键一律从零依赖叶子模块 outfit-storage-keys.js 取（V121-R2）——
+//     本模块在启动链路上，**禁止** import outfit-top.js / outfit-panels.jsx 等特性模块群
+//     （既有相互循环 + public 模式启动即挂载 outfit 视图 ⇒ 打包后模块初始化期 TDZ 白屏）。
 
 import { readJsonStorage, writeJsonStorage } from "../lib/storage/json-storage.js";
 import { fetchSeedManifest } from "../api/assets.js";
@@ -24,13 +27,14 @@ import {
   DETAIL_GROUPS_KEY
 } from "./app-defaults.js";
 import {
-  OUTFIT_PAGES_KEY,
   OUTFIT_DELETED_WORKFLOW_MODES_KEY,
-  STORAGE_KEY as OUTFIT_SETTINGS_KEY,
+  OUTFIT_PAGES_KEY,
+  PROMPT_CATEGORIES_KEY as OUTFIT_PROMPT_CATEGORIES_KEY,
   PROMPT_PRESETS_KEY as OUTFIT_PROMPT_PRESETS_KEY,
-  PROMPT_CATEGORIES_KEY as OUTFIT_PROMPT_CATEGORIES_KEY
-} from "../features/outfit/outfit-top.js";
-import { RESIZE_SETTINGS_KEY, RESIZE_BATCH_CROP_KEY } from "../features/outfit/outfit-panels.jsx";
+  RESIZE_BATCH_CROP_KEY,
+  RESIZE_SETTINGS_KEY,
+  STORAGE_KEY as OUTFIT_SETTINGS_KEY
+} from "../features/outfit/outfit-storage-keys.js";
 import { SPLIT_HALVES_STORAGE_KEY } from "./image-split.js";
 import { loadPromptLibraryPresets, loadPromptLibraryCategories } from "./prompt-library.js";
 

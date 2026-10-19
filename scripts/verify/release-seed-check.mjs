@@ -7,6 +7,8 @@
 //   4) 种子导入的「仅空库」守卫 + 一次性标记键格式存在（防回归成覆盖式导入）；
 //   4b) 网络出口收口：release-seed.js 无裸 fetch，种子读取走 src/api/assets.js 的 fetchSeedManifest
 //       （V121-R1 统筹裁决，P7-6「网络出口只此一处」口径，防止用基线豁免重开已决问题的口子）；
+//   4c) 启动链路隔离：release-seed.js 的 outfit 依赖仅限零依赖叶子 outfit-storage-keys.js
+//       （V121-R2：防 import 特性模块群导致 public 生产构建模块初始化期 TDZ 白屏）；
 //   5) secure-win-release.mjs 含 JINGYIN_SEED_FILE 且复制点早于 generate-static-assets。
 //
 // 退出码：通过 0 / 失败 1。
@@ -85,6 +87,18 @@ assert(/export\s+async\s+function\s+fetchSeedManifest\b/.test(assetsSrc),
   "api/assets.js 导出 fetchSeedManifest", "未在 src/api/assets.js 找到 fetchSeedManifest（网络出口唯一收口点）");
 assert(seedSrc.includes("fetchSeedManifest"),
   "release-seed.js 经准入层读种子", "release-seed.js 未引用 fetchSeedManifest");
+
+// ---- 4c) 启动链路隔离（V121-R2：防 rollup 打包后模块初始化期 TDZ 白屏回归）----
+// release-seed.js 挂在 publicReleaseStorageResetPromise 启动链路上；它只能 import 叶子模块。
+// 一旦它 import outfit-top.js / outfit-panels.jsx 等特性模块群（outfit-top ↔ outfit-panels 既有相互循环），
+// public 生产构建（启动即挂载 outfit 视图）会在模块初始化期 TDZ，整应用白屏——dev 与 internal 构建都不复现。
+console.log("[4c] release-seed.js 不 import outfit 特性模块群（只许叶子 outfit-storage-keys.js）");
+const outfitImports = [...seedSrc.matchAll(/from\s*["']([^"']*features\/outfit\/[^"']+)["']/g)].map((m) => m[1]);
+assert(outfitImports.length > 0 && outfitImports.every((p) => p.endsWith("outfit-storage-keys.js")),
+  "outfit 依赖仅限叶子模块 outfit-storage-keys.js",
+  `release-seed.js import 了非叶子 outfit 模块：${outfitImports.join(", ") || "（无）"}（V121-R2：启动链路禁入特性模块群）`);
+assert(readText(path.join(repoRoot, "src/features/outfit/outfit-storage-keys.js")).includes("jingyin-outfit-workflow-pages-v1"),
+  "叶子模块持有 pages 键（单一真相源）", "outfit-storage-keys.js 未见 pages 键定义");
 
 // ---- 5) secure-win-release.mjs 含 JINGYIN_SEED_FILE 且复制点早于 generate-static-assets ----
 console.log("[5] secure-win-release.mjs 含 JINGYIN_SEED_FILE 且复制点早于 generate-static-assets");

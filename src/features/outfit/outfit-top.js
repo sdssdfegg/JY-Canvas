@@ -15,17 +15,15 @@ import { defaultOutfitIntent, normalizeOutfitIntent } from "../../shared/outfit-
 import { loadPromptLibraryCategories, loadPromptLibraryPresets } from "../../shared/prompt-library.js";
 import { defaultRetouchIntent, normalizeRetouchIntent } from "../../shared/retouch-intent.js";
 import { canonicalModel } from "../../shared/routing.js";
-// V118（2026-10-19）：PROMPT_LIBRARY_VERSION 改从 app-defaults.js 单一来源导入（§1.4），本文件不再重复定义。
-import { PROMPT_LIBRARY_VERSION } from "../../shared/app-defaults.js";
+// V121-R2：存储键常量迁出到零依赖叶子模块 outfit-storage-keys.js——本文件属于 outfit 特性模块群
+// （与 outfit-panels.jsx 有相互循环），启动链路模块（release-seed.js）不能从这里取键，
+// 否则 public 生产构建触发模块初始化期 TDZ（详见 outfit-storage-keys.js 文件头）。
+// 本文件只用得着 STORAGE_KEY 与两个提示词键；OUTFIT_PAGES_KEY / OUTFIT_DELETED_WORKFLOW_MODES_KEY
+// 本文件内部不使用，外部引用方已一并改从叶子模块 import（V98 纪律：git grep -l 全量核对过）。
+import { PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY } from "./outfit-storage-keys.js";
 
-export const STORAGE_KEY = "jingyin-outfit-workflow-settings-v1";
 export const BATCH_CONCURRENCY_DEFAULT_MIGRATION_KEY = "batchConcurrencyDefaultV5Applied";
 export const GENERATION_COUNT_AUTOLINK_MIGRATION_KEY = "generationCountAutoLinkV11Applied";
-export const OUTFIT_PAGES_KEY = "jingyin-outfit-workflow-pages-v1";
-export const OUTFIT_DELETED_WORKFLOW_MODES_KEY = "jingyin-outfit-workflow-deleted-modes-v1";
-// V118：版本号定义已迁至 src/shared/app-defaults.js（PROMPT_LIBRARY_VERSION），此处 import 复用（§1.4）。
-export const PROMPT_PRESETS_KEY = `jingyin-outfit-workflow-prompt-library-${PROMPT_LIBRARY_VERSION}`;
-export const PROMPT_CATEGORIES_KEY = `jingyin-outfit-workflow-prompt-categories-${PROMPT_LIBRARY_VERSION}`;
 export const DEFAULT_OUTFIT_PAGE_NAME = "换装";
 export const DEFAULT_POSE_REMIX_PAGE_NAME = "批量姿态";
 export const DEFAULT_LOCAL_DETAIL_PAGE_NAME = "局部回贴";
