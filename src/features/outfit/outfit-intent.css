@@ -145,6 +145,21 @@
   gap: 8px;
 }
 
+/* V119（用户要求）：改色页提示词头部行——标题+按钮+两组 chips 左对齐流式排一条，
+   间距用既有规范档（行内 6px、组间 16px），窄屏允许换行兜底；不再复用 space-between 的 .outfitIntentInline。 */
+.outfitWorkflowEmbedded .recolorPromptHeaderRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+}
+
+.outfitWorkflowEmbedded .recolorPromptHeaderLead {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .outfitWorkflowEmbedded .outfitIntentWarnings {
   margin: 0;
   padding-left: 18px;
