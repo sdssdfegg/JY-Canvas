@@ -439,7 +439,9 @@ export function makeRandomBackgroundPage(baseSettings = readSettings(), patch = 
     uploadLabels: patch.uploadLabels || RANDOM_BACKGROUND_UPLOAD_LABELS
   });
 }
-export function makeRecolorPage(baseSettings = readSettings(), patch = {}) {
+// 2026-10-19 V113-R1：recolor 单例已退役（不再自动补建），此工厂当前无内部调用方，
+// 保留实现以备手动建页（V110 既定"退役代码保留"策略），降级为模块内私有 + _ 前缀标记（消除 dead export / unused）。
+function _makeRecolorPage(baseSettings = readSettings(), patch = {}) {
   return makeOutfitPage(DEFAULT_RECOLOR_PAGE_NAME, {
     deleteLocked: true,
     ...patch,
@@ -526,7 +528,6 @@ export function ensureWorkflowPages(pages = [], baseSettings = readSettings()) {
   const hasPoseRemixPage = output.some((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "pose-remix");
   const hasBackgroundChangePage = output.some((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "background-change");
   const hasRandomBackgroundPage = output.some((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "random-background");
-  const hasRecolorPage = output.some((page) => isRecolorPageName(page.name));
   const hasWhiteRefinePage = output.some((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "white-refine");
   const hasFaceSwapPage = output.some((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "face-swap");
   const hasDesignDraftPage = output.some((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "design-draft");
@@ -561,19 +562,9 @@ export function ensureWorkflowPages(pages = [], baseSettings = readSettings()) {
           : [...output, randomBackgroundPage];
   }
 
-  if (!hasRecolorPage && !deletedModes.includes("recolor")) {
-    const randomBackgroundIndex = output.findIndex((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "random-background");
-    const backgroundIndex = output.findIndex((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "background-change");
-    const designIndex = output.findIndex((page) => ["face-swap", "design-draft"].includes(inferOutfitWorkflowMode(page.name, page.uploadLabels)));
-    const recolorPage = makeRecolorPage(baseSettings);
-    output = randomBackgroundIndex >= 0
-      ? [...output.slice(0, randomBackgroundIndex + 1), recolorPage, ...output.slice(randomBackgroundIndex + 1)]
-      : backgroundIndex >= 0
-        ? [...output.slice(0, backgroundIndex + 1), recolorPage, ...output.slice(backgroundIndex + 1)]
-      : designIndex >= 0
-        ? [...output.slice(0, designIndex), recolorPage, ...output.slice(designIndex)]
-        : [...output, recolorPage];
-  }
+  // 2026-10-19 V113-R1：遗留的「批量改色」单例不再自动补建。recolor 能力在 V110 起已并入
+  // 自定义改色页（"服装改色"），且其名字经 workflowModeFromPage 现判定为 "custom"，故该单例已退役。
+  // 用户删除即永久消失，不再被重建（解决「改名自定义页误清删除留痕、随后又被重建」的回归）。
 
   if (!hasWhiteRefinePage && !deletedModes.includes("white-refine")) {
     const recolorIndex = output.findIndex((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "recolor");
@@ -610,6 +601,22 @@ export function ensureWorkflowPages(pages = [], baseSettings = readSettings()) {
       ...withoutFaceSwap.slice(nextPoseRemixIndex + 1)
     ];
   }
+
+  // V111-R2（修复·加载期迁移）：自定义改色页的提示词模板只在「新建」时由 makeOutfitPage 迁移，
+  // 但用户已存在的自定义页（如 rename 自旧页、或 V111 前创建的）从存储加载时不会经过 makeOutfitPage，
+  // 若仍带着空提示词或旧 recolor 默认模板，点「更换部位」chip 会因正文无部位词而无任何替换（表现为「联动失效」）。
+  // 此处按与 makeOutfitPage 一致的口径，在加载期补齐模板；用户手写的其他提示词一律不动。
+  output = output.map((page) => {
+    if (inferOutfitWorkflowMode(page.name, page.uploadLabels) !== "custom") return page;
+    const pagePrompt = String(page.settings?.prompt || "").trim();
+    if (!pagePrompt || pagePrompt === RECOLOR_DEFAULT_PROMPT || pagePrompt === RECOLOR_COLOR_LEGACY_DEFAULT_PROMPT) {
+      return {
+        ...page,
+        settings: { ...page.settings, prompt: GARMENT_RECOLOR_DEFAULT_PROMPT, productNote: "" }
+      };
+    }
+    return page;
+  });
 
   return dedupeSingletonWorkflowPages(output);
 }

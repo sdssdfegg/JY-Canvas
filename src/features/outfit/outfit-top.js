@@ -220,6 +220,14 @@ export const RECOLOR_PART_WORDS = Object.freeze({
   dress: ["连衣裙"],
   shoes: ["鞋子"]
 });
+// V111/V112（用户要求·1板块）：自定义改色页「更换部位」行的可选项——键与 RECOLOR_PART_WORDS 一一对应，
+// 比换装旧机制的 OUTFIT_PART_OPTIONS（仅 上装/下装/鞋子）多一个「连衣裙」。UI 选项必须与词表对齐，否则连衣裙无法选中、联动缺失。
+export const RECOLOR_PART_OPTIONS = Object.freeze([
+  { value: "upper", label: "上装" },
+  { value: "lower", label: "下装" },
+  { value: "dress", label: "连衣裙" },
+  { value: "shoes", label: "鞋子" }
+]);
 export function normalizeRecolorPart(value) {
   return RECOLOR_PART_WORDS[value] ? value : "upper";
 }
@@ -241,6 +249,36 @@ export function replaceRecolorPartWords(prompt, _fromPart, toPart) {
 const RECOLOR_UPPER_LAYER_VALUES = ["single", "inner", "outer", "inner-outer"];
 export function normalizeRecolorUpperLayer(value) {
   return RECOLOR_UPPER_LAYER_VALUES.includes(value) ? value : "single";
+}
+// V113-R1（用户要求）：上装层级的提示词类别词。⚠️ 不得与 RECOLOR_PART_WORDS 的词重叠（上衣/上装已被部位词占用），
+// 层级词用「内搭/外套」这一族；single（仅一件上装）没有专属词——它的正文标记就是当前部位的词（上衣），
+// 切入 single 时把层级词还原成部位词。「内搭」是「内搭和外套」的子串，替换必须长词优先，否则会切成残句。
+export const RECOLOR_UPPER_LAYER_WORDS = Object.freeze({
+  single: [],
+  inner: ["内搭", "里搭", "里层"],
+  outer: ["外套", "外搭", "外层"],
+  "inner-outer": ["内搭和外套", "内搭外套", "内搭加外套", "内外叠穿"]
+});
+/** 把 prompt 里实际出现过的层级词（from=single 时为部位词）整体替换成新层级的词；
+    正文没有任何层级词/部位词时不改动（保护用户手写内容，与部位联动同一口径）。 */
+export function replaceRecolorUpperLayerWords(prompt, fromLayer, toLayer, partWord = "上衣") {
+  const from = normalizeRecolorUpperLayer(fromLayer);
+  const to = normalizeRecolorUpperLayer(toLayer);
+  if (from === to) return String(prompt || "");
+  const fromWords = from === "single"
+    ? (RECOLOR_PART_WORDS.upper || [])
+    : (RECOLOR_UPPER_LAYER_WORDS[from] || []);
+  const toWord = to === "single" ? partWord : (RECOLOR_UPPER_LAYER_WORDS[to] || [])[0];
+  if (!toWord) return String(prompt || "");
+  let text = String(prompt || "");
+  let replaced = false;
+  [...fromWords].sort((a, b) => b.length - a.length).forEach((word) => {
+    if (word && text.includes(word)) {
+      replaced = true;
+      text = text.split(word).join(toWord);
+    }
+  });
+  return replaced ? text : String(prompt || "");
 }
 export const GARMENT_COMPOSITION_OPTIONS = [
   { value: "single-upper", label: "单件上衣", parts: ["upper"] },
