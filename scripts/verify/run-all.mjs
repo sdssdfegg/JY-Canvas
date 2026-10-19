@@ -48,6 +48,10 @@ const ORDER = [
   // 里写死的本机绝对路径，任何在本机不存在的都判红，杜绝「文档引用失效/错误位置」漂移。
   // 纯文本扫描，跑得飞快，排在起进程的那批之前。
   "docs-path-check",
+  // V121（2026-10-19）：封装种子机制静态门禁——release-seed.js 导出三函数、storage-store 链路含
+  // importReleaseSeed、白名单/剥凭据字段清单与执行单 §1.2 一致、仅空库守卫+一次性标记、构建脚本
+  // JINGYIN_SEED_FILE 复制点早于 generate-static-assets。纯源码静态断言、<1s、不依赖运行服务。
+  "release-seed-check",
   // V75（2026-10-17）：旧按钮类棘轮门禁 —— 扫 src/**/*.jsx 旧类用量 + src/**/*.css 旧类行首定义，
   // 存量记账、只拦新增（与 hardcoded-color 同款棘轮）。纯源码扫描，跑得飞快，排在这批纯扫描里。
   "legacy-button-ratchet-check",
@@ -215,6 +219,8 @@ const FAST_ORDER = [
   "app-paths-check",
   "import-path-check",
   "docs-path-check",
+  // V121（2026-10-19）：封装种子机制静态门禁，纯源码静态断言 <1s，进提交钩子快速子集（--fast 32→33）。
+  "release-seed-check",
   // V75（2026-10-17）：旧按钮类棘轮门禁，纯 JSX/CSS 扫描 <1s，正合提交钩子。
   "legacy-button-ratchet-check",
   // V74（2026-10-17）：硬编码 hex 颜色棘轮门禁，纯 CSS 扫描 <1s，正合提交钩子。

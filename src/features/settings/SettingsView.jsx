@@ -1,11 +1,14 @@
 // V56（P3-1）：设置弹窗视图。从 src/main.jsx 的 `{isSettingsOpen && ( ... )}` 块（5125~5264）原样迁入。
 // 仅接收 props，不持有任何「弹窗私有」之外的状态；共享状态由 App() 通过 props 下发。
 // V73：按钮/字段/分区外壳统一走 Button / Field / Toolbar / Panel / ModuleHeader（总纲 §5）。
+import { useState } from "react";
 import {
-  Eye, EyeOff, FolderOpen, HardDrive, KeyRound, Palette, PlugZap,
+  Download, Eye, EyeOff, FolderOpen, HardDrive, KeyRound, Palette, PlugZap,
   RefreshCw, Save, Settings as SettingsIcon, Trash2, X
 } from "lucide-react";
 import { formatStorageSize } from "../storage/storage-store.js";
+import { PUBLIC_RELEASE_MODE } from "../../shared/app-defaults.js";
+import { downloadReleaseSeed } from "../../shared/release-seed.js";
 import { themeOptions } from "./settings-state.js";
 import { Button } from "../../shared/ui/Button.jsx";
 import { Modal } from "../../shared/ui/Modal.jsx";
@@ -17,12 +20,31 @@ import { ModuleHeader } from "../../shared/ui/ModuleHeader.jsx";
 export function SettingsView({
   settings, config, updateSetting, isSettingsOpen, onClose, settingsApi
 }) {
+  // V121（仅 internal 模式）：封装种子导出反馈（成功/失败都必须可见，不许静默失败）。
+  const [seedExportMsg, setSeedExportMsg] = useState("");
   if (!isSettingsOpen) return null;
   const {
     isApiKeyVisible, setIsApiKeyVisible, apiSaveStatus, isConnectionTesting,
     connectionStatus, connectionState, storageUsage, storageBusy, storageStatus,
     saveApiKey, runConnectionTest, handleRevealStorage, handleCleanStorage, refreshStorageUsage
   } = settingsApi;
+
+  const handleExportSeed = () => {
+    setSeedExportMsg("正在导出封装种子…");
+    try {
+      const manifest = downloadReleaseSeed();
+      if (!manifest) {
+        setSeedExportMsg("当前没有可导出的提示词模板或页面状态");
+        window.alert("当前没有可导出的提示词模板或页面状态");
+        return;
+      }
+      setSeedExportMsg(`已导出 ${manifest.entries.length} 项（提示词模板与页面状态），可随封装分发给客户`);
+    } catch (err) {
+      const detail = err?.message || String(err);
+      setSeedExportMsg(`导出失败：${detail}`);
+      window.alert(`导出封装种子失败：${detail}`);
+    }
+  };
 
   return (
     <Modal layerClassName="modalLayer" panelClassName="settingsModal" onClose={onClose}>
@@ -142,6 +164,17 @@ export function SettingsView({
               <RefreshCw size={15} /><span>刷新</span>
             </Button>
           </Toolbar>
+          {!PUBLIC_RELEASE_MODE && (
+            <>
+              <Toolbar>
+                <Button size="sm" onClick={() => void handleExportSeed()}>
+                  <Download size={15} /><span>导出封装种子</span>
+                </Button>
+              </Toolbar>
+              <p className="ui-field__hint">导出提示词模板与页面状态，随封装分发给客户（不含密钥与生成记录）</p>
+              {seedExportMsg && <small className="ui-field__hint">{seedExportMsg}</small>}
+            </>
+          )}
           {storageStatus && <small className="ui-field__hint">{storageStatus}</small>}
         </Panel>
     </Modal>

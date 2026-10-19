@@ -2,6 +2,7 @@
 import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, PUBLIC_RELEASE_MODE, PUBLIC_RELEASE_RESET_KEY, STORAGE_KEY, STORAGE_PREFIX, defaultState } from "../../shared/app-defaults.js";
 import { BookOpen, Brush, Crop, FileText, Layers, Sparkles, Wand2 } from "lucide-react";
 import { readJsonStorage, removeStorageItem, writeJsonStorage } from "../../lib/storage/json-storage.js";
+import { importReleaseSeed } from "../../shared/release-seed.js";
 import { canonicalModel } from "../../shared/routing.js";
 import { appendHistoryResults, deleteHistoryResults, getHistoryResults } from "../../api/history.js";
 
@@ -95,7 +96,12 @@ export function runPublicReleaseStorageReset() {
   ]).then(() => undefined);
 }
 
-export const publicReleaseStorageResetPromise = runPublicReleaseStorageReset();
+// V121：public 发布模式下，reset 清空目标键 + 删掉草稿 IndexedDB 之后，把种子填空。
+// 整个 App 首渲染（main.jsx:1487 的 publicReleaseStorageResetPromise.finally(render)）依赖这个
+// promise 完成，因此种子导入天然先于所有 useState 懒初始化（readOutfitPages / loadPromptPresets 等）。
+// internal 模式下 runPublicReleaseStorageReset() 立即 resolve、importReleaseSeed() 立即 resolve → 零新增耗时。
+export const publicReleaseStorageResetPromise = runPublicReleaseStorageReset()
+  .then(() => importReleaseSeed());
 
 export function loadState() {
   const stored = readJsonStorage(STORAGE_KEY, null)
