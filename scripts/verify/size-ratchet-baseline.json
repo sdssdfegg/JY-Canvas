@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-19",
-  "reason": "V116 修复快捷生成预览拖拽失效（P0 回归）：main.jsx 的 usePreviewDrag 调用补传 previewPan(+1 行，必要入参，否则拖拽失效)；usePreviewDrag.js beginPreviewDrag 加 previewPan 兜底缺省值+头注释(+4 行，执行单§1.2 要求，防漏传抛错并注明仍须传)。必要增量，无法在不传参前提下规避。",
+  "reason": "V116 预览拖拽修复（main.jsx +1 行补传 previewPan、usePreviewDrag.js +5 行兜底与注释）+ V117 改色页控件合一常显与联动兜底（outfit-workflow.jsx +21 行；OutfitComposer.jsx 两行合一净增 0）合入 main 后统一刷新基线；增量均为必要增量，无偶然膨胀。",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -76,7 +76,7 @@
     "src/local-edit-mask.js": 1,
     "src/main.jsx": 1505,
     "src/models.js": 1,
-    "src/outfit-workflow.jsx": 2119,
+    "src/outfit-workflow.jsx": 2140,
     "src/shared/app-defaults.js": 147,
     "src/shared/canvas-blob.js": 27,
     "src/shared/DebouncedTextarea.jsx": 86,
@@ -203,7 +203,7 @@
     "src/image-editor.jsx::ImageEditorPanel": 827,
     "src/image-editor.jsx::ImageEditorSlot": 54,
     "src/main.jsx::App": 1199,
-    "src/outfit-workflow.jsx::OutfitWorkflow": 1808,
+    "src/outfit-workflow.jsx::OutfitWorkflow": 1829,
     "src/shared/DebouncedTextarea.jsx::DebouncedTextarea": 84,
     "src/shared/generation-errors.js::classifyGenerationError": 52,
     "src/shared/local-edit-geometry.js::composeLocalPasteBlob": 55,

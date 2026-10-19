@@ -97,7 +97,7 @@ import {
   WorkflowQuickVideoPanel,
     preprocessModeLabel
     } from "./features/outfit/outfit-panels.jsx";
-import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeGarmentComposition, normalizeGarmentParts, normalizeRecolorPart, normalizeRecolorUpperLayer, RECOLOR_PART_WORDS, replaceRecolorPartWords, replaceRecolorUpperLayerWords, RECOLOR_PART_OPTIONS, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
+import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeGarmentComposition, normalizeGarmentParts, normalizeRecolorPart, normalizeRecolorUpperLayer, RECOLOR_PART_WORDS, replaceRecolorPartWords, replaceRecolorUpperLayerWords, RECOLOR_PART_OPTIONS, GARMENT_RECOLOR_DEFAULT_PROMPT, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
 import { UPPER_LAYER_OPTIONS } from "./shared/outfit-intent.js";
 import { ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import {  createAsyncLimiter, defaultLocalEditCrop, groupPreprocessValue, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
@@ -462,6 +462,10 @@ export default function OutfitWorkflow({
     setSettings((current) => ({ ...current, recolorPart: part, prompt: nextPrompt }));
     const label = RECOLOR_PART_OPTIONS.find((item) => item.value === part)?.label || part;
     addEvent("更换部位", `改色部位已切换为「${label}」`);
+    // V117（用户要求·联动兜底）：正文无部位词时不改写（保护手写），但必须给出可见反馈，否则用户看到"点了没反应"。
+    if (nextPrompt === String(settings.prompt || "")) {
+      addEvent("更换部位", "提示词里没有检测到可替换的服装类别词（上衣/下衣/连衣裙/鞋子），已保留你的手写提示词；需要自动联动可点提示词框右上「用默认模板」");
+    }
   }
   function selectRecolorUpperLayer(nextLayer) {
     const layer = normalizeRecolorUpperLayer(nextLayer);
@@ -473,6 +477,22 @@ export default function OutfitWorkflow({
     setSettings((current) => ({ ...current, recolorUpperLayer: layer, prompt: nextPrompt }));
     const label = UPPER_LAYER_OPTIONS.find((item) => item.value === layer)?.label || layer;
     addEvent("上装层级", `已切换为「${label}」`);
+    // V117（用户要求·联动兜底）：正文无层级词/上装部位词时不改写（保护手写），给出可见反馈。
+    if (nextPrompt === String(settings.prompt || "")) {
+      addEvent("上装层级", "提示词里没有检测到可替换的上装层级词（内搭/外套/内外叠穿）或上装部位词（上衣），已保留你的手写提示词；需要自动联动可点提示词框右上「用默认模板」");
+    }
+  }
+  // V117（用户要求·联动兜底）：custom 页「用默认模板」——把提示词恢复为默认改色模板并套用当前部位/层级，
+  // 让用户从模板起步再手改；只改 prompt，不动 productNote（V110 口径：custom 页前端不并 productNote）。
+  function resetRecolorPromptTemplate() {
+    const part = normalizeRecolorPart(recolorPart);
+    let nextPrompt = replaceRecolorPartWords(GARMENT_RECOLOR_DEFAULT_PROMPT, recolorPart, recolorPart);
+    if (part === "upper") {
+      const partWord = (RECOLOR_PART_WORDS.upper || [])[0] || "上衣";
+      nextPrompt = replaceRecolorUpperLayerWords(nextPrompt, "single", recolorUpperLayer, partWord);
+    }
+    setSettings((current) => ({ ...current, prompt: nextPrompt }));
+    addEvent("通用改色提示词", "已恢复默认模板（当前部位/层级已套用）");
   }
   const selectedGarmentComposition = normalizeGarmentComposition(settings.garmentComposition, selectedGarmentParts);
   // 批量换装的结构化意图（唯一来源）。
@@ -1923,6 +1943,7 @@ function freezeIntentIntoTask(intentCtx) {
           onSelectRecolorPart={selectRecolorPart}
           recolorUpperLayer={recolorUpperLayer}
           onSelectRecolorUpperLayer={selectRecolorUpperLayer}
+          onResetRecolorPromptTemplate={resetRecolorPromptTemplate}
           clothingImages={clothingImages}
           clothingBulkMode={clothingBulkMode}
           setMasterClothing={setMasterClothing}
