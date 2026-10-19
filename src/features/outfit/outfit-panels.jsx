@@ -9,6 +9,9 @@ import {
   useRef,
   useState
 } from "react";
+// V121-R2：存储键常量迁出到零依赖叶子模块（本文件与 outfit-top.js 有相互循环，
+// 启动链路模块不能经此取键——详见 outfit-storage-keys.js 文件头）。
+import { RESIZE_BATCH_CROP_KEY, RESIZE_SETTINGS_KEY } from "./outfit-storage-keys.js";
 import {
   Check,
   Crop,
@@ -113,8 +116,7 @@ export const RESIZE_FORMAT_OPTIONS = [
   { value: "png", label: "PNG" },
   { value: "webp", label: "WEBP" }
 ];
-export const RESIZE_SETTINGS_KEY = "jingyin-outfit-workflow-resize-settings-v4";
-export const RESIZE_BATCH_CROP_KEY = "jingyin-outfit-workflow-resize-batch-crop-v1";
+// V121-R2：RESIZE_SETTINGS_KEY / RESIZE_BATCH_CROP_KEY 已迁至 outfit-storage-keys.js（零依赖叶子），此处 import 复用。
 export const RESIZE_OUTPUT_FOLDER = "批量尺寸导出";
 export const DEFAULT_RESIZE_SETTINGS = {
   ratio: "3:4",

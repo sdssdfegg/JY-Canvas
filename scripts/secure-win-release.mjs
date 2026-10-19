@@ -6,6 +6,14 @@ import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+// V121：封装种子随包分发。构建期校验 + 注入使用 release-seed-schema.js 的同一份白名单/剥凭据实现
+// （纯模块、可 Node 直接 import，避免在 Node 侧拉起浏览器依赖）。
+import {
+  SEED_ENTRY_IDS,
+  OUTFIT_PAGE_FORBIDDEN_FIELDS,
+  PROMPT_PRESET_ALLOWED_FIELDS,
+  containsCredentialFields
+} from "../src/shared/release-seed-schema.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const buildDir = path.join(rootDir, ".secure-build");
@@ -98,6 +106,76 @@ async function sha256(file) {
   return createHash("sha256").update(data).digest("hex").toUpperCase();
 }
 
+/**
+ * V121：把封装种子注入 dist/seed/manifest.json（随后被 generate-static-assets 内嵌、随 SEA 分发）。
+ *
+ * 行为：
+ *   · 未设置 JINGYIN_SEED_FILE → 跳过（internal / 日常构建不受影响，dist 不含 seed/）；
+ *   · 设置了但文件不存在 → 直接抛错（构建失败，不静默跳过）；
+ *   · 校验：JSON 可解析 + version===1 + entries 非空 + 过白名单/剥凭据复核
+ *     （含凭据字段 / 非法 id / 禁项字段 → 构建失败）。
+ */
+async function injectReleaseSeedIntoDist() {
+  const seedFilePath = process.env.JINGYIN_SEED_FILE;
+  if (!seedFilePath) {
+    console.log("  JINGYIN_SEED_FILE 未设置，跳过种子注入（internal/日常构建不受影响）");
+    return;
+  }
+  if (!existsSync(seedFilePath)) {
+    throw new Error(`JINGYIN_SEED_FILE 指向的种子文件不存在：${seedFilePath}`);
+  }
+
+  const raw = await readFile(seedFilePath, "utf8");
+  let manifest;
+  try {
+    manifest = JSON.parse(raw);
+  } catch (e) {
+    throw new Error(`种子文件不是合法 JSON：${seedFilePath} —— ${e.message}`);
+  }
+  if (manifest.version !== 1) {
+    throw new Error(`种子文件 version 必须为 1，实际为 ${JSON.stringify(manifest.version)}`);
+  }
+  if (!Array.isArray(manifest.entries) || manifest.entries.length === 0) {
+    throw new Error("种子文件 entries 必须为非空数组");
+  }
+
+  // 白名单 / 剥凭据复核（不过即构建失败，禁止静默跳过）。
+  for (const entry of manifest.entries) {
+    if (!SEED_ENTRY_IDS.includes(entry.id)) {
+      throw new Error(`种子含未知 entry id：${entry.id}（合法值见 release-seed-schema.js 的 SEED_ENTRY_IDS）`);
+    }
+    const value = entry.value;
+    if (entry.id === "outfit-pages") {
+      if (!Array.isArray(value)) throw new Error("outfit-pages 的 value 必须是数组");
+      for (const page of value) {
+        for (const forbidden of OUTFIT_PAGE_FORBIDDEN_FIELDS) {
+          if (page && typeof page === "object" && forbidden in page) {
+            throw new Error(`outfit-pages 含禁项字段 ${forbidden}（红线③/④：不得随包分发图片/任务数据）`);
+          }
+        }
+      }
+    }
+    if (entry.id === "main-prompt-presets" || entry.id === "outfit-prompt-presets") {
+      if (!Array.isArray(value)) throw new Error(`${entry.id} 的 value 必须是数组`);
+      for (const preset of value) {
+        for (const key of Object.keys(preset || {})) {
+          if (!PROMPT_PRESET_ALLOWED_FIELDS.includes(key)) {
+            throw new Error(`${entry.id} 含非法字段 ${key}（提示词白名单仅允许 ${PROMPT_PRESET_ALLOWED_FIELDS.join("/")}）`);
+          }
+        }
+      }
+    }
+    if (containsCredentialFields(value)) {
+      throw new Error(`种子 entry ${entry.id} 含凭据字段（apiKey/baseUrl/channelId），违反红线①，禁止随包`);
+    }
+  }
+
+  const seedDir = path.join(distDir, "seed");
+  await mkdir(seedDir, { recursive: true });
+  await copyFile(seedFilePath, path.join(seedDir, "manifest.json"));
+  console.log(`  已校验并将种子注入 ${path.relative(rootDir, seedDir)}/manifest.json（${manifest.entries.length} 个 entry）`);
+}
+
 ensureInsideRoot(buildDir, rootDir);
 ensureChildPath(releaseDir, releaseParentDir);
 await rm(buildDir, { recursive: true, force: true });
@@ -128,6 +206,12 @@ await run(npmInvocation.command, [...npmInvocation.prefix, "run", "build"], {
 console.log("1.1/8 Write .release-mode marker into dist");
 await mkdir(distDir, { recursive: true });
 await writeFile(path.join(distDir, ".release-mode"), "", "utf8");
+
+// V121：封装种子注入（仅当 JINGYIN_SEED_FILE 提供时）。
+// 必须在 vite build 之后、generate-static-assets（3/8）之前，
+// 这样种子会随前端一起被内嵌进 static-assets.generated.js，由 server/app.js 既有嵌入式静态路由 serve。
+console.log("1.2/8 Inject release seed into dist (if JINGYIN_SEED_FILE is set)");
+await injectReleaseSeedIntoDist();
 
 console.log("2/8 Obfuscate frontend JavaScript assets");
 const distAssetFiles = await walkFiles(path.join(rootDir, "dist"));

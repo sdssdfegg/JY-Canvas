@@ -97,7 +97,8 @@ import {
   WorkflowQuickVideoPanel,
     preprocessModeLabel
     } from "./features/outfit/outfit-panels.jsx";
-import { DEFAULT_OUTFIT_PAGE_NAME, OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeRecolorPart, normalizeRecolorUpperLayer, RECOLOR_PART_WORDS, replaceRecolorPartWords, replaceRecolorUpperLayerWords, RECOLOR_PART_OPTIONS, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
+import { OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY } from "./features/outfit/outfit-storage-keys.js";
+import { DEFAULT_OUTFIT_PAGE_NAME, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeRecolorPart, normalizeRecolorUpperLayer, RECOLOR_PART_WORDS, replaceRecolorPartWords, replaceRecolorUpperLayerWords, RECOLOR_PART_OPTIONS, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
 import { UPPER_LAYER_OPTIONS } from "./shared/outfit-intent.js";
 import { ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import {  createAsyncLimiter, defaultLocalEditCrop, groupPreprocessValue, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";

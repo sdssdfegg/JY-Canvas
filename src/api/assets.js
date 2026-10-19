@@ -62,6 +62,33 @@ export function fetchLocalBlob(url) {
   return fetch(url).then((response) => response.blob());
 }
 
+/**
+ * 读取封装种子清单 `/seed/manifest.json`（V121-R1 统筹裁决：按 P7-6「网络出口只此一处」口径收口于此）。
+ *
+ * 与 fetchLocalBlob 同族——种子是应用自己的内嵌静态资源（随 SEA 分发），不是后端接口，
+ * 因此不进 client.js 的业务请求层；但「网络出口只此一处」的规矩没有例外可钻，
+ * 故读取也必须走 src/api/，不希望在共享模块里新开一个裸 fetch 的口子。
+ *
+ * 与 fetchLocalBlob 的差异：种子读取挂在 App 启动门禁（publicReleaseStorageResetPromise 链）上，
+ * 服务异常时不能无限期挂住首渲染，因此带 AbortController 超时（默认 3s）；
+ * 404 / 超时 / JSON 坏一律抛错，由调用方 catch 后静默放过（不阻断启动）。
+ *
+ * @returns {Promise<any>} 解析后的种子 JSON
+ */
+export async function fetchSeedManifest(timeoutMs = 3000) {
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const response = await fetch("/seed/manifest.json", {
+      ...(controller ? { signal: controller.signal } : {})
+    });
+    if (!response.ok) throw new Error(`种子清单读取失败 HTTP ${response.status}`);
+    return await response.json();
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 /** POST /api/cache-result-image —— 把换装结果图缓存到服务端（P7-6 从 outfit-task.js 搬来）。 */
 export function cacheResultImageRequest(form) {
   return fetch("/api/cache-result-image", {
