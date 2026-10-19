@@ -105,7 +105,6 @@ export default function OutfitComposer({
   onSelectRecolorPart,
   recolorUpperLayer,
   onSelectRecolorUpperLayer,
-  onResetRecolorPromptTemplate,
   clothingImages,
   /* V77 Park：统一处理/新上传默认停用，但数据流保留 —— 以下 4 个 props 仍由父级按原名传入，
      本地别名成 _ 前缀（eslint 允许的未使用参数命名）。恢复 = 去掉 _ 前缀并传回 UploadZone。 */
@@ -252,17 +251,12 @@ export default function OutfitComposer({
       </div>
     )}
 
-    {/* V119（用户要求）：按参考图把「通用改色提示词 + 用默认模板 + 更换部位 + 上装层级」合成一条紧凑行。
-        不复用换装侧那个 space-between 横向容器（V117 教训：它把四组拉满整行）；
-        标题文字复用 promptFieldTitle（单一来源），「用默认模板」从 composerField 的 label 里移出（顺带消除 button 嵌在 label 内的点击歧义）。 */}
+    {/* V120（用户要求）：按 V119 的参考图布局，改色页头部行 = 「更换部位 + chips ｜ 上装层级 + chips」一条紧凑行
+        （左对齐流式，flex + gap:6px 16px，不复用 space-between）。
+        标题「通用改色提示词」已归位到下方 composerField 的 label（与换装/精修页同渲染路径、同字号）；
+        原「恢复默认模板」按钮按用户要求删除——手写提示词继续受保护：无部位词不联动 + 可见提示，但不提供一键恢复入口。 */}
     {isCustomWorkflow && (
       <div className="outfitIntentRow recolorPartRow recolorPromptHeaderRow">
-        <span className="recolorPromptHeaderLead">
-          <span className="outfitIntentRowTitle">{promptFieldTitle}</span>
-          <Button size="sm" tone="ghost" onClick={onResetRecolorPromptTemplate}>
-            用默认模板
-          </Button>
-        </span>
         <span className="outfitIntentRowTitle">更换部位</span>
         <div className="outfitIntentChips">
           {RECOLOR_PART_OPTIONS.map((part) => {
@@ -306,17 +300,15 @@ export default function OutfitComposer({
 
     <div className="composerPromptCol">
       <label className="composerField" ref={promptFieldRef}>
-        {!isCustomWorkflow && (
-          <span>
-            {promptFieldTitle}
-            {isOutfitWorkflow && (
-              <em className="composerFieldHint">按换装设置自动生成，也可以直接手改</em>
-            )}
-            {isWhiteRefineWorkflow && (
-              <em className="composerFieldHint">按精修设置自动生成，也可以直接手改</em>
-            )}
-          </span>
-        )}
+        <span>
+          {promptFieldTitle}
+          {isOutfitWorkflow && (
+            <em className="composerFieldHint">按换装设置自动生成，也可以直接手改</em>
+          )}
+          {isWhiteRefineWorkflow && (
+            <em className="composerFieldHint">按精修设置自动生成，也可以直接手改</em>
+          )}
+        </span>
         {/* 换装 / 精修：这个框就是**真正发送的内容**。
             它由「设置 + 补充」自动生成；用户可以随手调整/增删，
             点设置按钮时会按设置重新生成一遍。 */}

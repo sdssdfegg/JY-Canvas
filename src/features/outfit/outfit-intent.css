@@ -145,19 +145,14 @@
   gap: 8px;
 }
 
-/* V119（用户要求）：改色页提示词头部行——标题+按钮+两组 chips 左对齐流式排一条，
-   间距用既有规范档（行内 6px、组间 16px），窄屏允许换行兜底；不再复用 space-between 的 .outfitIntentInline。 */
+/* V120（用户要求）：改色页部位/层级 chips 行，左对齐流式（flex + gap:6px 16px，不复用 space-between）；
+   提示词标题已归位 composerField（与换装/精修页同字号）。本单移除该行原先附带的「恢复默认模板」按钮，
+   其专属包裹样式随之删除。 */
 .outfitWorkflowEmbedded .recolorPromptHeaderRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 16px;
-}
-
-.outfitWorkflowEmbedded .recolorPromptHeaderLead {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .outfitWorkflowEmbedded .outfitIntentWarnings {
