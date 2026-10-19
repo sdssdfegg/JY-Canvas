@@ -866,4 +866,3 @@ export function shouldUpgradeLegacyBatchConcurrency(value = {}) {
 // 2026-10-06：排序内核已抽到 src/shared/list-order.js（它是通用数组工具，不属于换装域）。
 // 这里重新导出，旧的 import 路径一行都不用改。
 export { moveItemByDrop } from "../../shared/list-order.js";
-

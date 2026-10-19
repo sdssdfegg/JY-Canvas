@@ -680,11 +680,11 @@ export function useOutfitBatchExecution(ctx) {
           ? "至少上传 1 张图1待扩图原图"
           : isWhiteRefineWorkflow
             ? "至少上传 1 张图1平铺图/挂拍图；图2参考图可选"
-                  : isFaceSwapWorkflow
-                    ? "至少上传 1 张图1目标人物图和 1 张图2人脸参考图"
-                    : isLocalDetailWorkflow
-                      ? "至少上传 1 张图1待回贴图和 1 张图2细节结构参考图"
-                      : "至少选择 1 张模特图和 1 张服装图");
+            : isFaceSwapWorkflow
+              ? "至少上传 1 张图1目标人物图和 1 张图2人脸参考图"
+              : isLocalDetailWorkflow
+                ? "至少上传 1 张图1待回贴图和 1 张图2细节结构参考图"
+                : "至少选择 1 张模特图和 1 张服装图");
       return;
     }
     if (isLocalDetailWorkflow && nextTasks.some((task) => !task.localEdit)) {
@@ -775,4 +775,3 @@ export function useOutfitBatchExecution(ctx) {
     startBatch
   };
 }
-

@@ -549,15 +549,15 @@ export default function OutfitWorkflow({
           ? "固定背景"
         : isOutpaintWorkflow
           ? "批量扩图"
-            : isWhiteRefineWorkflow
-              ? "精修"
-              : isFaceSwapWorkflow
-                ? "批量换脸"
-                : isLocalDetailWorkflow
-                  ? "局部回贴"
-                  : isCustomWorkflow
-                    ? (activeOutfitPage.name || "自定义")
-                    : "换装";
+          : isWhiteRefineWorkflow
+            ? "精修"
+            : isFaceSwapWorkflow
+              ? "批量换脸"
+              : isLocalDetailWorkflow
+                ? "局部回贴"
+                : isCustomWorkflow
+                  ? (activeOutfitPage.name || "自定义")
+                  : "换装";
   const promptFieldTitle = isDesignDraftWorkflow
     ? "通用设计稿提示词"
     : isPoseRemixWorkflow
@@ -568,15 +568,15 @@ export default function OutfitWorkflow({
           ? "通用固定背景提示词"
         : isOutpaintWorkflow
           ? "通用批量扩图提示词"
-            : isWhiteRefineWorkflow
-              ? "通用白底精修提示词"
-              : isFaceSwapWorkflow
-                ? "通用换脸提示词"
-                : isLocalDetailWorkflow
-                  ? "通用局部回贴提示词"
-                  : isCustomWorkflow
-                    ? "通用改色提示词"
-                    : "通用换装提示词";
+          : isWhiteRefineWorkflow
+            ? "通用白底精修提示词"
+            : isFaceSwapWorkflow
+              ? "通用换脸提示词"
+              : isLocalDetailWorkflow
+                ? "通用局部回贴提示词"
+                : isCustomWorkflow
+                  ? "通用改色提示词"
+                  : "通用换装提示词";
   const promptFieldPlaceholder = isDesignDraftWorkflow
     ? "长期复用的设计稿规则，例如笔触压感、手稿风格、服装结构和辅助短线。"
     : isPoseRemixWorkflow
@@ -587,22 +587,22 @@ export default function OutfitWorkflow({
           ? "长期复用的固定背景规则，例如锁定人物结构、统一目标背景光影和整体色温。"
         : isOutpaintWorkflow
           ? "长期复用的批量扩图规则，例如锁定图1已有内容，只向下补出下半身、鞋子和原场景延展。"
-            : isWhiteRefineWorkflow
-              ? "长期复用的白底精修规则，例如去衣架、换白底、整理压痕和褶皱，但不改服装细节颜色。"
-              : isFaceSwapWorkflow
-                ? "长期复用的换脸规则，例如图1锁定身体衣服姿势背景，图2只提供脸部身份和可融合发型方向。"
-                : isLocalDetailWorkflow
-                  ? "长期复用的局部服装细节规则，例如只改点名细节、图2只取结构、颜色材质跟图1。"
-                  : isCustomWorkflow
-                    ? "长期复用的改色规则，例如：把图1模特的上衣改成图2上衣的颜色，仅改变上衣颜色，不添加缝线、不改变纹理、不添加细节。"
-                    : "长期复用的换装规则，例如保留人物、锁定服装版型、真实贴合、批量一致。";
+          : isWhiteRefineWorkflow
+            ? "长期复用的白底精修规则，例如去衣架、换白底、整理压痕和褶皱，但不改服装细节颜色。"
+            : isFaceSwapWorkflow
+              ? "长期复用的换脸规则，例如图1锁定身体衣服姿势背景，图2只提供脸部身份和可融合发型方向。"
+              : isLocalDetailWorkflow
+                ? "长期复用的局部服装细节规则，例如只改点名细节、图2只取结构、颜色材质跟图1。"
+                : isCustomWorkflow
+                  ? "长期复用的改色规则，例如：把图1模特的上衣改成图2上衣的颜色，仅改变上衣颜色，不添加缝线、不改变纹理、不添加细节。"
+                  : "长期复用的换装规则，例如保留人物、锁定服装版型、真实贴合、批量一致。";
   // 2026-09-26：精修页把「本次需求 / 商品补充信息」改名叫「用户补充」——
   // 它就是精修的补充要求，会被编译器并入最终提示词的【用户补充】段。
   const productNoteFieldTitle = isRandomBackgroundWorkflow
     ? "场景补充"
-    : isWhiteRefineWorkflow
-      ? "用户补充"
-      : "本次需求 / 商品补充信息";
+  : isWhiteRefineWorkflow
+    ? "用户补充"
+    : "本次需求 / 商品补充信息";
   const productNotePlaceholder = isRandomBackgroundWorkflow
     ? "写你想要的大概场景需求，例如：早秋休闲度假实景街景，少量斑马线，适度景深虚化，平视机位，画面干净。"
     : "只写这次要额外控制的内容，例如袖长、裙长、SKU颜色、背景、鞋包是否保留。";
@@ -2106,5 +2106,4 @@ function freezeIntentIntoTask(intentCtx) {
     </main>
   );
 }
-
 

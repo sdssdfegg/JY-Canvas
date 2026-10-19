@@ -800,4 +800,3 @@ export async function loadOutfitDraftState(options = {}) {
     pages
   };
 }
-

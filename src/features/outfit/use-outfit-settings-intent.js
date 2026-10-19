@@ -404,4 +404,3 @@ export function useOutfitSettingsIntent(deps) {
     endGenerationRun
   };
 }
-
