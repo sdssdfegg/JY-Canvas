@@ -469,6 +469,7 @@ function App() {
     endDrag: endPromptCategoryDrag,
   } = usePreviewDrag({
     previewDragRef,
+    previewPan,
     setPreviewPan,
     closePreview,
     setGalleryZoom,
