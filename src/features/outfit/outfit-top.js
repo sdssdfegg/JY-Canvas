@@ -12,16 +12,18 @@ import { DEFAULT_PREPROCESS_MODE, MAX_UPLOAD_IMAGES } from "./outfit-panels.jsx"
 import { normalizeQualityCheck, normalizeQualityCheckResult, normalizeRandomBackgroundFocus } from "./outfit-task.js";
 import { readJsonStorage } from "../../lib/storage/json-storage.js";
 import { defaultOutfitIntent, normalizeOutfitIntent } from "../../shared/outfit-intent.js";
-import { normalizePromptCategories, normalizePromptPreset } from "../../shared/prompt-library.js";
+import { loadPromptLibraryCategories, loadPromptLibraryPresets } from "../../shared/prompt-library.js";
 import { defaultRetouchIntent, normalizeRetouchIntent } from "../../shared/retouch-intent.js";
 import { canonicalModel } from "../../shared/routing.js";
+// V118（2026-10-19）：PROMPT_LIBRARY_VERSION 改从 app-defaults.js 单一来源导入（§1.4），本文件不再重复定义。
+import { PROMPT_LIBRARY_VERSION } from "../../shared/app-defaults.js";
 
 export const STORAGE_KEY = "jingyin-outfit-workflow-settings-v1";
 export const BATCH_CONCURRENCY_DEFAULT_MIGRATION_KEY = "batchConcurrencyDefaultV5Applied";
 export const GENERATION_COUNT_AUTOLINK_MIGRATION_KEY = "generationCountAutoLinkV11Applied";
 export const OUTFIT_PAGES_KEY = "jingyin-outfit-workflow-pages-v1";
 export const OUTFIT_DELETED_WORKFLOW_MODES_KEY = "jingyin-outfit-workflow-deleted-modes-v1";
-export const PROMPT_LIBRARY_VERSION = "v2-20260802";
+// V118：版本号定义已迁至 src/shared/app-defaults.js（PROMPT_LIBRARY_VERSION），此处 import 复用（§1.4）。
 export const PROMPT_PRESETS_KEY = `jingyin-outfit-workflow-prompt-library-${PROMPT_LIBRARY_VERSION}`;
 export const PROMPT_CATEGORIES_KEY = `jingyin-outfit-workflow-prompt-categories-${PROMPT_LIBRARY_VERSION}`;
 export const DEFAULT_OUTFIT_PAGE_NAME = "换装";
@@ -519,6 +521,7 @@ export const LOCAL_DETAIL_DEFAULT_PROMPT = [
   "图2只参考被点名细节的结构、形状、五金、缝线、纹理走势或工艺位置；不参考图2颜色、色温、曝光、背景，也不要把图2当整件服装来源。",
   "局部结果必须像原本长在图1这件衣服上，边缘自然连续，不出现突兀色块、材质断层或人物位置变化。"
 ].join("\n");
+// @internal 保留原因（V118 退役保留）：V118 起纯用户库，内置预设不再注入 UI，仅留档保留回退能力。
 export const PROMPT_BUILTIN_PRESETS = [
   {
     id: "outfit-keep",
@@ -577,6 +580,7 @@ export const THEME_OPTIONS = [
   { value: "graphite", label: "米杏", colors: ["#f3e6d4", "#fff8ec", "#c98652"] },
   { value: "mist", label: "浅雾", colors: ["#f5f7fa", "#ffffff", "#0d7a76"] }
 ];
+// @internal 保留原因（V118 退役保留）：V118 起纯用户库，内置预设分组不再注入 UI，仅留档保留回退能力。
 export const PROMPT_PRESET_GROUPS = [
   {
     category: "常用",
@@ -634,10 +638,12 @@ export const PROMPT_PRESET_GROUPS = [
     ]
   }
 ];
+// @internal 保留原因（V118 退役保留）：V118 起纯用户库，内置聚合分类不再作兜底注入 UI，仅留档保留回退能力。
 export const PROMPT_CATEGORIES = ["全部", ...new Set([
   ...PROMPT_PRESET_GROUPS.map((group) => group.category),
   ...PROMPT_BUILTIN_PRESETS.map((preset) => preset.category)
 ])];
+// @internal 保留原因（V118 退役保留）：V118 起纯用户库，内置聚合库不再注入 UI，仅留档保留回退能力。
 export const BUILTIN_PROMPT_LIBRARY = [
   ...PROMPT_BUILTIN_PRESETS,
   ...PROMPT_PRESET_GROUPS.flatMap((group, groupIndex) => group.presets.map((preset, presetIndex) => ({
@@ -836,40 +842,13 @@ export function themeToVars(theme) {
   };
   return palette[normalizeTheme(theme)] || palette.dark;
 }
+// V118（2026-10-19）：改为纯用户自建库，不再注入/回灌内置项（执行单 §1.1）。
+// 加载口径收口到 src/shared/prompt-library.js 的 loadPromptLibraryPresets（§1.2），此处薄封装。
 export function loadOutfitPromptPresets() {
-  const builtins = BUILTIN_PROMPT_LIBRARY.map(normalizePromptPreset).filter((preset) => preset.content);
-  const stored = readJsonStorage(PROMPT_PRESETS_KEY, null);
-  if (Array.isArray(stored) && stored.length > 0) {
-    const builtinsById = new Map(builtins.map((preset) => [preset.id, preset]));
-    const seenIds = new Set();
-    const merged = stored.map(normalizePromptPreset).filter((preset) => preset.content).map((preset) => {
-      seenIds.add(preset.id);
-      const builtin = builtinsById.get(preset.id);
-      if (!builtin || preset.custom) return preset;
-      return {
-        ...preset,
-        title: builtin.title,
-        content: builtin.content,
-        custom: false
-      };
-    });
-    builtins.forEach((preset) => {
-      if (!seenIds.has(preset.id)) merged.push(preset);
-    });
-    return merged;
-  }
-  return builtins;
+  return loadPromptLibraryPresets({ presetsKey: PROMPT_PRESETS_KEY });
 }
 export function loadOutfitPromptCategories() {
-  const storedCategories = readJsonStorage(PROMPT_CATEGORIES_KEY, null);
-  const storedPrompts = readJsonStorage(PROMPT_PRESETS_KEY, null) || [];
-  const presetCategories = Array.isArray(storedPrompts)
-    ? storedPrompts.map((preset) => preset?.category)
-    : [];
-  const base = Array.isArray(storedCategories) && storedCategories.length > 0
-    ? ["全部", ...storedCategories]
-    : PROMPT_CATEGORIES;
-  return normalizePromptCategories([...base, ...presetCategories]);
+  return loadPromptLibraryCategories({ categoriesKey: PROMPT_CATEGORIES_KEY, presetsKey: PROMPT_PRESETS_KEY });
 }
 export function formatClock(value) {
   const time = Number(value);

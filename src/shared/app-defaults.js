@@ -83,6 +83,7 @@ export const detailDefaults = {
   sellingPoints: ""
 };
 
+// @internal 保留原因（V118 退役保留）：V118 起提示词助手改为纯用户自建库，builtinPrompts 不再注入 UI，仅留档保留回退能力。
 export const builtinPrompts = [
   {
     id: "portrait-retouch",

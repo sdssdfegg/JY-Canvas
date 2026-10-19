@@ -189,19 +189,15 @@ const RANDOM_BACKGROUND_FOCUS_OPTIONS = [
 ];
 
 
-// 🔴 与 src/main.jsx 的 `loadPromptPresets` **同名不同义**，不是复制、不许合并（V11-RF-040 裁定：改名不合并）。跨文件引用只写函数名、不写行号（V11-RF-040c 裁决）。
-//    两边差别（改名前逐对 diff 的结论）：
-//      · main 侧是**简单版**：stored 非空就返回 stored（逐条归一化、过滤空内容），否则返回 builtinPrompts；
-//      · 本侧（outfit）是**合并版**：内置库优先覆盖非 custom 项的 title/content，再补回 stored 缺失的内置项；
-//      · 两边读的 localStorage 键也不同 —— main：`${STORAGE_PREFIX}-prompt-library-*`；
-//        outfit：`jingyin-outfit-workflow-prompt-library-*`。
-//    ⇒ 统一任一侧都会改变「用户看到的提示词列表」，属**行为归一决策**（storage key 是否合一 = 产品决策，另立单）。
-//    ⇒ 本单只做**改名**，让名字名实相符；不动任何兜底数据、不动合并策略、不动 storage key。
-// 🔴 与 src/main.jsx 的 `loadPromptCategories` **同名不同义**（V11-RF-040 裁定：改名不合并）。跨文件引用只写函数名、不写行号（V11-RF-040c 裁决）。
-//    函数骨架两边逐字相同，**唯一差别是兜底常量**：
-//      · main 侧用写死的 5 项 `promptCategories` = ["全部","常用","批量复刻","批量sku","局部迁移"]；
-//      · 本侧（outfit）用由 PROMPT_PRESET_GROUPS / PROMPT_BUILTIN_PRESETS **动态聚合**的 `PROMPT_CATEGORIES`。
-//    ⇒ 同理只改名、不合并、不豁免（豁免机制一旦存在，迟早被用来掩盖真重复）。
+// 🔴 与 src/main.jsx 的 `loadPromptPresets` / `loadPromptCategories` **曾**同名不同义（V11-RF-040 裁定改名不合并）。
+//    历史差别（改名前逐对 diff 的结论，2026-10-19 前）：
+//      · main 侧原是**简单版**：stored 非空就返回 stored（逐条归一化、过滤空内容），否则返回 builtinPrompts；
+//      · 本侧（outfit）原是**合并版**：内置库优先覆盖非 custom 项的 title/content，再补回 stored 缺失的内置项；
+//      · 两边读的 localStorage 键也不同 —— main：`${STORAGE_PREFIX}-prompt-library-*`；outfit：`jingyin-outfit-workflow-prompt-library-*`。
+//    V118（2026-10-19）已推翻"不合并"裁定：提示词助手改为纯用户自建库，两侧内置注入/回灌/覆盖逻辑**都**删除，
+//    行为口径已统一，故收口到 src/shared/prompt-library.js 的 loadPromptLibraryPresets / loadPromptLibraryCategories
+//    （本文件这两个函数现在只是薄封装、转发给共享函数，传各自的 storage key）。
+//    **storage key 仍是两套前缀**（产品决策未变），所以"同名"只是历史命名，现在语义已一致。
 // 中断任务的真实原因文案（整页刷新 / 应用内切页面 两种情况分开写）。
 // 2026-09-26：原来统一写"页面已刷新，结果请到保存目录确认" —— 两个问题：
 //   ① 应用内切换左侧页面并不是刷新；② 客户端拿到图之前不会自动保存，
