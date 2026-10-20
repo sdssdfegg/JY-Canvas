@@ -56,19 +56,19 @@ export const DEFAULT_MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 // 与 3.0 `/api/ecommerce/routing` 对齐的客户可见模型目录。
 // 线路 ID 是静音中转适配器的 publicId，不能替换成本地自造 ID。
 const ROUTING_CHANNELS = Object.freeze([
-  // TT2.0 默认线路顺序：laoye 第一 / 云枢 第二 / vakv 第三（2026-10-11 调整；vakv 价格 ¥0.099→¥0.10）。
+  // TT2.0 默认线路顺序：laoye 第一（默认线路）/ 云枢 第二；vakv 质量差，2026-10-20 由「同价位第三」改为「同价位排最后」。
   // 2.0 各线路价格口径不变（Origin 0.10 / MC-TT-cf 等 0.11），仅默认线路前移。
   // 数组顺序 = 前端菜单顺序；第一条同时也是"用户没选过线路时"的默认线路
   // （channelForModel / convergeSettingsForModel 都取 channels[0]）。
   // 2.0 的 Origin 与其它 2.0 线路同价（0.10），所以改默认线路不影响价格口径。
   { id: "silent-tt2-line-12", label: "laoye", price: 0.10, model: "tt-image-2" },
   { id: "silent-tt2-line-10", label: "云枢", price: 0.10, model: "tt-image-2" },
-  { id: "silent-tt2-line-14", label: "vakv", price: 0.1, model: "tt-image-2" },
   { id: "silent-tt2-line-11", label: "Origin", price: 0.10, model: "tt-image-2" },
   { id: "silent-tt2-line-03", label: "XT-default", price: 0.10, model: "tt-image-2" },
   { id: "silent-tt2-line-05", label: "ZYG-default", price: 0.10, model: "tt-image-2" },
   { id: "silent-tt2-line-06", label: "ZYG-svip", price: 0.10, model: "tt-image-2" },
   { id: "silent-tt2-line-07", label: "ZYG-vip", price: 0.10, model: "tt-image-2" },
+  { id: "silent-tt2-line-14", label: "vakv", price: 0.1, model: "tt-image-2" },
   { id: "silent-tt2-line-01", label: "MC-TT-cf", price: 0.11, model: "tt-image-2" },
   { id: "silent-tt2-line-02", label: "XT2", price: 0.11, model: "tt-image-2" },
   { id: "silent-tt2-line-09", label: "速创", price: 0.11, model: "tt-image-2" },
@@ -76,13 +76,13 @@ const ROUTING_CHANNELS = Object.freeze([
   // 上游模型 gpt-image-2）。与 2.5 的 silent-tt25-line-07 同源，作为 2.5 挂掉时的替代线；
   // 价格 0.11 = cost 0.05 + markup 0.06，与 MC-TT-cf / XT2 / 速创口径一致。
   { id: "silent-tt2-line-13", label: "Subdirect", price: 0.11, model: "tt-image-2" },
-  // 2026-10-11（晚）：TT2.5 下拉顺序 = 云枢第一（默认线路），其余按价格低→高，云枢高质量（最贵 ¥0.14）排最后。
+  // 2026-10-11（晚）：TT2.5 下拉顺序 = 云枢第一（默认线路），其余按价格低→高，云枢高质量（最贵 ¥0.14）排最后；vakv 质量差，2026-10-20 由「同价位第二」改为「同价位排最后」。
   { id: "silent-tt25-line-05", label: "云枢", price: 0.10, model: "tt-image-2.5" },
-  { id: "silent-tt25-line-08", label: "vakv", price: 0.1, model: "tt-image-2.5" },
   { id: "silent-tt25-line-06", label: "Origin", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-01", label: "XT-image2-s", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-02", label: "XT-特殊分组", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-03", label: "XT-default", price: 0.10, model: "tt-image-2.5" },
+  { id: "silent-tt25-line-08", label: "vakv", price: 0.1, model: "tt-image-2.5" },
   // 2026-09-28：新增 Subdirect（上游 subdirect.aicodexvip.top，OpenAI-images 协议，
   // 上游模型 gpt-image-2.5-flare / gpt-image-2.5-sunburst）。价格 ¥0.11。
   { id: "silent-tt25-line-07", label: "Subdirect", price: 0.11, model: "tt-image-2.5" },

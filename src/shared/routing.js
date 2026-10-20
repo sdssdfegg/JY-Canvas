@@ -268,16 +268,16 @@ function normalizeChannelRow(channel, model, priceOverride) {
 // 与 server/channel-config.js 的 ROUTING_CHANNELS 保持一致，且不含任何已下线线路。
 // 目录一旦加载完成，一律以目录为准。
 export const FALLBACK_MODEL_CHANNELS = Object.freeze({
-  // laoye 第一 / 云枢 第二 / vakv 第三（2026-10-11 调整，vakv 价格 ¥0.099→¥0.10），与 server/channel-config.js 顺序一致。
+  // laoye 第一（默认线路）/ 云枢 第二；vakv 质量差，2026-10-20 同价位排最后，与 server/channel-config.js 顺序一致。
   "tt-image-2": Object.freeze([
     { id: "silent-tt2-line-12", label: "laoye", price: 0.1 },
     { id: "silent-tt2-line-10", label: "云枢", price: 0.1 },
-    { id: "silent-tt2-line-14", label: "vakv", price: 0.1 },
     { id: "silent-tt2-line-11", label: "Origin", price: 0.1 },
     { id: "silent-tt2-line-03", label: "XT-default", price: 0.1 },
     { id: "silent-tt2-line-05", label: "ZYG-default", price: 0.1 },
     { id: "silent-tt2-line-06", label: "ZYG-svip", price: 0.1 },
     { id: "silent-tt2-line-07", label: "ZYG-vip", price: 0.1 },
+    { id: "silent-tt2-line-14", label: "vakv", price: 0.1 },
     { id: "silent-tt2-line-01", label: "MC-TT-cf", price: 0.11 },
     { id: "silent-tt2-line-02", label: "XT2", price: 0.11 },
     { id: "silent-tt2-line-09", label: "速创", price: 0.11 },
@@ -285,13 +285,13 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     { id: "silent-tt2-line-13", label: "Subdirect", price: 0.11 }
   ]),
   "tt-image-2.5": Object.freeze([
-    // 2026-10-11（晚）：TT2.5 下拉顺序 = 云枢第一（默认线路），其余按价格低→高，云枢高质量（最贵 ¥0.14）排最后。
+    // 2026-10-11（晚）：TT2.5 下拉顺序 = 云枢第一（默认线路），其余按价格低→高，云枢高质量（最贵 ¥0.14）排最后；vakv 质量差，2026-10-20 同价位排最后。
     { id: "silent-tt25-line-05", label: "云枢", price: 0.1 },
-    { id: "silent-tt25-line-08", label: "vakv", price: 0.1 },
     { id: "silent-tt25-line-06", label: "Origin", price: 0.1 },
     { id: "silent-tt25-line-01", label: "XT-image2-s", price: 0.1 },
     { id: "silent-tt25-line-02", label: "XT-特殊分组", price: 0.1 },
     { id: "silent-tt25-line-03", label: "XT-default", price: 0.1 },
+    { id: "silent-tt25-line-08", label: "vakv", price: 0.1 },
     // 2026-09-28：新增 Subdirect（上游 subdirect.aicodexvip.top，OpenAI-images 协议，
     // 上游模型 gpt-image-2.5-flare / gpt-image-2.5-sunburst）。价格 ¥0.11。
     { id: "silent-tt25-line-07", label: "Subdirect", price: 0.11 },
