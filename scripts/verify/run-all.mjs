@@ -52,6 +52,10 @@ const ORDER = [
   // importReleaseSeed、白名单/剥凭据字段清单与执行单 §1.2 一致、仅空库守卫+一次性标记、构建脚本
   // JINGYIN_SEED_FILE 复制点早于 generate-static-assets。纯源码静态断言、<1s、不依赖运行服务。
   "release-seed-check",
+  // V122（2026-10-20）：验证基建防复发门禁 —— 凡 spawn server/index.js 的测试实例脚本必须显式
+  // NODE_ENV: "development"（对 dist/.release-mode 免疫），并反向断言 server/index.js 的
+  // marker→production 逻辑仍在。纯静态、<1s、不依赖运行服务，进提交钩子快速子集（--fast 33→34）。
+  "verify-dev-mode-check",
   // V75（2026-10-17）：旧按钮类棘轮门禁 —— 扫 src/**/*.jsx 旧类用量 + src/**/*.css 旧类行首定义，
   // 存量记账、只拦新增（与 hardcoded-color 同款棘轮）。纯源码扫描，跑得飞快，排在这批纯扫描里。
   "legacy-button-ratchet-check",
@@ -221,6 +225,8 @@ const FAST_ORDER = [
   "docs-path-check",
   // V121（2026-10-19）：封装种子机制静态门禁，纯源码静态断言 <1s，进提交钩子快速子集（--fast 32→33）。
   "release-seed-check",
+  // V122（2026-10-20）：测试实例 dev 模式静态门禁，纯源码静态断言 <1s，进提交钩子快速子集（--fast 33→34）。
+  "verify-dev-mode-check",
   // V75（2026-10-17）：旧按钮类棘轮门禁，纯 JSX/CSS 扫描 <1s，正合提交钩子。
   "legacy-button-ratchet-check",
   // V74（2026-10-17）：硬编码 hex 颜色棘轮门禁，纯 CSS 扫描 <1s，正合提交钩子。
@@ -483,6 +489,21 @@ async function runPooled(names, jobs) {
     }
   }
   return out;
+}
+
+// V122（2026-10-20）：构建发布包后 dist/.release-mode 会残留（secure-win-release.mjs 写入）。
+// 它经 server/index.js:13-21 把「任何起 server/index.js 的测试实例」强制成 production，
+// 导致依赖前端动态 import 的探针脚本整批失败。各实例脚本已显式 NODE_ENV=development 免疫；
+// 此处仅做早期诊断与提示，**不自动移动/删除**（用户可能有正在跑的 release 实例；且属用户工作区
+// 状态，按用户态纪律不代管），也不影响退出码。
+if (existsSync(path.join(ROOT, "dist", ".release-mode"))) {
+  process.stdout.write(
+    "\n[run-all] ⚠️  检测到 dist/.release-mode（发布模式标记，secure-win-release.mjs 构建时写入）。\n" +
+    "  它会被 server/index.js 当作 production 信号，把本轮起 server 的测试实例强制成 production，\n" +
+    "  可能造成依赖前端动态 import 的探针脚本失败（local-edit / resize / modal-shell /\n" +
+    "  composer-stable-height / retouch-frontback / detail-stylepack-off-browser 等）。\n" +
+    "  若刚跑过构建，请清理该标记（移除此文件）；测试实例脚本本身已显式 NODE_ENV=development 免疫（V122）。\n\n"
+  );
 }
 
 const results = [];

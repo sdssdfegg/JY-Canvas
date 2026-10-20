@@ -41,6 +41,8 @@ try {
     stdio: ["ignore", "ignore", "ignore"],
     env: {
       ...process.env,
+      // 显式 dev：dist/.release-mode（secure-win-release.mjs:208 构建时写入）会经 server/index.js:13-21 把实例强制成 production，测试实例必须免疫（V122）
+      NODE_ENV: "development",
       JINGYIN_VITE_CACHE_DIR: path.join(process.cwd(), "tmp", `vite-cache-verify-${APP_PORT}`),
       PORT: String(APP_PORT),
       JINGYIN_PORT_FALLBACK_LIMIT: "0",
