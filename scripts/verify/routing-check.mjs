@@ -2,8 +2,8 @@
 //
 // 覆盖验收项：
 //   1. 接口和 DOM 中旧渠道 ID / 旧渠道名称数量为 0
-//   2. 香蕉 2 有 laoye / 云枢 / Subdirect / Origin 四条线路，laoye 排第一（默认线路），均 ¥0.12
-//   3. 香蕉 Pro 只有 Subdirect 和 Origin
+//   2. 香蕉 2 有 云枢 / Subdirect / Origin / laoye 四条线路，云枢排第一（默认线路），laoye 同价排最后，均 ¥0.12
+//   3. 香蕉 Pro 有 云枢 / Subdirect / laoye / Origin 四条线路（laoye 同价排最后，Origin ¥0.16 最末）
 //   4. 旧 nano-banana2 存档最终发出 banana-2
 //   5. 非法 channelId / 非法模型+线路组合被服务端拒绝
 //   6. 模型切换后图片数量 / 文件大小 / 提示词长度 / 比例正确收敛
@@ -233,11 +233,13 @@ check(
   );
   const afterSwitch = routingModule.channelsForModel(roundTrip.model, catalog);
   check(
-    "切模型来回后香蕉 2 仍是 laoye → 云枢 → Subdirect → Origin，且 Origin 这条线路被保留",
+    "切模型来回后香蕉 2 仍是 云枢 → Subdirect → Origin → laoye，且 Origin 这条线路被保留",
     roundTrip.model === "banana-2"
       && roundTrip.channelId === "silent-banana-line-09"
       && afterSwitch.length === 4
-      && afterSwitch[3].id === "silent-banana-line-09",
+      && afterSwitch[0].id === "silent-banana-line-07"
+      && afterSwitch[3].id === "silent-banana-line-12"
+      && afterSwitch.some((item) => item.id === "silent-banana-line-09"),
     JSON.stringify(afterSwitch.map((item) => `${item.label}:${item.price}`))
   );
 }
@@ -256,11 +258,11 @@ check(
   check("服务端仍然接受香蕉 2 云枢（与「删除」不同）",
     channelModule.validateImageRouting(hiddenParams).ok === true,
     channelModule.validateImageRouting(hiddenParams).code);
-  // 旧存档里的未知线路 -> 收敛到第一条（laoye），顺序表的第一位。
+  // 旧存档里的未知线路 -> 收敛到第一条（云枢，顺序表的第一位）。
   const legacyUnknown = routingModule.convergeSettingsForModel({ model: "banana-2", channelId: "silent-banana-line-99" }, catalog);
   check(
-    "旧存档里的未知香蕉 2 线路 → 收敛到第一条 laoye",
-    legacyUnknown.channelId === "silent-banana-line-12",
+    "旧存档里的未知香蕉 2 线路 → 收敛到第一条 云枢",
+    legacyUnknown.channelId === "silent-banana-line-07",
     `channelId=${legacyUnknown.channelId}`
   );
   // 旧存档里的旧模型 ID 读回来仍旧落进同一套四条线路（含 laoye）。
@@ -331,9 +333,9 @@ check("旧存档 gpt-image 归一化为 tt-image-2", routingModule.canonicalMode
 // 旧存档线路归一化：即使存档里带旧 channelId，routingFields 也不会把它发出去
 const routedLegacy = routingModule.routingFields("nano-banana2", "XBS-default", catalog);
 check(
-  "旧 channelId 不会进入新请求（收敛到第一条 laoye，且绝不透传 XBS-default）",
+  "旧 channelId 不会进入新请求（收敛到第一条 云枢，且绝不透传 XBS-default）",
   routedLegacy.model === "banana-2"
-    && routedLegacy.channelId === "silent-banana-line-12"
+    && routedLegacy.channelId === "silent-banana-line-07"
     && routedLegacy.channelId !== "XBS-default"
     && routedLegacy.dispatchMode === "manual",
   JSON.stringify(routedLegacy)
