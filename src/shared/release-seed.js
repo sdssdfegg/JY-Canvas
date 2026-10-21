@@ -154,8 +154,14 @@ export function buildReleaseSeed() {
     entries.push({ id: "white-refine-split-halves", sourceKey: SPLIT_HALVES_STORAGE_KEY, value: splitRaw });
   }
 
-  const seedId = fnv1a32Hex(JSON.stringify(entries));
-  return { version: 1, seedId, entries };
+  // 红线①出口收口：对全部 entry 统一剥凭据（任何深度）。
+  // 各 entry 内部的白名单清洗（sanitizeOutfitPage / sanitizePromptPreset / outfit-settings 单点剥除）
+  // 各自保留；这里是最后一道——无论哪个未过白名单的键（resize-* / detail-* / 分类键…）
+  // 混入 apiKey/baseUrl/channelId，都不会随导出/随同步外发。
+  // V123 实测：服务端 containsCredentialFields 曾拒收同步请求，根因即未清洗 entry 携带凭据键。
+  const cleanedEntries = entries.map((entry) => ({ ...entry, value: stripCredentials(entry.value) }));
+  const seedId = fnv1a32Hex(JSON.stringify(cleanedEntries));
+  return { version: 1, seedId, entries: cleanedEntries };
 }
 
 /**

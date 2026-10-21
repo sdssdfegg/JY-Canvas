@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-21",
-  "reason": "V124 改色页上装层级控制：非上装部位时整组禁用（新增 upperLayerDisabled 判定 + 标题/chips 置灰类 + 按钮 disabled），必要 bug-fix 增量",
+  "reason": "V123 修复：buildReleaseSeed 出口对全部 entry 统一 stripCredentials（红线①收口），修复 detail/resize 等未过白名单 entry 携带凭据键导致同步被服务端拒收",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -102,7 +102,7 @@
     "src/shared/quickgen-prompt-rules.js": 36,
     "src/shared/reference-policy.js": 183,
     "src/shared/release-seed-schema.js": 134,
-    "src/shared/release-seed.js": 284,
+    "src/shared/release-seed.js": 290,
     "src/shared/result-image.js": 334,
     "src/shared/retouch-intent.js": 284,
     "src/shared/routing.js": 431,
@@ -216,7 +216,7 @@
     "src/shared/outfit-intent.js::compileOutfitPrompt": 55,
     "src/shared/outfit-intent.js::validateOutfitIntent": 56,
     "src/shared/prompt-library.js::usePromptLibrary": 181,
-    "src/shared/release-seed.js::buildReleaseSeed": 78,
+    "src/shared/release-seed.js::buildReleaseSeed": 84,
     "src/shared/ui/cached-image.jsx::CachedImage": 120,
     "src/shared/ui/ChannelPicker.jsx::ChannelPicker": 80,
     "src/shared/ui/detail-upload-zone.jsx::DetailUploadZone": 77,
