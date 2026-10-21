@@ -16,6 +16,7 @@
 | `history.js` | `/api/history` | 历史记录读取、保存、删除、清空 |
 | `assets.js` | `/api/image-proxy`、`/api/cache-result-image` | 图片代理读取、结果图缓存；另含两个本地取流的 `fetchBlobWithTimeout`（带超时+强制缓存）与 `fetchLocalBlob`（data:/blob: URL 本地读取，非后端请求） |
 | `debug.js` | `/api/debug/image-request-params` | 传参自检，不调用上游、不扣费 |
+| `seed.js` | `/api/seed-sync` | V123 封装配置同步：薄封装 `syncSeedManifest`（POST，internal 模式设置页「同步到封装配置」按钮用）与 `fetchSeedSyncStatus`（GET，新鲜度提示用）。仅非 public 模式由 `server/routes/seed.routes.js` 注册，客户版无此出口 |
 
 ## 维护规则
 

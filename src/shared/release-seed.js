@@ -18,6 +18,7 @@
 
 import { readJsonStorage, writeJsonStorage } from "../lib/storage/json-storage.js";
 import { fetchSeedManifest } from "../api/assets.js";
+import { syncSeedManifest } from "../api/seed.js";
 import {
   PUBLIC_RELEASE_MODE,
   STORAGE_PREFIX,
@@ -241,4 +242,43 @@ export function downloadReleaseSeed() {
   }
   if (url) setTimeout(() => URL.revokeObjectURL(url), 0);
   return manifest;
+}
+
+/**
+ * V123：把当前浏览器里的封装种子同步进仓库 `seed/manifest.json`（经 `/api/seed-sync`）。
+ * 仅 internal/开发模式可用（public 构建无此路由、且不渲染按钮）。
+ *
+ * 行为：
+ *   · 调 buildReleaseSeed() 收集当前状态；
+ *   · entries 为空 → 返回 { ok:false, reason:"empty", message }（与 downloadReleaseSeed 的 null 口径一致，调用方据此提示）；
+ *   · 非空 → POST /api/seed-sync（body = manifest）→ 返回 { ok:true, syncedAt, seedId, entriesCount }；
+ *   · 网络/服务端拒收 → 返回 { ok:false, reason:"network"|"rejected", message }（调用方据此可见反馈，不许静默失败）。
+ *
+ * 网络出口纪律（P7-1 / V121-R1 同款口径）：本函数**不出现裸 fetch**，统一走 src/api/seed.js 的 syncSeedManifest。
+ */
+export async function syncReleaseSeed() {
+  const manifest = buildReleaseSeed();
+  if (!manifest.entries || manifest.entries.length === 0) {
+    return {
+      ok: false,
+      reason: "empty",
+      message: "当前没有可同步的提示词模板或页面状态"
+    };
+  }
+  try {
+    const res = await syncSeedManifest(manifest);
+    return {
+      ok: true,
+      syncedAt: res?.syncedAt || new Date().toISOString(),
+      seedId: res?.seedId || manifest.seedId,
+      entriesCount: res?.entriesCount ?? manifest.entries.length
+    };
+  } catch (err) {
+    const message = err?.message || String(err);
+    return {
+      ok: false,
+      reason: "network",
+      message
+    };
+  }
 }

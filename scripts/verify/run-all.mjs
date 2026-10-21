@@ -52,6 +52,10 @@ const ORDER = [
   // importReleaseSeed、白名单/剥凭据字段清单与执行单 §1.2 一致、仅空库守卫+一次性标记、构建脚本
   // JINGYIN_SEED_FILE 复制点早于 generate-static-assets。纯源码静态断言、<1s、不依赖运行服务。
   "release-seed-check",
+  // V123（2026-10-21）：封装自动同步门禁——api/seed.js 薄封装 + release-seed.js 无裸 fetch +
+  // server 路由非 public 守卫 + app.js 注册 + secure-win-release 默认读取仓库 seed/manifest.json +
+  // （若仓库已生成）seed/manifest.json 过 schema 校验。纯源码静态断言、<1s、不依赖运行服务。
+  "release-seed-sync-check",
   // V122（2026-10-20）：验证基建防复发门禁 —— 凡 spawn server/index.js 的测试实例脚本必须显式
   // NODE_ENV: "development"（对 dist/.release-mode 免疫），并反向断言 server/index.js 的
   // marker→production 逻辑仍在。纯静态、<1s、不依赖运行服务，进提交钩子快速子集（--fast 33→34）。
@@ -225,6 +229,8 @@ const FAST_ORDER = [
   "docs-path-check",
   // V121（2026-10-19）：封装种子机制静态门禁，纯源码静态断言 <1s，进提交钩子快速子集（--fast 32→33）。
   "release-seed-check",
+  // V123（2026-10-21）：封装自动同步门禁，纯源码静态断言 <1s，进提交钩子快速子集（--fast 34→35）。
+  "release-seed-sync-check",
   // V122（2026-10-20）：测试实例 dev 模式静态门禁，纯源码静态断言 <1s，进提交钩子快速子集（--fast 33→34）。
   "verify-dev-mode-check",
   // V75（2026-10-17）：旧按钮类棘轮门禁，纯 JSX/CSS 扫描 <1s，正合提交钩子。
