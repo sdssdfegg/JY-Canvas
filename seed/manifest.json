@@ -1,0 +1,3185 @@
+{
+  "version": 1,
+  "seedId": "d9f4f704",
+  "syncedAt": "2026-10-21T03:37:43.254Z",
+  "entries": [
+    {
+      "id": "main-prompt-presets",
+      "value": [
+        {
+          "id": "portrait-retouch",
+          "title": "人像精修",
+          "category": "常用",
+          "content": "保留人物五官、神态和身份特征，优化皮肤质感、发丝细节和服装纹理，商业摄影质感，柔和自然光，背景干净。",
+          "custom": false
+        },
+        {
+          "id": "product-retouch",
+          "title": "产品精修",
+          "category": "常用",
+          "content": "保留产品结构、材质、比例和关键细节，增强边缘清晰度与表面质感，干净高级的电商主图光线，画面真实。",
+          "custom": false
+        },
+        {
+          "id": "local-outfit-material-fit",
+          "title": "局部换装锁版型面料",
+          "category": "常用",
+          "content": "局部换装任务：图1是原图，已框选局部编辑区域；图2是本次要换上的服装唯一来源。\n请先在内部分析图2服装的面料类别和可见材质事实，例如棉麻、帆布、牛仔、雪纺、皮革、蕾丝、网纱、针织等，以及织纹方向、颗粒大小、厚薄、垂感、光泽、高光位置、透明度、褶皱逻辑、缝线方向和边缘结构；不要输出分析文字，只把分析结果用于生成。\n把图2服装真实穿到图1人物局部区域内，严格保持图2的服装类别、版型、廓形、宽松/修身程度、腰身松量、肩线、领口形状、袖型、袖长、袖口、衣长、裙长、下摆宽度、开衩、扣子、拉链、口袋、拼接线、颜色、面料纹理、厚薄、垂感、反光和光泽。\n只允许做符合图1姿态和身体角度的真实穿着适配与自然褶皱，不能按模型审美自动美化版型；禁止把图2服装改成更收腰、更细腰、更短、更紧身、更修身、更顺滑、更亮、更薄、更厚或更完美状态。\n图1人物的脸、发型、头部位置、身体比例、姿势、手臂手腕手指、腿脚、背景光影和选区边缘必须保持稳定；不要输出整张重构图、对比图、文字、水印或边框。",
+          "custom": false
+        },
+        {
+          "id": "upscale",
+          "title": "超分",
+          "category": "常用",
+          "content": "提升图片清晰度和细节层次，去除噪点、压缩痕迹和轻微模糊，保持原图构图、人物特征、产品结构和色彩风格不变。",
+          "custom": false
+        },
+        {
+          "id": "old-photo",
+          "title": "老照片修复",
+          "category": "常用",
+          "content": "修复老照片划痕、褪色、污点和破损区域，增强面部细节与自然色彩，保持年代感和原始构图，不改变人物身份。",
+          "custom": false
+        },
+        {
+          "id": "classic-figure",
+          "title": "经典手办",
+          "category": "批量复刻",
+          "content": "把主体做成高品质经典手办展示图，保留角色特征和服装结构，材质细腻，工作室灯光，底座干净，商业级成品质感。",
+          "custom": false
+        },
+        {
+          "id": "portrait-grid",
+          "title": "人物九宫格",
+          "category": "批量复刻",
+          "content": "生成同一人物的九宫格头像或半身图，保持人物身份一致，变化表情、角度、动作和光线，整体风格统一，画面干净。",
+          "custom": false
+        },
+        {
+          "id": "ip-four-view",
+          "title": "ip四视图",
+          "category": "批量sku",
+          "content": "生成同一 IP 角色四视图，正面、侧面、背面和三分之二视角，角色设定一致，比例准确，服装与配色统一，白底展示。",
+          "custom": false
+        },
+        {
+          "id": "line-color",
+          "title": "线稿上色",
+          "category": "局部迁移",
+          "content": "在保留原始线稿结构和线条细节的基础上进行上色，颜色干净协调，明暗层次自然，画面完整，不改变构图。",
+          "custom": false
+        }
+      ]
+    },
+    {
+      "id": "main-prompt-categories",
+      "value": [
+        "全部",
+        "常用",
+        "批量复刻",
+        "批量sku",
+        "局部迁移"
+      ]
+    },
+    {
+      "id": "outfit-prompt-presets",
+      "value": [
+        {
+          "id": "outfit-keep",
+          "title": "换装保结构",
+          "category": "常用",
+          "content": "让图1当前人物穿着图2服装，生成自然干净的电商成片。\n以图1为人物姿势和构图基准，不改变图1模特的姿势、位置、身体比例、手部姿势和画面构图；保留身份、发型、原脸质感、镜头、背景和原图光影，不磨皮、不变脸。\n图1模特身上的原服装不作为图2服装的款式、版型、大小、松量或长度参考；图1的服装不做任何款式参考，尤其不能影响图2袖长、袖口落点、袖筒松量、衣长、领口、扣子、衣摆扎法、颜色和面料。\n图2是唯一服装标准：保留款式、版型、长度、松量、颜色、面料、领口、袖口、袖子穿法、扣合状态、衣摆扎法、下摆、扣子、拉链、拼接、里衬/网纱层次等关键细节。\n图2服装颜色校准必须保持：不要增加饱和度、对比度、油润感、高光或商业滤镜；同批保持同一服装色阶，不变浅、不变深、不变艳、不发油、不发灰，也不要因图1环境自动改色。\n用户补充文字里明确点名的删除、移除、去掉类要求必须完整执行，不能只处理一部分或留下残影。\n只做真实穿着适配，不按模型审美把图2改短、收腰、修身、瘦身、重设计或简化细节。\n袖子状态按图2实际穿法执行：放下就放下，卷起就卷起，挽起就挽起；袖口落点、袖克夫长度、卷袖高度和层数不要上提、缩短或随机变化。\n扣子、拉链、门襟开合和衣摆扎法按图2保持；如果涉及扎入下装，先识别图1真实下装类型，再把图2同样的扎入位置和露出边界适配过去。\n服装细节保持自然真实，面料垂坠、褶皱、光影和原图环境一致，保留清新干净的商业摄影质感。",
+          "custom": false
+        },
+        {
+          "id": "local-outfit-material-fit",
+          "title": "局部换装锁版型面料",
+          "category": "常用",
+          "content": "局部换装任务：图1是原图，已框选局部编辑区域；图2是本次要换上的服装唯一来源。\n请先在内部分析图2服装的面料类别和可见材质事实，例如棉麻、帆布、牛仔、雪纺、皮革、蕾丝、网纱、针织等，以及织纹方向、颗粒大小、厚薄、垂感、光泽、高光位置、透明度、褶皱逻辑、缝线方向和边缘结构；不要输出分析文字，只把分析结果用于生成。\n把图2服装真实穿到图1人物局部区域内，严格保持图2的服装类别、版型、廓形、宽松/修身程度、腰身松量、肩线、领口形状、袖型、袖长、袖口、袖子穿法、扣合状态、衣摆扎法、衣长、裙长、下摆宽度、开衩、扣子、拉链、口袋、拼接线、颜色、面料纹理、厚薄、垂感、反光和光泽。\n图1原服装只用于判断身体轮廓和遮挡，不参考它的袖长、袖口位置、松量、衣长、领口、门襟、扣子、颜色、面料或褶皱。\n图2颜色深浅、明度、饱和度和面料光泽必须保持，不要把服装变浅、泛白、发灰、降饱和、加柔光或提亮成浅一号。\n只允许做符合图1姿态和身体角度的真实穿着适配与自然褶皱，不能按模型审美自动美化版型；禁止把图2服装改成更收腰、更细腰、更短、更紧身、更修身、更顺滑、更亮、更薄、更厚或更完美状态。\n图1人物的脸、发型、头部位置、身体比例、姿势、手臂手腕手指、腿脚、背景光影和选区边缘必须保持稳定；不要输出整张重构图、对比图、文字、水印或边框。",
+          "custom": false
+        },
+        {
+          "id": "detail-lock",
+          "title": "细节锁定",
+          "category": "常用",
+          "content": "重点锁定图2服装的面料纹理、领口、袖口、扣子、拼接线、褶皱、内衬、网纱/蕾丝外层和内里长度差，确保批量结果细节一致，避免衣长漂移、版型变修身、腰身松量变化、错位和材质漂移。",
+          "custom": false
+        },
+        {
+          "id": "soft-pad",
+          "title": "背景边缘扩充",
+          "category": "常用",
+          "content": "只扩充或裁剪画布边缘来匹配目标比例，人物/主体的站位、中心、大小和构图重心必须保持原图不偏移；扩展区域从原图背景边缘自然填充，不要移动、重绘或替换主体。",
+          "custom": false
+        },
+        {
+          "id": "batch-copy",
+          "title": "批量复刻",
+          "category": "批量复刻",
+          "content": "保持同一批结果在人物风格、镜头、布光、构图和商品表现上统一，只允许在目标内容上做必要替换，其他部分尽量一致。",
+          "custom": false
+        },
+        {
+          "id": "batch-sku",
+          "title": "批量SKU",
+          "category": "批量sku",
+          "content": "批量生成同一商品的不同SKU画面时，统一电商调性、背景洁净、主体清晰，颜色和款式切换准确，避免无关变化。",
+          "custom": false
+        },
+        {
+          "id": "partial-migrate",
+          "title": "局部迁移",
+          "category": "局部迁移",
+          "content": "仅迁移指定局部信息，其余区域保持原图结构和风格稳定，避免整体被重绘成新的风格。",
+          "custom": false
+        },
+        {
+          "id": "legacy_0_0",
+          "title": "标准换装",
+          "category": "常用",
+          "content": "让图1人物穿着图2服装，保留人物脸部、身材比例和自然姿态，服装版型、颜色、材质、领口、袖口、纽扣、腰线和长度准确自然。",
+          "custom": false
+        },
+        {
+          "id": "legacy_0_1",
+          "title": "电商主图",
+          "category": "常用",
+          "content": "生成一张干净高级的电商主图，人物和服装占画面主体，背景简洁，光线柔和，服装边缘贴合自然，避免拼接感、过曝和廉价滤镜。",
+          "custom": false
+        },
+        {
+          "id": "legacy_0_2",
+          "title": "白底展示",
+          "category": "常用",
+          "content": "输出白底或浅灰干净背景，模特自然站姿，完整展示服装正面穿着效果，保持衣服真实版型、颜色和细节，不改变人物五官和身材比例。",
+          "custom": false
+        },
+        {
+          "id": "legacy_1_0",
+          "title": "面料纹理",
+          "category": "细节锁定",
+          "content": "重点锁定图2服装的面料纹理、厚薄、垂感、光泽和褶皱逻辑，穿到图1人物身上后保持真实服装质感，不能变成塑料感或糊成一片。",
+          "custom": false
+        },
+        {
+          "id": "legacy_1_1",
+          "title": "版型结构",
+          "category": "细节锁定",
+          "content": "严格保留图2服装的版型结构，包括领型、肩线、袖长、腰线、下摆长度、扣子位置和拼接结构，避免错领、错袖、错扣和比例变形。",
+          "custom": false
+        },
+        {
+          "id": "legacy_1_2",
+          "title": "蕾丝双层",
+          "category": "细节锁定",
+          "content": "如果图2是蕾丝、网纱、假两件或内外双层结构，必须保留外层纹理和内层布面/内衬的层次关系，不能合并成单层布料。",
+          "custom": false
+        },
+        {
+          "id": "legacy_1_3",
+          "title": "鞋包配饰",
+          "category": "细节锁定",
+          "content": "保留图1人物原有姿态和适合画面的鞋包配饰，只让服装替换为图2款式；无关品牌标识、水印和文字不要进入最终画面。",
+          "custom": false
+        },
+        {
+          "id": "legacy_2_0",
+          "title": "全身海报",
+          "category": "构图光线",
+          "content": "全身构图，人物从头到脚完整入画，鞋子和下摆不能被裁掉，四周留出自然呼吸空间，适合女装海报和电商详情首屏。",
+          "custom": false
+        },
+        {
+          "id": "legacy_2_1",
+          "title": "柔光质感",
+          "category": "构图光线",
+          "content": "使用柔和四面补光，低反差，无生硬黑影，突出衣服轮廓、面料纹理和高级质感，背景干净真实，不要过曝。",
+          "custom": false
+        },
+        {
+          "id": "legacy_2_2",
+          "title": "轻场景",
+          "category": "构图光线",
+          "content": "场景为简约室内、白墙建筑、浅色咖啡馆或干净街拍氛围，场景只服务服装展示，避免繁杂道具和网红打卡感。",
+          "custom": false
+        }
+      ]
+    },
+    {
+      "id": "outfit-prompt-categories",
+      "value": [
+        "全部",
+        "常用",
+        "细节锁定",
+        "构图光线",
+        "批量复刻",
+        "批量sku",
+        "局部迁移"
+      ]
+    },
+    {
+      "id": "outfit-pages",
+      "value": [
+        {
+          "id": "outfit_page_1792544887290_o7fcl4",
+          "name": "换装",
+          "deleteLocked": false,
+          "settings": {
+            "model": "tt-image-2",
+            "dispatchMode": "manual",
+            "aspectRatio": "3:4",
+            "imageSize": "2K",
+            "concurrency": 5,
+            "generationCount": "auto",
+            "smartIntervention": false,
+            "qualityCheck": false,
+            "recolorPart": "upper",
+            "recolorUpperLayer": "single",
+            "outfitIntent": {
+              "parts": [
+                "upper"
+              ],
+              "upperLayer": "single",
+              "wearing": {
+                "mode": "follow",
+                "values": {
+                  "closure": "",
+                  "outerState": "",
+                  "hem": "",
+                  "sleeve": "",
+                  "collar": "",
+                  "fit": "",
+                  "waistband": "",
+                  "lowerHem": ""
+                }
+              },
+              "facts": {
+                "category": "",
+                "color": "",
+                "material": "",
+                "silhouette": "",
+                "length": "",
+                "collarSleeve": "",
+                "sleeveState": "",
+                "closure": "",
+                "hem": "",
+                "lowerType": "",
+                "shoeType": "",
+                "structure": ""
+              },
+              "factsSource": {
+                "mode": "none",
+                "sourceId": "",
+                "analyzedAt": 0
+              }
+            },
+            "retouchIntent": {
+              "version": 1,
+              "symmetry": "off",
+              "hemTreatment": "follow_original",
+              "fit": "follow_original",
+              "frontback": "off",
+              "customPrompt": ""
+            },
+            "pairingMode": "fixed",
+            "randomBackgroundFocus": "default",
+            "prompt": "让图1模特穿着图2的上装。图1的下装保持不变。\n\n穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。\n\n图1是唯一人物身份、人体结构和姿势基准，不改变图1人物的身份、骨骼和姿势。",
+            "productNote": "",
+            "n": 1,
+            "quality": "",
+            "background": "",
+            "version": ""
+          },
+          "uploadLabels": {
+            "model": {
+              "title": "带场景模特图",
+              "hint": "上传完整模特和场景底图；批量时按左到右顺序逐张生成。"
+            },
+            "clothing": {
+              "title": "服装/产品图",
+              "hint": "可上传模特穿着图或平铺产品图；后台只抽取服装款式和细节。"
+            },
+            "reference": {
+              "title": "参考图/物品图",
+              "hint": "可选；默认不参与换装，只有在补充提示词里明确说明图3用途时才参考。"
+            }
+          }
+        },
+        {
+          "id": "outfit_page_1792549231318_fuzdqs",
+          "name": "改色",
+          "deleteLocked": false,
+          "settings": {
+            "model": "tt-image-2",
+            "dispatchMode": "manual",
+            "aspectRatio": "3:4",
+            "imageSize": "2K",
+            "concurrency": 5,
+            "generationCount": "auto",
+            "smartIntervention": false,
+            "qualityCheck": false,
+            "recolorPart": "upper",
+            "recolorUpperLayer": "single",
+            "outfitIntent": {
+              "parts": [
+                "upper"
+              ],
+              "upperLayer": "single",
+              "wearing": {
+                "mode": "follow",
+                "values": {
+                  "closure": "",
+                  "outerState": "",
+                  "hem": "",
+                  "sleeve": "",
+                  "collar": "",
+                  "fit": "",
+                  "waistband": "",
+                  "lowerHem": ""
+                }
+              },
+              "facts": {
+                "category": "",
+                "color": "",
+                "material": "",
+                "silhouette": "",
+                "length": "",
+                "collarSleeve": "",
+                "sleeveState": "",
+                "closure": "",
+                "hem": "",
+                "lowerType": "",
+                "shoeType": "",
+                "structure": ""
+              },
+              "factsSource": {
+                "mode": "none",
+                "sourceId": "",
+                "analyzedAt": 0
+              }
+            },
+            "retouchIntent": {
+              "version": 1,
+              "symmetry": "off",
+              "hemTreatment": "follow_original",
+              "fit": "follow_original",
+              "frontback": "off",
+              "customPrompt": ""
+            },
+            "pairingMode": "fixed",
+            "randomBackgroundFocus": "default",
+            "prompt": "把图1模特的上衣改成图2上衣的颜色，仅改变上衣颜色，不要添加缝线，不要改变纹理，不要添加细节，图2的上衣细节样式不作为参考",
+            "productNote": "",
+            "n": 1,
+            "quality": "",
+            "background": "",
+            "version": ""
+          },
+          "uploadLabels": {
+            "model": {
+              "title": "批量原图/模特图",
+              "hint": "批量上传要改色的原图；人物、姿势、场景、肤色、服装款式和细节都要锁定不变。"
+            },
+            "clothing": {
+              "title": "改色服装参考图",
+              "hint": "上传目标颜色参考，可上传多张；只读取图2选中服装范围的颜色、明暗和材质色感。"
+            },
+            "reference": {
+              "title": "补充参考图",
+              "hint": "可选；补充颜色禁忌、局部材质、客户要求或要避免的效果，不上传时不强行添加。"
+            }
+          }
+        },
+        {
+          "id": "outfit_page_1792544887290_lroxmk",
+          "name": "批量姿态",
+          "deleteLocked": true,
+          "settings": {
+            "model": "tt-image-2",
+            "dispatchMode": "manual",
+            "aspectRatio": "3:4",
+            "imageSize": "2K",
+            "concurrency": 5,
+            "generationCount": "auto",
+            "smartIntervention": false,
+            "qualityCheck": false,
+            "recolorPart": "upper",
+            "recolorUpperLayer": "single",
+            "outfitIntent": {
+              "parts": [
+                "upper"
+              ],
+              "upperLayer": "single",
+              "wearing": {
+                "mode": "follow",
+                "values": {
+                  "closure": "",
+                  "outerState": "",
+                  "hem": "",
+                  "sleeve": "",
+                  "collar": "",
+                  "fit": "",
+                  "waistband": "",
+                  "lowerHem": ""
+                }
+              },
+              "facts": {
+                "category": "",
+                "color": "",
+                "material": "",
+                "silhouette": "",
+                "length": "",
+                "collarSleeve": "",
+                "sleeveState": "",
+                "closure": "",
+                "hem": "",
+                "lowerType": "",
+                "shoeType": "",
+                "structure": ""
+              },
+              "factsSource": {
+                "mode": "none",
+                "sourceId": "",
+                "analyzedAt": 0
+              }
+            },
+            "retouchIntent": {
+              "version": 1,
+              "symmetry": "off",
+              "hemTreatment": "follow_original",
+              "fit": "follow_original",
+              "frontback": "off",
+              "customPrompt": ""
+            },
+            "pairingMode": "fixed",
+            "randomBackgroundFocus": "default",
+            "prompt": "批量姿态任务：图1上传区是批量姿态参考图，每张图1只提取脸部朝向、头颈方向、肩膀角度、手臂手腕手掌、下半身、重心、站坐走关系和构图动势；不要复制图1人物身份、脸、发型、服装、穿法、背景、镜头风格或颜色。\n图2上传区是固定母版成片，人物身份、脸、发型、服装、穿法、场景、光影、镜头和画面风格都作为锁定标准。图2最多上传2张，默认用固定母版。\n生成时保持图2同一个模特、同一套衣服、同一穿法、同一场景和同一商业摄影质感，只把图2人物自然调整为当前图1姿态。\n姿态相似度要高：结果必须一眼看出是在模仿当前图1动作，抬手高度、手肘弯曲、手腕手掌方向、肩膀高低、身体重心、胯部转向、膝盖弯曲、脚尖方向和半身/全身裁切尽量贴近图1，不要只做轻微动作变化。\n服装版型和穿法必须跟图2母版一致：袖子放下/卷起、袖口落点、袖克夫长度、扣子开合、拉链高度、衣摆扎法、裙长/裤长、腰身松量、下摆轮廓、面料纹理和可见细节不要随机漂移。\n如果图1姿态与图2服装穿法冲突，先尽量保持图1动作相似度，再让图2服装做真实穿着褶皱和遮挡适配；只有物理上无法同时满足时才轻微折中。不要让图1衣服、裙裤类型或背景影响结果，不要输出对比图、拼贴图、文字、水印或标注。",
+            "productNote": "",
+            "n": 1,
+            "quality": "",
+            "background": "",
+            "version": ""
+          },
+          "uploadLabels": {
+            "model": {
+              "title": "批量姿态图",
+              "hint": "批量上传姿态参考；每张只提取脸部朝向、肩膀、手臂、手腕手掌、下半身、重心和构图动势，不参考衣服和背景。"
+            },
+            "clothing": {
+              "title": "固定母版成片",
+              "hint": "上传已满意的模特服装场景成片；固定人物身份、脸、发型、服装、穿法、场景和光影，默认最多2张。"
+            },
+            "reference": {
+              "title": "补充约束图",
+              "hint": "可选；只有在提示词里明确说明图3用途时才参考，用于补充禁忌、细节边界或客户要求。"
+            }
+          }
+        },
+        {
+          "id": "outfit_page_1792544887290_mlj7vg",
+          "name": "批量换脸",
+          "deleteLocked": true,
+          "settings": {
+            "model": "tt-image-2",
+            "dispatchMode": "manual",
+            "aspectRatio": "3:4",
+            "imageSize": "2K",
+            "concurrency": 5,
+            "generationCount": "auto",
+            "smartIntervention": false,
+            "qualityCheck": false,
+            "recolorPart": "upper",
+            "recolorUpperLayer": "single",
+            "outfitIntent": {
+              "parts": [
+                "upper"
+              ],
+              "upperLayer": "single",
+              "wearing": {
+                "mode": "follow",
+                "values": {
+                  "closure": "",
+                  "outerState": "",
+                  "hem": "",
+                  "sleeve": "",
+                  "collar": "",
+                  "fit": "",
+                  "waistband": "",
+                  "lowerHem": ""
+                }
+              },
+              "facts": {
+                "category": "",
+                "color": "",
+                "material": "",
+                "silhouette": "",
+                "length": "",
+                "collarSleeve": "",
+                "sleeveState": "",
+                "closure": "",
+                "hem": "",
+                "lowerType": "",
+                "shoeType": "",
+                "structure": ""
+              },
+              "factsSource": {
+                "mode": "none",
+                "sourceId": "",
+                "analyzedAt": 0
+              }
+            },
+            "retouchIntent": {
+              "version": 1,
+              "symmetry": "off",
+              "hemTreatment": "follow_original",
+              "fit": "follow_original",
+              "frontback": "off",
+              "customPrompt": ""
+            },
+            "pairingMode": "fixed",
+            "randomBackgroundFocus": "default",
+            "prompt": "批量换脸任务：图1上传区是需要保留身体、服装、姿势、背景和构图的目标人物图；图2上传区是脸部身份、脸型、发型和头饰母图；图3上传区是可选补充信息。\n图1只作为底图和坐标来源：人物身体、服装、衣领、肩膀、姿势、场景、背景、构图、镜头距离、光影、画面裁切、头身比、头部位置、头部大小、脸部朝向、下巴位置、脖子长度和肩颈连接保持图1，不换衣、不换场景、不重拍。\n图2作为头脸妆造标准：五官结构、脸型轮廓、年龄感、肤色明暗、妆容质感、口红色相、发型整体轮廓、发量体积、发顶高度、发色、刘海、发缝、卷直程度、贴脸发丝、头饰、发饰、耳饰都以图2母图为准；图1原脸型、原发型、原发饰和头饰不作为结果参考。\n同批统一头脸色彩标准：所有结果都以同一张图2母图的肤色明暗、妆容浓淡、口红色相和饱和度、面部对比度、磨皮程度、清晰度作为统一标准；不同图1只允许在脸颈边缘做轻微现场光过渡，不能一张口红更鲜艳、一张低饱和、一张更白皙或像不同光源下拍摄。\n迁移图2发型和头饰时，只适配图1原头部坐标、脸部朝向、头颈连接和画面裁切；允许用图2发型轮廓覆盖图1原发型/头饰干扰，但不能移动头部、放大头身比例、改变肩颈、重绘衣领、换身体、换背景或复制图2衣服。\n图2脖子以下全部无效：不能复制图2服装、衣领、肩膀、身体、姿势、背景、拍摄角度、场景和整体穿搭；图2头部姿态也不能覆盖图1脸部朝向。结果保留图1原脸型、原发型或原头饰导致不像图2母图，或出现图2衣服/背景/场景，都是失败。",
+            "productNote": "",
+            "n": 1,
+            "quality": "",
+            "background": "",
+            "version": ""
+          },
+          "uploadLabels": {
+            "model": {
+              "title": "目标人物图",
+              "hint": "批量上传要换脸的原图；身体、衣服、姿势、背景、构图和头部坐标要保留，原脸型发型头饰不作为结果参考。"
+            },
+            "clothing": {
+              "title": "脸型发型母图",
+              "hint": "上传要替换进去的母图；脸型、五官、发型、头饰/发饰、妆容和脸部色调都以这里为准。"
+            },
+            "reference": {
+              "title": "妆容/表情补充图",
+              "hint": "可选；补充妆容、表情、年龄感、皮肤质感、客户要求或禁忌，不上传时不强行添加。"
+            }
+          }
+        },
+        {
+          "id": "outfit_page_1792544887290_xd4n7r",
+          "name": "固定背景",
+          "deleteLocked": true,
+          "settings": {
+            "model": "tt-image-2",
+            "dispatchMode": "manual",
+            "aspectRatio": "3:4",
+            "imageSize": "2K",
+            "concurrency": 5,
+            "generationCount": "auto",
+            "smartIntervention": false,
+            "qualityCheck": false,
+            "recolorPart": "upper",
+            "recolorUpperLayer": "single",
+            "outfitIntent": {
+              "parts": [
+                "upper"
+              ],
+              "upperLayer": "single",
+              "wearing": {
+                "mode": "follow",
+                "values": {
+                  "closure": "",
+                  "outerState": "",
+                  "hem": "",
+                  "sleeve": "",
+                  "collar": "",
+                  "fit": "",
+                  "waistband": "",
+                  "lowerHem": ""
+                }
+              },
+              "facts": {
+                "category": "",
+                "color": "",
+                "material": "",
+                "silhouette": "",
+                "length": "",
+                "collarSleeve": "",
+                "sleeveState": "",
+                "closure": "",
+                "hem": "",
+                "lowerType": "",
+                "shoeType": "",
+                "structure": ""
+              },
+              "factsSource": {
+                "mode": "none",
+                "sourceId": "",
+                "analyzedAt": 0
+              }
+            },
+            "retouchIntent": {
+              "version": 1,
+              "symmetry": "off",
+              "hemTreatment": "follow_original",
+              "fit": "follow_original",
+              "frontback": "off",
+              "customPrompt": ""
+            },
+            "pairingMode": "fixed",
+            "randomBackgroundFocus": "default",
+            "prompt": "批量固定背景任务：图1上传区是要保留的人物图，图2上传区是固定目标背景/场景图，图3上传区是可选补充信息。\n图1人物结构必须原样保留：位置、姿势、身体比例、头部大小、脸部朝向、发型、服装款式、服装细节、手脚姿态、人物占比和当前裁切都不变。\n图1是半身就保持半身，图1是全身就保持全身；禁止补全半身下半身、扩出腿脚、拉长身体、重排站位、扩展画布或为了适配背景重新构图。\n固定背景是最终光影标准：背景结构、地面、空间透视、主光方向、色温、对比度、阴影强度和商业氛围来自图2；允许对图1人物做自然的整体重光照、色温统一和边缘环境光融合，让人物像真实站在图2场景里。\n重光照只服务融合，不改变人物身份、脸、发型、服装颜色款式、服装细节、身体轮廓和手脚位置；必须补足脚底/身体接触阴影、边缘反光、远近虚实和白平衡一致性，避免贴图感、断层、假边和明显 P 图感。图3只在上传时补充场景要求，没有图3时不要添加文字、水印、品牌或复杂道具。",
+            "productNote": "",
+            "n": 1,
+            "quality": "",
+            "background": "",
+            "version": ""
+          },
+          "uploadLabels": {
+            "model": {
+              "title": "人物图/模特图",
+              "hint": "批量上传要保留的人物；位置、姿势、比例、服装和主体占比都要锁定不变。"
+            },
+            "clothing": {
+              "title": "固定背景图",
+              "hint": "上传固定目标背景；批量人物都放进同一场景，人物光影要自然贴合背景。"
+            },
+            "reference": {
+              "title": "补充参考图",
+              "hint": "可选；补充场景氛围、光线、色调、道具边界或本次客户要求。"
+            }
+          }
+        },
+        {
+          "id": "outfit_page_1792544887290_z7gles",
+          "name": "精修",
+          "deleteLocked": true,
+          "settings": {
+            "model": "tt-image-2",
+            "dispatchMode": "manual",
+            "aspectRatio": "3:4",
+            "imageSize": "2K",
+            "concurrency": 5,
+            "generationCount": "auto",
+            "smartIntervention": false,
+            "qualityCheck": false,
+            "recolorPart": "upper",
+            "recolorUpperLayer": "single",
+            "outfitIntent": {
+              "parts": [
+                "upper"
+              ],
+              "upperLayer": "single",
+              "wearing": {
+                "mode": "follow",
+                "values": {
+                  "closure": "",
+                  "outerState": "",
+                  "hem": "",
+                  "sleeve": "",
+                  "collar": "",
+                  "fit": "",
+                  "waistband": "",
+                  "lowerHem": ""
+                }
+              },
+              "facts": {
+                "category": "",
+                "color": "",
+                "material": "",
+                "silhouette": "",
+                "length": "",
+                "collarSleeve": "",
+                "sleeveState": "",
+                "closure": "",
+                "hem": "",
+                "lowerType": "",
+                "shoeType": "",
+                "structure": ""
+              },
+              "factsSource": {
+                "mode": "none",
+                "sourceId": "",
+                "analyzedAt": 0
+              }
+            },
+            "retouchIntent": {
+              "version": 1,
+              "symmetry": "off",
+              "hemTreatment": "follow_original",
+              "fit": "follow_original",
+              "frontback": "off",
+              "customPrompt": ""
+            },
+            "pairingMode": "fixed",
+            "randomBackgroundFocus": "default",
+            "prompt": "【服装精修目标】\n生成干净的服装白底精修图。去除明显褶皱，在不改变原服装结构的前提下，修正明显歪扭的门襟、缝线、袋口和边缘，使可拉直的细节横平竖直（只修正明显的拍摄摆放或线条歪扭，不把原本有意的褶裥、弧线、波浪边和不对称设计强行拉直）；保持服装原有款式、颜色、面料、纹理、缝线、扣子、口袋和其他细节不变，不创新、不凭空增加细节、不改变服装设计、不偏色。\n\n【清理与轮廓】\n去掉衣架、夹子、大头针和固定服装的其他物品，只保留干净的服装主体；修正服装外轮廓，使轮廓平滑、连续、自然。\n\n【结构要求】\n保留原图中真实的左右不对称细节，不要强行把服装做成对称。",
+            "productNote": "",
+            "n": 1,
+            "quality": "",
+            "background": "",
+            "version": ""
+          },
+          "uploadLabels": {
+            "model": {
+              "title": "图片上传",
+              "hint": "同一件服装可以一次上传多张（正面/背面/侧面/细节/挂拍）；点生成只输出一张白底精修成品图。"
+            },
+            "clothing": {
+              "title": "补充素材（已不用）",
+              "hint": "精修页只需要图1 的多图上传；这里仅为兼容旧数据保留。"
+            },
+            "reference": {
+              "title": "不参与",
+              "hint": "白底精修不使用图3，补充要求请写在文字里。"
+            }
+          }
+        },
+        {
+          "id": "outfit_page_1792544887290_aadqd5",
+          "name": "设计稿",
+          "deleteLocked": true,
+          "settings": {
+            "model": "tt-image-2",
+            "dispatchMode": "manual",
+            "aspectRatio": "3:4",
+            "imageSize": "2K",
+            "concurrency": 5,
+            "generationCount": "auto",
+            "smartIntervention": false,
+            "qualityCheck": false,
+            "recolorPart": "upper",
+            "recolorUpperLayer": "single",
+            "outfitIntent": {
+              "parts": [
+                "upper"
+              ],
+              "upperLayer": "single",
+              "wearing": {
+                "mode": "follow",
+                "values": {
+                  "closure": "",
+                  "outerState": "",
+                  "hem": "",
+                  "sleeve": "",
+                  "collar": "",
+                  "fit": "",
+                  "waistband": "",
+                  "lowerHem": ""
+                }
+              },
+              "facts": {
+                "category": "",
+                "color": "",
+                "material": "",
+                "silhouette": "",
+                "length": "",
+                "collarSleeve": "",
+                "sleeveState": "",
+                "closure": "",
+                "hem": "",
+                "lowerType": "",
+                "shoeType": "",
+                "structure": ""
+              },
+              "factsSource": {
+                "mode": "none",
+                "sourceId": "",
+                "analyzedAt": 0
+              }
+            },
+            "retouchIntent": {
+              "version": 1,
+              "symmetry": "off",
+              "hemTreatment": "follow_original",
+              "fit": "follow_original",
+              "frontback": "off",
+              "customPrompt": ""
+            },
+            "pairingMode": "fixed",
+            "randomBackgroundFocus": "default",
+            "prompt": "参考图1上传区的实拍服装图或真人实拍服装图，将服装转换为图2上传区所参考的干净服装设计师手稿风格。图1上传区可能只有一张图，也可能有多张正面、背面、侧面或细节图；请把图1上传区的所有图片当作同一件服装的参考，综合识别服装颜色、版型、领口、袖型、袖口、下摆、长度比例、结构线、拼接方式和主要面料特点。图3上传区是可选的细节补充图，只有上传时才作为面料、袖口、裙摆、衣领、纹理或辅助线效果的补充参考；如果图3没有上传，不要强行假设图3内容。\n输出纯白背景的服装设计师手稿图，无人体、无模特、无场景、无衣架，画面只保留服装款式图。能从参考图中判断正反面时，优先输出服装正反面左右并排款式图；如果只有单面参考且背面信息不足，背面只能做保守、简洁、符合服装结构逻辑的合理补全，不要编造复杂设计。服装颜色以图1实拍服装为准，保留原服装的版型、廓形、领口、袖型、袖口、下摆、长度比例和主要结构。整体以黑色线稿为主，搭配极浅的米杏色淡填色，不要真实照片质感，不要复杂面料纹理，不要写实细节。\n线条使用手绘板绘制的服装款式图线条，外轮廓线清晰干净，起笔轻、收笔轻、中间压力重，线条两头尖、中间略粗，有自然的笔压变化和克制的手绘笔触；不要像儿童涂抹一样粗细一致、反复描边或杂乱涂抹。内部结构线、领口线、袖口线、下摆线、衣身分割线使用更细的线，线条稳定、准确、干净。\n服装所有轮廓转角、袖口四角、下摆边角、接缝拐点位置，点缀极短的浅灰色纤细定位短线。短线只停留在拐点外侧，短小零散，不要长贯穿线条；线条浅淡但要比普通起稿痕迹略明显，明度低于黑色衣身轮廓线，是设计师手稿里的拐点定位辅助短线，不杂乱、不延伸。\n面料质感只用非常少量的简化材质符号和浅淡铅笔排线暗示，抓住面料特点即可，不出现真实照片级织物细节，不出现复杂编织纹理，不出现杂乱涂抹线。整体像服装打版师、设计师用手绘板画出来的产品工艺手稿，结构清楚、比例准确、线条干净、有轻微手写压感但不凌乱。",
+            "productNote": "",
+            "n": 1,
+            "quality": "",
+            "background": "",
+            "version": ""
+          },
+          "uploadLabels": {
+            "model": {
+              "title": "实拍服装图/真人实拍图",
+              "hint": "上传单张或多张实拍参考；正反面、侧面会合并识别为同一件服装。"
+            },
+            "clothing": {
+              "title": "手稿风格参考图",
+              "hint": "上传设计稿或手稿样式参考；用于笔触、线条、淡填色和拐点短线风格。"
+            },
+            "reference": {
+              "title": "细节/手稿补充图",
+              "hint": "可选；补充面料、袖口、裙摆、衣领、纹理或辅助短线效果。"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "outfit-deleted-modes",
+      "value": [
+        "random-background"
+      ]
+    },
+    {
+      "id": "outfit-settings",
+      "value": {
+        "model": "tt-image-2",
+        "dispatchMode": "manual",
+        "aspectRatio": "3:4",
+        "imageSize": "2K",
+        "concurrency": 5,
+        "generationCount": "auto",
+        "smartIntervention": false,
+        "qualityCheck": false,
+        "recolorPart": "upper",
+        "recolorUpperLayer": "single",
+        "outfitIntent": {
+          "parts": [
+            "upper"
+          ],
+          "upperLayer": "single",
+          "wearing": {
+            "mode": "follow",
+            "values": {
+              "closure": "",
+              "outerState": "",
+              "hem": "",
+              "sleeve": "",
+              "collar": "",
+              "fit": "",
+              "waistband": "",
+              "lowerHem": ""
+            }
+          },
+          "facts": {
+            "category": "",
+            "color": "",
+            "material": "",
+            "silhouette": "",
+            "length": "",
+            "collarSleeve": "",
+            "sleeveState": "",
+            "closure": "",
+            "hem": "",
+            "lowerType": "",
+            "shoeType": "",
+            "structure": ""
+          },
+          "factsSource": {
+            "mode": "none",
+            "sourceId": "",
+            "analyzedAt": 0
+          }
+        },
+        "retouchIntent": {
+          "version": 1,
+          "symmetry": "off",
+          "hemTreatment": "follow_original",
+          "fit": "follow_original",
+          "frontback": "off",
+          "customPrompt": ""
+        },
+        "pairingMode": "fixed",
+        "preprocessMode": "original",
+        "randomBackgroundFocus": "default",
+        "theme": "dark",
+        "prompt": "让图1模特穿着图2的上装。图1的下装保持不变。\n\n穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。\n\n图1是唯一人物身份、人体结构和姿势基准，不改变图1人物的身份、骨骼和姿势。",
+        "productNote": "",
+        "n": 1,
+        "quality": "",
+        "background": "",
+        "version": ""
+      }
+    },
+    {
+      "id": "resize-settings",
+      "value": {
+        "ratio": "3:4",
+        "longEdge": 3500,
+        "resolution": "custom",
+        "fitMode": "original",
+        "outputFormat": "jpg",
+        "dpi": 72,
+        "fillColor": "#ffffff",
+        "cropMode": "batch"
+      }
+    },
+    {
+      "id": "detail-groups",
+      "value": [
+        {
+          "id": "detail_1792156041043_0fs2rm",
+          "label": "21:07 | 目标产品",
+          "createdAt": 1792156041043,
+          "status": "success",
+          "params": {
+            "workflow": "taobao-detail",
+            "analysisMode": "ai",
+            "model": "tt-image-2",
+            "dispatchMode": "manual",
+            "ratio": "9:16",
+            "imageSize": "2K",
+            "count": 4,
+            "copywriting": "need",
+            "richness": "simple",
+            "fontStyle": "heiti",
+            "detailSkillVersion": "v1",
+            "stylePackId": "auto",
+            "modelMode": "use-model",
+            "modelPose": "regular",
+            "modelUsage": 1,
+            "reverseScreens": 2,
+            "lang": "中文",
+            "productName": "目标产品",
+            "productFeature": "",
+            "userInstruction": "",
+            "sellingPoints": "",
+            "platform": "淘宝",
+            "pageType": "详情页",
+            "industry": "通用电商",
+            "productImageNames": [
+              "3 (1).jpg",
+              "6ad0d975f668a7c39bab3cec.webp",
+              "DF280080F81F7978C8700DA62EE854B3.jpg"
+            ],
+            "referenceImageNames": []
+          },
+          "analysis": {
+            "mode": "local-rule",
+            "confidence": "medium",
+            "industry": "通用电商",
+            "platform": "淘宝",
+            "targetAudience": "电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由",
+            "materialHints": [
+              "以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节"
+            ],
+            "analyzeAttributes": [
+              "商品外观",
+              "核心卖点",
+              "材质细节",
+              "使用场景",
+              "信任要素",
+              "转化理由"
+            ],
+            "sellingPoints": [
+              "核心卖点",
+              "材质细节",
+              "使用场景",
+              "品质信任",
+              "转化收尾"
+            ],
+            "visualStyle": "主体清晰、光线统一、版式稳定、细节真实、背景干净",
+            "imageFacts": [
+              "3 (1).jpg / image/jpeg / 2048x2048",
+              "6ad0d975f668a7c39bab3cec.webp / image/webp / 未读取尺寸",
+              "DF280080F81F7978C8700DA62EE854B3.jpg / image/jpeg / 2048x2048"
+            ],
+            "limitation": "AI 分析未完成，已切回本地五层 Skill 兜底。失败原因：上游服务器返回错误（HTTP 502），请稍后重试或换一条线路。",
+            "aiError": "上游服务器返回错误（HTTP 502），请稍后重试或换一条线路。"
+          },
+          "skillLayers": {
+            "base": {
+              "id": "jingyin-detail-base-v1",
+              "name": "通用底座",
+              "productAuthenticityLock": [
+                "商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。",
+                "参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。",
+                "多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。",
+                "当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。"
+              ],
+              "outputJsonFormat": {
+                "description": "详情提示词规划接口必须返回结构化 JSON，便于前端确认、单屏重刷、批量并发和后续计费。",
+                "requiredGroupFields": [
+                  "id",
+                  "label",
+                  "createdAt",
+                  "status",
+                  "params",
+                  "analysis",
+                  "rounds",
+                  "prompts"
+                ],
+                "requiredPromptFields": [
+                  "screen",
+                  "title",
+                  "summary",
+                  "intervention",
+                  "referenceStrategy",
+                  "productFileIndexes",
+                  "referenceFileIndexes",
+                  "text",
+                  "enabled",
+                  "status"
+                ]
+              },
+              "screenCountRule": {
+                "min": 1,
+                "max": 12,
+                "defaultCount": 8,
+                "guidance": "分屏数量由用户选择。少屏强调主视觉和核心卖点，多屏补充材质、场景、参数、信任背书和转化收尾。"
+              },
+              "imageNumberRules": [
+                "每一屏提示词里的图1、图2、图3只代表本次提交给图片接口的附件顺序，不代表用户素材库的全局顺序。",
+                "图1优先放目标商品主图，保证模型先锁定商品身份。",
+                "需要模特或固定服装时，按本屏任务明确声明图1、图2的角色，避免模型错穿、混穿或换款。",
+                "同一屏最多保留必要参考图，避免把所有素材同时送入造成主体漂移和风格割裂。"
+              ],
+              "globalStyleConsistency": [
+                "同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。",
+                "首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。",
+                "产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。"
+              ]
+            },
+            "industry": {
+              "id": "generic",
+              "name": "通用电商",
+              "keywords": [],
+              "analyzeAttributes": [
+                "商品外观",
+                "核心卖点",
+                "材质细节",
+                "使用场景",
+                "信任要素",
+                "转化理由"
+              ],
+              "sellingAngles": [
+                "核心卖点",
+                "材质细节",
+                "使用场景",
+                "品质信任",
+                "转化收尾"
+              ],
+              "recommendedScreens": [
+                "首屏主视觉",
+                "核心卖点",
+                "材质细节",
+                "使用场景",
+                "参数说明",
+                "信任背书",
+                "收尾转化"
+              ],
+              "visualAnchors": [
+                "主体清晰",
+                "光线统一",
+                "版式稳定",
+                "细节真实",
+                "背景干净"
+              ],
+              "taboos": [
+                "不要改变产品结构",
+                "不要混入参考图里的其它商品",
+                "不要生成虚假认证",
+                "不要让文字乱码"
+              ],
+              "qcRules": [
+                "检查主体是否清晰",
+                "检查产品结构是否一致",
+                "检查文案是否可信",
+                "检查整体风格是否统一"
+              ]
+            },
+            "platform": {
+              "id": "taobao-detail",
+              "platform": "淘宝",
+              "pageType": "详情页",
+              "rhythm": [
+                "首屏主视觉",
+                "痛点反转",
+                "核心卖点",
+                "材质细节",
+                "版型/结构",
+                "使用场景",
+                "信任背书",
+                "收尾转化"
+              ],
+              "copyRule": "中文电商短句，卖点直接，留白明确，避免夸张极限词。",
+              "visualRule": "适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。",
+              "imageNorms": [
+                "商品清晰",
+                "文案不遮挡主体",
+                "适合无线端竖向浏览"
+              ],
+              "conversionTraits": [
+                "第一眼点击承接",
+                "卖点解释清楚",
+                "最后给购买理由"
+              ]
+            },
+            "modules": [
+              {
+                "screen": 1,
+                "moduleKey": "hero",
+                "moduleName": "首屏主视觉",
+                "title": "首屏主视觉"
+              },
+              {
+                "screen": 2,
+                "moduleKey": "painReverse",
+                "moduleName": "痛点反转",
+                "title": "痛点反转"
+              },
+              {
+                "screen": 3,
+                "moduleKey": "painReverse",
+                "moduleName": "痛点反转",
+                "title": "痛点反转"
+              },
+              {
+                "screen": 4,
+                "moduleKey": "conversionClose",
+                "moduleName": "收尾转化",
+                "title": "收尾转化"
+              }
+            ],
+            "quality": {
+              "id": "jingyin-detail-quality-v1",
+              "name": "质检 Skill",
+              "globalChecks": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。"
+              ],
+              "negativePrompt": [
+                "不要低清晰度",
+                "不要破碎拼贴",
+                "不要过曝",
+                "不要脏乱背景",
+                "不要错误 logo",
+                "不要错字乱码",
+                "不要虚假认证",
+                "不要多余肢体",
+                "不要畸形手",
+                "不要改变商品结构",
+                "不要混入参考图商品"
+              ]
+            }
+          },
+          "rounds": [
+            {
+              "stage": "通用底座",
+              "title": "真实性、格式、数量和编号",
+              "content": "商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。；参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。；多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。；当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n输出 JSON 字段：id、label、createdAt、status、params、analysis、rounds、prompts；每屏字段：screen、title、summary、intervention、referenceStrategy、productFileIndexes、referenceFileIndexes、text、enabled、status。\n分屏数量：4，允许范围 1-12。\n每一屏提示词里的图1、图2、图3只代表本次提交给图片接口的附件顺序，不代表用户素材库的全局顺序。；图1优先放目标商品主图，保证模型先锁定商品身份。；需要模特或固定服装时，按本屏任务明确声明图1、图2的角色，避免模型错穿、混穿或换款。；同一屏最多保留必要参考图，避免把所有素材同时送入造成主体漂移和风格割裂。\n同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。；首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。；产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。"
+            },
+            {
+              "stage": "行业 Skill",
+              "title": "通用电商",
+              "content": "分析属性：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n推荐卖点：核心卖点、材质细节、使用场景、品质信任、转化收尾。\n行业禁忌：不要改变产品结构、不要混入参考图里的其它商品、不要生成虚假认证、不要让文字乱码。"
+            },
+            {
+              "stage": "平台 Skill",
+              "title": "淘宝详情页",
+              "content": "页面节奏：首屏主视觉 -> 痛点反转 -> 核心卖点 -> 材质细节 -> 版型/结构 -> 使用场景 -> 信任背书 -> 收尾转化。\n文案风格：中文电商短句，卖点直接，留白明确，避免夸张极限词。\n图片规范：商品清晰、文案不遮挡主体、适合无线端竖向浏览。\n转化特点：第一眼点击承接、卖点解释清楚、最后给购买理由。"
+            },
+            {
+              "stage": "分屏模块库",
+              "title": "本组 4 屏，反转屏 2 屏",
+              "content": "可用模块：首屏主视觉、痛点反转、核心卖点、材质细节、使用场景、参数说明、信任背书、收尾转化、版型/结构。本组会按平台节奏、行业卖点和反转屏数量动态分配。"
+            },
+            {
+              "stage": "质检 Skill",
+              "title": "生成前后自查",
+              "content": "全局质检：商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。。\n负面约束：不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。\n规划模式：AI 分析未完成，已切回本地五层 Skill 兜底。失败原因：上游服务器返回错误（HTTP 502），请稍后重试或换一条线路。"
+            }
+          ],
+          "prompts": [
+            {
+              "screen": 1,
+              "title": "首屏主视觉",
+              "summary": "核心卖点",
+              "intervention": "通用底座定调",
+              "referenceStrategy": "商品图 2 / 参考图 0 · 锁商品主图，可轻参考运营参考图的配色和氛围。",
+              "productFileIndexes": [
+                0,
+                2
+              ],
+              "referenceFileIndexes": [],
+              "imageSlots": [
+                {
+                  "slot": 1,
+                  "role": "product",
+                  "label": "商品图1",
+                  "sourceIndex": 0,
+                  "name": "3 (1).jpg"
+                },
+                {
+                  "slot": 2,
+                  "role": "product",
+                  "label": "商品图3",
+                  "sourceIndex": 2,
+                  "name": "DF280080F81F7978C8700DA62EE854B3.jpg"
+                }
+              ],
+              "moduleKey": "hero",
+              "moduleName": "首屏主视觉",
+              "qualityChecklist": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。",
+                "平台规范：商品清晰",
+                "平台规范：文案不遮挡主体",
+                "平台规范：适合无线端竖向浏览",
+                "检查主体是否清晰",
+                "检查产品结构是否一致",
+                "检查文案是否可信",
+                "检查整体风格是否统一",
+                "主商品是否完整",
+                "第一眼是否清楚",
+                "是否过曝",
+                "文案是否压住商品"
+              ],
+              "aiScreen": null,
+              "analysisMode": "local-rule",
+              "text": "第1屏：首屏主视觉\n【本屏模块】首屏主视觉：承接主图点击，让用户第一眼确认商品、风格和购买兴趣。\n【本次图片编号】图1=商品图1「3 (1).jpg」；图2=商品图3「DF280080F81F7978C8700DA62EE854B3.jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「目标产品」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：通用电商；重点观察：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节。\n全局风格：主体清晰、光线统一、版式稳定、细节真实、背景干净；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改变产品结构；不要混入参考图里的其它商品；不要生成虚假认证；不要让文字乱码。\n【本屏卖点】核心卖点\n【画面任务】商品主体清晰居中或略偏黄金分割，保留呼吸感，首屏标题区域不压住产品。\n【模块指令】强化第一眼质感；产品轮廓完整；背景干净；标题层级明确。\n【参考图使用】锁商品主图，可轻参考运营参考图的配色和氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏使用常规姿态模特：自然站姿、坐姿或行走，镜头透视正常，清晰展示穿着效果。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+              "enabled": true,
+              "status": "success",
+              "generationMs": 37087,
+              "results": [
+                {
+                  "id": "a515fbd8-b9d4-49ee-9396-b3c875a6cf83_1",
+                  "requestId": "a515fbd8-b9d4-49ee-9396-b3c875a6cf83",
+                  "image": {
+                    "type": "url",
+                    "value": "/api/history-image/a515fbd8-b9d4-49ee-9396-b3c875a6cf83_1.png",
+                    "localUrl": "/api/history-image/a515fbd8-b9d4-49ee-9396-b3c875a6cf83_1.png",
+                    "archiveFile": "a515fbd8-b9d4-49ee-9396-b3c875a6cf83_1.png",
+                    "archiveMime": "image/png"
+                  },
+                  "prompt": "第1屏：首屏主视觉\n【本屏模块】首屏主视觉：承接主图点击，让用户第一眼确认商品、风格和购买兴趣。\n【本次图片编号】图1=商品图1「3 (1).jpg」；图2=商品图3「DF280080F81F7978C8700DA62EE854B3.jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「目标产品」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：通用电商；重点观察：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节。\n全局风格：主体清晰、光线统一、版式稳定、细节真实、背景干净；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改变产品结构；不要混入参考图里的其它商品；不要生成虚假认证；不要让文字乱码。\n【本屏卖点】核心卖点\n【画面任务】商品主体清晰居中或略偏黄金分割，保留呼吸感，首屏标题区域不压住产品。\n【模块指令】强化第一眼质感；产品轮廓完整；背景干净；标题层级明确。\n【参考图使用】锁商品主图，可轻参考运营参考图的配色和氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏使用常规姿态模特：自然站姿、坐姿或行走，镜头透视正常，清晰展示穿着效果。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+                  "modelLabel": "TT Image 2",
+                  "imageSize": "2K",
+                  "aspectRatio": "9:16",
+                  "referenceCount": 2,
+                  "references": [
+                    {
+                      "id": "a515fbd8-b9d4-49ee-9396-b3c875a6cf83_ref_1",
+                      "name": "3 (1).jpg",
+                      "role": "product",
+                      "index": 0,
+                      "size": 305944,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "a515fbd8-b9d4-49ee-9396-b3c875a6cf83_ref_1_3_(1).jpg.jpg",
+                      "localUrl": "/api/reference-asset/a515fbd8-b9d4-49ee-9396-b3c875a6cf83_ref_1_3_(1).jpg.jpg"
+                    },
+                    {
+                      "id": "a515fbd8-b9d4-49ee-9396-b3c875a6cf83_ref_2",
+                      "name": "DF280080F81F7978C8700DA62EE854B3.jpg",
+                      "role": "product",
+                      "index": 1,
+                      "size": 315099,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "a515fbd8-b9d4-49ee-9396-b3c875a6cf83_ref_2_DF280080F81F7978C8700DA62EE854B3.jpg.jpg",
+                      "localUrl": "/api/reference-asset/a515fbd8-b9d4-49ee-9396-b3c875a6cf83_ref_2_DF280080F81F7978C8700DA62EE854B3.jpg.jpg"
+                    }
+                  ],
+                  "generationMs": 37087,
+                  "source": "detail-main",
+                  "createdAt": 1792156081977,
+                  "detailScreen": 1
+                }
+              ],
+              "error": ""
+            },
+            {
+              "screen": 2,
+              "title": "痛点反转",
+              "summary": "材质细节",
+              "intervention": "痛点反转介入",
+              "referenceStrategy": "商品图 1 / 参考图 0 · 以商品图为主，参考图只辅助场景表达。",
+              "productFileIndexes": [
+                0
+              ],
+              "referenceFileIndexes": [],
+              "imageSlots": [
+                {
+                  "slot": 1,
+                  "role": "product",
+                  "label": "商品图1",
+                  "sourceIndex": 0,
+                  "name": "3 (1).jpg"
+                }
+              ],
+              "moduleKey": "painReverse",
+              "moduleName": "痛点反转",
+              "qualityChecklist": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。",
+                "平台规范：商品清晰",
+                "平台规范：文案不遮挡主体",
+                "平台规范：适合无线端竖向浏览",
+                "检查主体是否清晰",
+                "检查产品结构是否一致",
+                "检查文案是否可信",
+                "检查整体风格是否统一",
+                "是否夸大效果",
+                "对比是否可信",
+                "产品是否仍然真实",
+                "文案是否绝对化"
+              ],
+              "aiScreen": null,
+              "analysisMode": "local-rule",
+              "text": "第2屏：痛点反转\n【本屏模块】痛点反转：把用户常见顾虑转成购买理由，形成继续阅读的动力。\n【本次图片编号】图1=商品图1「3 (1).jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「目标产品」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：通用电商；重点观察：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节。\n全局风格：主体清晰、光线统一、版式稳定、细节真实、背景干净；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改变产品结构；不要混入参考图里的其它商品；不要生成虚假认证；不要让文字乱码。\n【本屏卖点】材质细节\n【画面任务】可以用左右对比、上下对比或场景前后变化，但不要制造虚假效果。\n【模块指令】痛点真实；反转明确；对比不过度；产品解决方案清楚。\n【参考图使用】以商品图为主，参考图只辅助场景表达。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏不使用模特，使用静物、细节、平铺或场景陈列。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+              "enabled": true,
+              "status": "success",
+              "generationMs": 40091,
+              "results": [
+                {
+                  "id": "49bcbce8-a18a-41ae-bd01-b1a0843e3ed4_1",
+                  "requestId": "49bcbce8-a18a-41ae-bd01-b1a0843e3ed4",
+                  "image": {
+                    "type": "url",
+                    "value": "/api/history-image/49bcbce8-a18a-41ae-bd01-b1a0843e3ed4_1.png",
+                    "localUrl": "/api/history-image/49bcbce8-a18a-41ae-bd01-b1a0843e3ed4_1.png",
+                    "archiveFile": "49bcbce8-a18a-41ae-bd01-b1a0843e3ed4_1.png",
+                    "archiveMime": "image/png"
+                  },
+                  "prompt": "第2屏：痛点反转\n【本屏模块】痛点反转：把用户常见顾虑转成购买理由，形成继续阅读的动力。\n【本次图片编号】图1=商品图1「3 (1).jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「目标产品」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：通用电商；重点观察：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节。\n全局风格：主体清晰、光线统一、版式稳定、细节真实、背景干净；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改变产品结构；不要混入参考图里的其它商品；不要生成虚假认证；不要让文字乱码。\n【本屏卖点】材质细节\n【画面任务】可以用左右对比、上下对比或场景前后变化，但不要制造虚假效果。\n【模块指令】痛点真实；反转明确；对比不过度；产品解决方案清楚。\n【参考图使用】以商品图为主，参考图只辅助场景表达。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏不使用模特，使用静物、细节、平铺或场景陈列。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+                  "modelLabel": "TT Image 2",
+                  "imageSize": "2K",
+                  "aspectRatio": "9:16",
+                  "referenceCount": 1,
+                  "references": [
+                    {
+                      "id": "49bcbce8-a18a-41ae-bd01-b1a0843e3ed4_ref_1",
+                      "name": "3 (1).jpg",
+                      "role": "product",
+                      "index": 0,
+                      "size": 305944,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "49bcbce8-a18a-41ae-bd01-b1a0843e3ed4_ref_1_3_(1).jpg.jpg",
+                      "localUrl": "/api/reference-asset/49bcbce8-a18a-41ae-bd01-b1a0843e3ed4_ref_1_3_(1).jpg.jpg"
+                    }
+                  ],
+                  "generationMs": 40091,
+                  "source": "detail-main",
+                  "createdAt": 1792156084858,
+                  "detailScreen": 2
+                }
+              ],
+              "error": ""
+            },
+            {
+              "screen": 3,
+              "title": "痛点反转",
+              "summary": "使用场景",
+              "intervention": "痛点反转介入",
+              "referenceStrategy": "商品图 1 / 参考图 0 · 以商品图为主，参考图只辅助场景表达。",
+              "productFileIndexes": [
+                0
+              ],
+              "referenceFileIndexes": [],
+              "imageSlots": [
+                {
+                  "slot": 1,
+                  "role": "product",
+                  "label": "商品图1",
+                  "sourceIndex": 0,
+                  "name": "3 (1).jpg"
+                }
+              ],
+              "moduleKey": "painReverse",
+              "moduleName": "痛点反转",
+              "qualityChecklist": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。",
+                "平台规范：商品清晰",
+                "平台规范：文案不遮挡主体",
+                "平台规范：适合无线端竖向浏览",
+                "检查主体是否清晰",
+                "检查产品结构是否一致",
+                "检查文案是否可信",
+                "检查整体风格是否统一",
+                "是否夸大效果",
+                "对比是否可信",
+                "产品是否仍然真实",
+                "文案是否绝对化"
+              ],
+              "aiScreen": null,
+              "analysisMode": "local-rule",
+              "text": "第3屏：痛点反转\n【本屏模块】痛点反转：把用户常见顾虑转成购买理由，形成继续阅读的动力。\n【本次图片编号】图1=商品图1「3 (1).jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「目标产品」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：通用电商；重点观察：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节。\n全局风格：主体清晰、光线统一、版式稳定、细节真实、背景干净；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改变产品结构；不要混入参考图里的其它商品；不要生成虚假认证；不要让文字乱码。\n【本屏卖点】使用场景\n【画面任务】可以用左右对比、上下对比或场景前后变化，但不要制造虚假效果。\n【模块指令】痛点真实；反转明确；对比不过度；产品解决方案清楚。\n【参考图使用】以商品图为主，参考图只辅助场景表达。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏不使用模特，使用静物、细节、平铺或场景陈列。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+              "enabled": true,
+              "status": "success",
+              "generationMs": 37077,
+              "results": [
+                {
+                  "id": "fcd883c4-6e02-4488-a6e3-fa7c93dd7033_1",
+                  "requestId": "fcd883c4-6e02-4488-a6e3-fa7c93dd7033",
+                  "image": {
+                    "type": "url",
+                    "value": "/api/history-image/fcd883c4-6e02-4488-a6e3-fa7c93dd7033_1.png",
+                    "localUrl": "/api/history-image/fcd883c4-6e02-4488-a6e3-fa7c93dd7033_1.png",
+                    "archiveFile": "fcd883c4-6e02-4488-a6e3-fa7c93dd7033_1.png",
+                    "archiveMime": "image/png"
+                  },
+                  "prompt": "第3屏：痛点反转\n【本屏模块】痛点反转：把用户常见顾虑转成购买理由，形成继续阅读的动力。\n【本次图片编号】图1=商品图1「3 (1).jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「目标产品」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：通用电商；重点观察：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节。\n全局风格：主体清晰、光线统一、版式稳定、细节真实、背景干净；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改变产品结构；不要混入参考图里的其它商品；不要生成虚假认证；不要让文字乱码。\n【本屏卖点】使用场景\n【画面任务】可以用左右对比、上下对比或场景前后变化，但不要制造虚假效果。\n【模块指令】痛点真实；反转明确；对比不过度；产品解决方案清楚。\n【参考图使用】以商品图为主，参考图只辅助场景表达。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏不使用模特，使用静物、细节、平铺或场景陈列。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+                  "modelLabel": "TT Image 2",
+                  "imageSize": "2K",
+                  "aspectRatio": "9:16",
+                  "referenceCount": 1,
+                  "references": [
+                    {
+                      "id": "fcd883c4-6e02-4488-a6e3-fa7c93dd7033_ref_1",
+                      "name": "3 (1).jpg",
+                      "role": "product",
+                      "index": 0,
+                      "size": 305944,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "fcd883c4-6e02-4488-a6e3-fa7c93dd7033_ref_1_3_(1).jpg.jpg",
+                      "localUrl": "/api/reference-asset/fcd883c4-6e02-4488-a6e3-fa7c93dd7033_ref_1_3_(1).jpg.jpg"
+                    }
+                  ],
+                  "generationMs": 37077,
+                  "source": "detail-main",
+                  "createdAt": 1792156081866,
+                  "detailScreen": 3
+                }
+              ],
+              "error": ""
+            },
+            {
+              "screen": 4,
+              "title": "收尾转化",
+              "summary": "品质信任",
+              "intervention": "收尾转化质检",
+              "referenceStrategy": "商品图 1 / 参考图 0 · 商品主图和首屏风格为主，可轻参考运营图氛围。",
+              "productFileIndexes": [
+                0
+              ],
+              "referenceFileIndexes": [],
+              "imageSlots": [
+                {
+                  "slot": 1,
+                  "role": "product",
+                  "label": "商品图1",
+                  "sourceIndex": 0,
+                  "name": "3 (1).jpg"
+                }
+              ],
+              "moduleKey": "conversionClose",
+              "moduleName": "收尾转化",
+              "qualityChecklist": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。",
+                "平台规范：商品清晰",
+                "平台规范：文案不遮挡主体",
+                "平台规范：适合无线端竖向浏览",
+                "检查主体是否清晰",
+                "检查产品结构是否一致",
+                "检查文案是否可信",
+                "检查整体风格是否统一",
+                "是否和首屏风格一致",
+                "是否过度促销",
+                "产品是否清楚",
+                "文案是否合规"
+              ],
+              "aiScreen": null,
+              "analysisMode": "local-rule",
+              "text": "第4屏：收尾转化\n【本屏模块】收尾转化：总结核心理由，给出温和行动引导，形成详情页完整闭环。\n【本次图片编号】图1=商品图1「3 (1).jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「目标产品」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：通用电商；重点观察：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节。\n全局风格：主体清晰、光线统一、版式稳定、细节真实、背景干净；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改变产品结构；不要混入参考图里的其它商品；不要生成虚假认证；不要让文字乱码。\n【本屏卖点】品质信任\n【画面任务】画面简洁、有结束感，产品再次清楚出现，文案短促有力但不硬卖。\n【模块指令】总结卖点；回到产品；留出行动区域；风格承接首屏。\n【参考图使用】商品主图和首屏风格为主，可轻参考运营图氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏不使用模特，使用静物、细节、平铺或场景陈列。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+              "enabled": true,
+              "status": "success",
+              "generationMs": 40061,
+              "results": [
+                {
+                  "id": "f76e397c-350c-4c0e-8ece-0be0dbb3b2b8_1",
+                  "requestId": "f76e397c-350c-4c0e-8ece-0be0dbb3b2b8",
+                  "image": {
+                    "type": "url",
+                    "value": "/api/history-image/f76e397c-350c-4c0e-8ece-0be0dbb3b2b8_1.png",
+                    "localUrl": "/api/history-image/f76e397c-350c-4c0e-8ece-0be0dbb3b2b8_1.png",
+                    "archiveFile": "f76e397c-350c-4c0e-8ece-0be0dbb3b2b8_1.png",
+                    "archiveMime": "image/png"
+                  },
+                  "prompt": "第4屏：收尾转化\n【本屏模块】收尾转化：总结核心理由，给出温和行动引导，形成详情页完整闭环。\n【本次图片编号】图1=商品图1「3 (1).jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「目标产品」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：通用电商；重点观察：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节。\n全局风格：主体清晰、光线统一、版式稳定、细节真实、背景干净；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改变产品结构；不要混入参考图里的其它商品；不要生成虚假认证；不要让文字乱码。\n【本屏卖点】品质信任\n【画面任务】画面简洁、有结束感，产品再次清楚出现，文案短促有力但不硬卖。\n【模块指令】总结卖点；回到产品；留出行动区域；风格承接首屏。\n【参考图使用】商品主图和首屏风格为主，可轻参考运营图氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏不使用模特，使用静物、细节、平铺或场景陈列。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+                  "modelLabel": "TT Image 2",
+                  "imageSize": "2K",
+                  "aspectRatio": "9:16",
+                  "referenceCount": 1,
+                  "references": [
+                    {
+                      "id": "f76e397c-350c-4c0e-8ece-0be0dbb3b2b8_ref_1",
+                      "name": "3 (1).jpg",
+                      "role": "product",
+                      "index": 0,
+                      "size": 305944,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "f76e397c-350c-4c0e-8ece-0be0dbb3b2b8_ref_1_3_(1).jpg.jpg",
+                      "localUrl": "/api/reference-asset/f76e397c-350c-4c0e-8ece-0be0dbb3b2b8_ref_1_3_(1).jpg.jpg"
+                    }
+                  ],
+                  "generationMs": 40061,
+                  "source": "detail-main",
+                  "createdAt": 1792156084852,
+                  "detailScreen": 4
+                }
+              ],
+              "error": ""
+            }
+          ],
+          "productFiles": [],
+          "referenceFiles": []
+        },
+        {
+          "id": "detail_1792155613933_coqmuj",
+          "label": "21:00 | 皮革清洁剂",
+          "createdAt": 1792155613933,
+          "status": "partial",
+          "params": {
+            "workflow": "taobao-detail",
+            "analysisMode": "ai",
+            "model": "banana-2.1",
+            "dispatchMode": "manual",
+            "ratio": "9:16",
+            "imageSize": "2K",
+            "count": 7,
+            "copywriting": "need",
+            "richness": "simple",
+            "fontStyle": "heiti",
+            "detailSkillVersion": "v1",
+            "stylePackId": "auto",
+            "modelMode": "no-model",
+            "modelPose": "regular",
+            "modelUsage": 1,
+            "reverseScreens": 2,
+            "lang": "中文",
+            "productName": "皮革清洁剂",
+            "productFeature": "",
+            "userInstruction": "",
+            "sellingPoints": "",
+            "platform": "淘宝",
+            "pageType": "详情页",
+            "industry": "服装鞋包",
+            "productImageNames": [
+              "DF280080F81F7978C8700DA62EE854B3.jpg",
+              "6ad0d975f668a7c39bab3cec (1).webp",
+              "3 (1).jpg"
+            ],
+            "referenceImageNames": []
+          },
+          "analysis": {
+            "mode": "local-rule",
+            "confidence": "medium",
+            "industry": "服装鞋包",
+            "platform": "淘宝",
+            "targetAudience": "男性消费者，关注质感、实用性、版型和场景适配",
+            "materialHints": [
+              "羊毛",
+              "皮革",
+              "真皮"
+            ],
+            "analyzeAttributes": [
+              "款式结构",
+              "版型轮廓",
+              "面料肌理",
+              "袖口/领口/纽扣/拉链",
+              "穿着场景",
+              "模特比例和姿态",
+              "搭配关系"
+            ],
+            "sellingPoints": [
+              "### 第 1 屏：首屏痛点拦截（3 秒留人）",
+              "- **主标题**：皮革污渍擦不掉？别用错清洁剂毁皮",
+              "- **副标题**：光面皮革专用 | 深层去渍 | 温和不发白 | 擦后无残留",
+              "- **视觉参考**：左侧放「脏污皮革 vs 清洁后」对比",
+              "版型修饰身形",
+              "面料肌理清晰",
+              "袖口/领口/纽扣细节",
+              "通勤与日常穿搭",
+              "舒适亲肤体验",
+              "多场景搭配"
+            ],
+            "visualStyle": "柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚",
+            "imageFacts": [
+              "DF280080F81F7978C8700DA62EE854B3.jpg / image/jpeg / 2048x2048",
+              "6ad0d975f668a7c39bab3cec (1).webp / image/webp / 未读取尺寸",
+              "3 (1).jpg / image/jpeg / 2048x2048"
+            ],
+            "limitation": "AI 分析未完成，已切回本地五层 Skill 兜底。失败原因：上游服务器返回错误（HTTP 502），请稍后重试或换一条线路。",
+            "aiError": "上游服务器返回错误（HTTP 502），请稍后重试或换一条线路。"
+          },
+          "skillLayers": {
+            "base": {
+              "id": "jingyin-detail-base-v1",
+              "name": "通用底座",
+              "productAuthenticityLock": [
+                "商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。",
+                "参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。",
+                "多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。",
+                "当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。"
+              ],
+              "outputJsonFormat": {
+                "description": "详情提示词规划接口必须返回结构化 JSON，便于前端确认、单屏重刷、批量并发和后续计费。",
+                "requiredGroupFields": [
+                  "id",
+                  "label",
+                  "createdAt",
+                  "status",
+                  "params",
+                  "analysis",
+                  "rounds",
+                  "prompts"
+                ],
+                "requiredPromptFields": [
+                  "screen",
+                  "title",
+                  "summary",
+                  "intervention",
+                  "referenceStrategy",
+                  "productFileIndexes",
+                  "referenceFileIndexes",
+                  "text",
+                  "enabled",
+                  "status"
+                ]
+              },
+              "screenCountRule": {
+                "min": 1,
+                "max": 12,
+                "defaultCount": 8,
+                "guidance": "分屏数量由用户选择。少屏强调主视觉和核心卖点，多屏补充材质、场景、参数、信任背书和转化收尾。"
+              },
+              "imageNumberRules": [
+                "每一屏提示词里的图1、图2、图3只代表本次提交给图片接口的附件顺序，不代表用户素材库的全局顺序。",
+                "图1优先放目标商品主图，保证模型先锁定商品身份。",
+                "需要模特或固定服装时，按本屏任务明确声明图1、图2的角色，避免模型错穿、混穿或换款。",
+                "同一屏最多保留必要参考图，避免把所有素材同时送入造成主体漂移和风格割裂。"
+              ],
+              "globalStyleConsistency": [
+                "同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。",
+                "首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。",
+                "产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。"
+              ]
+            },
+            "industry": {
+              "id": "apparel",
+              "name": "服装鞋包",
+              "keywords": [
+                "女装",
+                "男装",
+                "童装",
+                "服装",
+                "上衣",
+                "衬衫",
+                "毛衣",
+                "裙",
+                "裤",
+                "外套",
+                "鞋",
+                "靴",
+                "包",
+                "箱包",
+                "面料",
+                "袖口",
+                "领口",
+                "版型",
+                "穿搭",
+                "模特",
+                "假两件"
+              ],
+              "analyzeAttributes": [
+                "款式结构",
+                "版型轮廓",
+                "面料肌理",
+                "袖口/领口/纽扣/拉链",
+                "穿着场景",
+                "模特比例和姿态",
+                "搭配关系"
+              ],
+              "sellingAngles": [
+                "版型修饰身形",
+                "面料肌理清晰",
+                "袖口/领口/纽扣细节",
+                "通勤与日常穿搭",
+                "舒适亲肤体验",
+                "多场景搭配"
+              ],
+              "recommendedScreens": [
+                "首屏主视觉",
+                "版型结构",
+                "材质细节",
+                "穿着体验",
+                "使用场景",
+                "痛点反转",
+                "信任背书",
+                "收尾转化"
+              ],
+              "visualAnchors": [
+                "柔和四面光",
+                "低反差",
+                "真实面料纹理",
+                "自然模特姿态",
+                "干净浅色背景",
+                "产品边缘清楚"
+              ],
+              "taboos": [
+                "不要改款式结构",
+                "不要改变袖口层次、纽扣颜色和领口形态",
+                "不要让模特身份互相融合",
+                "不要把参考图衣服穿到目标商品上"
+              ],
+              "qcRules": [
+                "检查衣服结构是否变形",
+                "检查左右袖口和纽扣是否一致",
+                "检查面料纹理是否真实",
+                "检查模特手脚是否畸形",
+                "检查文案是否遮挡商品"
+              ]
+            },
+            "platform": {
+              "id": "taobao-detail",
+              "platform": "淘宝",
+              "pageType": "详情页",
+              "rhythm": [
+                "首屏主视觉",
+                "痛点反转",
+                "核心卖点",
+                "材质细节",
+                "版型/结构",
+                "使用场景",
+                "信任背书",
+                "收尾转化"
+              ],
+              "copyRule": "中文电商短句，卖点直接，留白明确，避免夸张极限词。",
+              "visualRule": "适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。",
+              "imageNorms": [
+                "商品清晰",
+                "文案不遮挡主体",
+                "适合无线端竖向浏览"
+              ],
+              "conversionTraits": [
+                "第一眼点击承接",
+                "卖点解释清楚",
+                "最后给购买理由"
+              ]
+            },
+            "modules": [
+              {
+                "screen": 1,
+                "moduleKey": "hero",
+                "moduleName": "首屏主视觉",
+                "title": "首屏主视觉"
+              },
+              {
+                "screen": 2,
+                "moduleKey": "coreSellingPoint",
+                "moduleName": "核心卖点",
+                "title": "核心卖点"
+              },
+              {
+                "screen": 3,
+                "moduleKey": "painReverse",
+                "moduleName": "痛点反转",
+                "title": "痛点反转"
+              },
+              {
+                "screen": 4,
+                "moduleKey": "fitStructure",
+                "moduleName": "版型/结构",
+                "title": "版型/结构"
+              },
+              {
+                "screen": 5,
+                "moduleKey": "painReverse",
+                "moduleName": "痛点反转",
+                "title": "痛点反转"
+              },
+              {
+                "screen": 6,
+                "moduleKey": "trustProof",
+                "moduleName": "信任背书",
+                "title": "信任背书"
+              },
+              {
+                "screen": 7,
+                "moduleKey": "conversionClose",
+                "moduleName": "收尾转化",
+                "title": "收尾转化"
+              }
+            ],
+            "quality": {
+              "id": "jingyin-detail-quality-v1",
+              "name": "质检 Skill",
+              "globalChecks": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。"
+              ],
+              "negativePrompt": [
+                "不要低清晰度",
+                "不要破碎拼贴",
+                "不要过曝",
+                "不要脏乱背景",
+                "不要错误 logo",
+                "不要错字乱码",
+                "不要虚假认证",
+                "不要多余肢体",
+                "不要畸形手",
+                "不要改变商品结构",
+                "不要混入参考图商品"
+              ]
+            }
+          },
+          "rounds": [
+            {
+              "stage": "通用底座",
+              "title": "真实性、格式、数量和编号",
+              "content": "商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。；参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。；多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。；当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n输出 JSON 字段：id、label、createdAt、status、params、analysis、rounds、prompts；每屏字段：screen、title、summary、intervention、referenceStrategy、productFileIndexes、referenceFileIndexes、text、enabled、status。\n分屏数量：7，允许范围 1-12。\n每一屏提示词里的图1、图2、图3只代表本次提交给图片接口的附件顺序，不代表用户素材库的全局顺序。；图1优先放目标商品主图，保证模型先锁定商品身份。；需要模特或固定服装时，按本屏任务明确声明图1、图2的角色，避免模型错穿、混穿或换款。；同一屏最多保留必要参考图，避免把所有素材同时送入造成主体漂移和风格割裂。\n同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。；首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。；产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。"
+            },
+            {
+              "stage": "行业 Skill",
+              "title": "服装鞋包",
+              "content": "分析属性：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n推荐卖点：版型修饰身形、面料肌理清晰、袖口/领口/纽扣细节、通勤与日常穿搭、舒适亲肤体验、多场景搭配。\n行业禁忌：不要改款式结构、不要改变袖口层次、纽扣颜色和领口形态、不要让模特身份互相融合、不要把参考图衣服穿到目标商品上。"
+            },
+            {
+              "stage": "平台 Skill",
+              "title": "淘宝详情页",
+              "content": "页面节奏：首屏主视觉 -> 痛点反转 -> 核心卖点 -> 材质细节 -> 版型/结构 -> 使用场景 -> 信任背书 -> 收尾转化。\n文案风格：中文电商短句，卖点直接，留白明确，避免夸张极限词。\n图片规范：商品清晰、文案不遮挡主体、适合无线端竖向浏览。\n转化特点：第一眼点击承接、卖点解释清楚、最后给购买理由。"
+            },
+            {
+              "stage": "分屏模块库",
+              "title": "本组 7 屏，反转屏 2 屏",
+              "content": "可用模块：首屏主视觉、痛点反转、核心卖点、材质细节、使用场景、参数说明、信任背书、收尾转化、版型/结构。本组会按平台节奏、行业卖点和反转屏数量动态分配。"
+            },
+            {
+              "stage": "质检 Skill",
+              "title": "生成前后自查",
+              "content": "全局质检：商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。。\n负面约束：不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。\n规划模式：AI 分析未完成，已切回本地五层 Skill 兜底。失败原因：上游服务器返回错误（HTTP 502），请稍后重试或换一条线路。"
+            }
+          ],
+          "prompts": [
+            {
+              "screen": 1,
+              "title": "首屏主视觉",
+              "summary": "### 第 1 屏：首屏痛点拦截（3 秒留人）",
+              "intervention": "通用底座定调",
+              "referenceStrategy": "商品图 2 / 参考图 0 · 锁商品主图，可轻参考运营参考图的配色和氛围。",
+              "productFileIndexes": [
+                0,
+                2
+              ],
+              "referenceFileIndexes": [],
+              "imageSlots": [
+                {
+                  "slot": 1,
+                  "role": "product",
+                  "label": "商品图1",
+                  "sourceIndex": 0,
+                  "name": "DF280080F81F7978C8700DA62EE854B3.jpg"
+                },
+                {
+                  "slot": 2,
+                  "role": "product",
+                  "label": "商品图3",
+                  "sourceIndex": 2,
+                  "name": "3 (1).jpg"
+                }
+              ],
+              "moduleKey": "hero",
+              "moduleName": "首屏主视觉",
+              "qualityChecklist": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。",
+                "平台规范：商品清晰",
+                "平台规范：文案不遮挡主体",
+                "平台规范：适合无线端竖向浏览",
+                "检查衣服结构是否变形",
+                "检查左右袖口和纽扣是否一致",
+                "检查面料纹理是否真实",
+                "检查模特手脚是否畸形",
+                "检查文案是否遮挡商品",
+                "主商品是否完整",
+                "第一眼是否清楚",
+                "是否过曝",
+                "文案是否压住商品"
+              ],
+              "aiScreen": null,
+              "analysisMode": "local-rule",
+              "text": "第1屏：首屏主视觉\n【本屏模块】首屏主视觉：承接主图点击，让用户第一眼确认商品、风格和购买兴趣。\n【本次图片编号】图1=商品图1「DF280080F81F7978C8700DA62EE854B3.jpg」；图2=商品图3「3 (1).jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「皮革清洁剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：服装鞋包；重点观察：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n受众：男性消费者，关注质感、实用性、版型和场景适配；材质线索：羊毛、皮革、真皮。\n全局风格：柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改款式结构；不要改变袖口层次、纽扣颜色和领口形态；不要让模特身份互相融合；不要把参考图衣服穿到目标商品上。\n【本屏卖点】### 第 1 屏：首屏痛点拦截（3 秒留人）\n【画面任务】商品主体清晰居中或略偏黄金分割，保留呼吸感，首屏标题区域不压住产品。\n【模块指令】强化第一眼质感；产品轮廓完整；背景干净；标题层级明确。\n【参考图使用】锁商品主图，可轻参考运营参考图的配色和氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+              "enabled": true,
+              "status": "success",
+              "generationMs": 65672,
+              "results": [
+                {
+                  "id": "181143c2-51ca-40c7-bfd3-0a6831bcff26_1",
+                  "requestId": "181143c2-51ca-40c7-bfd3-0a6831bcff26",
+                  "image": {
+                    "type": "url",
+                    "value": "/api/history-image/181143c2-51ca-40c7-bfd3-0a6831bcff26_1.png",
+                    "localUrl": "/api/history-image/181143c2-51ca-40c7-bfd3-0a6831bcff26_1.png",
+                    "archiveFile": "181143c2-51ca-40c7-bfd3-0a6831bcff26_1.png",
+                    "archiveMime": "image/png"
+                  },
+                  "prompt": "第1屏：首屏主视觉\n【本屏模块】首屏主视觉：承接主图点击，让用户第一眼确认商品、风格和购买兴趣。\n【本次图片编号】图1=商品图1「DF280080F81F7978C8700DA62EE854B3.jpg」；图2=商品图3「3 (1).jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「皮革清洁剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：服装鞋包；重点观察：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n受众：男性消费者，关注质感、实用性、版型和场景适配；材质线索：羊毛、皮革、真皮。\n全局风格：柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改款式结构；不要改变袖口层次、纽扣颜色和领口形态；不要让模特身份互相融合；不要把参考图衣服穿到目标商品上。\n【本屏卖点】### 第 1 屏：首屏痛点拦截（3 秒留人）\n【画面任务】商品主体清晰居中或略偏黄金分割，保留呼吸感，首屏标题区域不压住产品。\n【模块指令】强化第一眼质感；产品轮廓完整；背景干净；标题层级明确。\n【参考图使用】锁商品主图，可轻参考运营参考图的配色和氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+                  "modelLabel": "纳米香蕉2.1",
+                  "imageSize": "2K",
+                  "aspectRatio": "9:16",
+                  "referenceCount": 2,
+                  "references": [
+                    {
+                      "id": "181143c2-51ca-40c7-bfd3-0a6831bcff26_ref_1",
+                      "name": "DF280080F81F7978C8700DA62EE854B3.jpg",
+                      "role": "product",
+                      "index": 0,
+                      "size": 315099,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "181143c2-51ca-40c7-bfd3-0a6831bcff26_ref_1_DF280080F81F7978C8700DA62EE854B3.jpg.jpg",
+                      "localUrl": "/api/reference-asset/181143c2-51ca-40c7-bfd3-0a6831bcff26_ref_1_DF280080F81F7978C8700DA62EE854B3.jpg.jpg"
+                    },
+                    {
+                      "id": "181143c2-51ca-40c7-bfd3-0a6831bcff26_ref_2",
+                      "name": "3 (1).jpg",
+                      "role": "product",
+                      "index": 1,
+                      "size": 305944,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "181143c2-51ca-40c7-bfd3-0a6831bcff26_ref_2_3_(1).jpg.jpg",
+                      "localUrl": "/api/reference-asset/181143c2-51ca-40c7-bfd3-0a6831bcff26_ref_2_3_(1).jpg.jpg"
+                    }
+                  ],
+                  "generationMs": 65672,
+                  "source": "detail-main",
+                  "createdAt": 1792155685223,
+                  "detailScreen": 1
+                }
+              ],
+              "error": ""
+            },
+            {
+              "screen": 2,
+              "title": "核心卖点",
+              "summary": "- **主标题**：皮革污渍擦不掉？别用错清洁剂毁皮",
+              "intervention": "核心卖点介入",
+              "referenceStrategy": "商品图 1 / 参考图 0 · 锁商品图，可参考版式和信息层级。",
+              "productFileIndexes": [
+                0
+              ],
+              "referenceFileIndexes": [],
+              "imageSlots": [
+                {
+                  "slot": 1,
+                  "role": "product",
+                  "label": "商品图1",
+                  "sourceIndex": 0,
+                  "name": "DF280080F81F7978C8700DA62EE854B3.jpg"
+                }
+              ],
+              "moduleKey": "coreSellingPoint",
+              "moduleName": "核心卖点",
+              "qualityChecklist": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。",
+                "平台规范：商品清晰",
+                "平台规范：文案不遮挡主体",
+                "平台规范：适合无线端竖向浏览",
+                "检查衣服结构是否变形",
+                "检查左右袖口和纽扣是否一致",
+                "检查面料纹理是否真实",
+                "检查模特手脚是否畸形",
+                "检查文案是否遮挡商品",
+                "卖点是否对应商品",
+                "信息是否拥挤",
+                "是否出现虚假能力",
+                "产品是否变形"
+              ],
+              "aiScreen": null,
+              "analysisMode": "local-rule",
+              "text": "第2屏：核心卖点\n【本屏模块】核心卖点：解释最主要的购买理由，建立产品价值感。\n【本次图片编号】图1=商品图1「DF280080F81F7978C8700DA62EE854B3.jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「皮革清洁剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：服装鞋包；重点观察：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n受众：男性消费者，关注质感、实用性、版型和场景适配；材质线索：羊毛、皮革、真皮。\n全局风格：柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改款式结构；不要改变袖口层次、纽扣颜色和领口形态；不要让模特身份互相融合；不要把参考图衣服穿到目标商品上。\n【本屏卖点】- **主标题**：皮革污渍擦不掉？别用错清洁剂毁皮\n【画面任务】一屏只讲一个主要卖点，标题、辅助说明和产品画面形成清楚层级。\n【模块指令】一屏一卖点；文案短而清楚；视觉和卖点一致；保留产品细节。\n【参考图使用】锁商品图，可参考版式和信息层级。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+              "enabled": true,
+              "status": "success",
+              "generationMs": 39961,
+              "results": [
+                {
+                  "id": "b9b3beb6-9392-44b3-958c-c074ec0b38e2_1",
+                  "requestId": "b9b3beb6-9392-44b3-958c-c074ec0b38e2",
+                  "image": {
+                    "type": "url",
+                    "value": "/api/history-image/b9b3beb6-9392-44b3-958c-c074ec0b38e2_1.png",
+                    "localUrl": "/api/history-image/b9b3beb6-9392-44b3-958c-c074ec0b38e2_1.png",
+                    "archiveFile": "b9b3beb6-9392-44b3-958c-c074ec0b38e2_1.png",
+                    "archiveMime": "image/png"
+                  },
+                  "prompt": "第2屏：核心卖点\n【本屏模块】核心卖点：解释最主要的购买理由，建立产品价值感。\n【本次图片编号】图1=商品图1「DF280080F81F7978C8700DA62EE854B3.jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「皮革清洁剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：服装鞋包；重点观察：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n受众：男性消费者，关注质感、实用性、版型和场景适配；材质线索：羊毛、皮革、真皮。\n全局风格：柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改款式结构；不要改变袖口层次、纽扣颜色和领口形态；不要让模特身份互相融合；不要把参考图衣服穿到目标商品上。\n【本屏卖点】- **主标题**：皮革污渍擦不掉？别用错清洁剂毁皮\n【画面任务】一屏只讲一个主要卖点，标题、辅助说明和产品画面形成清楚层级。\n【模块指令】一屏一卖点；文案短而清楚；视觉和卖点一致；保留产品细节。\n【参考图使用】锁商品图，可参考版式和信息层级。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+                  "modelLabel": "纳米香蕉2.1",
+                  "imageSize": "2K",
+                  "aspectRatio": "9:16",
+                  "referenceCount": 1,
+                  "references": [
+                    {
+                      "id": "b9b3beb6-9392-44b3-958c-c074ec0b38e2_ref_1",
+                      "name": "DF280080F81F7978C8700DA62EE854B3.jpg",
+                      "role": "product",
+                      "index": 0,
+                      "size": 315099,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "b9b3beb6-9392-44b3-958c-c074ec0b38e2_ref_1_DF280080F81F7978C8700DA62EE854B3.jpg.jpg",
+                      "localUrl": "/api/reference-asset/b9b3beb6-9392-44b3-958c-c074ec0b38e2_ref_1_DF280080F81F7978C8700DA62EE854B3.jpg.jpg"
+                    }
+                  ],
+                  "generationMs": 39961,
+                  "source": "detail-main",
+                  "createdAt": 1792155659398,
+                  "detailScreen": 2
+                }
+              ],
+              "error": ""
+            },
+            {
+              "screen": 3,
+              "title": "痛点反转",
+              "summary": "- **副标题**：光面皮革专用 | 深层去渍 | 温和不发白 | 擦后无残留",
+              "intervention": "痛点反转介入",
+              "referenceStrategy": "商品图 1 / 参考图 0 · 以商品图为主，参考图只辅助场景表达。",
+              "productFileIndexes": [
+                0
+              ],
+              "referenceFileIndexes": [],
+              "imageSlots": [
+                {
+                  "slot": 1,
+                  "role": "product",
+                  "label": "商品图1",
+                  "sourceIndex": 0,
+                  "name": "DF280080F81F7978C8700DA62EE854B3.jpg"
+                }
+              ],
+              "moduleKey": "painReverse",
+              "moduleName": "痛点反转",
+              "qualityChecklist": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。",
+                "平台规范：商品清晰",
+                "平台规范：文案不遮挡主体",
+                "平台规范：适合无线端竖向浏览",
+                "检查衣服结构是否变形",
+                "检查左右袖口和纽扣是否一致",
+                "检查面料纹理是否真实",
+                "检查模特手脚是否畸形",
+                "检查文案是否遮挡商品",
+                "是否夸大效果",
+                "对比是否可信",
+                "产品是否仍然真实",
+                "文案是否绝对化"
+              ],
+              "aiScreen": null,
+              "analysisMode": "local-rule",
+              "text": "第3屏：痛点反转\n【本屏模块】痛点反转：把用户常见顾虑转成购买理由，形成继续阅读的动力。\n【本次图片编号】图1=商品图1「DF280080F81F7978C8700DA62EE854B3.jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「皮革清洁剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：服装鞋包；重点观察：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n受众：男性消费者，关注质感、实用性、版型和场景适配；材质线索：羊毛、皮革、真皮。\n全局风格：柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改款式结构；不要改变袖口层次、纽扣颜色和领口形态；不要让模特身份互相融合；不要把参考图衣服穿到目标商品上。\n【本屏卖点】- **副标题**：光面皮革专用 | 深层去渍 | 温和不发白 | 擦后无残留\n【画面任务】可以用左右对比、上下对比或场景前后变化，但不要制造虚假效果。\n【模块指令】痛点真实；反转明确；对比不过度；产品解决方案清楚。\n【参考图使用】以商品图为主，参考图只辅助场景表达。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+              "enabled": true,
+              "status": "success",
+              "generationMs": 39402,
+              "results": [
+                {
+                  "id": "19bd040a-8d04-4302-b6cc-0c2654dc1a0d_1",
+                  "requestId": "19bd040a-8d04-4302-b6cc-0c2654dc1a0d",
+                  "image": {
+                    "type": "url",
+                    "value": "/api/history-image/19bd040a-8d04-4302-b6cc-0c2654dc1a0d_1.jpg",
+                    "localUrl": "/api/history-image/19bd040a-8d04-4302-b6cc-0c2654dc1a0d_1.jpg",
+                    "archiveFile": "19bd040a-8d04-4302-b6cc-0c2654dc1a0d_1.jpg",
+                    "archiveMime": "image/jpeg"
+                  },
+                  "prompt": "第3屏：痛点反转\n【本屏模块】痛点反转：把用户常见顾虑转成购买理由，形成继续阅读的动力。\n【本次图片编号】图1=商品图1「DF280080F81F7978C8700DA62EE854B3.jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「皮革清洁剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：服装鞋包；重点观察：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n受众：男性消费者，关注质感、实用性、版型和场景适配；材质线索：羊毛、皮革、真皮。\n全局风格：柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改款式结构；不要改变袖口层次、纽扣颜色和领口形态；不要让模特身份互相融合；不要把参考图衣服穿到目标商品上。\n【本屏卖点】- **副标题**：光面皮革专用 | 深层去渍 | 温和不发白 | 擦后无残留\n【画面任务】可以用左右对比、上下对比或场景前后变化，但不要制造虚假效果。\n【模块指令】痛点真实；反转明确；对比不过度；产品解决方案清楚。\n【参考图使用】以商品图为主，参考图只辅助场景表达。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+                  "modelLabel": "纳米香蕉2.1",
+                  "imageSize": "2K",
+                  "aspectRatio": "9:16",
+                  "referenceCount": 1,
+                  "references": [
+                    {
+                      "id": "19bd040a-8d04-4302-b6cc-0c2654dc1a0d_ref_1",
+                      "name": "DF280080F81F7978C8700DA62EE854B3.jpg",
+                      "role": "product",
+                      "index": 0,
+                      "size": 315099,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "19bd040a-8d04-4302-b6cc-0c2654dc1a0d_ref_1_DF280080F81F7978C8700DA62EE854B3.jpg.jpg",
+                      "localUrl": "/api/reference-asset/19bd040a-8d04-4302-b6cc-0c2654dc1a0d_ref_1_DF280080F81F7978C8700DA62EE854B3.jpg.jpg"
+                    }
+                  ],
+                  "generationMs": 39402,
+                  "source": "detail-main",
+                  "createdAt": 1792155657728,
+                  "detailScreen": 3
+                }
+              ],
+              "error": ""
+            },
+            {
+              "screen": 4,
+              "title": "版型/结构",
+              "summary": "- **视觉参考**：左侧放「脏污皮革 vs 清洁后」对比",
+              "intervention": "版型/结构介入",
+              "referenceStrategy": "商品图 2 / 参考图 0 · 优先商品图，参考图不参与结构判断。",
+              "productFileIndexes": [
+                0,
+                1
+              ],
+              "referenceFileIndexes": [],
+              "imageSlots": [
+                {
+                  "slot": 1,
+                  "role": "product",
+                  "label": "商品图1",
+                  "sourceIndex": 0,
+                  "name": "DF280080F81F7978C8700DA62EE854B3.jpg"
+                },
+                {
+                  "slot": 2,
+                  "role": "product",
+                  "label": "商品图2",
+                  "sourceIndex": 1,
+                  "name": "6ad0d975f668a7c39bab3cec (1).webp"
+                }
+              ],
+              "moduleKey": "fitStructure",
+              "moduleName": "版型/结构",
+              "qualityChecklist": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。",
+                "平台规范：商品清晰",
+                "平台规范：文案不遮挡主体",
+                "平台规范：适合无线端竖向浏览",
+                "检查衣服结构是否变形",
+                "检查左右袖口和纽扣是否一致",
+                "检查面料纹理是否真实",
+                "检查模特手脚是否畸形",
+                "检查文案是否遮挡商品",
+                "结构是否改款",
+                "比例是否异常",
+                "线条是否破碎",
+                "是否添加不存在部件"
+              ],
+              "aiScreen": null,
+              "analysisMode": "local-rule",
+              "text": "第4屏：版型/结构\n【本屏模块】版型/结构：解释商品形体结构、剪裁轮廓或核心构造。\n【本次图片编号】图1=商品图1「DF280080F81F7978C8700DA62EE854B3.jpg」；图2=商品图2「6ad0d975f668a7c39bab3cec (1).webp」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「皮革清洁剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：服装鞋包；重点观察：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n受众：男性消费者，关注质感、实用性、版型和场景适配；材质线索：羊毛、皮革、真皮。\n全局风格：柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改款式结构；不要改变袖口层次、纽扣颜色和领口形态；不要让模特身份互相融合；不要把参考图衣服穿到目标商品上。\n【本屏卖点】- **视觉参考**：左侧放「脏污皮革 vs 清洁后」对比\n【画面任务】整体展示为主，必要时辅以局部放大，不改变真实结构。\n【模块指令】结构准确；轮廓完整；比例稳定；细节不乱。\n【参考图使用】优先商品图，参考图不参与结构判断。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+              "enabled": true,
+              "status": "success",
+              "generationMs": 63171,
+              "results": [
+                {
+                  "id": "bd270427-f181-4d3e-9a12-b7f39b0a65bd_1",
+                  "requestId": "bd270427-f181-4d3e-9a12-b7f39b0a65bd",
+                  "image": {
+                    "type": "url",
+                    "value": "/api/history-image/bd270427-f181-4d3e-9a12-b7f39b0a65bd_1.jpg",
+                    "localUrl": "/api/history-image/bd270427-f181-4d3e-9a12-b7f39b0a65bd_1.jpg",
+                    "archiveFile": "bd270427-f181-4d3e-9a12-b7f39b0a65bd_1.jpg",
+                    "archiveMime": "image/jpeg"
+                  },
+                  "prompt": "第4屏：版型/结构\n【本屏模块】版型/结构：解释商品形体结构、剪裁轮廓或核心构造。\n【本次图片编号】图1=商品图1「DF280080F81F7978C8700DA62EE854B3.jpg」；图2=商品图2「6ad0d975f668a7c39bab3cec (1).webp」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「皮革清洁剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：服装鞋包；重点观察：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n受众：男性消费者，关注质感、实用性、版型和场景适配；材质线索：羊毛、皮革、真皮。\n全局风格：柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改款式结构；不要改变袖口层次、纽扣颜色和领口形态；不要让模特身份互相融合；不要把参考图衣服穿到目标商品上。\n【本屏卖点】- **视觉参考**：左侧放「脏污皮革 vs 清洁后」对比\n【画面任务】整体展示为主，必要时辅以局部放大，不改变真实结构。\n【模块指令】结构准确；轮廓完整；比例稳定；细节不乱。\n【参考图使用】优先商品图，参考图不参与结构判断。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+                  "modelLabel": "纳米香蕉2.1",
+                  "imageSize": "2K",
+                  "aspectRatio": "9:16",
+                  "referenceCount": 2,
+                  "references": [
+                    {
+                      "id": "bd270427-f181-4d3e-9a12-b7f39b0a65bd_ref_1",
+                      "name": "DF280080F81F7978C8700DA62EE854B3.jpg",
+                      "role": "product",
+                      "index": 0,
+                      "size": 315099,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "bd270427-f181-4d3e-9a12-b7f39b0a65bd_ref_1_DF280080F81F7978C8700DA62EE854B3.jpg.jpg",
+                      "localUrl": "/api/reference-asset/bd270427-f181-4d3e-9a12-b7f39b0a65bd_ref_1_DF280080F81F7978C8700DA62EE854B3.jpg.jpg"
+                    },
+                    {
+                      "id": "bd270427-f181-4d3e-9a12-b7f39b0a65bd_ref_2",
+                      "name": "6ad0d975f668a7c39bab3cec (1).webp",
+                      "role": "product",
+                      "index": 1,
+                      "size": 92674,
+                      "mimeType": "image/webp",
+                      "archiveFile": "bd270427-f181-4d3e-9a12-b7f39b0a65bd_ref_2_6ad0d975f668a7c39bab3cec_(1).webp.webp",
+                      "localUrl": "/api/reference-asset/bd270427-f181-4d3e-9a12-b7f39b0a65bd_ref_2_6ad0d975f668a7c39bab3cec_(1).webp.webp"
+                    }
+                  ],
+                  "generationMs": 63171,
+                  "source": "detail-main",
+                  "createdAt": 1792155688525,
+                  "detailScreen": 4
+                }
+              ],
+              "error": ""
+            },
+            {
+              "screen": 5,
+              "title": "痛点反转",
+              "summary": "版型修饰身形",
+              "intervention": "痛点反转介入",
+              "referenceStrategy": "商品图 1 / 参考图 0 · 以商品图为主，参考图只辅助场景表达。",
+              "productFileIndexes": [
+                0
+              ],
+              "referenceFileIndexes": [],
+              "imageSlots": [
+                {
+                  "slot": 1,
+                  "role": "product",
+                  "label": "商品图1",
+                  "sourceIndex": 0,
+                  "name": "DF280080F81F7978C8700DA62EE854B3.jpg"
+                }
+              ],
+              "moduleKey": "painReverse",
+              "moduleName": "痛点反转",
+              "qualityChecklist": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。",
+                "平台规范：商品清晰",
+                "平台规范：文案不遮挡主体",
+                "平台规范：适合无线端竖向浏览",
+                "检查衣服结构是否变形",
+                "检查左右袖口和纽扣是否一致",
+                "检查面料纹理是否真实",
+                "检查模特手脚是否畸形",
+                "检查文案是否遮挡商品",
+                "是否夸大效果",
+                "对比是否可信",
+                "产品是否仍然真实",
+                "文案是否绝对化"
+              ],
+              "aiScreen": null,
+              "analysisMode": "local-rule",
+              "text": "第5屏：痛点反转\n【本屏模块】痛点反转：把用户常见顾虑转成购买理由，形成继续阅读的动力。\n【本次图片编号】图1=商品图1「DF280080F81F7978C8700DA62EE854B3.jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「皮革清洁剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：服装鞋包；重点观察：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n受众：男性消费者，关注质感、实用性、版型和场景适配；材质线索：羊毛、皮革、真皮。\n全局风格：柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改款式结构；不要改变袖口层次、纽扣颜色和领口形态；不要让模特身份互相融合；不要把参考图衣服穿到目标商品上。\n【本屏卖点】版型修饰身形\n【画面任务】可以用左右对比、上下对比或场景前后变化，但不要制造虚假效果。\n【模块指令】痛点真实；反转明确；对比不过度；产品解决方案清楚。\n【参考图使用】以商品图为主，参考图只辅助场景表达。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+              "enabled": true,
+              "status": "success",
+              "generationMs": 39454,
+              "results": [
+                {
+                  "id": "66528984-96f5-41eb-9e14-077a44bed77e_1",
+                  "requestId": "66528984-96f5-41eb-9e14-077a44bed77e",
+                  "image": {
+                    "type": "url",
+                    "value": "/api/history-image/66528984-96f5-41eb-9e14-077a44bed77e_1_2.png",
+                    "localUrl": "/api/history-image/66528984-96f5-41eb-9e14-077a44bed77e_1_2.png",
+                    "archiveFile": "66528984-96f5-41eb-9e14-077a44bed77e_1_2.png",
+                    "archiveMime": "image/png"
+                  },
+                  "prompt": "第5屏：痛点反转\n【本屏模块】痛点反转：把用户常见顾虑转成购买理由，形成继续阅读的动力。\n【本次图片编号】图1=商品图1「DF280080F81F7978C8700DA62EE854B3.jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「皮革清洁剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：服装鞋包；重点观察：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n受众：男性消费者，关注质感、实用性、版型和场景适配；材质线索：羊毛、皮革、真皮。\n全局风格：柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改款式结构；不要改变袖口层次、纽扣颜色和领口形态；不要让模特身份互相融合；不要把参考图衣服穿到目标商品上。\n【本屏卖点】版型修饰身形\n【画面任务】可以用左右对比、上下对比或场景前后变化，但不要制造虚假效果。\n【模块指令】痛点真实；反转明确；对比不过度；产品解决方案清楚。\n【参考图使用】以商品图为主，参考图只辅助场景表达。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+                  "modelLabel": "纳米香蕉2.1",
+                  "imageSize": "2K",
+                  "aspectRatio": "9:16",
+                  "referenceCount": 1,
+                  "references": [
+                    {
+                      "id": "66528984-96f5-41eb-9e14-077a44bed77e_ref_1",
+                      "name": "DF280080F81F7978C8700DA62EE854B3.jpg",
+                      "role": "product",
+                      "index": 0,
+                      "size": 315099,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "66528984-96f5-41eb-9e14-077a44bed77e_ref_1_DF280080F81F7978C8700DA62EE854B3.jpg.jpg",
+                      "localUrl": "/api/reference-asset/66528984-96f5-41eb-9e14-077a44bed77e_ref_1_DF280080F81F7978C8700DA62EE854B3.jpg.jpg"
+                    }
+                  ],
+                  "generationMs": 39454,
+                  "source": "detail-main",
+                  "createdAt": 1792155658902,
+                  "detailScreen": 5
+                }
+              ],
+              "error": ""
+            },
+            {
+              "screen": 6,
+              "title": "信任背书",
+              "summary": "面料肌理清晰",
+              "intervention": "信任背书介入",
+              "referenceStrategy": "商品图 1 / 参考图 0 · 商品图为主，参考图只参考信息布局。",
+              "productFileIndexes": [
+                0
+              ],
+              "referenceFileIndexes": [],
+              "imageSlots": [
+                {
+                  "slot": 1,
+                  "role": "product",
+                  "label": "商品图1",
+                  "sourceIndex": 0,
+                  "name": "DF280080F81F7978C8700DA62EE854B3.jpg"
+                }
+              ],
+              "moduleKey": "trustProof",
+              "moduleName": "信任背书",
+              "qualityChecklist": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。",
+                "平台规范：商品清晰",
+                "平台规范：文案不遮挡主体",
+                "平台规范：适合无线端竖向浏览",
+                "检查衣服结构是否变形",
+                "检查左右袖口和纽扣是否一致",
+                "检查面料纹理是否真实",
+                "检查模特手脚是否畸形",
+                "检查文案是否遮挡商品",
+                "是否虚构证书",
+                "是否绝对化承诺",
+                "文字是否清楚",
+                "品牌信息是否混入"
+              ],
+              "aiScreen": null,
+              "analysisMode": "local-rule",
+              "text": "第6屏：信任背书\n【本屏模块】信任背书：用真实可信的品质、服务、材质或工艺表达降低疑虑。\n【本次图片编号】图1=商品图1「DF280080F81F7978C8700DA62EE854B3.jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「皮革清洁剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：服装鞋包；重点观察：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n受众：男性消费者，关注质感、实用性、版型和场景适配；材质线索：羊毛、皮革、真皮。\n全局风格：柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改款式结构；不要改变袖口层次、纽扣颜色和领口形态；不要让模特身份互相融合；不要把参考图衣服穿到目标商品上。\n【本屏卖点】面料肌理清晰\n【画面任务】稳重干净，可用图标感信息块，但不能虚构认证、销量或机构。\n【模块指令】可信而克制；不写无法验证的认证；服务表达泛化；质感稳定。\n【参考图使用】商品图为主，参考图只参考信息布局。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+              "enabled": true,
+              "status": "failed",
+              "generationMs": 7009.899999991059,
+              "results": [],
+              "error": "服务器返回错误（HTTP 504）：上游服务器返回错误（HTTP 502），请稍后重试或换一条线路。 / upstream_server_error 这是上游返回的错误，可稍后重试或换一条线路。 [requestId: 3065a66b-f709-4a68-a1a8-b21b4e65ab59]"
+            },
+            {
+              "screen": 7,
+              "title": "收尾转化",
+              "summary": "袖口/领口/纽扣细节",
+              "intervention": "收尾转化质检",
+              "referenceStrategy": "商品图 1 / 参考图 0 · 商品主图和首屏风格为主，可轻参考运营图氛围。",
+              "productFileIndexes": [
+                0
+              ],
+              "referenceFileIndexes": [],
+              "imageSlots": [
+                {
+                  "slot": 1,
+                  "role": "product",
+                  "label": "商品图1",
+                  "sourceIndex": 0,
+                  "name": "DF280080F81F7978C8700DA62EE854B3.jpg"
+                }
+              ],
+              "moduleKey": "conversionClose",
+              "moduleName": "收尾转化",
+              "qualityChecklist": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。",
+                "平台规范：商品清晰",
+                "平台规范：文案不遮挡主体",
+                "平台规范：适合无线端竖向浏览",
+                "检查衣服结构是否变形",
+                "检查左右袖口和纽扣是否一致",
+                "检查面料纹理是否真实",
+                "检查模特手脚是否畸形",
+                "检查文案是否遮挡商品",
+                "是否和首屏风格一致",
+                "是否过度促销",
+                "产品是否清楚",
+                "文案是否合规"
+              ],
+              "aiScreen": null,
+              "analysisMode": "local-rule",
+              "text": "第7屏：收尾转化\n【本屏模块】收尾转化：总结核心理由，给出温和行动引导，形成详情页完整闭环。\n【本次图片编号】图1=商品图1「DF280080F81F7978C8700DA62EE854B3.jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「皮革清洁剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：服装鞋包；重点观察：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n受众：男性消费者，关注质感、实用性、版型和场景适配；材质线索：羊毛、皮革、真皮。\n全局风格：柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改款式结构；不要改变袖口层次、纽扣颜色和领口形态；不要让模特身份互相融合；不要把参考图衣服穿到目标商品上。\n【本屏卖点】袖口/领口/纽扣细节\n【画面任务】画面简洁、有结束感，产品再次清楚出现，文案短促有力但不硬卖。\n【模块指令】总结卖点；回到产品；留出行动区域；风格承接首屏。\n【参考图使用】商品主图和首屏风格为主，可轻参考运营图氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+              "enabled": true,
+              "status": "success",
+              "generationMs": 106305,
+              "results": [
+                {
+                  "id": "51a0a708-b271-47c2-89d3-f95fe545d954_1",
+                  "requestId": "51a0a708-b271-47c2-89d3-f95fe545d954",
+                  "image": {
+                    "type": "url",
+                    "value": "/api/history-image/51a0a708-b271-47c2-89d3-f95fe545d954_1.png",
+                    "localUrl": "/api/history-image/51a0a708-b271-47c2-89d3-f95fe545d954_1.png",
+                    "archiveFile": "51a0a708-b271-47c2-89d3-f95fe545d954_1.png",
+                    "archiveMime": "image/png"
+                  },
+                  "prompt": "第7屏：收尾转化\n【本屏模块】收尾转化：总结核心理由，给出温和行动引导，形成详情页完整闭环。\n【本次图片编号】图1=商品图1「DF280080F81F7978C8700DA62EE854B3.jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「皮革清洁剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：服装鞋包；重点观察：款式结构、版型轮廓、面料肌理、袖口/领口/纽扣/拉链、穿着场景、模特比例和姿态、搭配关系。\n受众：男性消费者，关注质感、实用性、版型和场景适配；材质线索：羊毛、皮革、真皮。\n全局风格：柔和四面光、低反差、真实面料纹理、自然模特姿态、干净浅色背景、产品边缘清楚；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改款式结构；不要改变袖口层次、纽扣颜色和领口形态；不要让模特身份互相融合；不要把参考图衣服穿到目标商品上。\n【本屏卖点】袖口/领口/纽扣细节\n【画面任务】画面简洁、有结束感，产品再次清楚出现，文案短促有力但不硬卖。\n【模块指令】总结卖点；回到产品；留出行动区域；风格承接首屏。\n【参考图使用】商品主图和首屏风格为主，可轻参考运营图氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+                  "modelLabel": "纳米香蕉2.1",
+                  "imageSize": "2K",
+                  "aspectRatio": "9:16",
+                  "referenceCount": 1,
+                  "references": [
+                    {
+                      "id": "51a0a708-b271-47c2-89d3-f95fe545d954_ref_1",
+                      "name": "DF280080F81F7978C8700DA62EE854B3.jpg",
+                      "role": "product",
+                      "index": 0,
+                      "size": 315099,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "51a0a708-b271-47c2-89d3-f95fe545d954_ref_1_DF280080F81F7978C8700DA62EE854B3.jpg.jpg",
+                      "localUrl": "/api/reference-asset/51a0a708-b271-47c2-89d3-f95fe545d954_ref_1_DF280080F81F7978C8700DA62EE854B3.jpg.jpg"
+                    }
+                  ],
+                  "generationMs": 106305,
+                  "source": "detail-main",
+                  "createdAt": 1792155725766,
+                  "detailScreen": 7
+                }
+              ],
+              "error": ""
+            }
+          ],
+          "productFiles": [],
+          "referenceFiles": []
+        },
+        {
+          "id": "detail_1790413073362_nzn4ot",
+          "label": "16:57 | 目标产品",
+          "createdAt": 1790413073362,
+          "status": "confirming",
+          "params": {
+            "workflow": "taobao-detail",
+            "analysisMode": "ai",
+            "model": "tt-image-2",
+            "dispatchMode": "manual",
+            "ratio": "9:16",
+            "imageSize": "2K",
+            "count": 1,
+            "copywriting": "need",
+            "richness": "simple",
+            "fontStyle": "heiti",
+            "detailSkillVersion": "v1",
+            "stylePackId": "auto",
+            "modelMode": "use-model",
+            "modelPose": "regular",
+            "modelUsage": 4,
+            "reverseScreens": 2,
+            "lang": "中文",
+            "productName": "目标产品",
+            "productFeature": "",
+            "userInstruction": "",
+            "sellingPoints": "",
+            "platform": "淘宝",
+            "pageType": "详情页",
+            "industry": "通用电商",
+            "productImageNames": [
+              "26-6_upload.jpg"
+            ],
+            "referenceImageNames": [
+              "26-8.png"
+            ]
+          },
+          "analysis": {
+            "mode": "local-rule",
+            "confidence": "medium",
+            "industry": "通用电商",
+            "platform": "淘宝",
+            "targetAudience": "电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由",
+            "materialHints": [
+              "以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节"
+            ],
+            "analyzeAttributes": [
+              "商品外观",
+              "核心卖点",
+              "材质细节",
+              "使用场景",
+              "信任要素",
+              "转化理由"
+            ],
+            "sellingPoints": [
+              "核心卖点",
+              "材质细节",
+              "使用场景",
+              "品质信任",
+              "转化收尾"
+            ],
+            "visualStyle": "主体清晰、光线统一、版式稳定、细节真实、背景干净",
+            "imageFacts": [
+              "26-6_upload.jpg / image/jpeg / 2049x3072"
+            ],
+            "limitation": "AI 分析未完成，已切回本地五层 Skill 兜底。失败原因：上游服务器返回错误（HTTP 502），请稍后重试或换一条线路。",
+            "aiError": "上游服务器返回错误（HTTP 502），请稍后重试或换一条线路。"
+          },
+          "skillLayers": {
+            "base": {
+              "id": "jingyin-detail-base-v1",
+              "name": "通用底座",
+              "productAuthenticityLock": [
+                "商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。",
+                "参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。",
+                "多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。",
+                "当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。"
+              ],
+              "outputJsonFormat": {
+                "description": "详情提示词规划接口必须返回结构化 JSON，便于前端确认、单屏重刷、批量并发和后续计费。",
+                "requiredGroupFields": [
+                  "id",
+                  "label",
+                  "createdAt",
+                  "status",
+                  "params",
+                  "analysis",
+                  "rounds",
+                  "prompts"
+                ],
+                "requiredPromptFields": [
+                  "screen",
+                  "title",
+                  "summary",
+                  "intervention",
+                  "referenceStrategy",
+                  "productFileIndexes",
+                  "referenceFileIndexes",
+                  "text",
+                  "enabled",
+                  "status"
+                ]
+              },
+              "screenCountRule": {
+                "min": 1,
+                "max": 12,
+                "defaultCount": 8,
+                "guidance": "分屏数量由用户选择。少屏强调主视觉和核心卖点，多屏补充材质、场景、参数、信任背书和转化收尾。"
+              },
+              "imageNumberRules": [
+                "每一屏提示词里的图1、图2、图3只代表本次提交给图片接口的附件顺序，不代表用户素材库的全局顺序。",
+                "图1优先放目标商品主图，保证模型先锁定商品身份。",
+                "需要模特或固定服装时，按本屏任务明确声明图1、图2的角色，避免模型错穿、混穿或换款。",
+                "同一屏最多保留必要参考图，避免把所有素材同时送入造成主体漂移和风格割裂。"
+              ],
+              "globalStyleConsistency": [
+                "同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。",
+                "首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。",
+                "产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。"
+              ]
+            },
+            "industry": {
+              "id": "generic",
+              "name": "通用电商",
+              "keywords": [],
+              "analyzeAttributes": [
+                "商品外观",
+                "核心卖点",
+                "材质细节",
+                "使用场景",
+                "信任要素",
+                "转化理由"
+              ],
+              "sellingAngles": [
+                "核心卖点",
+                "材质细节",
+                "使用场景",
+                "品质信任",
+                "转化收尾"
+              ],
+              "recommendedScreens": [
+                "首屏主视觉",
+                "核心卖点",
+                "材质细节",
+                "使用场景",
+                "参数说明",
+                "信任背书",
+                "收尾转化"
+              ],
+              "visualAnchors": [
+                "主体清晰",
+                "光线统一",
+                "版式稳定",
+                "细节真实",
+                "背景干净"
+              ],
+              "taboos": [
+                "不要改变产品结构",
+                "不要混入参考图里的其它商品",
+                "不要生成虚假认证",
+                "不要让文字乱码"
+              ],
+              "qcRules": [
+                "检查主体是否清晰",
+                "检查产品结构是否一致",
+                "检查文案是否可信",
+                "检查整体风格是否统一"
+              ]
+            },
+            "platform": {
+              "id": "taobao-detail",
+              "platform": "淘宝",
+              "pageType": "详情页",
+              "rhythm": [
+                "首屏主视觉",
+                "痛点反转",
+                "核心卖点",
+                "材质细节",
+                "版型/结构",
+                "使用场景",
+                "信任背书",
+                "收尾转化"
+              ],
+              "copyRule": "中文电商短句，卖点直接，留白明确，避免夸张极限词。",
+              "visualRule": "适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。",
+              "imageNorms": [
+                "商品清晰",
+                "文案不遮挡主体",
+                "适合无线端竖向浏览"
+              ],
+              "conversionTraits": [
+                "第一眼点击承接",
+                "卖点解释清楚",
+                "最后给购买理由"
+              ]
+            },
+            "modules": [
+              {
+                "screen": 1,
+                "moduleKey": "hero",
+                "moduleName": "首屏主视觉",
+                "title": "首屏主视觉"
+              }
+            ],
+            "quality": {
+              "id": "jingyin-detail-quality-v1",
+              "name": "质检 Skill",
+              "globalChecks": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。"
+              ],
+              "negativePrompt": [
+                "不要低清晰度",
+                "不要破碎拼贴",
+                "不要过曝",
+                "不要脏乱背景",
+                "不要错误 logo",
+                "不要错字乱码",
+                "不要虚假认证",
+                "不要多余肢体",
+                "不要畸形手",
+                "不要改变商品结构",
+                "不要混入参考图商品"
+              ]
+            }
+          },
+          "rounds": [
+            {
+              "stage": "通用底座",
+              "title": "真实性、格式、数量和编号",
+              "content": "商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。；参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。；多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。；当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n输出 JSON 字段：id、label、createdAt、status、params、analysis、rounds、prompts；每屏字段：screen、title、summary、intervention、referenceStrategy、productFileIndexes、referenceFileIndexes、text、enabled、status。\n分屏数量：1，允许范围 1-12。\n每一屏提示词里的图1、图2、图3只代表本次提交给图片接口的附件顺序，不代表用户素材库的全局顺序。；图1优先放目标商品主图，保证模型先锁定商品身份。；需要模特或固定服装时，按本屏任务明确声明图1、图2的角色，避免模型错穿、混穿或换款。；同一屏最多保留必要参考图，避免把所有素材同时送入造成主体漂移和风格割裂。\n同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。；首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。；产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。"
+            },
+            {
+              "stage": "行业 Skill",
+              "title": "通用电商",
+              "content": "分析属性：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n推荐卖点：核心卖点、材质细节、使用场景、品质信任、转化收尾。\n行业禁忌：不要改变产品结构、不要混入参考图里的其它商品、不要生成虚假认证、不要让文字乱码。"
+            },
+            {
+              "stage": "平台 Skill",
+              "title": "淘宝详情页",
+              "content": "页面节奏：首屏主视觉 -> 痛点反转 -> 核心卖点 -> 材质细节 -> 版型/结构 -> 使用场景 -> 信任背书 -> 收尾转化。\n文案风格：中文电商短句，卖点直接，留白明确，避免夸张极限词。\n图片规范：商品清晰、文案不遮挡主体、适合无线端竖向浏览。\n转化特点：第一眼点击承接、卖点解释清楚、最后给购买理由。"
+            },
+            {
+              "stage": "分屏模块库",
+              "title": "本组 1 屏，反转屏 2 屏",
+              "content": "可用模块：首屏主视觉、痛点反转、核心卖点、材质细节、使用场景、参数说明、信任背书、收尾转化、版型/结构。本组会按平台节奏、行业卖点和反转屏数量动态分配。"
+            },
+            {
+              "stage": "质检 Skill",
+              "title": "生成前后自查",
+              "content": "全局质检：商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。。\n负面约束：不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。\n规划模式：AI 分析未完成，已切回本地五层 Skill 兜底。失败原因：上游服务器返回错误（HTTP 502），请稍后重试或换一条线路。"
+            }
+          ],
+          "prompts": [
+            {
+              "screen": 1,
+              "title": "首屏主视觉",
+              "summary": "核心卖点",
+              "intervention": "通用底座定调",
+              "referenceStrategy": "商品图 1 / 参考图 1 · 锁商品主图，可轻参考运营参考图的配色和氛围。",
+              "productFileIndexes": [
+                0
+              ],
+              "referenceFileIndexes": [
+                0
+              ],
+              "imageSlots": [
+                {
+                  "slot": 1,
+                  "role": "product",
+                  "label": "商品图1",
+                  "sourceIndex": 0,
+                  "name": "26-6_upload.jpg"
+                },
+                {
+                  "slot": 2,
+                  "role": "reference",
+                  "label": "参考图1",
+                  "sourceIndex": 0,
+                  "name": "26-8.png"
+                }
+              ],
+              "moduleKey": "hero",
+              "moduleName": "首屏主视觉",
+              "qualityChecklist": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。",
+                "平台规范：商品清晰",
+                "平台规范：文案不遮挡主体",
+                "平台规范：适合无线端竖向浏览",
+                "检查主体是否清晰",
+                "检查产品结构是否一致",
+                "检查文案是否可信",
+                "检查整体风格是否统一",
+                "主商品是否完整",
+                "第一眼是否清楚",
+                "是否过曝",
+                "文案是否压住商品"
+              ],
+              "aiScreen": null,
+              "analysisMode": "local-rule",
+              "text": "第1屏：首屏主视觉\n【本屏模块】首屏主视觉：承接主图点击，让用户第一眼确认商品、风格和购买兴趣。\n【本次图片编号】图1=商品图1「26-6_upload.jpg」；图2=参考图1「26-8.png」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「目标产品」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：通用电商；重点观察：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节。\n全局风格：主体清晰、光线统一、版式稳定、细节真实、背景干净；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改变产品结构；不要混入参考图里的其它商品；不要生成虚假认证；不要让文字乱码。\n【本屏卖点】核心卖点\n【画面任务】商品主体清晰居中或略偏黄金分割，保留呼吸感，首屏标题区域不压住产品。\n【模块指令】强化第一眼质感；产品轮廓完整；背景干净；标题层级明确。\n【参考图使用】锁商品主图，可轻参考运营参考图的配色和氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏使用常规姿态模特：自然站姿、坐姿或行走，镜头透视正常，清晰展示穿着效果。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+              "enabled": true,
+              "status": "success",
+              "generationMs": 42344,
+              "results": [
+                {
+                  "id": "f427fb7f-e4ad-40fb-ace4-a744d11b3614_1",
+                  "requestId": "f427fb7f-e4ad-40fb-ace4-a744d11b3614",
+                  "image": {
+                    "type": "url",
+                    "value": "/api/history-image/f427fb7f-e4ad-40fb-ace4-a744d11b3614_1_2.png",
+                    "localUrl": "/api/history-image/f427fb7f-e4ad-40fb-ace4-a744d11b3614_1_2.png",
+                    "archiveFile": "f427fb7f-e4ad-40fb-ace4-a744d11b3614_1_2.png",
+                    "archiveMime": "image/png"
+                  },
+                  "prompt": "第1屏：首屏主视觉\n【本屏模块】首屏主视觉：承接主图点击，让用户第一眼确认商品、风格和购买兴趣。\n【本次图片编号】图1=商品图1「26-6_upload.jpg」；图2=参考图1「26-8.png」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「目标产品」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：通用电商；重点观察：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节。\n全局风格：主体清晰、光线统一、版式稳定、细节真实、背景干净；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改变产品结构；不要混入参考图里的其它商品；不要生成虚假认证；不要让文字乱码。\n【本屏卖点】核心卖点\n【画面任务】商品主体清晰居中或略偏黄金分割，保留呼吸感，首屏标题区域不压住产品。\n【模块指令】强化第一眼质感；产品轮廓完整；背景干净；标题层级明确。\n【参考图使用】锁商品主图，可轻参考运营参考图的配色和氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏使用常规姿态模特：自然站姿、坐姿或行走，镜头透视正常，清晰展示穿着效果。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+                  "modelLabel": "TT Image 2",
+                  "imageSize": "2K",
+                  "aspectRatio": "9:16",
+                  "referenceCount": 2,
+                  "references": [
+                    {
+                      "id": "f427fb7f-e4ad-40fb-ace4-a744d11b3614_ref_1",
+                      "name": "26-6_upload.jpg",
+                      "role": "product",
+                      "index": 0,
+                      "size": 395671,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "f427fb7f-e4ad-40fb-ace4-a744d11b3614_ref_1_26-6_upload.jpg.jpg",
+                      "localUrl": "/api/reference-asset/f427fb7f-e4ad-40fb-ace4-a744d11b3614_ref_1_26-6_upload.jpg.jpg",
+                      "missing": true,
+                      "missingReason": "reference_missing"
+                    },
+                    {
+                      "id": "f427fb7f-e4ad-40fb-ace4-a744d11b3614_ref_2",
+                      "name": "26-8.png",
+                      "role": "reference",
+                      "index": 1,
+                      "size": 2937393,
+                      "mimeType": "image/png",
+                      "archiveFile": "f427fb7f-e4ad-40fb-ace4-a744d11b3614_ref_2_26-8.png.png",
+                      "localUrl": "/api/reference-asset/f427fb7f-e4ad-40fb-ace4-a744d11b3614_ref_2_26-8.png.png",
+                      "missing": true,
+                      "missingReason": "reference_missing"
+                    }
+                  ],
+                  "generationMs": 42344,
+                  "source": "detail-main",
+                  "createdAt": 1790413117821,
+                  "detailScreen": 1
+                }
+              ],
+              "error": ""
+            }
+          ],
+          "productFiles": [],
+          "referenceFiles": []
+        },
+        {
+          "id": "detail_1790269419717_8rpoxv",
+          "label": "01:03 | 目标产品",
+          "createdAt": 1790269419717,
+          "status": "confirming",
+          "params": {
+            "workflow": "taobao-detail",
+            "analysisMode": "ai",
+            "model": "tt-image-2",
+            "dispatchMode": "manual",
+            "ratio": "9:16",
+            "imageSize": "2K",
+            "count": 1,
+            "copywriting": "need",
+            "richness": "simple",
+            "fontStyle": "heiti",
+            "detailSkillVersion": "v1",
+            "stylePackId": "auto",
+            "modelMode": "use-model",
+            "modelPose": "regular",
+            "modelUsage": 4,
+            "reverseScreens": 2,
+            "lang": "中文",
+            "productName": "目标产品",
+            "productFeature": "",
+            "userInstruction": "",
+            "sellingPoints": "",
+            "skillRulesEnabled": true,
+            "platform": "淘宝",
+            "pageType": "详情页",
+            "industry": "通用电商",
+            "productImageNames": [
+              "JY_5.jpg"
+            ],
+            "referenceImageNames": [
+              "ComfyUI_00393_.jpg"
+            ]
+          },
+          "analysis": {
+            "mode": "local-rule",
+            "confidence": "medium",
+            "industry": "通用电商",
+            "platform": "淘宝",
+            "targetAudience": "电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由",
+            "materialHints": [
+              "以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节"
+            ],
+            "analyzeAttributes": [
+              "商品外观",
+              "核心卖点",
+              "材质细节",
+              "使用场景",
+              "信任要素",
+              "转化理由"
+            ],
+            "sellingPoints": [
+              "核心卖点",
+              "材质细节",
+              "使用场景",
+              "品质信任",
+              "转化收尾"
+            ],
+            "visualStyle": "主体清晰、光线统一、版式稳定、细节真实、背景干净",
+            "imageFacts": [
+              "JY_5.jpg / image/jpeg / 2334x3500"
+            ],
+            "limitation": "AI 分析未完成，已切回本地五层 Skill 兜底。失败原因：生成超时，请重新生成。",
+            "aiError": "生成超时，请重新生成。"
+          },
+          "skillLayers": {
+            "base": {
+              "id": "jingyin-detail-base-v1",
+              "name": "通用底座",
+              "productAuthenticityLock": [
+                "商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。",
+                "参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。",
+                "多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。",
+                "当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。"
+              ],
+              "outputJsonFormat": {
+                "description": "详情提示词规划接口必须返回结构化 JSON，便于前端确认、单屏重刷、批量并发和后续计费。",
+                "requiredGroupFields": [
+                  "id",
+                  "label",
+                  "createdAt",
+                  "status",
+                  "params",
+                  "analysis",
+                  "rounds",
+                  "prompts"
+                ],
+                "requiredPromptFields": [
+                  "screen",
+                  "title",
+                  "summary",
+                  "intervention",
+                  "referenceStrategy",
+                  "productFileIndexes",
+                  "referenceFileIndexes",
+                  "text",
+                  "enabled",
+                  "status"
+                ]
+              },
+              "screenCountRule": {
+                "min": 1,
+                "max": 12,
+                "defaultCount": 8,
+                "guidance": "分屏数量由用户选择。少屏强调主视觉和核心卖点，多屏补充材质、场景、参数、信任背书和转化收尾。"
+              },
+              "imageNumberRules": [
+                "每一屏提示词里的图1、图2、图3只代表本次提交给图片接口的附件顺序，不代表用户素材库的全局顺序。",
+                "图1优先放目标商品主图，保证模型先锁定商品身份。",
+                "需要模特或固定服装时，按本屏任务明确声明图1、图2的角色，避免模型错穿、混穿或换款。",
+                "同一屏最多保留必要参考图，避免把所有素材同时送入造成主体漂移和风格割裂。"
+              ],
+              "globalStyleConsistency": [
+                "同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。",
+                "首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。",
+                "产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。"
+              ]
+            },
+            "industry": {
+              "id": "generic",
+              "name": "通用电商",
+              "keywords": [],
+              "analyzeAttributes": [
+                "商品外观",
+                "核心卖点",
+                "材质细节",
+                "使用场景",
+                "信任要素",
+                "转化理由"
+              ],
+              "sellingAngles": [
+                "核心卖点",
+                "材质细节",
+                "使用场景",
+                "品质信任",
+                "转化收尾"
+              ],
+              "recommendedScreens": [
+                "首屏主视觉",
+                "核心卖点",
+                "材质细节",
+                "使用场景",
+                "参数说明",
+                "信任背书",
+                "收尾转化"
+              ],
+              "visualAnchors": [
+                "主体清晰",
+                "光线统一",
+                "版式稳定",
+                "细节真实",
+                "背景干净"
+              ],
+              "taboos": [
+                "不要改变产品结构",
+                "不要混入参考图里的其它商品",
+                "不要生成虚假认证",
+                "不要让文字乱码"
+              ],
+              "qcRules": [
+                "检查主体是否清晰",
+                "检查产品结构是否一致",
+                "检查文案是否可信",
+                "检查整体风格是否统一"
+              ]
+            },
+            "platform": {
+              "id": "taobao-detail",
+              "platform": "淘宝",
+              "pageType": "详情页",
+              "rhythm": [
+                "首屏主视觉",
+                "痛点反转",
+                "核心卖点",
+                "材质细节",
+                "版型/结构",
+                "使用场景",
+                "信任背书",
+                "收尾转化"
+              ],
+              "copyRule": "中文电商短句，卖点直接，留白明确，避免夸张极限词。",
+              "visualRule": "适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。",
+              "imageNorms": [
+                "商品清晰",
+                "文案不遮挡主体",
+                "适合无线端竖向浏览"
+              ],
+              "conversionTraits": [
+                "第一眼点击承接",
+                "卖点解释清楚",
+                "最后给购买理由"
+              ]
+            },
+            "modules": [
+              {
+                "screen": 1,
+                "moduleKey": "hero",
+                "moduleName": "首屏主视觉",
+                "title": "首屏主视觉"
+              }
+            ],
+            "quality": {
+              "id": "jingyin-detail-quality-v1",
+              "name": "质检 Skill",
+              "globalChecks": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。"
+              ],
+              "negativePrompt": [
+                "不要低清晰度",
+                "不要破碎拼贴",
+                "不要过曝",
+                "不要脏乱背景",
+                "不要错误 logo",
+                "不要错字乱码",
+                "不要虚假认证",
+                "不要多余肢体",
+                "不要畸形手",
+                "不要改变商品结构",
+                "不要混入参考图商品"
+              ]
+            }
+          },
+          "rounds": [
+            {
+              "stage": "通用底座",
+              "title": "真实性、格式、数量和编号",
+              "content": "商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。；参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。；多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。；当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n输出 JSON 字段：id、label、createdAt、status、params、analysis、rounds、prompts；每屏字段：screen、title、summary、intervention、referenceStrategy、productFileIndexes、referenceFileIndexes、text、enabled、status。\n分屏数量：1，允许范围 1-12。\n每一屏提示词里的图1、图2、图3只代表本次提交给图片接口的附件顺序，不代表用户素材库的全局顺序。；图1优先放目标商品主图，保证模型先锁定商品身份。；需要模特或固定服装时，按本屏任务明确声明图1、图2的角色，避免模型错穿、混穿或换款。；同一屏最多保留必要参考图，避免把所有素材同时送入造成主体漂移和风格割裂。\n同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。；首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。；产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。"
+            },
+            {
+              "stage": "行业 Skill",
+              "title": "通用电商",
+              "content": "分析属性：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n推荐卖点：核心卖点、材质细节、使用场景、品质信任、转化收尾。\n行业禁忌：不要改变产品结构、不要混入参考图里的其它商品、不要生成虚假认证、不要让文字乱码。"
+            },
+            {
+              "stage": "平台 Skill",
+              "title": "淘宝详情页",
+              "content": "页面节奏：首屏主视觉 -> 痛点反转 -> 核心卖点 -> 材质细节 -> 版型/结构 -> 使用场景 -> 信任背书 -> 收尾转化。\n文案风格：中文电商短句，卖点直接，留白明确，避免夸张极限词。\n图片规范：商品清晰、文案不遮挡主体、适合无线端竖向浏览。\n转化特点：第一眼点击承接、卖点解释清楚、最后给购买理由。"
+            },
+            {
+              "stage": "分屏模块库",
+              "title": "本组 1 屏，反转屏 2 屏",
+              "content": "可用模块：首屏主视觉、痛点反转、核心卖点、材质细节、使用场景、参数说明、信任背书、收尾转化、版型/结构。本组会按平台节奏、行业卖点和反转屏数量动态分配。"
+            },
+            {
+              "stage": "质检 Skill",
+              "title": "生成前后自查",
+              "content": "全局质检：商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。。\n负面约束：不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。\n规划模式：AI 分析未完成，已切回本地五层 Skill 兜底。失败原因：生成超时，请重新生成。"
+            }
+          ],
+          "prompts": [
+            {
+              "screen": 1,
+              "title": "首屏主视觉",
+              "summary": "核心卖点",
+              "intervention": "通用底座定调",
+              "referenceStrategy": "商品图 1 / 参考图 1 · 锁商品主图，可轻参考运营参考图的配色和氛围。",
+              "productFileIndexes": [
+                0
+              ],
+              "referenceFileIndexes": [
+                0
+              ],
+              "imageSlots": [
+                {
+                  "slot": 1,
+                  "role": "product",
+                  "label": "商品图1",
+                  "sourceIndex": 0,
+                  "name": "JY_5.jpg"
+                },
+                {
+                  "slot": 2,
+                  "role": "reference",
+                  "label": "参考图1",
+                  "sourceIndex": 0,
+                  "name": "ComfyUI_00393_.jpg"
+                }
+              ],
+              "moduleKey": "hero",
+              "moduleName": "首屏主视觉",
+              "qualityChecklist": [
+                "商品是否变形、缺失、被错误替换或与原图不一致。",
+                "文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。",
+                "是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。",
+                "一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。",
+                "输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。",
+                "平台规范：商品清晰",
+                "平台规范：文案不遮挡主体",
+                "平台规范：适合无线端竖向浏览",
+                "检查主体是否清晰",
+                "检查产品结构是否一致",
+                "检查文案是否可信",
+                "检查整体风格是否统一",
+                "主商品是否完整",
+                "第一眼是否清楚",
+                "是否过曝",
+                "文案是否压住商品"
+              ],
+              "aiScreen": null,
+              "analysisMode": "local-rule",
+              "text": "第1屏：首屏主视觉\n【本屏模块】首屏主视觉：承接主图点击，让用户第一眼确认商品、风格和购买兴趣。\n【本次图片编号】图1=商品图1「JY_5.jpg」；图2=参考图1「ComfyUI_00393_.jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「目标产品」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：通用电商；重点观察：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节。\n全局风格：主体清晰、光线统一、版式稳定、细节真实、背景干净；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改变产品结构；不要混入参考图里的其它商品；不要生成虚假认证；不要让文字乱码。\n【本屏卖点】核心卖点\n【画面任务】商品主体清晰居中或略偏黄金分割，保留呼吸感，首屏标题区域不压住产品。\n【模块指令】强化第一眼质感；产品轮廓完整；背景干净；标题层级明确。\n【参考图使用】锁商品主图，可轻参考运营参考图的配色和氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏使用常规姿态模特：自然站姿、坐姿或行走，镜头透视正常，清晰展示穿着效果。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+              "enabled": true,
+              "status": "success",
+              "generationMs": 58046,
+              "results": [
+                {
+                  "id": "7ec50dfa-7f1f-4740-91f7-9db6d4aa5b4f_1",
+                  "requestId": "7ec50dfa-7f1f-4740-91f7-9db6d4aa5b4f",
+                  "image": {
+                    "type": "url",
+                    "value": "/api/history-image/7ec50dfa-7f1f-4740-91f7-9db6d4aa5b4f_1.png",
+                    "localUrl": "/api/history-image/7ec50dfa-7f1f-4740-91f7-9db6d4aa5b4f_1.png",
+                    "archiveFile": "7ec50dfa-7f1f-4740-91f7-9db6d4aa5b4f_1.png",
+                    "archiveMime": "image/png"
+                  },
+                  "prompt": "第1屏：首屏主视觉\n【本屏模块】首屏主视觉：承接主图点击，让用户第一眼确认商品、风格和购买兴趣。\n【本次图片编号】图1=商品图1「JY_5.jpg」；图2=参考图1「ComfyUI_00393_.jpg」。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「目标产品」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：通用电商；重点观察：商品外观、核心卖点、材质细节、使用场景、信任要素、转化理由。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：以通用电商商品图中的真实材质为准，重点保留表面纹理、结构边缘和工艺细节。\n全局风格：主体清晰、光线统一、版式稳定、细节真实、背景干净；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：常用黑体风格，类似思源黑体、微软雅黑、阿里巴巴普惠体的干净无衬线，易读、稳定、适合电商详情。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不要改变产品结构；不要混入参考图里的其它商品；不要生成虚假认证；不要让文字乱码。\n【本屏卖点】核心卖点\n【画面任务】商品主体清晰居中或略偏黄金分割，保留呼吸感，首屏标题区域不压住产品。\n【模块指令】强化第一眼质感；产品轮廓完整；背景干净；标题层级明确。\n【参考图使用】锁商品主图，可轻参考运营参考图的配色和氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏使用常规姿态模特：自然站姿、坐姿或行走，镜头透视正常，清晰展示穿着效果。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+                  "modelLabel": "TT Image 2",
+                  "imageSize": "2K",
+                  "aspectRatio": "9:16",
+                  "referenceCount": 2,
+                  "references": [
+                    {
+                      "id": "7ec50dfa-7f1f-4740-91f7-9db6d4aa5b4f_ref_1",
+                      "name": "JY_5.jpg",
+                      "role": "product",
+                      "index": 0,
+                      "size": 1962140,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "7ec50dfa-7f1f-4740-91f7-9db6d4aa5b4f_ref_1_JY_5.jpg.jpg",
+                      "localUrl": "/api/reference-asset/7ec50dfa-7f1f-4740-91f7-9db6d4aa5b4f_ref_1_JY_5.jpg.jpg",
+                      "missing": true,
+                      "missingReason": "reference_missing"
+                    },
+                    {
+                      "id": "7ec50dfa-7f1f-4740-91f7-9db6d4aa5b4f_ref_2",
+                      "name": "ComfyUI_00393_.jpg",
+                      "role": "reference",
+                      "index": 1,
+                      "size": 4024078,
+                      "mimeType": "image/jpeg",
+                      "archiveFile": "7ec50dfa-7f1f-4740-91f7-9db6d4aa5b4f_ref_2_ComfyUI_00393_.jpg.jpg",
+                      "localUrl": "/api/reference-asset/7ec50dfa-7f1f-4740-91f7-9db6d4aa5b4f_ref_2_ComfyUI_00393_.jpg.jpg",
+                      "missing": true,
+                      "missingReason": "reference_missing"
+                    }
+                  ],
+                  "generationMs": 58046,
+                  "source": "detail-main",
+                  "createdAt": 1790269479937,
+                  "detailScreen": 1
+                }
+              ],
+              "error": ""
+            }
+          ],
+          "productFiles": [],
+          "referenceFiles": []
+        }
+      ]
+    },
+    {
+      "id": "white-refine-split-halves",
+      "value": "1"
+    }
+  ]
+}
