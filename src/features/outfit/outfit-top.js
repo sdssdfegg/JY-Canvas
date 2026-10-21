@@ -275,6 +275,21 @@ export function replaceRecolorUpperLayerWords(prompt, fromLayer, toLayer, partWo
   });
   return replaced ? text : String(prompt || "");
 }
+/** V125（用户实测 BUG 修复）：把正文里实际出现过的「上装层级词」（内搭/外套/内搭和外套…）整体替换成指定部位词。
+   用于「更换部位」切到非上装（下装/连衣裙/鞋子）时——这些层级词已无意义，必须随部位一起换算，
+   否则它们不在 RECOLOR_PART_WORDS 内、replaceRecolorPartWords 不会碰，导致提示词不随部位变化。
+   长词优先替换，避免「内搭和外套」先被切成残句。partWord 为新部位的类别词（如下衣/连衣裙/鞋子）。 */
+export function replaceUpperLayerWordsWithPart(prompt, partWord) {
+  const text0 = String(prompt || "");
+  if (!partWord) return text0;
+  const words = [...new Set(Object.values(RECOLOR_UPPER_LAYER_WORDS).flat().filter(Boolean))]
+    .sort((a, b) => b.length - a.length);
+  let text = text0;
+  words.forEach((word) => {
+    if (word && text.includes(word)) text = text.split(word).join(partWord);
+  });
+  return text;
+}
 export const DEFAULT_UPLOAD_LABELS = {
   model: {
     title: "带场景模特图",

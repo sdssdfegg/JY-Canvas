@@ -98,7 +98,7 @@ import {
     preprocessModeLabel
     } from "./features/outfit/outfit-panels.jsx";
 import { OUTFIT_PAGES_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY } from "./features/outfit/outfit-storage-keys.js";
-import { DEFAULT_OUTFIT_PAGE_NAME, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeRecolorPart, normalizeRecolorUpperLayer, RECOLOR_PART_WORDS, replaceRecolorPartWords, replaceRecolorUpperLayerWords, RECOLOR_PART_OPTIONS, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
+import { DEFAULT_OUTFIT_PAGE_NAME, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeRecolorPart, normalizeRecolorUpperLayer, RECOLOR_PART_WORDS, replaceRecolorPartWords, replaceRecolorUpperLayerWords, replaceUpperLayerWordsWithPart, RECOLOR_PART_OPTIONS, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
 import { UPPER_LAYER_OPTIONS } from "./shared/outfit-intent.js";
 import { ensureWorkflowPages, inferOutfitWorkflowMode, loadOutfitDraftState, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabels, persistOutfitDraftState, pickInitialOutfitPage, readOutfitPages, serializeOutfitPage, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import {  createAsyncLimiter, defaultLocalEditCrop, groupPreprocessValue, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
@@ -445,8 +445,20 @@ export default function OutfitWorkflow({
     const part = normalizeRecolorPart(nextPart);
     // 用户主动切部位：提示词正文里全部部位类别词统一换成新部位的词（单部位改色，4 处词应始终一致；
     // 即便之前手动改过词导致状态与正文错位，切一次部位也整体对齐。不再早退，保证实时同步）。
-    const nextPrompt = replaceRecolorPartWords(settings.prompt, recolorPart, part);
-    setSettings((current) => ({ ...current, recolorPart: part, prompt: nextPrompt }));
+    const partPrompt = replaceRecolorPartWords(settings.prompt, recolorPart, part);
+    // V125 修复：切到非上装部位（下装/连衣裙/鞋子）时，正文里残留的「上装层级词」（内搭/外套/内搭和外套）
+    // 已无意义，必须随部位一起换算成新部位词——否则它们不在 RECOLOR_PART_WORDS 内、上一步不会动，
+    // 表现为「层级非 single 时切下装/鞋子提示词不跟着变」。
+    const nextPrompt = part === "upper"
+      ? partPrompt
+      : replaceUpperLayerWordsWithPart(partPrompt, (RECOLOR_PART_WORDS[part] || [])[0] || "下衣");
+    // 离开上装区域即丢弃层级选择（层级仅在 更换部位=上装 有意义），避免状态与文案错位。
+    setSettings((current) => ({
+      ...current,
+      recolorPart: part,
+      prompt: nextPrompt,
+      recolorUpperLayer: part === "upper" ? recolorUpperLayer : "single"
+    }));
     const label = RECOLOR_PART_OPTIONS.find((item) => item.value === part)?.label || part;
     addEvent("更换部位", `改色部位已切换为「${label}」`);
     // V117（用户要求·联动兜底）：正文无部位词时不改写（保护手写），但必须给出可见反馈，否则用户看到"点了没反应"。
