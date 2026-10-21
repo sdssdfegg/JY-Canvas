@@ -126,6 +126,29 @@
   background: color-mix(in srgb, #fbbf24 14%, transparent);
 }
 
+/* V124（用户要求）：更换部位非「上装」时，上装层级整组置灰、不可选（标题 + chips 容器 + 按钮三层）。 */
+.outfitWorkflowEmbedded .outfitIntentRowTitle.is-disabled {
+  color: var(--text-soft);
+  opacity: 0.5;
+}
+.outfitWorkflowEmbedded .outfitIntentChips.is-disabled {
+  opacity: 0.5;
+}
+.outfitWorkflowEmbedded .outfitIntentChips button:disabled {
+  cursor: not-allowed;
+  color: var(--text-soft);
+  border-color: var(--border);
+  background: transparent;
+}
+.outfitWorkflowEmbedded .outfitIntentChips button:disabled:hover {
+  border-color: var(--border);
+}
+.outfitWorkflowEmbedded .outfitIntentChips button:disabled.active {
+  color: var(--text-soft);
+  border-color: var(--border);
+  background: transparent;
+}
+
 .outfitWorkflowEmbedded .outfitIntentRow small,
 .outfitWorkflowEmbedded .imageFactEditor small,
 .outfitWorkflowEmbedded .outfitIntentPreview small {

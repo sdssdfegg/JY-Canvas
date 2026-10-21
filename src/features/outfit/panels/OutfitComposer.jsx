@@ -118,6 +118,8 @@ export default function OutfitComposer({
   applyGroupPreprocess: _applyGroupPreprocess,
   setImageLightbox
 }) {
+  // V124（用户要求）：上装层级仅当「更换部位=上装」时可编辑；其余部位时整组置灰、不可选。
+  const upperLayerDisabled = recolorPart !== "upper";
   return (
 <section className="composerPanel">
   <section className="assetGrid">
@@ -276,18 +278,21 @@ export default function OutfitComposer({
             );
           })}
         </div>
-        <span className="outfitIntentRowTitle recolorUpperLayerRow">上装层级</span>
-        <div className="outfitIntentChips">
+        <span className={upperLayerDisabled ? "outfitIntentRowTitle recolorUpperLayerRow is-disabled" : "outfitIntentRowTitle recolorUpperLayerRow"}>
+          上装层级
+        </span>
+        <div className={upperLayerDisabled ? "outfitIntentChips is-disabled" : "outfitIntentChips"}>
           {UPPER_LAYER_OPTIONS.map((option) => {
-            const active = recolorUpperLayer === option.value;
+            const active = !upperLayerDisabled && recolorUpperLayer === option.value;
             return (
               <button
                 className={active ? "active" : ""}
                 key={option.value}
                 type="button"
                 aria-pressed={active}
+                disabled={upperLayerDisabled}
                 onClick={() => onSelectRecolorUpperLayer(option.value)}
-                title={`上装层级：${option.label}`}
+                title={upperLayerDisabled ? "仅更换部位为「上装」时可选择上装层级" : `上装层级：${option.label}`}
               >
                 {active && <Check size={13} />}
                 <span>{option.label}</span>

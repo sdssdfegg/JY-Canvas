@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-21",
-  "reason": "V123 新增封装自动同步特性：SettingsView 同步按钮+新鲜度提示 UI（+79 行）、release-seed.js 新增 syncReleaseSeed（+40 行），属必要特性增量",
+  "reason": "V124 改色页上装层级控制：非上装部位时整组禁用（新增 upperLayerDisabled 判定 + 标题/chips 置灰类 + 按钮 disabled），必要 bug-fix 增量",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -45,7 +45,7 @@
     "src/features/outfit/outfit-task.js": 1058,
     "src/features/outfit/outfit-top.js": 866,
     "src/features/outfit/panels/ImageFactsPanel.jsx": 88,
-    "src/features/outfit/panels/OutfitComposer.jsx": 528,
+    "src/features/outfit/panels/OutfitComposer.jsx": 533,
     "src/features/outfit/panels/OutfitIntentPanel.jsx": 149,
     "src/features/outfit/panels/OutfitPageRow.jsx": 97,
     "src/features/outfit/panels/OutfitSettingsModal.jsx": 142,
@@ -167,7 +167,7 @@
     "src/features/outfit/outfit-task.js::sanitizeTaskHistoryItem": 60,
     "src/features/outfit/outfit-top.js::themeToVars": 77,
     "src/features/outfit/panels/ImageFactsPanel.jsx::ImageFactsPanel": 76,
-    "src/features/outfit/panels/OutfitComposer.jsx::OutfitComposer": 512,
+    "src/features/outfit/panels/OutfitComposer.jsx::OutfitComposer": 517,
     "src/features/outfit/panels/OutfitIntentPanel.jsx::OutfitIntentPanel": 132,
     "src/features/outfit/panels/OutfitPageRow.jsx::OutfitPageRow": 87,
     "src/features/outfit/panels/OutfitSettingsModal.jsx::OutfitSettingsModal": 119,
