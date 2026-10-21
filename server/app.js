@@ -43,6 +43,7 @@ import { registerOutfitAnalysisRoutes } from "./routes/outfit-analysis.routes.js
 import { registerImageProxyRoutes } from "./routes/image-proxy.routes.js";
 import { registerImagesRoutes } from "./routes/images.routes.js";
 import { registerOutfitRoutes } from "./routes/outfit.routes.js";
+import { registerSeedRoutes } from "./routes/seed.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -90,6 +91,10 @@ registerDetailRoutes(app);
 
 registerOutfitRoutes(app);
 registerOutfitAnalysisRoutes(app);
+
+// V123：封装配置同步路由（仅 internal/开发模式；public 打包经 esbuild define(NODE_ENV=production)
+// 在 registerSeedRoutes 内部死代码消除，客户版无此出口）。
+registerSeedRoutes(app);
 
 registerImageProxyRoutes(app);
 

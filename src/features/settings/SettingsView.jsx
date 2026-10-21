@@ -1,14 +1,15 @@
 // V56（P3-1）：设置弹窗视图。从 src/main.jsx 的 `{isSettingsOpen && ( ... )}` 块（5125~5264）原样迁入。
 // 仅接收 props，不持有任何「弹窗私有」之外的状态；共享状态由 App() 通过 props 下发。
 // V73：按钮/字段/分区外壳统一走 Button / Field / Toolbar / Panel / ModuleHeader（总纲 §5）。
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Download, Eye, EyeOff, FolderOpen, HardDrive, KeyRound, Palette, PlugZap,
   RefreshCw, Save, Settings as SettingsIcon, Trash2, X
 } from "lucide-react";
 import { formatStorageSize } from "../storage/storage-store.js";
 import { PUBLIC_RELEASE_MODE } from "../../shared/app-defaults.js";
-import { downloadReleaseSeed } from "../../shared/release-seed.js";
+import { downloadReleaseSeed, buildReleaseSeed, syncReleaseSeed } from "../../shared/release-seed.js";
+import { fetchSeedSyncStatus } from "../../api/seed.js";
 import { themeOptions } from "./settings-state.js";
 import { Button } from "../../shared/ui/Button.jsx";
 import { Modal } from "../../shared/ui/Modal.jsx";
@@ -22,6 +23,26 @@ export function SettingsView({
 }) {
   // V121（仅 internal 模式）：封装种子导出反馈（成功/失败都必须可见，不许静默失败）。
   const [seedExportMsg, setSeedExportMsg] = useState("");
+  // V123（仅 internal 模式）：封装配置同步反馈 + 新鲜度提示。
+  const [seedSyncMsg, setSeedSyncMsg] = useState("");
+  const [seedSyncStatus, setSeedSyncStatus] = useState(null); // { exists, syncedAt, seedId, entriesCount }
+  const [seedCurrentId, setSeedCurrentId] = useState("");
+  // V123：设置弹窗打开时刷新「封装配置」新鲜度（仓库 seed/manifest.json 的 seedId vs 浏览器现算）。
+  // 必须放在早期 return 之前（React hooks 规则）：组件在 isSettingsOpen=false 时仍会调用本 hook，
+  // 内部按 isSettingsOpen 短路，打开弹窗（依赖变化）时重新拉取状态。
+  useEffect(() => {
+    if (PUBLIC_RELEASE_MODE || !isSettingsOpen) return;
+    let alive = true;
+    fetchSeedSyncStatus()
+      .then((res) => { if (alive) setSeedSyncStatus(res && res.exists ? res : null); })
+      .catch(() => { if (alive) setSeedSyncStatus(null); });
+    try {
+      setSeedCurrentId(buildReleaseSeed().seedId || "");
+    } catch {
+      setSeedCurrentId("");
+    }
+    return () => { alive = false; };
+  }, [isSettingsOpen]);
   if (!isSettingsOpen) return null;
   const {
     isApiKeyVisible, setIsApiKeyVisible, apiSaveStatus, isConnectionTesting,
@@ -43,6 +64,45 @@ export function SettingsView({
       const detail = err?.message || String(err);
       setSeedExportMsg(`导出失败：${detail}`);
       window.alert(`导出封装种子失败：${detail}`);
+    }
+  };
+
+  // 同步中标记（禁用按钮 + 阻止重复点击）。
+  const seedSyncing = Boolean(seedSyncMsg) && seedSyncMsg.startsWith("正在");
+  const handleSyncSeed = async () => {
+    setSeedSyncMsg("正在同步到封装配置…");
+    try {
+      const res = await syncReleaseSeed();
+      if (!res.ok) {
+        setSeedSyncMsg(res.message || "同步失败");
+        window.alert(res.message || "同步到封装配置失败");
+        return;
+      }
+      setSeedSyncMsg(`已同步 ${res.entriesCount} 项，封装将自动带上（${res.syncedAt}）`);
+      setSeedSyncStatus({
+        exists: true,
+        syncedAt: res.syncedAt,
+        seedId: res.seedId,
+        entriesCount: res.entriesCount
+      });
+      setSeedCurrentId(res.seedId || seedCurrentId);
+    } catch (err) {
+      const detail = err?.message || String(err);
+      setSeedSyncMsg(`同步失败：${detail}`);
+      window.alert(`同步到封装配置失败：${detail}`);
+    }
+  };
+
+  const seedFresh = Boolean(seedSyncStatus?.exists) && Boolean(seedCurrentId)
+    && seedCurrentId === seedSyncStatus.seedId;
+  const formatSyncTime = (iso) => {
+    try {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return iso;
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } catch {
+      return iso;
     }
   };
 
@@ -173,6 +233,25 @@ export function SettingsView({
               </Toolbar>
               <p className="ui-field__hint">导出提示词模板与页面状态，随封装分发给客户（不含密钥与生成记录）</p>
               {seedExportMsg && <small className="ui-field__hint">{seedExportMsg}</small>}
+
+              <Toolbar>
+                <Button size="sm" onClick={() => void handleSyncSeed()} disabled={seedSyncing}>
+                  <RefreshCw size={15} /><span>同步到封装配置</span>
+                </Button>
+              </Toolbar>
+              <p className="ui-field__hint">把当前提示词模板与页面状态一键同步进仓库 seed/manifest.json，封装时自动带上，无需手动搬运种子文件。</p>
+              {seedSyncMsg && <small className="ui-field__hint">{seedSyncMsg}</small>}
+              {seedSyncStatus?.exists && (
+                seedFresh ? (
+                  <small className="ui-field__hint ui-field__hint--success">
+                    封装配置同步于 {formatSyncTime(seedSyncStatus.syncedAt)} · {seedSyncStatus.entriesCount} 项
+                  </small>
+                ) : (
+                  <small className="ui-field__hint ui-field__hint--warn">
+                    浏览器有未同步改动，封装前请先点「同步到封装配置」
+                  </small>
+                )
+              )}
             </>
           )}
           {storageStatus && <small className="ui-field__hint">{storageStatus}</small>}

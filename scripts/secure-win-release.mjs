@@ -116,14 +116,34 @@ async function sha256(file) {
  *     （含凭据字段 / 非法 id / 禁项字段 → 构建失败）。
  */
 async function injectReleaseSeedIntoDist() {
-  const seedFilePath = process.env.JINGYIN_SEED_FILE;
+  const explicitSeed = process.env.JINGYIN_SEED_FILE;
+  const allowMissing = process.env.JINGYIN_SEED_ALLOW_MISSING === "1";
+  // V123：未显式指定种子文件时，默认读取仓库根 seed/manifest.json（开发者一键同步的真相源），
+  // 消除 V121 人工搬运断点——AI 封装会话在源码仓跑 release:win 即自动带上，零口头交接、零环境变量。
+  let seedFilePath = explicitSeed;
+  let usingRepoDefault = false;
   if (!seedFilePath) {
-    console.log("  JINGYIN_SEED_FILE 未设置，跳过种子注入（internal/日常构建不受影响）");
-    return;
+    const repoSeed = path.join(rootDir, "seed", "manifest.json");
+    if (existsSync(repoSeed)) {
+      seedFilePath = repoSeed;
+      usingRepoDefault = true;
+    }
   }
-  if (!existsSync(seedFilePath)) {
-    throw new Error(`JINGYIN_SEED_FILE 指向的种子文件不存在：${seedFilePath}`);
+  if (!seedFilePath) {
+    const msg =
+      "  未找到 seed/manifest.json：本次封装将使用出厂默认板块/空模板，红线③不满足。\n" +
+      "  请先在源码版设置页点「同步到封装配置」生成它，或显式设置 JINGYIN_SEED_FILE 指向种子文件；\n" +
+      "  仅内部试验构建可设 JINGYIN_SEED_ALLOW_MISSING=1 放行（工厂包，不含开发者最新板块）。";
+    if (allowMissing) {
+      console.warn(msg + "\n  JINGYIN_SEED_ALLOW_MISSING=1 已设置，放行（工厂包，不含开发者最新板块）。");
+      return;
+    }
+    throw new Error(msg);
   }
+  if (explicitSeed && !existsSync(explicitSeed)) {
+    throw new Error(`JINGYIN_SEED_FILE 指向的种子文件不存在：${explicitSeed}`);
+  }
+  console.log(`  种子来源：${usingRepoDefault ? "仓库 seed/manifest.json（V123 默认）" : "JINGYIN_SEED_FILE"}`);
 
   const raw = await readFile(seedFilePath, "utf8");
   let manifest;

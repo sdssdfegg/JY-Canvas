@@ -163,6 +163,9 @@
 .ui-field__hint--success {
   color: var(--accent, #13d2c3);
 }
+.ui-field__hint--warn {
+  color: var(--warn);
+}
 
 /* ── Panel（V73 追加） ─────────────────────────────── */
 .ui-panel {

@@ -29,6 +29,7 @@
 8. 服务端改动至少运行 `runtime/node/node.exe scripts/verify/run-all.mjs`（或 `npm run check`）。
 9. 前端或发布相关改动按风险运行 `runtime/node/node.exe node_modules/vite/bin/vite.js build`（或 `npm run build`）。
 10. 默认只提交本次相关文件，避免混入已有未提交改动。
+11. **封装前确认 `seed/manifest.json` 已同步**（V123 口径）：源码版设置页点「同步到封装配置」生成仓库根 `seed/manifest.json`（新鲜度提示一致即已同步）；封装默认读它、缺失硬失败。不要让 AI 封装会话靠口头交接或手动搬运种子文件——仓库真相源就是这份文件。
 
 ## 文档存放纪律
 
