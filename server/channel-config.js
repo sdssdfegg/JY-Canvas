@@ -39,6 +39,24 @@ export function isForbiddenChannelId(value) {
   return FORBIDDEN_CHANNEL_ID_SET.has(String(value || "").trim().toLowerCase());
 }
 
+// 前端隐藏（2026-10-22）：线路本身仍合法（服务端校验 routingChannelForModel 照常接受），
+// 只是不再下发到前端目录（publicRoutingChannels / publicRoutingCatalog 都走同一过滤）。
+// 与 src/shared/routing.js 的 HIDDEN_CHANNEL_IDS 保持同源同步——服务端先过滤目录，
+// 已发布的客户端无需重打包即可生效；客户端本地 HIDDEN 过滤作为双保险。
+export const HIDDEN_CHANNEL_IDS = Object.freeze([
+  // 2026-10-22：用户实测不通，先隐藏待恢复（上游均为 api.lk888.ai）。
+  "silent-tt2-line-01",   // MC-TT-cf（TT2.0）
+  "silent-tt25-line-04"   // BR-default特价（TT2.5）
+]);
+
+const HIDDEN_CHANNEL_ID_SET = new Set(
+  HIDDEN_CHANNEL_IDS.map((value) => String(value || "").trim().toLowerCase())
+);
+
+export function isHiddenChannelId(value) {
+  return HIDDEN_CHANNEL_ID_SET.has(String(value || "").trim().toLowerCase());
+}
+
 // 能力字段说明（唯一来源 = 本目录，前端与服务端都读这里）：
 //   supportedSizes / supportedResolutions / supportedAspectRatios / supportedQuality /
 //   supportedVersions / supportedBackgroundModes / supportsCustomSize / maxInputImages
@@ -192,8 +210,11 @@ export function routingChannelForModel(model, channelId) {
 }
 
 // 前端目录：旧线路不进入任何一条输出，dropdown / DOM 里旧渠道名数量必须是 0。
+// HIDDEN 线路同样不下发（前端菜单不出现，但服务端校验仍接受其 channelId）。
 export function publicRoutingChannels() {
-  return ROUTING_CHANNELS.filter((channel) => !isForbiddenChannelId(channel.id));
+  return ROUTING_CHANNELS.filter(
+    (channel) => !isForbiddenChannelId(channel.id) && !isHiddenChannelId(channel.id)
+  );
 }
 
 export function routingModelCapabilities(model) {

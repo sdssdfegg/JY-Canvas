@@ -60,6 +60,12 @@ export const HIDDEN_CHANNEL_IDS = Object.freeze([
   "silent-tt2-line-07",
   // 2026-10-10（按用户要求）：香蕉 2 的「云枢」取消前端隐藏，与 PRO 云枢一起在前端显示。
   // 中转站线路本就 ACTIVE（publicId silent-banana-line-07，上游 yunshuaiapi.com / Gemini 分组）。
+  // 2026-10-22（按用户要求）：用户实测不通的两条先隐藏（上游均为 api.lk888.ai），恢复后从这里移除即可：
+  //   - MC-TT-cf（2.0，silent-tt2-line-01）
+  //   - BR-default特价（2.5，silent-tt25-line-04）
+  // 与 server/channel-config.js 的 HIDDEN_CHANNEL_IDS 同步：服务端目录同时不下发，已发布客户端免重打包生效。
+  "silent-tt2-line-01",
+  "silent-tt25-line-04"
 ]);
 
 const HIDDEN_CHANNEL_ID_SET = new Set(

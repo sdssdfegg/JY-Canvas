@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-22",
-  "reason": "V126 种子零生图记录（红线②）：release-seed-schema.js 新增 IMAGE_RECORD_KEYS/stripImageRecords/containsImageRecords；release-seed.js 出口双关口；seed.routes.js 服务端拒收+sanitize；detail-groups 移出种子范围",
+  "reason": "V127: routing.js HIDDEN_CHANNEL_IDS 增补 silent-tt2-line-01(MC-TT-cf)/silent-tt25-line-04(BR-default特价) 两条实测不通线路的前端隐藏条目与同源口径注释",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -105,7 +105,7 @@
     "src/shared/release-seed.js": 295,
     "src/shared/result-image.js": 334,
     "src/shared/retouch-intent.js": 284,
-    "src/shared/routing.js": 431,
+    "src/shared/routing.js": 437,
     "src/shared/text-normalize.js": 42,
     "src/shared/ui/AppSidebar.jsx": 39,
     "src/shared/ui/Button.jsx": 53,
