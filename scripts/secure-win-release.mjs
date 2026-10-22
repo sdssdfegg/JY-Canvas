@@ -8,11 +8,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 // V121：封装种子随包分发。构建期校验 + 注入使用 release-seed-schema.js 的同一份白名单/剥凭据实现
 // （纯模块、可 Node 直接 import，避免在 Node 侧拉起浏览器依赖）。
+// V126：同一份实现扩展至红线②（图片记录深剥/扫描），构建期对种子一并不予放行。
 import {
   SEED_ENTRY_IDS,
   OUTFIT_PAGE_FORBIDDEN_FIELDS,
   PROMPT_PRESET_ALLOWED_FIELDS,
-  containsCredentialFields
+  containsCredentialFields,
+  containsImageRecords
 } from "../src/shared/release-seed-schema.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -113,7 +115,7 @@ async function sha256(file) {
  *   · 未设置 JINGYIN_SEED_FILE → 跳过（internal / 日常构建不受影响，dist 不含 seed/）；
  *   · 设置了但文件不存在 → 直接抛错（构建失败，不静默跳过）；
  *   · 校验：JSON 可解析 + version===1 + entries 非空 + 过白名单/剥凭据复核
- *     （含凭据字段 / 非法 id / 禁项字段 → 构建失败）。
+ *     （含凭据字段 / 非法 id / 禁项字段 → 构建失败；V126 起另含生图记录字段 → 构建失败）。
  */
 async function injectReleaseSeedIntoDist() {
   const explicitSeed = process.env.JINGYIN_SEED_FILE;
@@ -161,6 +163,9 @@ async function injectReleaseSeedIntoDist() {
 
   // 白名单 / 剥凭据复核（不过即构建失败，禁止静默跳过）。
   for (const entry of manifest.entries) {
+    if (entry?.id === "detail-groups") {
+      throw new Error("种子含 detail-groups entry：V126 起已移出种子范围（生图工作区状态，含生成图/上传图文件名，红线②）");
+    }
     if (!SEED_ENTRY_IDS.includes(entry.id)) {
       throw new Error(`种子含未知 entry id：${entry.id}（合法值见 release-seed-schema.js 的 SEED_ENTRY_IDS）`);
     }
@@ -187,6 +192,10 @@ async function injectReleaseSeedIntoDist() {
     }
     if (containsCredentialFields(value)) {
       throw new Error(`种子 entry ${entry.id} 含凭据字段（apiKey/baseUrl/channelId），违反红线①，禁止随包`);
+    }
+    // V126 红线②：任何深度的图片记录键（上传/生成图文件名、图片槽位、任务历史）一律不让进包。
+    if (containsImageRecords(value)) {
+      throw new Error(`种子 entry ${entry.id} 含生图记录字段（图片名/图片槽位/任务历史），违反红线②，禁止随包`);
     }
   }
 

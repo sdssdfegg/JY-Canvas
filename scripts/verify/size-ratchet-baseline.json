@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-21",
-  "reason": "V125 修复改色页部位联动：新增 replaceUpperLayerWordsWithPart（切非上装部位时把层级词统一换算成新部位词）+ selectRecolorPart 离开上装时归位层级状态，必要 bug-fix 增量",
+  "generatedAt": "2026-10-22",
+  "reason": "V126 种子零生图记录（红线②）：release-seed-schema.js 新增 IMAGE_RECORD_KEYS/stripImageRecords/containsImageRecords；release-seed.js 出口双关口；seed.routes.js 服务端拒收+sanitize；detail-groups 移出种子范围",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -101,8 +101,8 @@
     "src/shared/prompt-library.js": 370,
     "src/shared/quickgen-prompt-rules.js": 36,
     "src/shared/reference-policy.js": 183,
-    "src/shared/release-seed-schema.js": 134,
-    "src/shared/release-seed.js": 290,
+    "src/shared/release-seed-schema.js": 193,
+    "src/shared/release-seed.js": 295,
     "src/shared/result-image.js": 334,
     "src/shared/retouch-intent.js": 284,
     "src/shared/routing.js": 431,
@@ -216,7 +216,7 @@
     "src/shared/outfit-intent.js::compileOutfitPrompt": 55,
     "src/shared/outfit-intent.js::validateOutfitIntent": 56,
     "src/shared/prompt-library.js::usePromptLibrary": 181,
-    "src/shared/release-seed.js::buildReleaseSeed": 84,
+    "src/shared/release-seed.js::buildReleaseSeed": 90,
     "src/shared/ui/cached-image.jsx::CachedImage": 120,
     "src/shared/ui/ChannelPicker.jsx::ChannelPicker": 80,
     "src/shared/ui/detail-upload-zone.jsx::DetailUploadZone": 77,

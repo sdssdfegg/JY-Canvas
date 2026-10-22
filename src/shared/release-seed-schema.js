@@ -6,10 +6,11 @@
 //      release-seed.js 里，Node 侧 import 它会连带把 app-defaults.js（用 import.meta.env）
 //      一并拉起来，在 Node 里直接抛错。所以这里只放「无浏览器依赖、无 import.meta.env、无
 //      React」的纯逻辑，两侧都从这里 import，保证「同一实现、不许两份」。
-//   2) 这里是红线①/③/④的硬边界——任何随包分发的种子都要先过这里的白名单与剥凭据：
+//   2) 这里是红线①/②/③/④的硬边界——任何随包分发的种子都要先过这里的白名单与剥凭据：
 //      · pages 禁项 6 个（C 类图片/任务数据不得随包）；
 //      · 提示词仅 5 字段；
-//      · 任何深度出现的 apiKey/baseUrl/channelId 一律删除。
+//      · 任何深度出现的 apiKey/baseUrl/channelId 一律删除（红线①）；
+//      · 任何深度出现的图片记录键（IMAGE_RECORD_KEYS：上传/生成图、图片名、槽位、任务历史）一律删除（红线②，V126）。
 //
 // 该模块不依赖任何运行期 API，可被 Node 直接 import。
 
@@ -33,6 +34,30 @@ export const OUTFIT_PAGE_FORBIDDEN_FIELDS = [
   "tasks"
 ];
 
+/**
+ * 生图记录键（V126，红线②）：任何深度出现即剥（stripImageRecords）/即拒（containsImageRecords）。
+ * 只认结构键名、不认字符串内容——用户提示词正文出现 "image.png" 之类字样不得误杀。
+ * 覆盖三类来源：
+ *   · outfit 页面域（与 OUTFIT_PAGE_FORBIDDEN_FIELDS 同源，白名单外的第二道深剥）；
+ *   · 详情组域（V126 实测泄漏点：productImageNames / imageSlots 等文件名字段）；
+ *   · 通用任务历史键。
+ */
+export const IMAGE_RECORD_KEYS = [
+  "modelImages",
+  "clothingImages",
+  "referenceImages",
+  "originalLibrary",
+  "fixedClothingId",
+  "tasks",
+  "taskHistory",
+  "productFiles",
+  "referenceFiles",
+  "productImageNames",
+  "referenceImageNames",
+  "imageSlots",
+  "imageFacts"
+];
+
 /** 提示词预设白名单：仅这 5 个字段（normalizePromptPreset 产出即此形态）。 */
 export const PROMPT_PRESET_ALLOWED_FIELDS = ["id", "title", "category", "content", "custom"];
 
@@ -51,9 +76,12 @@ export const SEED_ENTRY_IDS = [
   "resize-settings",
   "resize-batch-crop",
   "detail-presets",
-  "detail-groups",
   "white-refine-split-halves"
 ];
+// V126：detail-groups 已移出种子范围——该 entry 本质是「生图工作区状态」
+// （prompts[].results 持生成图 URL/archiveFile、analysis.imageFacts 持上传图事实、
+// prompts[].text 正文嵌图片文件名），键级剥不净，随包即向客户分发开发者生成历史（红线②）。
+// 客户详情页从空白自建项目；详情预设（detail-presets，纯配置）仍随包。
 
 /**
  * 递归剥凭据：删除任何深度出现的 CREDENTIAL_FIELDS 键，其余原样保留。
@@ -81,6 +109,37 @@ export function containsCredentialFields(value) {
     for (const key of Object.keys(value)) {
       if (CREDENTIAL_FIELDS.includes(key)) return true;
       if (containsCredentialFields(value[key])) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * V126（红线②）：递归剥除任何深度出现的 IMAGE_RECORD_KEYS，其余原样保留。
+ * 与 stripCredentials 同形态；用于种子出口最终关口 / 服务端写入复核 / manifest 清理。
+ */
+export function stripImageRecords(value) {
+  if (Array.isArray(value)) return value.map(stripImageRecords);
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const key of Object.keys(value)) {
+      if (IMAGE_RECORD_KEYS.includes(key)) continue;
+      out[key] = stripImageRecords(value[key]);
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
+ * V126（红线②）：深度扫描是否含有任一图片记录键（构建期/服务端拒收判定：发现即非法）。
+ */
+export function containsImageRecords(value) {
+  if (Array.isArray(value)) return value.some(containsImageRecords);
+  if (value && typeof value === "object") {
+    for (const key of Object.keys(value)) {
+      if (IMAGE_RECORD_KEYS.includes(key)) return true;
+      if (containsImageRecords(value[key])) return true;
     }
   }
   return false;

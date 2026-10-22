@@ -24,8 +24,7 @@ import {
   STORAGE_PREFIX,
   PROMPT_PRESETS_KEY,
   PROMPT_CATEGORIES_KEY,
-  DETAIL_PRESETS_KEY,
-  DETAIL_GROUPS_KEY
+  DETAIL_PRESETS_KEY
 } from "./app-defaults.js";
 import {
   OUTFIT_DELETED_WORKFLOW_MODES_KEY,
@@ -43,6 +42,7 @@ import {
   sanitizeOutfitPage,
   sanitizePromptPreset,
   stripCredentials,
+  stripImageRecords,
   fnv1a32Hex
 } from "./release-seed-schema.js";
 
@@ -62,7 +62,6 @@ const SEED_TARGET_KEYS = {
   "resize-settings": RESIZE_SETTINGS_KEY,
   "resize-batch-crop": RESIZE_BATCH_CROP_KEY,
   "detail-presets": DETAIL_PRESETS_KEY,
-  "detail-groups": DETAIL_GROUPS_KEY,
   "white-refine-split-halves": SPLIT_HALVES_STORAGE_KEY
 };
 
@@ -139,13 +138,12 @@ export function buildReleaseSeed() {
   }
 
   // 详情双键。
+  // V126：detail-groups 不再导出——该 entry 是「生图工作区状态」（results 持生成图
+  // URL/archiveFile、imageFacts 持上传图事实、prompts 正文嵌图片文件名），键级剥不净，
+  // 随包即向客户分发开发者生成历史（红线②）。detail-presets（纯配置预设）仍随包。
   const detailPresets = readJsonStorage(DETAIL_PRESETS_KEY, null);
   if (Array.isArray(detailPresets) && detailPresets.length) {
     entries.push({ id: "detail-presets", sourceKey: DETAIL_PRESETS_KEY, value: detailPresets });
-  }
-  const detailGroups = readJsonStorage(DETAIL_GROUPS_KEY, null);
-  if (Array.isArray(detailGroups) && detailGroups.length) {
-    entries.push({ id: "detail-groups", sourceKey: DETAIL_GROUPS_KEY, value: detailGroups });
   }
 
   // white-refine-split-halves：原始存储是 "0"/"1" 字符串（非 JSON），按原样导出。
@@ -154,12 +152,19 @@ export function buildReleaseSeed() {
     entries.push({ id: "white-refine-split-halves", sourceKey: SPLIT_HALVES_STORAGE_KEY, value: splitRaw });
   }
 
-  // 红线①出口收口：对全部 entry 统一剥凭据（任何深度）。
+  // 红线①②出口双关口：对全部 entry 统一深剥（任何深度）。
+  //   · 红线①剥凭据：无论哪个未过白名单的键（resize-* / detail-* / 分类键…）
+  //     混入 apiKey/baseUrl/channelId，都不会随导出/随同步外发。
+  //   · 红线②剥图片记录（V126）：detail-groups 等 entry 原样导出会带上
+  //     productImageNames / imageSlots 等上传图/生成图文件名字段——客户看到即"业余感"，
+  //     任何深度的图片记录键在此一律剥除（只认结构键，不误杀提示词正文）。
   // 各 entry 内部的白名单清洗（sanitizeOutfitPage / sanitizePromptPreset / outfit-settings 单点剥除）
-  // 各自保留；这里是最后一道——无论哪个未过白名单的键（resize-* / detail-* / 分类键…）
-  // 混入 apiKey/baseUrl/channelId，都不会随导出/随同步外发。
+  // 各自保留；这里是最后两道——顺序：先凭据后图片记录（互不干扰，均幂等）。
   // V123 实测：服务端 containsCredentialFields 曾拒收同步请求，根因即未清洗 entry 携带凭据键。
-  const cleanedEntries = entries.map((entry) => ({ ...entry, value: stripCredentials(entry.value) }));
+  const cleanedEntries = entries.map((entry) => ({
+    ...entry,
+    value: stripImageRecords(stripCredentials(entry.value))
+  }));
   const seedId = fnv1a32Hex(JSON.stringify(cleanedEntries));
   return { version: 1, seedId, entries: cleanedEntries };
 }

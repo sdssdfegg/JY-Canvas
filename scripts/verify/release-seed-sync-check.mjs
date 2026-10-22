@@ -7,7 +7,7 @@
 //      且 server/app.js 注册了 registerSeedRoutes（保证 public 打包经 esbuild define 死代码消除）；
 //   c) scripts/secure-win-release.mjs 含 seed/manifest.json 默认读取分支（仓库真相源，缺失硬失败）；
 //   d) 若仓库已存在 seed/manifest.json：Node 侧过 schema 校验（entry id 合法 + 无凭据字段 +
-//      sanitize 后与落盘逐字一致 + seedId 重算一致）——防手编坏文件入 git。
+//      无生图记录字段（V126 红线②）+ sanitize 后与落盘逐字一致 + seedId 重算一致）——防手编坏文件入 git。
 //
 // 退出码：通过 0 / 失败 1。
 
@@ -105,7 +105,12 @@ if (!existsSync(repoSeedPath)) {
     assert(!badId, "所有 entry id 合法", "非法 entry id：" + (badId?.id || "（无）"));
     assert(schema.containsCredentialFields(manifest) === false,
       "无凭据字段（apiKey/baseUrl/channelId）", "种子含凭据字段，违反红线①");
+    assert(schema.containsImageRecords(manifest) === false,
+      "无生图记录字段（图片名/图片槽位/任务历史，V126 红线②）", "种子含生图记录字段，违反红线②");
     // sanitize 后与落盘逐字一致 + seedId 重算一致（防手编坏文件）。
+    // sanitize 管线与 server/routes/seed.routes.js 的 sanitizeManifestEntries 同口径（V126 起）：
+    //   outfit-pages → sanitizeOutfitPage 映射；presets → sanitizePromptPreset 映射；
+    //   outfit-settings → stripImageRecords∘stripCredentials；其余 → stripImageRecords。
     const sanitizeEntries = (ents) => ents.map((entry) => {
       const { id, value } = entry;
       if (id === "outfit-pages") {
@@ -115,9 +120,9 @@ if (!existsSync(repoSeedPath)) {
         return { id, value: (Array.isArray(value) ? value.map(schema.sanitizePromptPreset).filter(Boolean) : []) };
       }
       if (id === "outfit-settings") {
-        return { id, value: schema.stripCredentials(value && typeof value === "object" ? value : {}) };
+        return { id, value: schema.stripImageRecords(schema.stripCredentials(value && typeof value === "object" ? value : {})) };
       }
-      return { id, value };
+      return { id, value: schema.stripImageRecords(value) };
     });
     const sanitized = sanitizeEntries(entries);
     assert(JSON.stringify(sanitized) === JSON.stringify(entries),

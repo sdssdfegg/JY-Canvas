@@ -8,7 +8,7 @@
 // 让 AI 封装会话天然带上开发者最新板块/模板/设置（消除 V121 人工搬运断点）。
 //
 // 网络出口纪律（P7-1 / V121-R1 同款）：本文件只收口写仓库文件，不读远程；
-// 与 release-seed-schema.js 共用**同一份**白名单/剥凭据实现（严禁另写一份）。
+// 与 release-seed-schema.js 共用**同一份**白名单/剥凭据/剥图片记录实现（严禁另写一份）。
 
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile, rename } from "node:fs/promises";
@@ -19,7 +19,9 @@ import {
   sanitizeOutfitPage,
   sanitizePromptPreset,
   stripCredentials,
+  stripImageRecords,
   containsCredentialFields,
+  containsImageRecords,
   fnv1a32Hex
 } from "../../src/shared/release-seed-schema.js";
 
@@ -40,6 +42,10 @@ async function writeSeedManifestAtomic(text) {
 }
 
 // 逐 entry 过白名单/剥凭据（第二道防线：浏览器侧被篡改/旧格式也不怕）。
+// V126：sanitize 管线与 release-seed-sync-check.mjs (d) 段、manifest 清理脚本三处同口径——
+//   outfit-pages → sanitizeOutfitPage 映射；presets → sanitizePromptPreset 映射；
+//   outfit-settings → stripImageRecords∘stripCredentials（红线①②双关）；
+//   其余 entry → stripImageRecords（红线②：detail-groups 等原样导出的 entry 禁带图片记录）。
 function sanitizeManifestEntries(entries) {
   return entries.map((entry) => {
     const { id, value } = entry;
@@ -52,9 +58,9 @@ function sanitizeManifestEntries(entries) {
       return { id, value: presets };
     }
     if (id === "outfit-settings") {
-      return { id, value: stripCredentials(value && typeof value === "object" ? value : {}) };
+      return { id, value: stripImageRecords(stripCredentials(value && typeof value === "object" ? value : {})) };
     }
-    return { id, value };
+    return { id, value: stripImageRecords(value) };
   });
 }
 
@@ -91,6 +97,12 @@ export function registerSeedRoutes(app) {
 
     // 1) entry id 必须全在 SEED_ENTRY_IDS，否则 4xx 拒收。
     for (const entry of manifest.entries) {
+      if (entry && entry.id === "detail-groups") {
+        return res.status(400).json({
+          ok: false,
+          message: "detail-groups 已移出种子范围（V126）：该 entry 含生图记录（生成图/上传图文件名），禁止随包；请升级源码版后重新同步"
+        });
+      }
       if (!entry || typeof entry !== "object" || !SEED_ENTRY_IDS.includes(entry.id)) {
         return res.status(400).json({
           ok: false,
@@ -104,6 +116,14 @@ export function registerSeedRoutes(app) {
       return res.status(400).json({
         ok: false,
         message: "种子含凭据字段（apiKey/baseUrl/channelId），违反红线①，禁止随包"
+      });
+    }
+
+    // 2b) V126 红线②：任何深度发现图片记录键（上传/生成图文件名、图片槽位、任务历史）即拒写。
+    if (containsImageRecords(manifest)) {
+      return res.status(400).json({
+        ok: false,
+        message: "种子含生图记录字段（图片名/图片槽位/任务历史），违反红线②，禁止随包"
       });
     }
 
