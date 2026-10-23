@@ -23,9 +23,9 @@ const releaseParentDir = path.resolve(rootDir, "..");
 // 发布身份（可配置，默认就是本次要发的这一版）。
 // 换版本号/产品名只改环境变量即可，不用动脚本：
 //   JINGYIN_WIN_RELEASE_NAME / JINGYIN_WIN_PRODUCT_NAME / JINGYIN_WIN_PRODUCT_VERSION
-const releaseName = String(process.env.JINGYIN_WIN_RELEASE_NAME || "静音AI画板（v3.7）").trim();
+const releaseName = String(process.env.JINGYIN_WIN_RELEASE_NAME || "静音AI画板（v5.0）").trim();
 const productName = String(process.env.JINGYIN_WIN_PRODUCT_NAME || "静音AI画板").trim();
-const productVersion = String(process.env.JINGYIN_WIN_PRODUCT_VERSION || "3.7.0").trim();
+const productVersion = String(process.env.JINGYIN_WIN_PRODUCT_VERSION || "5.0.0").trim();
 const defaultReleaseDir = path.join(releaseParentDir, releaseName);
 const releaseDir = path.resolve(process.env.JINGYIN_WIN_RELEASE_DIR || defaultReleaseDir);
 const exeName = `${productName}.exe`;
