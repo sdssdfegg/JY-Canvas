@@ -52,7 +52,7 @@ import { PROMPT_LIBRARY_VERSION } from "./app-defaults.js";
 //   `loadPromptPresets` / `loadPromptCategories` 两处**不是**重复搬运，是实质行为分叉：
 //     · `loadPromptCategories`：兜底常量不同
 //       （main 用 `promptCategories` = ["全部","常用","批量复刻","批量sku","局部迁移"]；
-//        outfit 用 `PROMPT_CATEGORIES` = 由 PROMPT_PRESET_GROUPS / PROMPT_BUILTIN_PRESETS 动态聚合）
+//        outfit 用 `PROMPT_CATEGORIES` = 由 PROMPT_PRESET_GROUPS / PROMPT_BUILTIN_PRESETS 动态聚合——此三常量已于 V130 删除，且 V118 后该兜底口径已不存在，现状见下方 V118 段）
 //     · `loadPromptPresets`：main 是**简单版**（stored 非空就返回 stored，否则返回 `builtinPrompts`）；
 //       outfit 是**合并版**（内置库优先覆盖非 custom 项的 title/content，再补回 stored 缺失的内置项）
 //     · 两者读的 localStorage 键也不同
