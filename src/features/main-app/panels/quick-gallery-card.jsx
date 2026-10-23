@@ -4,6 +4,9 @@
 // 逐字抽取为 React.memo 组件。纯搬运：父作用域引用全部改为同名 props；无新状态、无新副作用；
 // className / 事件语义 / 子组件（CachedImage / ReferenceThumbTray / ElapsedTimer）调用参数零改动。
 // 行为等价由 V5.0-001 §3 P0 验收清单兜底（逐项点击验证）。
+// V5.0-002 (2026-10-23)：props 收敛——上游 15 个 handler 由父组件「晚期绑定委托」稳定化（见 main-canvas-board.jsx），
+// 整包集合 selectedIds/downloadFeedbackIds/quickResultReplaceTargetId 改由父组件每卡派生布尔 isSelected/isDownloaded/isReplaceTarget 透传，
+// 使 React.memo 在常态（非卡片相关状态变更）真正 bail、杜绝全树重渲染。brokenResultImages 保留整包（仅缺图时变更，不破常态 memo）。
 import React from "react";
 import {
   Loader2,
@@ -26,9 +29,9 @@ export const QuickGalleryCard = React.memo(function QuickGalleryCard({
   galleryItem,
   index,
   brokenResultImages,
-  selectedIds,
-  downloadFeedbackIds,
-  quickResultReplaceTargetId,
+  isSelected,
+  isDownloaded,
+  isReplaceTarget,
   setQuickResultReplaceTargetId,
   openPreview,
   openContextMenu,
@@ -66,10 +69,10 @@ export const QuickGalleryCard = React.memo(function QuickGalleryCard({
   const brokenReason = cardState.missing
     ? cardState.reason
     : (brokenEntry && brokenEntry.src === src ? brokenEntry.reason : "");
-  const selected = selectedIds.has(item.id);
+  const selected = isSelected;
   return (
     <article
-      className={`assetCard ${quickResultReplaceTargetId === item.id ? "replaceTarget" : ""}`}
+      className={`assetCard ${isReplaceTarget ? "replaceTarget" : ""}`}
       onClick={() => openPreview(item)}
       onContextMenu={(event) => openContextMenu(event, item.id)}
       onDragOver={(event) => handleQuickResultReplaceDragOver(event, item)}
@@ -88,7 +91,7 @@ export const QuickGalleryCard = React.memo(function QuickGalleryCard({
         {selected ? <CheckSquare size={24} /> : <Square size={24} />}
       </button>
       <button
-        className={`assetDownloadButton ${downloadFeedbackIds.has(item.id) ? "downloaded" : ""}`}
+        className={`assetDownloadButton ${isDownloaded ? "downloaded" : ""}`}
         type="button"
         onClick={(event) => {
           event.stopPropagation();
@@ -97,7 +100,7 @@ export const QuickGalleryCard = React.memo(function QuickGalleryCard({
         title="下载到指定文件夹"
         aria-label="下载到指定文件夹"
       >
-        {downloadFeedbackIds.has(item.id) ? <Check size={16} /> : <Download size={16} />}
+        {isDownloaded ? <Check size={16} /> : <Download size={16} />}
       </button>
       <button
         className="assetRerunButton"

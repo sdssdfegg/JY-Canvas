@@ -4,7 +4,7 @@
 // 全部数据与回调由 App() 以同名 props 下发（COUNT_OPTIONS 经 countOptions 下发，同 DetailView 口径，
 // 避免面板反向 import main.jsx 成环）。
 // 接线完整性由 P6-5 §4 负向对照兜底（scripts/dev/p6-5-propcheck.mjs G 项：props 双向一致）。
-import React from "react";
+import React, { useMemo, useRef } from "react";
 import {
   Loader2,
   Trash2,
@@ -94,36 +94,85 @@ export function MainCanvasBoard({
   setQuickLocalEditTarget,
   setIsPromptAssistantOpen
 }) {
+  // V5.0-002：下游 QuickGalleryCard 已 React.memo；上游 15 个 handler 来自 App 透传，每次 App 重渲染
+  // 都重建闭包（createResultActions/createResultDownload/createQuickResultReplace/useMainHandlers 普通工厂），
+  // 若直接透传则 memo 被绕过、全树仍重渲染。此处用「晚期绑定委托」将 15 个 handler 收敛为稳定引用：
+  // ref 每渲染刷新指向最新闭包，委托函数仅在首渲染经 useMemo([]) 创建一次，调用时经 ref 转发到最新实现，
+  // 零陈旧闭包、零依赖管理、零触及主链路（工厂/main.jsx 不动）。沿用本仓 handlerLateRef 同款手法。
+  const cardHandlersRef = useRef(null);
+  cardHandlersRef.current = {
+    openPreview,
+    openContextMenu,
+    handleQuickResultReplaceDragOver,
+    handleQuickResultReplaceDrop,
+    toggleSelected,
+    downloadItem,
+    rerunResult,
+    deleteResult,
+    beginResultImageDrag,
+    clearQuickResultDragState,
+    markResultImageBroken,
+    openReferencePreview,
+    openReferenceContextMenu,
+    beginReferenceImageDrag,
+    copyText
+  };
+  const cardHandlers = useMemo(() => {
+    const ref = cardHandlersRef;
+    return {
+      openPreview: (...args) => ref.current.openPreview(...args),
+      openContextMenu: (...args) => ref.current.openContextMenu(...args),
+      handleQuickResultReplaceDragOver: (...args) => ref.current.handleQuickResultReplaceDragOver(...args),
+      handleQuickResultReplaceDrop: (...args) => ref.current.handleQuickResultReplaceDrop(...args),
+      toggleSelected: (...args) => ref.current.toggleSelected(...args),
+      downloadItem: (...args) => ref.current.downloadItem(...args),
+      rerunResult: (...args) => ref.current.rerunResult(...args),
+      deleteResult: (...args) => ref.current.deleteResult(...args),
+      beginResultImageDrag: (...args) => ref.current.beginResultImageDrag(...args),
+      clearQuickResultDragState: (...args) => ref.current.clearQuickResultDragState(...args),
+      markResultImageBroken: (...args) => ref.current.markResultImageBroken(...args),
+      openReferencePreview: (...args) => ref.current.openReferencePreview(...args),
+      openReferenceContextMenu: (...args) => ref.current.openReferenceContextMenu(...args),
+      beginReferenceImageDrag: (...args) => ref.current.beginReferenceImageDrag(...args),
+      copyText: (...args) => ref.current.copyText(...args)
+    };
+  }, []);
+
   return (
     <div className="canvasBoard" onWheel={onQuickBoardWheel}>
       <section ref={quickGalleryRef} className="galleryStrip" style={{ "--asset-card-min": `${galleryCardMin}px` }}>
-        {quickGalleryItems.map((galleryItem, index) => (
-          <QuickGalleryCard
-            key={galleryItem.key}
-            galleryItem={galleryItem}
-            index={index}
-            brokenResultImages={brokenResultImages}
-            selectedIds={selectedIds}
-            downloadFeedbackIds={downloadFeedbackIds}
-            quickResultReplaceTargetId={quickResultReplaceTargetId}
-            setQuickResultReplaceTargetId={setQuickResultReplaceTargetId}
-            openPreview={openPreview}
-            openContextMenu={openContextMenu}
-            handleQuickResultReplaceDragOver={handleQuickResultReplaceDragOver}
-            handleQuickResultReplaceDrop={handleQuickResultReplaceDrop}
-            toggleSelected={toggleSelected}
-            downloadItem={downloadItem}
-            rerunResult={rerunResult}
-            deleteResult={deleteResult}
-            beginResultImageDrag={beginResultImageDrag}
-            clearQuickResultDragState={clearQuickResultDragState}
-            markResultImageBroken={markResultImageBroken}
-            openReferencePreview={openReferencePreview}
-            openReferenceContextMenu={openReferenceContextMenu}
-            beginReferenceImageDrag={beginReferenceImageDrag}
-            copyText={copyText}
-          />
-        ))}
+        {quickGalleryItems.map((galleryItem, index) => {
+          // V5.0-002：整包集合改每卡派生布尔——单张选中/下载/拖拽高亮只翻转该卡对应布尔，
+          // 其余卡布尔值不变（基元相等）→ React.memo 跳过，杜绝全树重渲染。
+          const itemId = galleryItem.kind === "result" ? galleryItem.result.id : null;
+          return (
+            <QuickGalleryCard
+              key={galleryItem.key}
+              galleryItem={galleryItem}
+              index={index}
+              brokenResultImages={brokenResultImages}
+              isSelected={itemId ? selectedIds.has(itemId) : false}
+              isDownloaded={itemId ? downloadFeedbackIds.has(itemId) : false}
+              isReplaceTarget={itemId ? quickResultReplaceTargetId === itemId : false}
+              setQuickResultReplaceTargetId={setQuickResultReplaceTargetId}
+              openPreview={cardHandlers.openPreview}
+              openContextMenu={cardHandlers.openContextMenu}
+              handleQuickResultReplaceDragOver={cardHandlers.handleQuickResultReplaceDragOver}
+              handleQuickResultReplaceDrop={cardHandlers.handleQuickResultReplaceDrop}
+              toggleSelected={cardHandlers.toggleSelected}
+              downloadItem={cardHandlers.downloadItem}
+              rerunResult={cardHandlers.rerunResult}
+              deleteResult={cardHandlers.deleteResult}
+              beginResultImageDrag={cardHandlers.beginResultImageDrag}
+              clearQuickResultDragState={cardHandlers.clearQuickResultDragState}
+              markResultImageBroken={cardHandlers.markResultImageBroken}
+              openReferencePreview={cardHandlers.openReferencePreview}
+              openReferenceContextMenu={cardHandlers.openReferenceContextMenu}
+              beginReferenceImageDrag={cardHandlers.beginReferenceImageDrag}
+              copyText={cardHandlers.copyText}
+            />
+          );
+        })}
       </section>
 
       {quickResults.length === 0 && runningQuickTasks.length === 0 && (
