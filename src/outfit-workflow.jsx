@@ -487,13 +487,36 @@ export default function OutfitWorkflow({
     productNote: settings.productNote
   });
   const retouchAutoPrompt = retouchPreview.prompt;
-  const completedCount = tasks.filter((task) => task.status === "success").length;
-  const failedCount = tasks.filter((task) => task.status === "failed").length;
-  const runningCount = tasks.filter((task) => task.status === "running").length;
-  const detachedCount = tasks.filter((task) => task.status === "detached").length;
+  // V5.0-007：原来四个计数各跑一次 filter ⇒ 每次渲染 4 次 O(n)；连同 visibleTasks /
+  // resultPreviewTasks 共 7 次 O(n) + 6 个临时数组分配。改为「状态计数一次遍历」+「派生 useMemo 缓存」。
+  // 语义等价：task.status 是单值，一个任务不可能同时命中两个分支 ⇒ else-if 链与原 4 次独立
+  // filter 逐状态完全等价（pending 等其它状态两边都 +0）。
+  const taskCounts = useMemo(() => {
+    let completed = 0;
+    let failed = 0;
+    let running = 0;
+    let detached = 0;
+    for (const task of tasks) {
+      if (task.status === "success") completed += 1;
+      else if (task.status === "failed") failed += 1;
+      else if (task.status === "running") running += 1;
+      else if (task.status === "detached") detached += 1;
+    }
+    return { completed, failed, running, detached };
+  }, [tasks]);
+  const completedCount = taskCounts.completed;
+  const failedCount = taskCounts.failed;
+  const runningCount = taskCounts.running;
+  const detachedCount = taskCounts.detached;
   const imageCount = completedCount;
-  const visibleTasks = resultFilter === "video" ? [] : resultFilter === "image" ? tasks.filter((task) => task.result) : tasks;
-  const resultPreviewTasks = visibleTasks.filter((task) => task.result);
+  // 依赖只取 useState 源：tasks（:308）/ resultFilter（:310），二者声明均早于本处 ⇒ 无 TDZ 风险
+  // （V136 就是派生消费了后面才声明的变量而崩，此处已复核）。
+  // 引用稳定后，:1022 那个以 resultPreviewTasks 为依赖的 keydown effect 不再每次重渲染解绑/重绑。
+  const visibleTasks = useMemo(
+    () => (resultFilter === "video" ? [] : resultFilter === "image" ? tasks.filter((task) => task.result) : tasks),
+    [tasks, resultFilter]
+  );
+  const resultPreviewTasks = useMemo(() => visibleTasks.filter((task) => task.result), [visibleTasks]);
   // V136 修复：selectedCount / selectedCompletedCount 需要 selectedTaskIds，而它自 V133 起由
   // useOutfitSelectionHandlers（下方 ~1241 行）才声明。此处 tasks 非空时 reduce 回调在声明前执行 =>
   // "Cannot access 'selectedTaskIds' before initialization"（tasks 为空时 reduce 不执行回调，故空态不崩、

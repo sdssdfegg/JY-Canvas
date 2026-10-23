@@ -8,6 +8,20 @@
 // 探针只读取真实 DOM 状态，不触发真实生成、不动上传、不写 history.json。
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// V5.0-007：原「点导航后固定 wait(900) 就判 .outfitWorkflowEmbedded」太紧——
+// outfit 视图是懒加载（LazyOutfitWorkflow），dev 下首次动态 import 需 Vite 编译，
+// 而**任何**对 outfit-workflow.jsx 的改动都会触发重编译（实测：内容回到 base 仅 touch 一下
+// mtime 也会假红）⇒ 900ms 常在 embed 挂载前就判定，表现为「不动就过、一动就红」的不稳定结果。
+// 改为轮询等待元素出现（最多 10s），**断言逻辑与阈值一律不变**，只把「盲等」换成「等到」。
+async function waitForEmbed(timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (document.querySelector(".outfitWorkflowEmbedded")) return true;
+    await wait(200);
+  }
+  return false;
+}
+
 function nameOf(tab) {
   const span = tab.querySelector("span:last-child");
   return span ? span.textContent.trim() : (tab.textContent || "").trim();
@@ -53,9 +67,9 @@ function relativeProbe() {
 export async function run() {
   const ctx = relativeProbe();
   const { clickTabByLabel, measure, labels, facts } = ctx;
-  await wait(900);
   // 进入批量生成后，.outfitWorkflowEmbedded 才挂载到 DOM（首屏是落地页），故在此处再判。
-  facts.foundEmbed = Boolean(document.querySelector(".outfitWorkflowEmbedded"));
+  // V5.0-007：轮询等待挂载替代固定 wait(900)（outfit 懒加载 + 改动触发 Vite 重编译）。
+  facts.foundEmbed = await waitForEmbed();
   for (const label of labels) {
     const ok = clickTabByLabel(label);
     facts.pages[label] = { tabFound: ok };
