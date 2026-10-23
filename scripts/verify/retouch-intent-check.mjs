@@ -41,11 +41,16 @@ function check(name, pass, detail = "") {
 //   retouchPromptLive 定高框、retouchAutoPrompt 回填等精修/换装接线契约）从 outfit-workflow.jsx 主 return
 //   外壳搬去 features/outfit/panels/OutfitComposer.jsx；
 // ⇒ 调用现场断言需把该面板文件一并纳入 clientSource 扫描，否则上述契约会被静默判红（行为未变，仅代码位移）。
+// V5.0-008 后：E26「精修提示词自动生成 + 一次性迁移」effect（与 E25 换装同款）从 outfit-workflow.jsx
+//   整块迁入 features/outfit/handlers/outfit-effects.js（逐字迁移，行为零变）；
+// ⇒ clientSource 需纳入该 handler 文件，否则「由精修设置自动生成 / 旧手写迁移进用户补充 / 迁移防线」
+//   三条契约会因代码位移被判红（与 V65/V68 同族：行为未变，仅落点位移）。
 const CLIENT_FILES = [
   path.join(process.cwd(), "src", "outfit-workflow.jsx"),
   path.join(process.cwd(), "src", "features", "outfit", "outfit-top.js"),
   path.join(process.cwd(), "src", "features", "outfit", "panels", "OutfitWorkbench.jsx"),
-  path.join(process.cwd(), "src", "features", "outfit", "panels", "OutfitComposer.jsx")
+  path.join(process.cwd(), "src", "features", "outfit", "panels", "OutfitComposer.jsx"),
+  path.join(process.cwd(), "src", "features", "outfit", "handlers", "outfit-effects.js")
 ];
 const RETOUCH_PANEL_FILE = path.join(process.cwd(), "src", "features", "outfit", "panels", "RetouchIntentPanel.jsx");
 const CSS = path.join(process.cwd(), "src", "features", "outfit", "retouch-intent.css");
