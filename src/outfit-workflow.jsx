@@ -494,8 +494,10 @@ export default function OutfitWorkflow({
   const imageCount = completedCount;
   const visibleTasks = resultFilter === "video" ? [] : resultFilter === "image" ? tasks.filter((task) => task.result) : tasks;
   const resultPreviewTasks = visibleTasks.filter((task) => task.result);
-  const selectedCount = tasks.reduce((count, task) => count + (selectedTaskIds.has(task.id) ? 1 : 0), 0);
-  const selectedCompletedCount = tasks.reduce((count, task) => count + (selectedTaskIds.has(task.id) && task.result ? 1 : 0), 0);
+  // V136 修复：selectedCount / selectedCompletedCount 需要 selectedTaskIds，而它自 V133 起由
+  // useOutfitSelectionHandlers（下方 ~1241 行）才声明。此处 tasks 非空时 reduce 回调在声明前执行 =>
+  // "Cannot access 'selectedTaskIds' before initialization"（tasks 为空时 reduce 不执行回调，故空态不崩、
+  // 极具迷惑性；v4.0.13 二进制已实测崩溃）。两值消费点全在 JSX（~1658/1661），已下移至 hook 之后。
   const galleryZoomPercent = Math.round(galleryZoom * 100);
   const galleryCardMin = Math.round(176 * galleryZoom);
   const generationCount = normalizeGenerationCount(settings.generationCount);
@@ -1239,6 +1241,11 @@ export default function OutfitWorkflow({
     preview,
     addEvent
   });
+
+  // V136：从 ~497 行原位下移（消费点仅 ~1658/1661 的 JSX）。必须在 useOutfitSelectionHandlers
+  // 声明 selectedTaskIds 之后；hook 执行顺序未变，只是两个纯派生 const 换了声明位置。
+  const selectedCount = tasks.reduce((count, task) => count + (selectedTaskIds.has(task.id) ? 1 : 0), 0);
+  const selectedCompletedCount = tasks.reduce((count, task) => count + (selectedTaskIds.has(task.id) && task.result ? 1 : 0), 0);
 
   // V134 第三刀：拆分半幅域搬入 useOutfitSplitHalvesHandlers。
   // 顺序约束：晚于 patchRetouchIntent 来源（useOutfitSettingsIntent）、早于 setSplitNote 消费方
