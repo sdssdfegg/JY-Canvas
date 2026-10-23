@@ -54,7 +54,6 @@ import {
   taskRuntimeStageLabel,
   summarizeGenerationError,
   revokeResultImageRuntimeCache,
-  hydrateTasksWithUploadReferences,
   readTaskHistory,
   canRerunTask,
   buildRerunReplacementTask,
@@ -67,10 +66,11 @@ import { PromptPresetGrid } from "./features/outfit/panels/PromptPresetGrid.jsx"
 import { WorkflowQuickVideoPanel } from "./features/outfit/panels/WorkflowQuickVideoPanel.jsx";
 import { DEFAULT_OUTFIT_PAGE_NAME, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeRecolorPart, normalizeRecolorUpperLayer, RECOLOR_PART_WORDS, replaceRecolorPartWords, replaceRecolorUpperLayerWords, replaceUpperLayerWordsWithPart, RECOLOR_PART_OPTIONS, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
 import { UPPER_LAYER_OPTIONS } from "./shared/outfit-intent.js";
-import { inferOutfitWorkflowMode, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabels, pickInitialOutfitPage, readOutfitPages, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
+import { inferOutfitWorkflowMode, mergeOutfitPageSettings, normalizeUploadLabels, pickInitialOutfitPage, readOutfitPages, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import {  createAsyncLimiter, defaultLocalEditCrop, groupPreprocessValue, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
 import { useOutfitSettingsIntent } from "./features/outfit/use-outfit-settings-intent.js";
 import { useOutfitPages } from "./features/outfit/use-outfit-pages.js";
+import { useOutfitPageSwitch } from "./features/outfit/handlers/outfit-page-switch.js";
 import { useOutfitUploads } from "./features/outfit/use-outfit-uploads.js";
 import { useOutfitRefHandlers } from "./features/outfit/handlers/outfit-ref-handlers.js";
 import { useOutfitSaveHandlers } from "./features/outfit/handlers/outfit-save-handlers.js";
@@ -638,6 +638,40 @@ export default function OutfitWorkflow({
   // 晚绑定：refreshSaveDirectory 来自 useSaveDirectory（下方，晚于本调用点），
   // 经 refreshSaveDirectoryRef 在 effect 体内读取（effect 后于整棵 render 执行，ref 必已刷新）。
   const refreshSaveDirectoryRef = useRef(null);
+  // V5.0-010：clearSelection 晚绑定（useOutfitSelectionHandlers 晚于本调用点）。
+  const clearSelectionRef = useRef(null);
+  // V5.0-010：页面切换域三函数搬入 handlers/outfit-page-switch.js（V135 第⑤项复扫落地）。
+  // ⚠️ 调用点必须早于下方 useOutfitEffects：其 ctx 消费 loadOutfitPage /
+  //   buildCurrentOutfitPageSnapshot（原为 hoisted function 声明，641 行引用无碍；
+  //   改为 hook 解构后若仍居其后即 TDZ——V136 同族事故）。本 hook 是纯函数工厂
+  //   （内部无任何 React hook）⇒ 上移零 hook 顺序影响；ctx 依赖的全部 state/setter
+  //   均在 275–363 声明，亦早于本调用点。
+  // clearSelection 经 clearSelectionRef 晚绑定（selection hook 晚于本调用点，同 refreshSaveDirectoryRef 惯例）。
+  const {
+    buildCurrentOutfitPageSnapshot,
+    loadOutfitPage
+  } = useOutfitPageSwitch({
+    activeOutfitPage, activeOutfitPageId,
+    uploadLabels, setUploadLabels,
+    settings, setSettings,
+    modelImages, setModelImages,
+    clothingImages, setClothingImages,
+    referenceImages, setReferenceImages,
+    fixedClothingId, setFixedClothingId,
+    tasks, setTasks,
+    originalLibrary, setOriginalLibrary,
+    activeUploadGroup, setActiveUploadGroup,
+    setResultFilter,
+    setPreview,
+    setImageLightbox,
+    setCropTarget,
+    setLocalEditTarget,
+    setDownloadFeedbackIds,
+    setInlineMessage,
+    setIsPromptAssistantOpen,
+    setEditingPrompt,
+    getClearSelection: () => clearSelectionRef.current?.()
+  });
   useOutfitEffects({
     view, hostTheme, hostApiKey,
     setActiveView,
@@ -746,62 +780,6 @@ export default function OutfitWorkflow({
     startBatchRef,
   });
 
-  function buildCurrentOutfitPageSnapshot(basePage = activeOutfitPage) {
-    const snapshotUploadLabels = uploadLabels;
-    const snapshotWorkflowMode = inferOutfitWorkflowMode(basePage.name, snapshotUploadLabels);
-    const snapshotAllowsEmptyPrompt = snapshotWorkflowMode === "custom" || snapshotWorkflowMode === "local-detail";
-    return {
-      ...basePage,
-      id: basePage.id || activeOutfitPageId,
-      name: normalizeOutfitPageName(basePage.name, DEFAULT_OUTFIT_PAGE_NAME),
-      deleteLocked: Boolean(basePage.deleteLocked),
-      settings: stripOutfitPageGlobalSettings(settings, { allowEmptyPrompt: snapshotAllowsEmptyPrompt }),
-      modelImages,
-      clothingImages,
-      referenceImages,
-      fixedClothingId,
-      tasks,
-      originalLibrary,
-      activeUploadGroup,
-      uploadLabels: snapshotUploadLabels
-    };
-  }
-
-  function resetOutfitPageTransients() {
-    clearSelection();
-    setResultFilter("all");
-    setPreview(null);
-    setImageLightbox(null);
-    setCropTarget(null);
-    setLocalEditTarget(null);
-    setDownloadFeedbackIds(() => new Set());
-    setInlineMessage("");
-    setIsPromptAssistantOpen(false);
-    setEditingPrompt(null);
-  }
-
-  function loadOutfitPage(page) {
-    const pageWorkflowMode = inferOutfitWorkflowMode(page.name, page.uploadLabels);
-    const pageAllowsEmptyPrompt = pageWorkflowMode === "custom" || pageWorkflowMode === "local-detail";
-    const pageModelImages = Array.isArray(page.modelImages) ? page.modelImages : [];
-    const pageClothingImages = Array.isArray(page.clothingImages) ? page.clothingImages : [];
-    const pageReferenceImages = Array.isArray(page.referenceImages) ? page.referenceImages : [];
-    setSettings(mergeOutfitPageSettings(page.settings, settings, { allowEmptyPrompt: pageAllowsEmptyPrompt }));
-    setModelImages(pageModelImages);
-    setClothingImages(pageClothingImages);
-    setReferenceImages(pageReferenceImages);
-    setFixedClothingId(page.fixedClothingId || "");
-    setTasks(hydrateTasksWithUploadReferences(page.tasks, {
-      modelImages: pageModelImages,
-      clothingImages: pageClothingImages,
-      referenceImages: pageReferenceImages
-    }));
-    setOriginalLibrary(Array.isArray(page.originalLibrary) ? page.originalLibrary : []);
-    setActiveUploadGroup(page.activeUploadGroup || "model");
-    setUploadLabels(normalizeUploadLabels(page.uploadLabels || {}, page.name));
-    resetOutfitPageTransients();
-  }
-
   // 2026-10-15 V66 (P5-4)：页面管理域 9 函数搬入 use-outfit-pages.js（原 1267–1465，派发日实测）。
   // deps 21 项（9 state + 6 setter + 1 ref + 4 函数 + 1 派生）每次 render 重建注入，薄壳模式行为零变化。
   const {
@@ -868,8 +846,9 @@ export default function OutfitWorkflow({
 
   // V133 第二刀：任务选择删除域搬入 useOutfitSelectionHandlers。
   // 域内自含 selectedTaskIds 状态；外部只注入 tasksRef/setter/preview/addEvent。
-  // 注意：clearSelection 被下方 resetOutfitPageTransients（闭包，渲染后调用）与
-  // useOutfitRefHandlers ctx 消费，故本 hook 调用点必须早于 ref-handlers。
+  // 注意：clearSelection 被 useOutfitRefHandlers ctx 与页面切换域
+  // （handlers/outfit-page-switch.js 的 resetOutfitPageTransients，经 clearSelectionRef 晚绑定）消费，
+  // 故本 hook 调用点必须早于 ref-handlers。
   const {
     selectedTaskIds,
     setSelectedTaskIds,
@@ -885,6 +864,8 @@ export default function OutfitWorkflow({
     preview,
     addEvent
   });
+  // V5.0-010：供页面切换域 resetOutfitPageTransients 晚绑定读取（同 refreshSaveDirectoryRef 惯例）。
+  clearSelectionRef.current = clearSelection;
 
   // V136：从 ~497 行原位下移（消费点仅 ~1658/1661 的 JSX）。必须在 useOutfitSelectionHandlers
   // 声明 selectedTaskIds 之后；hook 执行顺序未变，只是两个纯派生 const 换了声明位置。
