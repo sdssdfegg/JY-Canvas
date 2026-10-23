@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 129,
+    "fileCount": 130,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -47,6 +47,7 @@
       "src/features/main-app/panels/quick-gallery-card.jsx",
       "src/features/outfit/handlers/outfit-batch-execution.js",
       "src/features/outfit/handlers/outfit-effects.js",
+      "src/features/outfit/handlers/outfit-page-switch.js",
       "src/features/outfit/handlers/outfit-ref-handlers.js",
       "src/features/outfit/handlers/outfit-result-drag.js",
       "src/features/outfit/handlers/outfit-save-handlers.js",
