@@ -16,8 +16,8 @@
 // 纪律：
 //   · 本模块**零重量依赖**（仅 app-defaults 的 PROMPT_LIBRARY_VERSION 叶子），
 //     启动链路模块（release-seed / storage-store）可安全 import；
-//   · outfit 特性内部（outfit-top / outfit-panels / outfit-page-actions /
-//     outfit-workflow）也一律从本模块取键，不再各自定义；
+//   · outfit 特性内部（outfit-top / outfit-image-utils / outfit-page-actions / outfit-workflow /
+//     panels/ 各面板）一律从本模块取键（2026-10-24 V5.0-009：原 outfit-panels.jsx 已拆为这两处）；
 //   · 键值字符串**只此一处**，改名先 git grep -l 全量引用方（V98 纪律）。
 import { PROMPT_LIBRARY_VERSION } from "../../shared/app-defaults.js";
 

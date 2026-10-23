@@ -7,7 +7,7 @@
 // 分层：只 import L0（./outfit-top.js）与外部模块；不 import 另一个 L1（outfit-image-pipeline.js）。
 
 import { normalizeApiKeyInput } from "../auth/api-key.js";
-import { DEFAULT_PREPROCESS_MODE, makeId } from "./outfit-panels.jsx";
+import { DEFAULT_PREPROCESS_MODE, makeId } from "./outfit-image-utils.js";
 import { OUTFIT_DRAFT_DB_KEY, hydrateTasksWithUploadReferences, normalizeCropReturnMeta, normalizeQualityCheck, normalizeRandomBackgroundFocus, outfitLocalGet, outfitLocalSet, readTaskHistory, recoverPersistedTasks, sanitizeTaskHistoryItem } from "./outfit-task.js";
 import { readJsonStorage, writeJsonStorage } from "../../lib/storage/json-storage.js";
 import { LOCAL_EDIT_BRUSH_DEFAULT, LOCAL_EDIT_MASK_OPACITY_DEFAULT, LOCAL_EDIT_RECT_MODE } from "../../shared/local-edit-mask.js";

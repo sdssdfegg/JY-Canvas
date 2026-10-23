@@ -39,7 +39,7 @@ import {
   summarizeGenerationError,
   revokeResultImageRuntimeCache
 } from "../outfit-task.js";
-import { makeId } from "../outfit-panels.jsx";
+import { makeId } from "../outfit-image-utils.js";
 import { normalizeBatchConcurrency } from "../outfit-top.js";
 import { mentionsOptionalReferenceImage } from "../outfit-page-actions.js";
 import {

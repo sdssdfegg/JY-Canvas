@@ -90,7 +90,8 @@ assert(seedSrc.includes("fetchSeedManifest"),
 
 // ---- 4c) 启动链路隔离（V121-R2：防 rollup 打包后模块初始化期 TDZ 白屏回归）----
 // release-seed.js 挂在 publicReleaseStorageResetPromise 启动链路上；它只能 import 叶子模块。
-// 一旦它 import outfit-top.js / outfit-panels.jsx 等特性模块群（outfit-top ↔ outfit-panels 既有相互循环），
+// 一旦它 import outfit-top.js / outfit-image-utils.js / panels/ 等特性模块群（V5.0-009 起 outfit-panels.jsx
+// 已拆为这两处；特性模块群既有耦合），
 // public 生产构建（启动即挂载 outfit 视图）会在模块初始化期 TDZ，整应用白屏——dev 与 internal 构建都不复现。
 console.log("[4c] release-seed.js 不 import outfit 特性模块群（只许叶子 outfit-storage-keys.js）");
 const outfitImports = [...seedSrc.matchAll(/from\s*["']([^"']*features\/outfit\/[^"']+)["']/g)].map((m) => m[1]);

@@ -13,8 +13,8 @@
 //   · 网络出口走 src/api/ 准入层（V121-R1 统筹裁决，P7-6「网络出口只此一处」口径）：
 //     种子清单读取用 api/assets.js 的 fetchSeedManifest，本模块不出现裸 fetch。
 //   · outfit 侧存储键一律从零依赖叶子模块 outfit-storage-keys.js 取（V121-R2）——
-//     本模块在启动链路上，**禁止** import outfit-top.js / outfit-panels.jsx 等特性模块群
-//     （既有相互循环 + public 模式启动即挂载 outfit 视图 ⇒ 打包后模块初始化期 TDZ 白屏）。
+//     本模块在启动链路上，**禁止** import outfit-top.js / outfit-image-utils.js / panels/ 等特性模块群
+//     （既有耦合 + public 模式启动即挂载 outfit 视图 ⇒ 打包后 TDZ 白屏；V5.0-009 起原 outfit-panels.jsx 已拆为这两处）。
 
 import { readJsonStorage, writeJsonStorage } from "../lib/storage/json-storage.js";
 import { fetchSeedManifest } from "../api/assets.js";

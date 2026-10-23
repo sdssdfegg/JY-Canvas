@@ -11,7 +11,7 @@
 //    两侧常量不同源、语义不同，严禁合并、严禁互相 import。见冷启动「局部回帖分叉裁定」。
 
 import { fetchImageBlob } from "../../api/assets.js";
-import { compressOriginalImageFile, constrainLocalEditRect, loadImageFromUrl, makeId, padImageFile, processImageFile, ratioParts, resolveCropSourceRect } from "./outfit-panels.jsx";
+import { compressOriginalImageFile, constrainLocalEditRect, loadImageFromUrl, makeId, padImageFile, processImageFile, ratioParts, resolveCropSourceRect } from "./outfit-image-utils.js";
 import { cropReturnRectSnapshot, imageSource, localEditRectSnapshot, normalizeCropReturnMeta } from "./outfit-task.js";
 import { canvasToBlob } from "../../shared/canvas-blob.js";
 import { fileBaseName } from "../../shared/file-name.js";

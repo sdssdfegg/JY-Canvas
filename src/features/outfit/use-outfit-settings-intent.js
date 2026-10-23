@@ -18,7 +18,7 @@ import { usePromptLibrary } from "../../shared/prompt-library.js";
 import { convergeSettingsForModel, channelsForModel } from "../../shared/routing.js";
 import { normalizeGenerationCount, normalizeSmartIntervention, GENERATION_COUNT_AUTOLINK_MIGRATION_KEY } from "./outfit-top.js";
 import { normalizeQualityCheck, publishOutfitLiveRun } from "./outfit-task.js";
-import { makeId } from "./outfit-panels.jsx";
+import { makeId } from "./outfit-image-utils.js";
 export function useOutfitSettingsIntent(deps) {
   const {
     settings, setSettings,

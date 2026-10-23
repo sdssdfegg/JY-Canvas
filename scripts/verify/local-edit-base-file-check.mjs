@@ -45,7 +45,10 @@ const MODAL_FILE = path.join(ROOT, "src", "features", "local-edit", "LocalEditMo
 // 恒红的危害不是报错，而是把端到端那条真正有价值的信号淹掉。
 // 这里只做落点重定向：正则本体一行未改，判别力原样保留。
 const OUTFIT_TASK_FILE = path.join(ROOT, "src", "features", "outfit", "outfit-task.js");
-const OUTFIT_PANELS_FILE = path.join(ROOT, "src", "features", "outfit", "outfit-panels.jsx");
+// V5.0-009：outfit-panels.jsx 拆分——CHANNEL_UPLOAD_MAX_SIDE 相关断言落工具区
+// （outfit-image-utils.js），UploadZone thumbMeta 断言落 panels/OutfitUploadZone.jsx。
+const OUTFIT_IMAGE_UTILS_FILE = path.join(ROOT, "src", "features", "outfit", "outfit-image-utils.js");
+const OUTFIT_UPLOAD_ZONE_FILE = path.join(ROOT, "src", "features", "outfit", "panels", "OutfitUploadZone.jsx");
 const REFERENCE_UPLOAD_FILE = path.join(ROOT, "src", "features", "upload", "reference-upload.js");
 const SHARED_IMAGE_INPUT_FILE = path.join(ROOT, "src", "shared", "image-input.js");
 // P6-3：runSingleTask 整段（含本地贴回合成 / outpaint 接线）从 outfit-workflow.jsx 搬到了这里。
@@ -118,7 +121,8 @@ const mainSrc = readFileSync(MAIN_FILE, "utf8");
 const modalSrc = readFileSync(MODAL_FILE, "utf8");
 // 搬家后的新落点（RF-081/082）：只给已搬走的断言用，其余断言仍走原来的 outfitSrc / mainSrc。
 const outfitTaskSrc = readFileSync(OUTFIT_TASK_FILE, "utf8");
-const outfitPanelsSrc = readFileSync(OUTFIT_PANELS_FILE, "utf8");
+const outfitImageUtilsSrc = readFileSync(OUTFIT_IMAGE_UTILS_FILE, "utf8");
+const outfitUploadZoneSrc = readFileSync(OUTFIT_UPLOAD_ZONE_FILE, "utf8");
 const referenceUploadSrc = readFileSync(REFERENCE_UPLOAD_FILE, "utf8");
 const imageInputSrc = readFileSync(SHARED_IMAGE_INPUT_FILE, "utf8");
 const batchExecSrc = readFileSync(BATCH_EXEC_FILE, "utf8");
@@ -170,9 +174,9 @@ check("快捷生成侧委托同一份规则（原图优先，裸 File 兜底）"
 //   ③ 两个消费方确实还在引用这个名字 —— 证明删完仍然接线，不是"删了但没人用"。
 check("上传副本长边上限仍是 3072（探针反例尺寸与线上压缩一致）",
   /export const CHANNEL_UPLOAD_MAX_SIDE = 3072;/.test(imageInputSrc)
-    && !/export const CHANNEL_UPLOAD_MAX_SIDE\b/.test(outfitPanelsSrc)
+    && !/export const CHANNEL_UPLOAD_MAX_SIDE\b/.test(outfitImageUtilsSrc)
     && !/export const CHANNEL_UPLOAD_MAX_SIDE\b/.test(referenceUploadSrc)
-    && /CHANNEL_UPLOAD_MAX_SIDE\b/.test(outfitPanelsSrc)
+    && /CHANNEL_UPLOAD_MAX_SIDE\b/.test(outfitImageUtilsSrc)
     && /CHANNEL_UPLOAD_MAX_SIDE\b/.test(referenceUploadSrc),
   "3072");
 
@@ -200,9 +204,9 @@ check("批量：选框与当前底图尺寸不一致时给出偏移警告",
   /const staleRect = Boolean\(/.test(modalSrc) && /className="quickLocalEditWarning" role="alert"/.test(modalSrc),
   "staleRect");
 check("批量：图1缩略图同时显示局部选框尺寸与局部回贴底图尺寸",
-  /thumbSizeRef\.current\.get\(item\.id\)/.test(outfitPanelsSrc)
-    && /局部 \$\{formatPixelSize\(item\.localEdit\.cropRect\.width, item\.localEdit\.cropRect\.height\)\} · 底图 \$\{formatPixelSize\(item\.localEdit\.sourceWidth, item\.localEdit\.sourceHeight\)\}/.test(outfitPanelsSrc)
-    && /上传 \$\{formatPixelSize\(thumbSizeRef\.current\.get\(item\.id\)\.width/.test(outfitPanelsSrc),
+  /thumbSizeRef\.current\.get\(item\.id\)/.test(outfitUploadZoneSrc)
+    && /局部 \$\{formatPixelSize\(item\.localEdit\.cropRect\.width, item\.localEdit\.cropRect\.height\)\} · 底图 \$\{formatPixelSize\(item\.localEdit\.sourceWidth, item\.localEdit\.sourceHeight\)\}/.test(outfitUploadZoneSrc)
+    && /上传 \$\{formatPixelSize\(thumbSizeRef\.current\.get\(item\.id\)\.width/.test(outfitUploadZoneSrc),
   "UploadZone thumbMeta");
 check("快捷：局部回贴弹窗接线仍在（main 侧同样接入共享组件）",
   /<LocalEditModal/.test(mainSrc) && /item=\{quickLocalEditTarget\}/.test(mainSrc),

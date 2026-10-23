@@ -7,7 +7,7 @@
 //   setPreview(null) 收敛为 onClose prop。与 imageLightbox 共享的 previewPan / previewZoom / 拖拽 handler 仍由父组件持有并下传。
 import { X, Download, Maximize2 } from "lucide-react";
 import { CachedImage } from "../../../shared/ui/cached-image.jsx";
-import { LocalPasteDiagnosticsPanel, CropReturnDiagnosticsPanel } from "../outfit-panels.jsx";
+import { LocalPasteDiagnosticsPanel, CropReturnDiagnosticsPanel } from "./OutfitDiagnosticsPanels.jsx";
 import { qualityStatusClass, qualityStatusLabel, formatClock } from "../outfit-top.js";
 import { imageSource, displayResultImageSource } from "../outfit-task.js";
 import { formatWholeSecondMs as formatMs } from "../../../lib/format/index.js";

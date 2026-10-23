@@ -12,7 +12,7 @@ import { splitHalvesFileName, splitImageIntoHalves } from "../../../shared/image
 import { fetchImageBlob } from "../../../api/assets.js";
 import { saveImageRequest, saveProcessedImageRequest } from "../../../api/save.js";
 import { copyTextToClipboard } from "../../../shared/dom-actions.js";
-import { RESIZE_OUTPUT_FOLDER } from "../outfit-panels.jsx";
+import { RESIZE_OUTPUT_FOLDER } from "../outfit-image-utils.js";
 
 export function useOutfitSaveHandlers(ctx) {
   const {
