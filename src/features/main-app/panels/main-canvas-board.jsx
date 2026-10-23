@@ -7,13 +7,7 @@
 import React from "react";
 import {
   Loader2,
-  CheckSquare,
-  Square,
-  Check,
-  Download,
-  RefreshCw,
   Trash2,
-  ImageOff,
   Image as ImageIcon,
   X,
   Crop,
@@ -22,15 +16,11 @@ import {
   Wand2,
   Play
 } from "lucide-react";
-import { CachedImage } from "../../../shared/ui/cached-image.jsx";
-import { ReferenceThumbTray } from "../../../shared/ui/reference-thumb-tray.jsx";
-import { ElapsedTimer } from "../../../shared/ui/elapsed-timer.jsx";
 import { Button } from "../../../shared/ui/Button";
 import DebouncedTextarea from "../../../shared/DebouncedTextarea.jsx";
-import { imageSourceFromResult } from "../../../shared/models.js";
-import { resultImageCardState } from "../../../shared/result-image.js";
 import { channelPriceLabel } from "../../../shared/routing.js";
-import { formatMs, fileSize } from "../../../lib/format/index.js";
+import { fileSize } from "../../../lib/format/index.js";
+import { QuickGalleryCard } from "./quick-gallery-card.jsx";
 
 export function MainCanvasBoard({
   quickGalleryRef,
@@ -107,125 +97,33 @@ export function MainCanvasBoard({
   return (
     <div className="canvasBoard" onWheel={onQuickBoardWheel}>
       <section ref={quickGalleryRef} className="galleryStrip" style={{ "--asset-card-min": `${galleryCardMin}px` }}>
-        {quickGalleryItems.map((galleryItem, index) => {
-          if (galleryItem.kind === "task") {
-            const task = galleryItem.task;
-            return (
-              <article className="assetCard loadingCard" key={galleryItem.key}>
-                <Loader2 className="spin" size={28} />
-                <span>生成中</span>
-                <strong><ElapsedTimer startedAt={task.startedAt} /></strong>
-                <em>{task.modelLabel} · {task.imageSize} · {task.aspectRatio}</em>
-              </article>
-            );
-          }
-          const item = galleryItem.result;
-          const src = imageSourceFromResult(item.image);
-          // P1 缺图自愈：已知失效（服务端标记）或加载失败过 → 不再发请求，直接显示原因。
-          // 失败标记带 src 快照：重刷后地址变了就自动失效，不会把新图也判成坏图。
-          const cardState = resultImageCardState(item.image, imageSourceFromResult);
-          const brokenEntry = brokenResultImages[item.id];
-          const brokenReason = cardState.missing
-            ? cardState.reason
-            : (brokenEntry && brokenEntry.src === src ? brokenEntry.reason : "");
-          const selected = selectedIds.has(item.id);
-          return (
-            <article
-              className={`assetCard ${quickResultReplaceTargetId === item.id ? "replaceTarget" : ""}`}
-              key={galleryItem.key}
-              onClick={() => openPreview(item)}
-              onContextMenu={(event) => openContextMenu(event, item.id)}
-              onDragOver={(event) => handleQuickResultReplaceDragOver(event, item)}
-              onDragLeave={() => setQuickResultReplaceTargetId((current) => current === item.id ? "" : current)}
-              onDrop={(event) => handleQuickResultReplaceDrop(event, item)}
-            >
-              <button
-                className="selectBox"
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  toggleSelected(item.id);
-                }}
-                aria-label="选择图片"
-              >
-                {selected ? <CheckSquare size={24} /> : <Square size={24} />}
-              </button>
-              <button
-                className={`assetDownloadButton ${downloadFeedbackIds.has(item.id) ? "downloaded" : ""}`}
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  void downloadItem(item, index);
-                }}
-                title="下载到指定文件夹"
-                aria-label="下载到指定文件夹"
-              >
-                {downloadFeedbackIds.has(item.id) ? <Check size={16} /> : <Download size={16} />}
-              </button>
-              <button
-                className="assetRerunButton"
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  rerunResult(item, 1);
-                }}
-                title="重刷这张结果"
-                aria-label="重刷这张结果"
-              >
-                <RefreshCw size={15} />
-              </button>
-              <button
-                className="assetDeleteButton"
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  deleteResult(item.id);
-                }}
-                title="删除这张结果"
-                aria-label="删除这张结果"
-              >
-                <Trash2 size={15} />
-              </button>
-              {item.generationMs && <div className="assetTimeBadge">用时 {formatMs(item.generationMs)}</div>}
-              {brokenReason ? (
-                <div className="assetImageFallback" title={brokenReason}>
-                  <ImageOff size={26} />
-                  <strong>原图已失效</strong>
-                  <span>{brokenReason}</span>
-                  <em>可点右上角删除按钮清理这条记录</em>
-                </div>
-              ) : (
-                <CachedImage
-                  src={src}
-                  alt={`生成图片 ${index + 1}`}
-                  draggable
-                  onDragStart={(event) => beginResultImageDrag(event, item, index)}
-                  onDragEnd={clearQuickResultDragState}
-                  onError={() => markResultImageBroken(item)}
-                  diagnostic={{ requestId: item.requestId || item.id, endpoint: "/api/images", module: "快捷生成", placement: "quick-card" }}
-                />
-              )}
-              <ReferenceThumbTray references={item.references} count={item.referenceCount} className="assetReferenceTray" onOpen={openReferencePreview} onContextMenu={openReferenceContextMenu} onImageDragStart={beginReferenceImageDrag} />
-              {item.prompt && (
-                <button
-                  className="assetPrompt"
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    copyText(item.prompt, "提示词已复制");
-                  }}
-                  title={item.prompt}
-                >
-                  {item.prompt}
-                </button>
-              )}
-              <div className="assetMeta">
-                <span>{item.modelLabel}</span>
-                <strong>{item.imageSize} · {item.aspectRatio}</strong>
-              </div>
-            </article>
-          );
-        })}
+        {quickGalleryItems.map((galleryItem, index) => (
+          <QuickGalleryCard
+            key={galleryItem.key}
+            galleryItem={galleryItem}
+            index={index}
+            brokenResultImages={brokenResultImages}
+            selectedIds={selectedIds}
+            downloadFeedbackIds={downloadFeedbackIds}
+            quickResultReplaceTargetId={quickResultReplaceTargetId}
+            setQuickResultReplaceTargetId={setQuickResultReplaceTargetId}
+            openPreview={openPreview}
+            openContextMenu={openContextMenu}
+            handleQuickResultReplaceDragOver={handleQuickResultReplaceDragOver}
+            handleQuickResultReplaceDrop={handleQuickResultReplaceDrop}
+            toggleSelected={toggleSelected}
+            downloadItem={downloadItem}
+            rerunResult={rerunResult}
+            deleteResult={deleteResult}
+            beginResultImageDrag={beginResultImageDrag}
+            clearQuickResultDragState={clearQuickResultDragState}
+            markResultImageBroken={markResultImageBroken}
+            openReferencePreview={openReferencePreview}
+            openReferenceContextMenu={openReferenceContextMenu}
+            beginReferenceImageDrag={beginReferenceImageDrag}
+            copyText={copyText}
+          />
+        ))}
       </section>
 
       {quickResults.length === 0 && runningQuickTasks.length === 0 && (
