@@ -18,10 +18,7 @@ import {
 } from "./shared/local-edit-geometry.js";
 import { getAppConfig } from "./api/config.js";
 import { sanitizeErrorText } from "./shared/generation-errors.js";
-import {
-  beginImageDownloadDrag,
-  referenceSource
-} from "./shared/result-image.js";
+import { beginImageDownloadDrag } from "./shared/result-image.js";
 // CachedImage 已随 preview 浮层迁至 src/features/outfit/panels/ResultPreviewModal.jsx
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
 import { Button } from "./shared/ui/Button";
@@ -51,10 +48,6 @@ import {
     isBuiltinRetouchPrompt,
   normalizeRetouchIntent
 } from "./shared/retouch-intent.js";
-import {
-  readSplitHalvesEnabled,
-  writeSplitHalvesEnabled
-} from "./shared/image-split.js";
 import { writeJsonStorage } from "./lib/storage/json-storage.js";
 import "./outfit-workflow.css";
 import "./features/outfit/outfit-intent.css";
@@ -70,7 +63,6 @@ import {
   resultImageCacheKey,
   revokeResultImageRuntimeCache,
   revokeRestorableTaskResultImageCaches,
-  revokeTaskResultRuntimeCaches,
   cacheResultImageBlob,
   hydrateTasksWithUploadReferences,
   sanitizeTaskHistoryItem,
@@ -80,12 +72,9 @@ import {
   readTaskHistoryAsync,
   persistTaskHistory,
   outfitLiveRunsForPage,
-  taskDragDownloadName,
   canRerunTask,
   buildRerunReplacementTask,
-  canReplaceTaskResult,
   normalizeRandomBackgroundFocus,
-    normalizeCropReturnMeta,
   subscribeOutfitLiveRuns
 } from "./features/outfit/outfit-task.js";
 import {
@@ -108,6 +97,9 @@ import { useOutfitUploads } from "./features/outfit/use-outfit-uploads.js";
 import { useOutfitRefHandlers } from "./features/outfit/handlers/outfit-ref-handlers.js";
 import { useOutfitSaveHandlers } from "./features/outfit/handlers/outfit-save-handlers.js";
 import { useOutfitBatchExecution } from "./features/outfit/handlers/outfit-batch-execution.js";
+import { useOutfitResultDragHandlers } from "./features/outfit/handlers/outfit-result-drag.js";
+import { useOutfitSelectionHandlers } from "./features/outfit/handlers/outfit-selection.js";
+import { useOutfitSplitHalvesHandlers } from "./features/outfit/handlers/outfit-split-halves.js";
 import { LegacyModulePanel } from "./features/outfit/outfit-panels.jsx";
 import WorkbenchSidebar from "./features/outfit/panels/WorkbenchSidebar.jsx";
 import OutfitSettingsModal from "./features/outfit/panels/OutfitSettingsModal.jsx";
@@ -156,7 +148,6 @@ const GENERATION_COUNT_OPTIONS = ["auto", ...Array.from({ length: MAX_UPLOAD_IMA
 const LOCAL_EDIT_BATCH_CONCURRENCY = 5;
 const LOCAL_EDIT_BATCH_PREPARE_CONCURRENCY = 2;
 const LOCAL_EDIT_BATCH_REQUEST_GAP_MS = 250;
-const OUTFIT_RERUN_DRAG_MIME = "application/x-jingyin-outfit-task";
 const CROP_RETURN_RATIOS = ["1:1", "3:4", "4:3", "16:9", "9:16"];
 // 2026-09-25：局部回贴选框要能锁定 2:3（竖版服装图常用），但**不改**裁剪回流
 // 用的 CROP_RETURN_RATIOS（那是另一条产品语义），所以这里单独一份列表。
@@ -315,7 +306,6 @@ export default function OutfitWorkflow({
   const [referenceImages, setReferenceImages] = useState(() => initialOutfitPage.referenceImages || []);
   const [fixedClothingId, setFixedClothingId] = useState(() => initialOutfitPage.fixedClothingId || "");
   const [tasks, setTasks] = useState(() => initialOutfitPage.tasks?.length ? initialOutfitPage.tasks : readTaskHistory());
-  const [selectedTaskIds, setSelectedTaskIds] = useState(() => new Set());
   const [galleryZoom, setGalleryZoom] = useState(1);
   const [resultFilter, setResultFilter] = useState("all");
   const [saveDirectory, setSaveDirectory] = useState("");
@@ -326,7 +316,6 @@ export default function OutfitWorkflow({
   // P1 缺图自愈：记录"结果图确实加载失败"的任务 id → { src, reason }。
   // 只存在内存里；服务端另有"归档文件丢失"的持久标记（走 /api/history）。
   const [brokenTaskImages, setBrokenTaskImages] = useState(() => ({}));
-  const [resultReplaceTargetId, setResultReplaceTargetId] = useState("");
   const [activeUploadGroup, setActiveUploadGroup] = useState(() => initialOutfitPage.activeUploadGroup || "model");
   const [originalLibrary, setOriginalLibrary] = useState(() => initialOutfitPage.originalLibrary || []);
   const [imageLightbox, setImageLightbox] = useState(null);
@@ -336,12 +325,6 @@ export default function OutfitWorkflow({
   const [wearingDetailOpen, setWearingDetailOpen] = useState(false);
   const [_factsDetailOpen, _setFactsDetailOpen] = useState(false); // V76（用户要求·暂时隐藏）停用：图2事实详情折叠开关；state 保留，恢复时去掉 _ 前缀（V80 标记）
   const [inlineMessage, setInlineMessage] = useState("");
-  // 精修页「结果图中线剪裁成两张」开关（默认开，和 3.0 的 localStorage 口径一致）+ 状态提示。
-  const [splitHalves, setSplitHalves] = useState(() => readSplitHalvesEnabled());
-  // 裁切状态提示：V78 后不再有结果区那条开关条，改由裁剪钮的 title 承接。
-  // 保留此 state 的原因 —— outfit-save-handlers 的 splitWhiteRefineResult 会往这里写实时状态
-  //（"正在从中线裁切…" / "已裁切保存到：…" / "裁切失败：…"），属于业务的实时反馈，不是静态说明句。
-  const [splitNote, setSplitNote] = useState("");
   const [, setEvents] = useState([]);
   const [cropTarget, setCropTarget] = useState(null);
   const [localEditTarget, setLocalEditTarget] = useState(null);
@@ -388,8 +371,6 @@ export default function OutfitWorkflow({
   const workspaceRef = useRef(null);
   const taskGridRef = useRef(null);
   const tasksRef = useRef(tasks);
-  const resultDragTaskIdRef = useRef("");
-  const resultDragPayloadRef = useRef(null);
   const runningGenerationCountRef = useRef(0);
   const localEditPrepareLimiterRef = useRef(createAsyncLimiter(LOCAL_EDIT_BATCH_PREPARE_CONCURRENCY));
   const resultImageCacheInFlightRef = useRef(new Set());
@@ -1239,51 +1220,39 @@ export default function OutfitWorkflow({
     addEvent
   });
 
-  function toggleTaskSelected(id) {
-    setSelectedTaskIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
+  // V133 第二刀：任务选择删除域搬入 useOutfitSelectionHandlers。
+  // 域内自含 selectedTaskIds 状态；外部只注入 tasksRef/setter/preview/addEvent。
+  // 注意：clearSelection 被下方 resetOutfitPageTransients（闭包，渲染后调用）与
+  // useOutfitRefHandlers ctx 消费，故本 hook 调用点必须早于 ref-handlers。
+  const {
+    selectedTaskIds,
+    setSelectedTaskIds,
+    toggleTaskSelected,
+    clearSelection,
+    deleteSelected,
+    deleteResultTask
+  } = useOutfitSelectionHandlers({
+    tasksRef,
+    setTasks,
+    setBrokenTaskImages,
+    setPreview,
+    preview,
+    addEvent
+  });
 
-  function clearSelection() {
-    setSelectedTaskIds(new Set());
-  }
-
-  function deleteSelected() {
-    if (selectedTaskIds.size === 0) return;
-    const ids = new Set(selectedTaskIds);
-    setTasks((current) => {
-      const removed = current.filter((task) => ids.has(task.id));
-      revokeTaskResultRuntimeCaches(removed);
-      return current.filter((task) => !ids.has(task.id));
-    });
-    clearSelection();
-    addEvent("删除", `已删除 ${selectedTaskIds.size} 个队列项`);
-  }
-
-  function deleteResultTask(taskId) {
-    const target = tasksRef.current.find((task) => task.id === taskId);
-    if (!target) return;
-    revokeTaskResultRuntimeCaches([target]);
-    setTasks((current) => current.filter((task) => task.id !== taskId));
-    setSelectedTaskIds((current) => {
-      if (!current.has(taskId)) return current;
-      const next = new Set(current);
-      next.delete(taskId);
-      return next;
-    });
-    setBrokenTaskImages((current) => {
-      if (!current[taskId]) return current;
-      const next = { ...current };
-      delete next[taskId];
-      return next;
-    });
-    if (preview?.id === taskId) setPreview(null);
-    addEvent("删除", `已删除 #${target.order || ""} 结果图`);
-  }
+  // V134 第三刀：拆分半幅域搬入 useOutfitSplitHalvesHandlers。
+  // 顺序约束：晚于 patchRetouchIntent 来源（useOutfitSettingsIntent）、早于 setSplitNote 消费方
+  // （useOutfitSaveHandlers 的 splitWhiteRefineResult 实时状态回写）。
+  const {
+    splitHalves,
+    splitNote,
+    setSplitNote,
+    toggleSplitHalves,
+    patchRetouchIntentWithSplit
+  } = useOutfitSplitHalvesHandlers({
+    retouchIntent,
+    patchRetouchIntent
+  });
 
   // 2026-10-15 P6-1：参考图菜单 / 缓存清理 / 历史刷新 / 质检 handler 搬入 useOutfitRefHandlers。
   const {
@@ -1318,6 +1287,25 @@ export default function OutfitWorkflow({
     modelImages,
     clothingImages,
     referenceImages
+  });
+
+  // V132 第一刀：结果拖拽与覆盖域（drag & replace）搬入 useOutfitResultDragHandlers。
+  // 域内自含 resultReplaceTargetId 状态与两个 drag ref；外部只注入 tasksRef/setter/addEvent。
+  const {
+    resultReplaceTargetId,
+    setResultReplaceTargetId,
+    beginTaskImageDrag,
+    beginReferenceImageDrag,
+    clearResultDragState,
+    handleResultReplaceDragOver,
+    handleResultReplaceDrop
+  } = useOutfitResultDragHandlers({
+    tasksRef,
+    setTasks,
+    setSelectedTaskIds,
+    setPreview,
+    preview,
+    addEvent
   });
 
   // 保存目录域：实现在 src/features/savedir/save-directory.js（两侧同一份，语义等价）。
@@ -1433,68 +1421,6 @@ export default function OutfitWorkflow({
     });
   }
 
-
-  function beginTaskImageDrag(event, task, fallbackIndex = null) {
-    const src = imageSource(task?.result);
-    beginImageDownloadDrag(event, src, taskDragDownloadName(task, fallbackIndex), task?.result);
-    if (!src || !task?.id) return;
-    const payload = { taskId: task.id, order: task.order || fallbackIndex || 0 };
-    event.dataTransfer.setData(OUTFIT_RERUN_DRAG_MIME, JSON.stringify(payload));
-    event.dataTransfer.effectAllowed = "copyMove";
-    resultDragTaskIdRef.current = task.id;
-    resultDragPayloadRef.current = payload;
-  }
-
-  function beginReferenceImageDrag(event, reference, index = 0) {
-    const src = referenceSource(reference);
-    beginImageDownloadDrag(event, src, reference?.name || reference?.label || `参考图-${index + 1}`);
-  }
-
-  function clearResultDragState() {
-    resultDragTaskIdRef.current = "";
-    resultDragPayloadRef.current = null;
-    setResultReplaceTargetId("");
-  }
-
-
-  function resultDragTaskId(event) {
-    try {
-      const raw = event.dataTransfer?.getData?.(OUTFIT_RERUN_DRAG_MIME);
-      if (!raw) return resultDragTaskIdRef.current || resultDragPayloadRef.current?.taskId || "";
-      const payload = JSON.parse(raw);
-      return String(payload?.taskId || resultDragPayloadRef.current?.taskId || "");
-    } catch {
-      return resultDragTaskIdRef.current || resultDragPayloadRef.current?.taskId || "";
-    }
-  }
-
-
-  // V78：裁剪不再是结果区那条独立开关，而是「正反 + 裁剪 + 4:3」三联的一员。
-  // 这里只保留状态的写入入口；splitNote 的展示口径见 RetouchIntentPanel（V78 裁决：并入裁剪钮 title）。
-  function applySplitHalves(next) {
-    setSplitHalves(next);
-    writeSplitHalvesEnabled(next);
-  }
-
-  function toggleSplitHalves() {
-    applySplitHalves(!splitHalves);
-  }
-
-  // V78 三联联动（需求 R2 联动开 / R3 联动关）：
-  // 位置说明 —— splitHalves 的 state 在 outfit-workflow.jsx 里，useOutfitSettingsIntent（hook）
-  // 内拿不到 setSplitHalves，所以联动写在 patchRetouchIntent 的**包装层**，而不是 hook 里；
-  // 4:3 那条比例联动仍在 hook 的 patchRetouchIntent 原处不动（"唯一改动意图的入口"未被破坏）。
-  function patchRetouchIntentWithSplit(patch) {
-    const nextPatch = typeof patch === "function" ? patch(retouchIntent) : patch;
-    if (nextPatch && Object.prototype.hasOwnProperty.call(nextPatch, "frontback")) {
-      const frontbackOn = retouchIntent.frontback === "on";
-      if (nextPatch.frontback === "on" && !frontbackOn) applySplitHalves(true);
-      else if (nextPatch.frontback === "off" && frontbackOn) applySplitHalves(false);
-    }
-    patchRetouchIntent(patch);
-  }
-
-
   function downloadSelected() {
     const targets = tasks.filter((task) => selectedTaskIds.has(task.id) && task.result);
     targets.forEach((task) => void downloadTask(task));
@@ -1506,7 +1432,6 @@ export default function OutfitWorkflow({
     targets.forEach((task) => void downloadTask(task));
     if (targets.length > 0) addEvent("下载全部", `已提交 ${targets.length} 张保存任务`);
   }
-
 
   function closePreviewModal() {
     setPreview(null);
@@ -1536,22 +1461,24 @@ export default function OutfitWorkflow({
     return selectedFixedClothing;
   }
 
-function modelForIndex(index) {
-  if (!activeModels.length) return null;
-  if (generationCount === "auto") return activeModels[index] || null;
-  return activeModels[index] || activeModels[index % activeModels.length];
-}
+  // V135：以下两个函数声明在历史上丢了缩进（HEAD 即如此），JS 作用域不受缩进影响故无 bug，
+  // 但会误导读者以为是模块级函数（模块级就访问不到 activeModels/generationCount 了）。补回缩进。
+  function modelForIndex(index) {
+    if (!activeModels.length) return null;
+    if (generationCount === "auto") return activeModels[index] || null;
+    return activeModels[index] || activeModels[index % activeModels.length];
+  }
 
-function freezeIntentIntoTask(intentCtx) {
-  const { isOutfitWorkflow, isWhiteRefineWorkflow, settings } = intentCtx;
-  return {
-    // 中文注释：把本轮结构化换装意图（部位 / 上装层级 / 穿法 / 图2事实）冻结在任务快照里。
-    // 批次开始后再改界面，只影响下一批，不会改到在途任务的提示词。
-    outfitIntent: isOutfitWorkflow ? normalizeOutfitIntent(settings.outfitIntent) : undefined,
-    // 精修结构化意图同样冻结进任务快照：批次开始后改界面不会改到在途任务。
-    retouchIntent: isWhiteRefineWorkflow ? normalizeRetouchIntent(settings.retouchIntent) : undefined,
-  };
-}
+  function freezeIntentIntoTask(intentCtx) {
+    const { isOutfitWorkflow, isWhiteRefineWorkflow, settings } = intentCtx;
+    return {
+      // 中文注释：把本轮结构化换装意图（部位 / 上装层级 / 穿法 / 图2事实）冻结在任务快照里。
+      // 批次开始后再改界面，只影响下一批，不会改到在途任务的提示词。
+      outfitIntent: isOutfitWorkflow ? normalizeOutfitIntent(settings.outfitIntent) : undefined,
+      // 精修结构化意图同样冻结进任务快照：批次开始后改界面不会改到在途任务。
+      retouchIntent: isWhiteRefineWorkflow ? normalizeRetouchIntent(settings.retouchIntent) : undefined,
+    };
+  }
 
   async function retryTask(task) {
     if (running && !canAppendWhileRunning) return;
@@ -1614,64 +1541,6 @@ function freezeIntentIntoTask(intentCtx) {
     } finally {
       endGenerationRun();
     }
-  }
-
-  function handleResultReplaceDragOver(event, targetTask) {
-    const sourceId = resultDragTaskId(event);
-    const sourceTask = tasksRef.current.find((item) => item.id === sourceId);
-    if (!canReplaceTaskResult(sourceTask, targetTask)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.dataTransfer.dropEffect = "move";
-    if (resultReplaceTargetId !== targetTask.id) setResultReplaceTargetId(targetTask.id);
-  }
-
-  function handleResultReplaceDrop(event, targetTask) {
-    const sourceId = resultDragTaskId(event);
-    if (!sourceId || sourceId === targetTask?.id) {
-      setResultReplaceTargetId("");
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    setResultReplaceTargetId("");
-    const sourceTask = tasksRef.current.find((item) => item.id === sourceId);
-    const latestTarget = tasksRef.current.find((item) => item.id === targetTask.id);
-    if (!canReplaceTaskResult(sourceTask, latestTarget)) return;
-    const movedResult = sourceTask.result;
-    const targetOldResult = latestTarget.result;
-    const nextTarget = {
-      ...latestTarget,
-      result: movedResult,
-      prompt: sourceTask.prompt || latestTarget.prompt,
-      timingMs: sourceTask.timingMs ?? latestTarget.timingMs,
-      finishedAt: sourceTask.finishedAt || Date.now(),
-      aspectRatio: sourceTask.aspectRatio || latestTarget.aspectRatio,
-      imageSize: sourceTask.imageSize || latestTarget.imageSize,
-      cropReturn: normalizeCropReturnMeta(sourceTask.cropReturn || movedResult?.cropReturn),
-      savedFilename: sourceTask.savedFilename || "",
-      savedPath: sourceTask.savedPath || "",
-      autoSaveFailed: Boolean(sourceTask.autoSaveFailed),
-      qualityCheck: sourceTask.qualityCheck || latestTarget.qualityCheck,
-      rerunOf: latestTarget.rerunOf || "",
-      rerunCandidate: false
-    };
-    setTasks((current) => {
-      return current
-        .map((item) => item.id === latestTarget.id ? nextTarget : item)
-        .filter((item) => item.id !== sourceTask.id);
-    });
-    if (targetOldResult && targetOldResult !== movedResult) revokeResultImageRuntimeCache(targetOldResult);
-    setSelectedTaskIds((current) => {
-      if (!current.has(sourceId)) return current;
-      const next = new Set(current);
-      next.delete(sourceId);
-      return next;
-    });
-    if (preview?.id === sourceId) setPreview(null);
-    if (preview?.id === latestTarget.id) setPreview(nextTarget);
-    clearResultDragState();
-    addEvent("结果覆盖", `已用 #${sourceTask.order || ""} 覆盖 #${latestTarget.order || ""}，原位置已移除`);
   }
 
   function switchView(view) {
