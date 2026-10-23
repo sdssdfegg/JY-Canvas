@@ -155,11 +155,6 @@ textarea:focus {
   white-space: nowrap;
 }
 
-.hotIcon {
-  margin-left: auto;
-  color: #ff8a00;
-}
-
 .settingsEntry {
   height: 42px;
   margin: 0;
@@ -1520,10 +1515,7 @@ textarea:focus {
   background: var(--panel);
   border: 1px solid var(--border);
   cursor: zoom-in;
-}
-
-.detailThumb img,
-.detailScreenResults img {
+}.detailThumb img {
   width: 100%;
   height: 100%;
   display: block;
@@ -2035,21 +2027,6 @@ textarea:focus {
   color: var(--danger);
   font-size: 12px;
   line-height: 1.45;
-}
-
-.detailScreenResults {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.detailScreenResults button {
-  overflow: hidden;
-  aspect-ratio: 3 / 4;
-  padding: 0;
-  border-radius: 7px;
-  background: var(--panel-strong);
-  border: 1px solid var(--border);
 }
 
 .detailScreensGrid {
