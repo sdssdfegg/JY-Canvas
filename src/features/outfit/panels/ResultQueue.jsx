@@ -7,23 +7,17 @@
 //   模块级工具几乎都已在 features/shared 导出（taskStatusLabel/taskDurationMs/canRerunTask 等），
 //   面板直接 import，不重复实现；派生值（visibleTasks 等）由调用方算好传入（渲染期求值，无 TDZ 面）。
 //   ⚠️ props 漏项 = 运行期 undefined（vite build 验不出），由 V65 §3.2 负向对照兜底。
-import { Check, CheckSquare, Download, ImageOff, Loader2, RefreshCw, Sparkles, Square, Trash2 } from "lucide-react";
-import {
-  canRerunTask,
-  displayResultImageSource,
-  sanitizeTaskReferenceThumbs,
-  taskDurationMs,
-  taskHasCropReturnResult,
-  taskReferencePreviewItems,
-  taskRuntimeStageLabel,
-  taskStatusLabel
-} from "../outfit-task.js";
-import { qualityBadgeTitle, qualityStatusClass, qualityStatusLabel } from "../outfit-top.js";
-import { referenceSource, resultImageCardState } from "../../../shared/result-image.js";
-import { CachedImage } from "../../../shared/ui/cached-image.jsx";
-import { ElapsedTimer } from "../../../shared/ui/elapsed-timer.jsx";
-import { ReferenceThumbTray } from "../../../shared/ui/reference-thumb-tray.jsx";
-import { formatWholeSecondMs as formatMs } from "../../../lib/format/index.js";
+// V5.0-006 (2026-10-24)：两张卡（TaskStatusCard / ResultCard）已抽为 React.memo 组件
+//   （见 ./result-card.jsx，JSX 逐字搬运）。本文件只留容器 + 空态 + 三项稳定化工作：
+//   ① 上游 16 个 handler 走「晚期绑定委托」收敛为稳定引用（否则 memo 被绕过）；
+//   ② 整包集合改每卡派生：selected/isDownloaded/isReplaceTarget/brokenEntry（基元/单条，可浅比较）；
+//   ③ activeOutfitPage 只用 .workflowMode ⇒ 派生为标量 workflowMode 传入，
+//      规避 activeOutfitPage fallback 分支新建对象破 memo 的风险。
+//   map 里只留 O(1) 集合查询，重活（durationMs/references/promptText/src/brokenReason…）已下沉卡内，
+//   卡 bail 时这些开销一并省掉。
+import { useMemo, useRef } from "react";
+import { Sparkles } from "lucide-react";
+import { ResultCard, TaskStatusCard } from "./result-card.jsx";
 
 export function ResultQueue({
   visibleTasks,
@@ -57,183 +51,102 @@ export function ResultQueue({
   beginReferenceImageDrag,
   copyText
 }) {
+  // V5.0-006：下游两卡已 React.memo；上游 16 个 handler 由 OutfitWorkbench 透传、每次重渲染都重建闭包，
+  // 若直接透传则 memo 被绕过、批量结果区仍全树重渲染。此处用「晚期绑定委托」收敛为稳定引用：
+  // ref 每渲染刷新指向最新闭包，委托函数仅在首渲染经 useMemo([]) 创建一次，调用时经 ref 转发到最新实现，
+  // 零陈旧闭包、零依赖管理、零触及上游工厂与主链路。沿用本仓 handlerLateRef 同款手法（同 V5.0-002）。
+  const cardHandlersRef = useRef(null);
+  cardHandlersRef.current = {
+    toggleTaskSelected,
+    retryTask,
+    downloadTask,
+    rerunResultTask,
+    deleteResultTask,
+    setPreview,
+    setImageLightbox,
+    handleResultReplaceDragOver,
+    handleResultReplaceDrop,
+    setResultReplaceTargetId,
+    markTaskImageBroken,
+    beginTaskImageDrag,
+    clearResultDragState,
+    openReferenceContextMenu,
+    beginReferenceImageDrag,
+    copyText
+  };
+  const cardHandlers = useMemo(() => {
+    const ref = cardHandlersRef;
+    return {
+      toggleTaskSelected: (...args) => ref.current.toggleTaskSelected(...args),
+      retryTask: (...args) => ref.current.retryTask(...args),
+      downloadTask: (...args) => ref.current.downloadTask(...args),
+      rerunResultTask: (...args) => ref.current.rerunResultTask(...args),
+      deleteResultTask: (...args) => ref.current.deleteResultTask(...args),
+      setPreview: (...args) => ref.current.setPreview(...args),
+      setImageLightbox: (...args) => ref.current.setImageLightbox(...args),
+      handleResultReplaceDragOver: (...args) => ref.current.handleResultReplaceDragOver(...args),
+      handleResultReplaceDrop: (...args) => ref.current.handleResultReplaceDrop(...args),
+      setResultReplaceTargetId: (...args) => ref.current.setResultReplaceTargetId(...args),
+      markTaskImageBroken: (...args) => ref.current.markTaskImageBroken(...args),
+      beginTaskImageDrag: (...args) => ref.current.beginTaskImageDrag(...args),
+      clearResultDragState: (...args) => ref.current.clearResultDragState(...args),
+      openReferenceContextMenu: (...args) => ref.current.openReferenceContextMenu(...args),
+      beginReferenceImageDrag: (...args) => ref.current.beginReferenceImageDrag(...args),
+      copyText: (...args) => ref.current.copyText(...args)
+    };
+  }, []);
+  // activeOutfitPage 只在卡的 diagnostic 里用 .workflowMode ⇒ 派生为标量，规避对象引用波动。
+  const workflowMode = activeOutfitPage?.workflowMode || "";
+
   return (
     <section className="resultPanel queuePanel" id="result-archive-section">
       <div className="taskGrid" ref={taskGridRef} style={{ "--asset-card-min": `${galleryCardMin}px` }}>
         {visibleTasks.map((task, taskIndex) => {
+          // V5.0-006：整包集合改每卡派生布尔/单条——单张选中/下载/拖拽高亮只翻转该卡对应值，
+          // 其余卡取值不变（基元相等）→ React.memo 跳过，杜绝全树重渲染。
           const selected = selectedTaskIds.has(task.id);
-          const durationMs = taskDurationMs(task);
-          const fallbackReferences = taskReferencePreviewItems(task);
-          const storedReferences = sanitizeTaskReferenceThumbs(task.referenceThumbs);
-          const references = storedReferences.length ? storedReferences : fallbackReferences;
-          const referenceCount = Math.max(
-            Number(task.referenceCount || 0),
-            references.length,
-            fallbackReferences.length
-          );
+          const isDownloaded = downloadFeedbackIds.has(task.id);
+          const isReplaceTarget = resultReplaceTargetId === task.id;
+          const brokenEntry = brokenTaskImages[task.id] || task.resultMissing;
           if (task.status !== "success") {
-            const failed = task.status === "failed";
-            const runningTask = task.status === "running";
-            const canRetry = failed && canRerunTask(task);
             return (
-              <article className={`assetCard loadingCard outfitAssetCard ${task.status} ${selected ? "selected" : ""}`} key={task.id}>
-                <button
-                  className="selectBox"
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleTaskSelected(task.id);
-                  }}
-                  aria-label={selected ? "取消选中" : "选择图片"}
-                >
-                  {selected ? <CheckSquare size={24} /> : <Square size={24} />}
-                </button>
-                {runningTask ? <Loader2 className="spin" size={28} /> : <Sparkles size={28} />}
-                <span>{taskStatusLabel(task.status)}</span>
-                <strong>{runningTask ? <ElapsedTimer startedAt={task.startedAt} /> : `${task.imageSize || settings.imageSize} · ${task.aspectRatio || settings.aspectRatio}`}</strong>
-                <em>{task.modelLabel || settings.model}</em>
-                {taskRuntimeStageLabel(task) && (
-                  <p className="assetError runtimeStage" title={taskRuntimeStageLabel(task)}>
-                    {taskRuntimeStageLabel(task)}
-                  </p>
-                )}
-                {canRetry && (
-                  <button className="assetRetryButton" type="button" onClick={() => retryTask(task)}>
-                    重试
-                  </button>
-                )}
-                {task.error && <p className="assetError" title={task.errorDetail || task.error}>{task.error}</p>}
-              </article>
+              <TaskStatusCard
+                key={task.id}
+                task={task}
+                selected={selected}
+                settings={settings}
+                toggleTaskSelected={cardHandlers.toggleTaskSelected}
+                retryTask={cardHandlers.retryTask}
+              />
             );
           }
-
-          const promptText = task.prompt || settings.prompt;
-          const src = displayResultImageSource(task.result);
-          // P1 缺图自愈：已知失效或加载失败过 → 不再重复请求，直接显示可读原因。
-          const cardState = resultImageCardState(task.result, displayResultImageSource);
-          // 会话内的失败标记优先，其次用持久化在任务记录里的标记（重载后依然生效）。
-          const brokenEntry = brokenTaskImages[task.id] || task.resultMissing;
-          const brokenReason = cardState.missing
-            ? cardState.reason
-            : (brokenEntry && brokenEntry.src === src ? brokenEntry.reason : "");
-          const hasCropReturn = taskHasCropReturnResult(task);
           return (
-            <article
-              className={`assetCard outfitAssetCard success ${selected ? "selected" : ""} ${task.rerunCandidate ? "rerunCandidate" : ""} ${hasCropReturn ? "cropReturnResult" : ""} ${resultReplaceTargetId === task.id ? "replaceTarget" : ""}`}
+            <ResultCard
               key={task.id}
-              onClick={() => setPreview(task)}
-              onDragOver={(event) => handleResultReplaceDragOver(event, task)}
-              onDragLeave={() => setResultReplaceTargetId((current) => current === task.id ? "" : current)}
-              onDrop={(event) => handleResultReplaceDrop(event, task)}
-            >
-              <button
-                className="selectBox"
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  toggleTaskSelected(task.id);
-                }}
-                aria-label={selected ? "取消选中" : "选择图片"}
-              >
-                {selected ? <CheckSquare size={24} /> : <Square size={24} />}
-              </button>
-              <button
-                className={`assetDownloadButton ${downloadFeedbackIds.has(task.id) ? "downloaded" : ""}`}
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  void downloadTask(task);
-                }}
-                title="下载到指定文件夹"
-                aria-label="下载到指定文件夹"
-              >
-                {downloadFeedbackIds.has(task.id) ? <Check size={16} /> : <Download size={16} />}
-              </button>
-              <button
-                className="assetRerunButton"
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  void rerunResultTask(task);
-                }}
-                disabled={!canRerunTask(task)}
-                title={canRerunTask(task) ? "重刷这张结果" : "历史结果缺少原始上传图，不能重刷"}
-                aria-label="重刷这张结果"
-              >
-                <RefreshCw size={15} />
-              </button>
-              <button
-                className="assetDeleteButton"
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  deleteResultTask(task.id);
-                }}
-                title="删除这张结果"
-                aria-label="删除这张结果"
-              >
-                <Trash2 size={15} />
-              </button>
-              {task.rerunCandidate && <div className="assetRerunBadge">重刷候选</div>}
-              {hasCropReturn && <div className="assetCropReturnBadge">裁剪回流</div>}
-              {Number.isFinite(durationMs) && durationMs > 0 && <div className="assetTimeBadge">用时 {formatMs(durationMs)}</div>}
-              {task.qualityCheck && (
-                <div
-                  className={`qualityBadge ${qualityStatusClass(task.qualityCheck)}`}
-                  title={qualityBadgeTitle(task.qualityCheck)}
-                >
-                  {qualityStatusLabel(task.qualityCheck)}
-                </div>
-              )}
-              {brokenReason ? (
-                <div className="assetImageFallback" title={brokenReason}>
-                  <ImageOff size={26} />
-                  <strong>原图已失效</strong>
-                  <span>{brokenReason}</span>
-                  <em>可点右上角删除按钮清理这条记录</em>
-                </div>
-              ) : (
-                <CachedImage
-                  src={src}
-                  alt={`AI换装结果 ${task.order || ""}`}
-                  decoding="async"
-                  loading={taskIndex < 6 ? "eager" : "lazy"}
-                  fetchPriority={taskIndex < 4 ? "high" : "low"}
-                  draggable
-                  onDragStart={(event) => beginTaskImageDrag(event, task, taskIndex)}
-                  onDragOver={(event) => handleResultReplaceDragOver(event, task)}
-                  onDrop={(event) => handleResultReplaceDrop(event, task)}
-                  onDragEnd={clearResultDragState}
-                  onError={() => markTaskImageBroken(task)}
-                  diagnostic={{ requestId: task.id, endpoint: "/api/generate-outfit", module: "批量生成", workflowMode: task.workflowMode || activeOutfitPage.workflowMode || "", placement: "outfit-card" }}
-                />
-              )}
-              <ReferenceThumbTray
-                references={references}
-                count={referenceCount}
-                className="assetReferenceTray"
-                onOpen={(reference) => setImageLightbox({ title: reference.name || reference.label || "参考图", src: referenceSource(reference) })}
-                onContextMenu={openReferenceContextMenu}
-                onImageDragStart={beginReferenceImageDrag}
-              />
-              {promptText && (
-                <button
-                  className="assetPrompt"
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void copyText(promptText, "提示词已复制");
-                  }}
-                  title={promptText}
-                >
-                  {promptText}
-                </button>
-              )}
-              <div className="assetMeta">
-                <span>{task.modelLabel || settings.model}</span>
-                <strong>{task.imageSize || settings.imageSize} · {task.aspectRatio || settings.aspectRatio}</strong>
-              </div>
-            </article>
+              task={task}
+              taskIndex={taskIndex}
+              selected={selected}
+              isDownloaded={isDownloaded}
+              isReplaceTarget={isReplaceTarget}
+              brokenEntry={brokenEntry}
+              settings={settings}
+              workflowMode={workflowMode}
+              toggleTaskSelected={cardHandlers.toggleTaskSelected}
+              downloadTask={cardHandlers.downloadTask}
+              rerunResultTask={cardHandlers.rerunResultTask}
+              deleteResultTask={cardHandlers.deleteResultTask}
+              setPreview={cardHandlers.setPreview}
+              setImageLightbox={cardHandlers.setImageLightbox}
+              handleResultReplaceDragOver={cardHandlers.handleResultReplaceDragOver}
+              handleResultReplaceDrop={cardHandlers.handleResultReplaceDrop}
+              setResultReplaceTargetId={cardHandlers.setResultReplaceTargetId}
+              markTaskImageBroken={cardHandlers.markTaskImageBroken}
+              beginTaskImageDrag={cardHandlers.beginTaskImageDrag}
+              clearResultDragState={cardHandlers.clearResultDragState}
+              openReferenceContextMenu={cardHandlers.openReferenceContextMenu}
+              beginReferenceImageDrag={cardHandlers.beginReferenceImageDrag}
+              copyText={cardHandlers.copyText}
+            />
           );
         })}
         {visibleTasks.length === 0 && (
