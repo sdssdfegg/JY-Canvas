@@ -55,9 +55,11 @@ const outfitSrc = readFileSync(path.join(ROOT, "src", "outfit-workflow.jsx"), "u
 // RF-082：两侧各自的裁剪弹窗本体已从这两个页面搬进下面的 feature 文件。
 // 门控必须跟着走 —— 继续只在 main/outfit 里找，会因为它们被搬空而恒 FAIL。
 const QUICK_CROP_FILE = path.join(ROOT, "src", "features", "crop", "quick-crop-panels.jsx");
-const OUTFIT_PANEL_FILE = path.join(ROOT, "src", "features", "outfit", "outfit-panels.jsx");
+// V5.0-009：outfit-panels.jsx 已拆为 panels/ 各面板；批量裁剪弹窗（CropModal）本体在
+// panels/OutfitCropModal.jsx —— 门控落点跟着走（原 outfit-panels.jsx 已删除）。
+const OUTFIT_CROP_FILE = path.join(ROOT, "src", "features", "outfit", "panels", "OutfitCropModal.jsx");
 const quickCropSrc = readFileSync(QUICK_CROP_FILE, "utf8");
-const outfitPanelSrc = readFileSync(OUTFIT_PANEL_FILE, "utf8");
+const outfitCropSrc = readFileSync(OUTFIT_CROP_FILE, "utf8");
 // RF-077（af49552）把两侧各自的局部回贴弹窗合并成一个共享组件，
 // 「快捷 / 批量」两个入口现在都渲染 <LocalEditModal>，面板外壳只在该组件内部有一份。
 // ⇒ 下面 3 条断言随之**重定位**到 LocalEditModal.jsx（原 position 已从两侧搬走，
@@ -66,8 +68,9 @@ const LOCAL_EDIT_FILE = path.join(ROOT, "src", "features", "local-edit", "LocalE
 const localEditSrc = existsSync(LOCAL_EDIT_FILE) ? readFileSync(LOCAL_EDIT_FILE, "utf8") : "";
 check("共享外壳文件存在（src/shared/ui/Modal.jsx，README 里约定的名字）", existsSync(SHELL_FILE), "src/shared/ui/Modal.jsx");
 check("两个承载文件都 import 了共享外壳",
-  quickCropSrc.includes('from "../../shared/ui/Modal.jsx"') && outfitPanelSrc.includes('from "../../shared/ui/Modal.jsx"'),
-  "quick-crop-panels/outfit-panels");
+  /from\s+"(?:\.\.\/)+shared\/ui\/Modal\.jsx"/.test(quickCropSrc)
+    && /from\s+"(?:\.\.\/)+shared\/ui\/Modal\.jsx"/.test(outfitCropSrc),
+  "quick-crop-panels/OutfitCropModal");
 check("快捷裁剪弹窗改用共享外壳且面板类名不变",
   quickCropSrc.includes('panelClassName="quickLocalEditModal quickCropViewportModal"'), "quickCropViewportModal");
 // 重定位（RF-077 后）：快捷入口的局部回贴弹窗本体已在 LocalEditModal.jsx，
@@ -78,7 +81,7 @@ check("快捷局部回贴改用共享组件 LocalEditModal（main 侧引用到�
 check("快捷局部回贴面板类名不变（由 LocalEditModal.jsx 内的共享外壳承载）",
   (localEditSrc.match(/panelClassName="quickLocalEditModal"/g) || []).length === 1, "quickLocalEditModal");
 check("批量裁剪弹窗改用共享外壳且面板类名不变",
-  outfitPanelSrc.includes('<Modal layerClassName="modalLayer" panelClassName="cropModal"'), "cropModal");
+  outfitCropSrc.includes('<Modal layerClassName="modalLayer" panelClassName="cropModal"'), "cropModal");
 check("批量局部回贴改用共享组件 LocalEditModal（outfit 侧引用到位）",
   outfitSrc.includes('from "./features/local-edit/LocalEditModal.jsx"') && outfitSrc.includes("<LocalEditModal"),
   "LocalEditModal(batch)");
@@ -91,18 +94,18 @@ const modalCounts = {
   main: (mainSrc.match(/<Modal(?![A-Za-z])/g) || []).length,
   outfit: (outfitSrc.match(/<Modal(?![A-Za-z])/g) || []).length,
   quickCrop: (quickCropSrc.match(/<Modal(?![A-Za-z])/g) || []).length,
-  outfitPanel: (outfitPanelSrc.match(/<Modal(?![A-Za-z])/g) || []).length,
+  outfitCrop: (outfitCropSrc.match(/<Modal(?![A-Za-z])/g) || []).length,
   localEdit: (localEditSrc.match(/<Modal(?![A-Za-z])/g) || []).length
 };
 check("主壳/outfit 壳迁移后：main 6 + outfit 2 个 <Modal（预览/目录/预设/拼图/提示词/灯箱），三个承载文件仍各 1（合计 11，防止搬回去造成双份）",
   modalCounts.main === 6 && modalCounts.outfit === 2
-    && modalCounts.quickCrop === 1 && modalCounts.outfitPanel === 1 && modalCounts.localEdit === 1,
-  `main=${modalCounts.main} outfit=${modalCounts.outfit} quickCrop=${modalCounts.quickCrop} outfitPanel=${modalCounts.outfitPanel} localEdit=${modalCounts.localEdit}`);
+    && modalCounts.quickCrop === 1 && modalCounts.outfitCrop === 1 && modalCounts.localEdit === 1,
+  `main=${modalCounts.main} outfit=${modalCounts.outfit} quickCrop=${modalCounts.quickCrop} outfitCrop=${modalCounts.outfitCrop} localEdit=${modalCounts.localEdit}`);
 check("旧的 div+section 外壳写法在这四个弹窗里已清除（剩余的 preview 弹窗不在本次范围）",
   !mainSrc.includes('className="quickLocalEditModal quickCropViewportModal" onMouseDown')
     && !outfitSrc.includes('className="cropModal" onMouseDown')
     && !quickCropSrc.includes('className="quickLocalEditModal quickCropViewportModal" onMouseDown')
-    && !outfitPanelSrc.includes('className="cropModal" onMouseDown'),
+    && !outfitCropSrc.includes('className="cropModal" onMouseDown'),
   "无残留");
 
 const shellSrc = readFileSync(SHELL_FILE, "utf8");

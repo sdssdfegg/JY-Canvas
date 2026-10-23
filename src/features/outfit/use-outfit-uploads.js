@@ -26,7 +26,7 @@ import {
   normalizeUploadLabelText,
   normalizeUploadLabels
 } from "./outfit-page-actions.js";
-import { makeId, preprocessModeLabel, processImageFile } from "./outfit-panels.jsx";
+import { makeId, preprocessModeLabel, processImageFile } from "./outfit-image-utils.js";
 import { normalizeCropReturnMeta, revokeImageUrls, revokePreviewUrl } from "./outfit-task.js";
 import { moveItemByDrop } from "./outfit-top.js";
 

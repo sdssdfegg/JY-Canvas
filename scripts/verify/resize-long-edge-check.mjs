@@ -25,9 +25,10 @@ const ROOT = process.cwd();
 const NODE = path.join(ROOT, "runtime", "node", "node.exe");
 const APP_PORT = 8811;
 const OUTFIT_FILE = path.join(ROOT, "src", "outfit-workflow.jsx");
-// RF-082：批量尺寸导出的常量与迁移实现已从 outfit-workflow.jsx 搬到这里。
+// RF-082：批量尺寸导出的常量与迁移实现已从 outfit-workflow.jsx 搬进 features/outfit/。
+// V5.0-009：原 outfit-panels.jsx 拆分，实现落 outfit-image-utils.js（工具区）。
 // 两个都要读 —— 只盯着新文件会让"将来有人把旧的那份改回来"变成盲区。
-const RESIZE_PANEL_FILE = path.join(ROOT, "src", "features", "outfit", "outfit-panels.jsx");
+const RESIZE_UTILS_FILE = path.join(ROOT, "src", "features", "outfit", "outfit-image-utils.js");
 const HISTORY_FILE = path.join(ROOT, "data", "history.json");
 const CLI = path.join(process.env.LOCALAPPDATA || "", "Tabbit", "LocalAgent", "bin", "tabbit-cli.exe");
 
@@ -54,7 +55,7 @@ const hashOf = (file) => {
 };
 
 // ---------------------------------------------------------------- 源码级
-const outfitSrc = [OUTFIT_FILE, RESIZE_PANEL_FILE]
+const outfitSrc = [OUTFIT_FILE, RESIZE_UTILS_FILE]
   .filter(existsSync)
   .map((file) => readFileSync(file, "utf8"))
   .join("\n");

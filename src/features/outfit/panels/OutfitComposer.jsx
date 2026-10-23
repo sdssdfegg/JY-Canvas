@@ -10,7 +10,8 @@ import { OutfitIntentPanel } from "./OutfitIntentPanel.jsx";
 import { RetouchIntentPanel } from "./RetouchIntentPanel.jsx";
 import { OutfitPageRow } from "./OutfitPageRow.jsx";
 import { Button } from "../../../shared/ui/Button";
-import { MAX_UPLOAD_IMAGES, UploadZone } from "../outfit-panels.jsx";
+import { MAX_UPLOAD_IMAGES } from "../outfit-image-utils.js";
+import { UploadZone } from "./OutfitUploadZone.jsx";
 import { RECOLOR_PART_OPTIONS } from "../outfit-top.js";
 import { UPPER_LAYER_OPTIONS } from "../../../shared/outfit-intent.js";
 

@@ -60,15 +60,11 @@ import {
   buildRerunReplacementTask,
   normalizeRandomBackgroundFocus
 } from "./features/outfit/outfit-task.js";
-import {
-  BatchResizePanel,
-        CropModal,
-    MAX_UPLOAD_IMAGES,
-  PREPROCESS_OPTIONS,
-  PromptPresetGrid,
-  WorkflowQuickVideoPanel,
-    preprocessModeLabel
-    } from "./features/outfit/outfit-panels.jsx";
+import { BatchResizePanel } from "./features/outfit/panels/BatchResizePanel.jsx";
+import { CropModal } from "./features/outfit/panels/OutfitCropModal.jsx";
+import { MAX_UPLOAD_IMAGES, PREPROCESS_OPTIONS, preprocessModeLabel } from "./features/outfit/outfit-image-utils.js";
+import { PromptPresetGrid } from "./features/outfit/panels/PromptPresetGrid.jsx";
+import { WorkflowQuickVideoPanel } from "./features/outfit/panels/WorkflowQuickVideoPanel.jsx";
 import { DEFAULT_OUTFIT_PAGE_NAME, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeRecolorPart, normalizeRecolorUpperLayer, RECOLOR_PART_WORDS, replaceRecolorPartWords, replaceRecolorUpperLayerWords, replaceUpperLayerWordsWithPart, RECOLOR_PART_OPTIONS, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
 import { UPPER_LAYER_OPTIONS } from "./shared/outfit-intent.js";
 import { inferOutfitWorkflowMode, mergeOutfitPageSettings, normalizeOutfitPageName, normalizeUploadLabels, pickInitialOutfitPage, readOutfitPages, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
@@ -83,7 +79,7 @@ import { useOutfitResultDragHandlers } from "./features/outfit/handlers/outfit-r
 import { useOutfitSelectionHandlers } from "./features/outfit/handlers/outfit-selection.js";
 import { useOutfitEffects } from "./features/outfit/handlers/outfit-effects.js";
 import { useOutfitSplitHalvesHandlers } from "./features/outfit/handlers/outfit-split-halves.js";
-import { LegacyModulePanel } from "./features/outfit/outfit-panels.jsx";
+import { LegacyModulePanel } from "./features/outfit/panels/LegacyModulePanel.jsx";
 import WorkbenchSidebar from "./features/outfit/panels/WorkbenchSidebar.jsx";
 import OutfitSettingsModal from "./features/outfit/panels/OutfitSettingsModal.jsx";
 import OutfitWorkbench from "./features/outfit/panels/OutfitWorkbench.jsx";

@@ -8,16 +8,18 @@
 // 形态：普通模块导出（非 B3 工厂）；只被 outfit-workflow.jsx 单向 import，自身绝不反向 import outfit，
 //   也不 import 本次拆出的任何新文件（L0 铁律，见 V4.0-执行单-V64 §2.1-4）。
 
-import { DEFAULT_PREPROCESS_MODE, MAX_UPLOAD_IMAGES } from "./outfit-panels.jsx";
+import { DEFAULT_PREPROCESS_MODE, MAX_UPLOAD_IMAGES } from "./outfit-image-utils.js";
 import { normalizeQualityCheck, normalizeQualityCheckResult, normalizeRandomBackgroundFocus } from "./outfit-task.js";
 import { readJsonStorage } from "../../lib/storage/json-storage.js";
 import { defaultOutfitIntent, normalizeOutfitIntent } from "../../shared/outfit-intent.js";
 import { loadPromptLibraryCategories, loadPromptLibraryPresets } from "../../shared/prompt-library.js";
 import { defaultRetouchIntent, normalizeRetouchIntent } from "../../shared/retouch-intent.js";
 import { canonicalModel } from "../../shared/routing.js";
-// V121-R2：存储键常量迁出到零依赖叶子模块 outfit-storage-keys.js——本文件属于 outfit 特性模块群
-// （与 outfit-panels.jsx 有相互循环），启动链路模块（release-seed.js）不能从这里取键，
-// 否则 public 生产构建触发模块初始化期 TDZ（详见 outfit-storage-keys.js 文件头）。
+// V121-R2：存储键常量迁出到零依赖叶子模块 outfit-storage-keys.js——本文件属于 outfit 特性模块群，
+// 启动链路模块（release-seed.js）不能从这里取键，否则 public 生产构建触发模块初始化期 TDZ
+// （详见 outfit-storage-keys.js 文件头）。（2026-10-24 V5.0-009：原 outfit-panels.jsx 已拆为
+// panels/ 各面板 + outfit-image-utils.js，本文件的 DEFAULT_PREPROCESS_MODE / MAX_UPLOAD_IMAGES
+// 改从 outfit-image-utils.js 取，纪律不变。）
 // 本文件只用得着 STORAGE_KEY 与两个提示词键；OUTFIT_PAGES_KEY / OUTFIT_DELETED_WORKFLOW_MODES_KEY
 // 本文件内部不使用，外部引用方已一并改从叶子模块 import（V98 纪律：git grep -l 全量核对过）。
 import { PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY } from "./outfit-storage-keys.js";
