@@ -905,7 +905,7 @@ export function UploadZone({
                   {item.selected ? <Check size={12} /> : <X size={12} />}
                 </button>
                 {onSetFixed && (
-                  <button type="button" onClick={() => onSetFixed(item.id)} title={fixedTitle}>
+                  <button type="button" className={fixedId === item.id ? "active" : ""} onClick={() => onSetFixed(item.id)} title={fixedTitle}>
                     <Lock size={12} />
                   </button>
                 )}

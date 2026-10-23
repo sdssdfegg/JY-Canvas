@@ -495,11 +495,8 @@
   right: -7px;
 }
 
-.outfitWorkflowEmbedded .thumbCard.fixed {
-  border-color: #ec6f9e;
-  box-shadow: 0 0 0 2px rgba(236, 111, 158, 0.18);
-}
-
+/* V137（用户要求）：fixed 卡片不再用粉色描边，边框与其他卡片一致；
+   固定状态改由锁按钮 active 高亮表达（见 .thumbActions button.active）。 */
 .outfitWorkflowEmbedded .thumbCard.localEditReady {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
