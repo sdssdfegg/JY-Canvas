@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 130,
+    "fileCount": 132,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -48,11 +48,13 @@
       "src/features/outfit/handlers/outfit-batch-execution.js",
       "src/features/outfit/handlers/outfit-effects.js",
       "src/features/outfit/handlers/outfit-page-switch.js",
+      "src/features/outfit/handlers/outfit-recolor-part.js",
       "src/features/outfit/handlers/outfit-ref-handlers.js",
       "src/features/outfit/handlers/outfit-result-drag.js",
       "src/features/outfit/handlers/outfit-save-handlers.js",
       "src/features/outfit/handlers/outfit-selection.js",
       "src/features/outfit/handlers/outfit-split-halves.js",
+      "src/features/outfit/handlers/outfit-task-retry.js",
       "src/features/outfit/outfit-image-pipeline.js",
       "src/features/outfit/outfit-image-utils.js",
       "src/features/outfit/outfit-page-actions.js",
