@@ -15,7 +15,6 @@ import {
 import {
   resolveLocalEditBaseFile
 } from "./shared/local-edit-geometry.js";
-import { sanitizeErrorText } from "./shared/generation-errors.js";
 import { beginImageDownloadDrag } from "./shared/result-image.js";
 // CachedImage 已随 preview 浮层迁至 src/features/outfit/panels/ResultPreviewModal.jsx
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
@@ -51,12 +50,7 @@ import "./features/outfit/retouch-intent.css";
 import { useSaveDirectory } from "./shared/hooks/useSaveDirectory.js";
 import { usePreviewDrag } from "./shared/hooks/usePreviewDrag.js";
 import {
-  taskRuntimeStageLabel,
-  summarizeGenerationError,
-  revokeResultImageRuntimeCache,
   readTaskHistory,
-  canRerunTask,
-  buildRerunReplacementTask,
   normalizeRandomBackgroundFocus
 } from "./features/outfit/outfit-task.js";
 import { BatchResizePanel } from "./features/outfit/panels/BatchResizePanel.jsx";
@@ -64,13 +58,14 @@ import { CropModal } from "./features/outfit/panels/OutfitCropModal.jsx";
 import { MAX_UPLOAD_IMAGES, PREPROCESS_OPTIONS, preprocessModeLabel } from "./features/outfit/outfit-image-utils.js";
 import { PromptPresetGrid } from "./features/outfit/panels/PromptPresetGrid.jsx";
 import { WorkflowQuickVideoPanel } from "./features/outfit/panels/WorkflowQuickVideoPanel.jsx";
-import { DEFAULT_OUTFIT_PAGE_NAME, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeRecolorPart, normalizeRecolorUpperLayer, RECOLOR_PART_WORDS, replaceRecolorPartWords, replaceRecolorUpperLayerWords, replaceUpperLayerWordsWithPart, RECOLOR_PART_OPTIONS, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
-import { UPPER_LAYER_OPTIONS } from "./shared/outfit-intent.js";
+import { DEFAULT_OUTFIT_PAGE_NAME, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeRecolorPart, normalizeRecolorUpperLayer, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
 import { inferOutfitWorkflowMode, mergeOutfitPageSettings, normalizeUploadLabels, pickInitialOutfitPage, readOutfitPages, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import {  createAsyncLimiter, defaultLocalEditCrop, groupPreprocessValue, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
 import { useOutfitSettingsIntent } from "./features/outfit/use-outfit-settings-intent.js";
 import { useOutfitPages } from "./features/outfit/use-outfit-pages.js";
 import { useOutfitPageSwitch } from "./features/outfit/handlers/outfit-page-switch.js";
+import { useOutfitRecolorPart } from "./features/outfit/handlers/outfit-recolor-part.js";
+import { useOutfitTaskRetry } from "./features/outfit/handlers/outfit-task-retry.js";
 import { useOutfitUploads } from "./features/outfit/use-outfit-uploads.js";
 import { useOutfitRefHandlers } from "./features/outfit/handlers/outfit-ref-handlers.js";
 import { useOutfitSaveHandlers } from "./features/outfit/handlers/outfit-save-handlers.js";
@@ -392,49 +387,11 @@ export default function OutfitWorkflow({
   const activeModels = modelImages.filter((item) => item.selected);
   const activeClothes = clothingImages.filter((item) => item.selected);
   const selectedFixedClothing = clothingImages.find((item) => item.id === fixedClothingId) || activeClothes[0] || clothingImages[0];
-  // V111（用户要求·1板块）：自定义改色页的「更换部位」单选 —— 切换时把提示词正文里旧部位的类别词全部换成新部位的词。
+  // V111（用户要求·1板块）：自定义改色页的「更换部位」单选 —— 切换逻辑（含提示词联动）已迁入
+  // handlers/outfit-recolor-part.js（V5.0-011）；此处仅留派生值 recolorPart/recolorUpperLayer（喂 OutfitComposer props）。
   const recolorPart = normalizeRecolorPart(settings.recolorPart);
   const recolorUpperLayer = normalizeRecolorUpperLayer(settings.recolorUpperLayer);
-  function selectRecolorPart(nextPart) {
-    const part = normalizeRecolorPart(nextPart);
-    // 用户主动切部位：提示词正文里全部部位类别词统一换成新部位的词（单部位改色，4 处词应始终一致；
-    // 即便之前手动改过词导致状态与正文错位，切一次部位也整体对齐。不再早退，保证实时同步）。
-    const partPrompt = replaceRecolorPartWords(settings.prompt, recolorPart, part);
-    // V125 修复：切到非上装部位（下装/连衣裙/鞋子）时，正文里残留的「上装层级词」（内搭/外套/内搭和外套）
-    // 已无意义，必须随部位一起换算成新部位词——否则它们不在 RECOLOR_PART_WORDS 内、上一步不会动，
-    // 表现为「层级非 single 时切下装/鞋子提示词不跟着变」。
-    const nextPrompt = part === "upper"
-      ? partPrompt
-      : replaceUpperLayerWordsWithPart(partPrompt, (RECOLOR_PART_WORDS[part] || [])[0] || "下衣");
-    // 离开上装区域即丢弃层级选择（层级仅在 更换部位=上装 有意义），避免状态与文案错位。
-    setSettings((current) => ({
-      ...current,
-      recolorPart: part,
-      prompt: nextPrompt,
-      recolorUpperLayer: part === "upper" ? recolorUpperLayer : "single"
-    }));
-    const label = RECOLOR_PART_OPTIONS.find((item) => item.value === part)?.label || part;
-    addEvent("更换部位", `改色部位已切换为「${label}」`);
-    // V117（用户要求·联动兜底）：正文无部位词时不改写（保护手写），但必须给出可见反馈，否则用户看到"点了没反应"。
-    if (nextPrompt === String(settings.prompt || "")) {
-      addEvent("更换部位", "提示词里没有检测到可替换的服装类别词（上衣/下衣/连衣裙/鞋子），已保留你的手写提示词");
-    }
-  }
-  function selectRecolorUpperLayer(nextLayer) {
-    const layer = normalizeRecolorUpperLayer(nextLayer);
-    if (layer === recolorUpperLayer) return;
-    // V113-R1（用户要求）：层级切换联动提示词——把正文里的层级词（single 时为上装部位词）整体换成新层级的词；
-    // 正文没有任何层级词/部位词时不改动（保护手写内容，与「更换部位」联动同一口径）。
-    const partWord = (RECOLOR_PART_WORDS[normalizeRecolorPart(settings.recolorPart)] || RECOLOR_PART_WORDS.upper)[0] || "上衣";
-    const nextPrompt = replaceRecolorUpperLayerWords(settings.prompt, recolorUpperLayer, layer, partWord);
-    setSettings((current) => ({ ...current, recolorUpperLayer: layer, prompt: nextPrompt }));
-    const label = UPPER_LAYER_OPTIONS.find((item) => item.value === layer)?.label || layer;
-    addEvent("上装层级", `已切换为「${label}」`);
-    // V117（用户要求·联动兜底）：正文无层级词/上装部位词时不改写（保护手写），给出可见反馈。
-    if (nextPrompt === String(settings.prompt || "")) {
-      addEvent("上装层级", "提示词里没有检测到可替换的上装层级词（内搭/外套/内外叠穿）或上装部位词（上衣），已保留你的手写提示词");
-    }
-  }
+
   // 批量换装的结构化意图（唯一来源）。
   const outfitIntent = normalizeOutfitIntent(settings.outfitIntent);
   const outfitLayer = resolveUpperLayer(outfitIntent);
@@ -780,6 +737,18 @@ export default function OutfitWorkflow({
     startBatchRef,
   });
 
+  // V5.0-011：改色部位/层级域搬入 handlers/outfit-recolor-part.js。
+  // 调用点置于 useOutfitSettingsIntent 之后（ctx 消费 addEvent）；派生值 recolorPart/recolorUpperLayer
+  // 留在上方（喂 OutfitComposer props）经 ctx 注入；消费方仅 JSX，纯函数工厂无 hook 顺序影响。
+  const {
+    selectRecolorPart,
+    selectRecolorUpperLayer
+  } = useOutfitRecolorPart({
+    settings, setSettings,
+    recolorPart, recolorUpperLayer,
+    addEvent
+  });
+
   // 2026-10-15 V66 (P5-4)：页面管理域 9 函数搬入 use-outfit-pages.js（原 1267–1465，派发日实测）。
   // deps 21 项（9 state + 6 setter + 1 ref + 4 函数 + 1 派生）每次 render 重建注入，薄壳模式行为零变化。
   const {
@@ -1044,6 +1013,20 @@ export default function OutfitWorkflow({
   });
   startBatchRef.current = startBatch;
 
+  // V5.0-011：任务重试/重刷域搬入 handlers/outfit-task-retry.js。
+  // 调用点置于 useOutfitBatchExecution 之后（ctx 消费 runSingleTask/beginGenerationRun/endGenerationRun）；
+  // 消费方仅 JSX（OutfitWorkbench props → ResultQueue → result-card 按钮）。
+  const {
+    retryTask,
+    rerunResultTask
+  } = useOutfitTaskRetry({
+    running, canAppendWhileRunning,
+    beginGenerationRun, endGenerationRun,
+    runSingleTask,
+    tasksRef, setTasks,
+    addEvent
+  });
+
   function openSaveDirectory() {
     const directory = saveDirectory || directoryDraft;
     openSaveDirectoryRequest(directory).then((payload) => {
@@ -1112,69 +1095,6 @@ export default function OutfitWorkflow({
       // 精修结构化意图同样冻结进任务快照：批次开始后改界面不会改到在途任务。
       retouchIntent: isWhiteRefineWorkflow ? normalizeRetouchIntent(settings.retouchIntent) : undefined,
     };
-  }
-
-  async function retryTask(task) {
-    if (running && !canAppendWhileRunning) return;
-    beginGenerationRun();
-    try {
-      await runSingleTask({ ...task, status: "queued", error: "", result: null });
-    } catch (error) {
-      const latestTask = tasksRef.current.find((item) => item.id === task.id);
-      const stageDetail = taskRuntimeStageLabel(latestTask);
-      const errorDetail = [
-        stageDetail ? `失败阶段：${stageDetail}` : "",
-        sanitizeErrorText(error instanceof Error ? error.message : String(error))
-      ].filter(Boolean).join("\n");
-      setTasks((current) => current.map((item) => item.id === task.id ? {
-        ...item,
-        status: "failed",
-        error: summarizeGenerationError(error),
-        errorDetail,
-        runtimeStage: "失败",
-        runtimeDetail: stageDetail || "",
-        runtimeUpdatedAt: Date.now(),
-        qualityCheck: item.qualityCheckEnabled
-          ? { status: "skipped", summary: "生成失败，未质检" }
-          : null
-      } : item));
-    } finally {
-      endGenerationRun();
-    }
-  }
-
-  async function rerunResultTask(task) {
-    if (!task?.result || task.status !== "success") return;
-    if (!canRerunTask(task)) {
-      addEvent("重刷", "这张历史结果缺少原始上传图，请重新上传后再生成");
-      return;
-    }
-    const previousTask = task;
-    const runnableTask = {
-      ...buildRerunReplacementTask(task),
-      localEditBatchMode: task.localEdit?.cropFile && task.localEdit?.cropRect ? "rerun-controlled-1" : "rerun"
-    };
-    setTasks((current) => current.map((item) => item.id === task.id ? runnableTask : item));
-    beginGenerationRun();
-    addEvent("重刷", `#${task.order || ""} 已开始原位重刷`);
-    try {
-      await runSingleTask(runnableTask);
-      revokeResultImageRuntimeCache(previousTask.result);
-      addEvent("重刷完成", `#${task.order || ""} 已用新结果覆盖原图`);
-    } catch (error) {
-      setTasks((current) => current.map((item) => item.id === runnableTask.id ? {
-        ...previousTask,
-        error: "",
-        errorDetail: "",
-        runtimeStage: "重刷失败",
-        runtimeDetail: summarizeGenerationError(error),
-        runtimeUpdatedAt: Date.now(),
-        rerunCandidate: false
-      } : item));
-      addEvent("重刷失败", `${summarizeGenerationError(error)}；已保留原结果图`);
-    } finally {
-      endGenerationRun();
-    }
   }
 
   function switchView(view) {
