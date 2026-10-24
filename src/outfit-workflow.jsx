@@ -64,6 +64,7 @@ import {  createAsyncLimiter, defaultLocalEditCrop, groupPreprocessValue, proces
 import { useOutfitSettingsIntent } from "./features/outfit/use-outfit-settings-intent.js";
 import { useOutfitPages } from "./features/outfit/use-outfit-pages.js";
 import { useOutfitPageSwitch } from "./features/outfit/handlers/outfit-page-switch.js";
+import { useOutfitPreviewModal } from "./features/outfit/handlers/outfit-preview-modal.js";
 import { useOutfitRecolorPart } from "./features/outfit/handlers/outfit-recolor-part.js";
 import { useOutfitTaskRetry } from "./features/outfit/handlers/outfit-task-retry.js";
 import { useOutfitUploads } from "./features/outfit/use-outfit-uploads.js";
@@ -320,6 +321,10 @@ export default function OutfitWorkflow({
   const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 });
   const [uploadLabels, setUploadLabels] = useState(() => normalizeUploadLabels(initialOutfitPage.uploadLabels || {}, initialOutfitPage.name));
   const previewDragRef = useRef(null);
+  // V5.0-012：预览弹窗域（useOutfitPreviewModal，调用点见下文 useOutfitEffects 前）经本 ref
+  // 晚绑定供给 usePreviewDrag 的 closePreview 入参（同 clearSelectionRef 惯例）；
+  // usePreviewDrag 仅在 endPreviewDrag 指针事件里调用它，事件期读取恒新。
+  const closePreviewRef = useRef(null);
   const {
     beginPreviewDrag: startPreviewDrag,
     movePreviewDrag,
@@ -330,7 +335,7 @@ export default function OutfitWorkflow({
     previewDragRef,
     previewPan,
     setPreviewPan,
-    closePreview: closePreviewModal,
+    closePreview: () => closePreviewRef.current?.(),
     setGalleryZoom,
     resetDragged: setDraggedPageId,
     resetDropTarget: setPageDropTarget
@@ -629,6 +634,26 @@ export default function OutfitWorkflow({
     setEditingPrompt,
     getClearSelection: () => clearSelectionRef.current?.()
   });
+
+  // V5.0-012：预览弹窗域（closePreviewModal / navigatePreview / zoomPreviewByWheel）。
+  // 调用点 = 两个时序约束的唯一交集（依据详见 handlers/outfit-preview-modal.js 头注）：
+  //   - 须晚于 resultPreviewTasks 派生值：navigatePreview 的 ctx 取值；
+  //   - 须早于 useOutfitEffects(下行)：E28 keydown 闭包渲染期消费
+  //     navigatePreview / closePreviewModal（收真实 const，无需 ref 包装）。
+  // usePreviewDrag(上行) 的 closePreview 入参早于本调用点，经 closePreviewRef 晚绑定读取
+  // （刷新点紧随本解构，每渲染刷新；usePreviewDrag 仅事件期调用，恒新）。
+  const {
+    closePreviewModal,
+    navigatePreview,
+    zoomPreviewByWheel
+  } = useOutfitPreviewModal({
+    preview,
+    resultPreviewTasks,
+    setPreview,
+    setImageLightbox,
+    setPreviewZoom
+  });
+  closePreviewRef.current = closePreviewModal;
   useOutfitEffects({
     view, hostTheme, hostApiKey,
     setActiveView,
@@ -1048,25 +1073,6 @@ export default function OutfitWorkflow({
     const targets = tasks.filter((task) => task.result);
     targets.forEach((task) => void downloadTask(task));
     if (targets.length > 0) addEvent("下载全部", `已提交 ${targets.length} 张保存任务`);
-  }
-
-  function closePreviewModal() {
-    setPreview(null);
-    setImageLightbox(null);
-  }
-
-  function navigatePreview(direction) {
-    if (!preview || resultPreviewTasks.length <= 1) return;
-    const currentIndex = resultPreviewTasks.findIndex((task) => task.id === preview.id);
-    if (currentIndex < 0) return;
-    const nextIndex = (currentIndex + direction + resultPreviewTasks.length) % resultPreviewTasks.length;
-    setPreview(resultPreviewTasks[nextIndex]);
-  }
-
-  function zoomPreviewByWheel(event) {
-    event.preventDefault();
-    const delta = event.deltaY > 0 ? -0.12 : 0.12;
-    setPreviewZoom((current) => Math.max(0.35, Math.min(5, Number((current + delta).toFixed(2)))));
   }
 
   // 预览平移拖拽 / 画廊缩放 / 拖拽复位 已统一由 usePreviewDrag 提供（见上文解构），此处不再重复定义。
