@@ -112,12 +112,12 @@ export function ratioParts(ratio) {
   const [w, h] = String(ratio || "3:4").split(":").map((part) => Number.parseFloat(part));
   return Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0 ? { w, h, value: w / h } : { w: 3, h: 4, value: 3 / 4 };
 }
-export function fileFromEntry(entry) {
+function fileFromEntry(entry) {
   return new Promise((resolve, reject) => {
     entry.file(resolve, reject);
   });
 }
-export function readDirectoryBatch(reader) {
+function readDirectoryBatch(reader) {
   return new Promise((resolve, reject) => {
     reader.readEntries(resolve, reject);
   });
@@ -238,12 +238,12 @@ export async function patchJpegDensity(blob, dpi = 72) {
 
   return new Blob([source.slice(0, 2), app0, source.slice(2)], { type: blob.type });
 }
-export function resizeMimeForFormat(format) {
+function resizeMimeForFormat(format) {
   if (format === "png") return "image/png";
   if (format === "webp") return "image/webp";
   return "image/jpeg";
 }
-export function fileNameWithImageExtension(name, mimeType) {
+function fileNameWithImageExtension(name, mimeType) {
   return `${fileBaseName(name || "image")}.${imageExtension(mimeType)}`;
 }
 export async function canvasToFile(canvas, name, type = "image/jpeg", quality = 0.92, dpi = 72) {
@@ -324,7 +324,7 @@ export async function processImageFile(file, ratio, mode = "pad", crop = null) {
     URL.revokeObjectURL(originalUrl);
   }
 }
-export function drawSoftEdgeBackground(ctx, image, drawX, drawY, drawWidth, drawHeight, canvasWidth, canvasHeight) {
+function drawSoftEdgeBackground(ctx, image, drawX, drawY, drawWidth, drawHeight, canvasWidth, canvasHeight) {
   const blur = 14;
   const stripX = Math.max(1, Math.min(image.naturalWidth, Math.round(image.naturalWidth * 0.08)));
   const stripY = Math.max(1, Math.min(image.naturalHeight, Math.round(image.naturalHeight * 0.08)));
