@@ -1,0 +1,24 @@
+{
+  "caseId": "e4-rep-1-s01",
+  "exp": "E4",
+  "sample": "s01",
+  "model": "tt-image-2.5",
+  "mask": null,
+  "note": "同参重复1（估随机波动）",
+  "startedAt": "2026-10-26T16:32:00.889Z",
+  "promptSource": "A",
+  "promptChars": 79,
+  "aspectRatio": null,
+  "imageSize": null,
+  "httpStatus": 200,
+  "ok": true,
+  "message": null,
+  "imageCount": 2,
+  "imageRefs": [
+    "/api/result/HZ-27-p0-e4-rep-1-s01-mvph7gc5-70jpc.png",
+    "/api/result/HZ-27-p0-e4-rep-1-s01-mvph7gc5-70jpc.png",
+    "https://oss-us.dimenoss.com/images/2026/10/27/1793032364_2bfadd19c6e4f4abf0564e015259662e.png"
+  ],
+  "ms": 109253,
+  "finishedAt": "2026-10-26T16:33:50.142Z"
+}

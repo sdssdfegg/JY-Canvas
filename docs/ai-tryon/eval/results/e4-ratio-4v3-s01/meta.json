@@ -1,0 +1,24 @@
+{
+  "caseId": "e4-ratio-4v3-s01",
+  "exp": "E4",
+  "sample": "s01",
+  "model": "tt-image-2.5",
+  "mask": null,
+  "note": "",
+  "startedAt": "2026-10-26T16:25:55.398Z",
+  "promptSource": "A",
+  "promptChars": 79,
+  "aspectRatio": "4:3",
+  "imageSize": null,
+  "httpStatus": 200,
+  "ok": true,
+  "message": null,
+  "imageCount": 2,
+  "imageRefs": [
+    "/api/result/HZ-27-p0-e4-ratio-4v3-s01-mvpgyz6h-3oyqn.png",
+    "/api/result/HZ-27-p0-e4-ratio-4v3-s01-mvpgyz6h-3oyqn.png",
+    "https://oss-us.dimenoss.com/images/2026/10/27/1793031998_2b734becb6360c9debd1d17a9cbc33e3.png"
+  ],
+  "ms": 76567,
+  "finishedAt": "2026-10-26T16:27:11.965Z"
+}

@@ -1,6 +1,6 @@
 {
-  "cap": 50,
-  "used": 32,
+  "cap": 52,
+  "used": 51,
   "runs": [
     {
       "ts": "2026-10-26T14:05:22.806Z",
@@ -289,6 +289,177 @@
       "model": "nano-banana-pro",
       "ok": true,
       "ms": 39006
+    },
+    {
+      "ts": "2026-10-26T16:25:55.377Z",
+      "caseId": "e4-ratio-1v1-s01",
+      "exp": "E4",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 100618
+    },
+    {
+      "ts": "2026-10-26T16:27:11.965Z",
+      "caseId": "e4-ratio-4v3-s01",
+      "exp": "E4",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 76567
+    },
+    {
+      "ts": "2026-10-26T16:29:21.993Z",
+      "caseId": "e4-ratio-9v16-s01",
+      "exp": "E4",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 130022
+    },
+    {
+      "ts": "2026-10-26T16:32:00.882Z",
+      "caseId": "e4-size-1k-s01",
+      "exp": "E4",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 158883
+    },
+    {
+      "ts": "2026-10-26T16:33:50.142Z",
+      "caseId": "e4-rep-1-s01",
+      "exp": "E4",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 109253
+    },
+    {
+      "ts": "2026-10-26T16:35:37.613Z",
+      "caseId": "e4-rep-2-s01",
+      "exp": "E4",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 107465
+    },
+    {
+      "ts": "2026-10-26T16:38:27.863Z",
+      "caseId": "e4-rep-3-s01",
+      "exp": "E4",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 170244
+    },
+    {
+      "ts": "2026-10-26T16:39:36.262Z",
+      "caseId": "e5-tt25-s01-r1",
+      "exp": "E5",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 68090
+    },
+    {
+      "ts": "2026-10-26T16:40:53.425Z",
+      "caseId": "e5-tt25-s01-r2",
+      "exp": "E5",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 77146
+    },
+    {
+      "ts": "2026-10-26T16:41:39.048Z",
+      "caseId": "e5-nano-s01-r1",
+      "exp": "E5",
+      "sample": "s01",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 45617
+    },
+    {
+      "ts": "2026-10-26T16:42:29.586Z",
+      "caseId": "e5-nano-s01-r2",
+      "exp": "E5",
+      "sample": "s01",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 50529
+    },
+    {
+      "ts": "2026-10-26T16:43:27.439Z",
+      "caseId": "e5-tt25-s02-r1",
+      "exp": "E5",
+      "sample": "s02",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 57845
+    },
+    {
+      "ts": "2026-10-26T16:44:38.014Z",
+      "caseId": "e5-tt25-s02-r2",
+      "exp": "E5",
+      "sample": "s02",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 70569
+    },
+    {
+      "ts": "2026-10-26T16:45:23.024Z",
+      "caseId": "e5-nano-s02-r1",
+      "exp": "E5",
+      "sample": "s02",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 45003
+    },
+    {
+      "ts": "2026-10-26T16:46:05.159Z",
+      "caseId": "e5-nano-s02-r2",
+      "exp": "E5",
+      "sample": "s02",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 42128
+    },
+    {
+      "ts": "2026-10-26T16:48:06.008Z",
+      "caseId": "e5-tt25-s03-r1",
+      "exp": "E5",
+      "sample": "s03",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 120841
+    },
+    {
+      "ts": "2026-10-26T16:48:59.080Z",
+      "caseId": "e5-tt25-s03-r2",
+      "exp": "E5",
+      "sample": "s03",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 53065
+    },
+    {
+      "ts": "2026-10-26T16:49:38.214Z",
+      "caseId": "e5-nano-s03-r1",
+      "exp": "E5",
+      "sample": "s03",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 39129
+    },
+    {
+      "ts": "2026-10-26T16:50:18.018Z",
+      "caseId": "e5-nano-s03-r2",
+      "exp": "E5",
+      "sample": "s03",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 39797
     }
   ]
 }

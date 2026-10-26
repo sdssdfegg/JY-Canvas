@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "taskId": "p0-e5-tt25-s01-r2",
+  "tryonTaskId": "tryon-b36b3e84ec0ffc5b",
+  "image": {
+    "type": "url",
+    "value": "/api/result/HZ-27-p0-e5-tt25-s01-r2-mvphgo3n-u1iid.png",
+    "localUrl": "/api/result/HZ-27-p0-e5-tt25-s01-r2-mvphgo3n-u1iid.png",
+    "archiveMime": "image/png",
+    "resultArchiveFile": "HZ-27-p0-e5-tt25-s01-r2-mvphgo3n-u1iid.png",
+    "sourceUrl": "https://oss-us.dimenoss.com/images/2026/10/27/1793032834_af0e6be911bba72c8b01c132dfdf0de2.png"
+  },
+  "prompt": "任务：将服装参考图 B 中的服装自然地穿到目标模特图 A 上。参考职责：A 决定人物身份、脸部、身体比例、姿势、手臂和手部位置、头发、构图、背景及整体光线；B 只决定服装本身的款式、版型、颜色、图案、材质观感与结构细节。人体保护：保留 A 的人物身份和身体比例，不要复制 B 中模特的胸部体积、肩宽、腰围、腹部形态、手臂粗细或姿势。不得为了容纳衣服而无依据地改变 A 的身体轮廓。版型保真：按 B 的真实版型还原服装。合身款不能生成成宽松款；宽松款保留设计余量，但不要额外制造不合理的空腔、鼓包或夸张膨胀。区分衣服自身的褶皱与人体体积，不要把阴影误当成人体结构。细节保真：尽量保持领口、肩线、袖长、袖口、门襟、纽扣、口袋、下摆、Logo、印花和格纹的相对位置与比例。颜色以 B 的服装区域为参考，不要随意改色。编辑范围：仅修改完成换装所必需的区域。脸部、头发、裸露皮肤、手部、背景及其他非目标区域尽可能保持 A 原样。若当前接口的局部编辑/Mask 已通过实测，优先使用对应区域约束；若无效，则使用已验证的兜底流程。输出要求：生成真实自然、结构合理、边缘干净的换装结果；不要增加不存在的服装部件，不要改变人物身份，不要改变背景，不要生成额外文字或水印。",
+  "timingMs": 71254,
+  "usedModel": "tt-image-2.5",
+  "autoSavePending": false,
+  "smartIntervention": false,
+  "poseAi": null
+}

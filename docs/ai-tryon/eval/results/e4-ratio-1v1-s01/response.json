@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "taskId": "p0-e4-ratio-1v1-s01",
+  "tryonTaskId": "tryon-ac64502ef9d96ef6",
+  "image": {
+    "type": "url",
+    "value": "/api/result/HZ-27-p0-e4-ratio-1v1-s01-mvpgx7p4-zns9a.png",
+    "localUrl": "/api/result/HZ-27-p0-e4-ratio-1v1-s01-mvpgx7p4-zns9a.png",
+    "archiveMime": "image/png",
+    "resultArchiveFile": "HZ-27-p0-e4-ratio-1v1-s01-mvpgx7p4-zns9a.png",
+    "sourceUrl": "https://oss-us.dimenoss.com/images/2026/10/27/1793031920_1e44c1dc383066de156ba0a88c8781fb.png"
+  },
+  "prompt": "以图 1 模特为基准，替换为图 2 的外套，并保留原站姿、下装保持不变与白底棚拍效果。标准中性白平衡，色彩准确，无色偏，中性灰纯净。     可以根据衣服调整",
+  "timingMs": 85103,
+  "usedModel": "tt-image-2.5",
+  "autoSavePending": false,
+  "smartIntervention": false,
+  "poseAi": null
+}

@@ -1,0 +1,23 @@
+{
+  "caseId": "e5-nano-s03-r1",
+  "exp": "E5",
+  "sample": "s03",
+  "model": "nano-banana-pro",
+  "mask": null,
+  "note": "",
+  "startedAt": "2026-10-26T16:48:59.085Z",
+  "promptSource": "B",
+  "promptChars": 526,
+  "aspectRatio": null,
+  "imageSize": null,
+  "httpStatus": 200,
+  "ok": true,
+  "message": null,
+  "imageCount": 1,
+  "imageRefs": [
+    "/api/result/HZ-27-p0-e5-nano-s03-r1-mvphs0xo-8sux6.png",
+    "/api/result/HZ-27-p0-e5-nano-s03-r1-mvphs0xo-8sux6.png"
+  ],
+  "ms": 39129,
+  "finishedAt": "2026-10-26T16:49:38.214Z"
+}

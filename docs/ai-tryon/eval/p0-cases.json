@@ -1,6 +1,6 @@
 {
-  "cap": 50,
-  "note": "P0 实验用例（V128 §1.5 配额分配）。A 组提示词开跑前必须填入用户当前设置里的提示词原文；mask 文件缺省时用探针 --make-coarse-mask 生成。改本文件不影响代码，跑前过 --dry-run。",
+  "cap": 52,
+  "note": "P0 实验用例（V128 §1.5 配额分配）。A 组提示词开跑前必须填入用户当前设置里的提示词原文；mask 文件缺省时用探针 --make-coarse-mask 生成。改本文件不影响代码，跑前过 --dry-run。⚠️ cap 50→52（2026-10-27 口径更正）：原 50 系按 E4=6 例测算（1+12+16+6+12=47，留 3 余量），而 p0-cases.json 中 E4 实际为 7 例 ⇒ 计划总量 48，叠加已发生的 3 次失败重试（E0 两次 502 + E2 一次 504）后实际需求 51，故补差 2 次（含 1 次失败容差）。本字段是配额的唯一真相源——探针 loadBudget() 用 p0-cases.json 的 cap 覆盖 budget-state.json 的 cap。",
   "defaults": {
     "pageName": "批量换装",
     "workflowMode": "outfit",

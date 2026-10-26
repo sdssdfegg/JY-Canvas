@@ -1,0 +1,24 @@
+{
+  "caseId": "e4-ratio-1v1-s01",
+  "exp": "E4",
+  "sample": "s01",
+  "model": "tt-image-2.5",
+  "mask": null,
+  "note": "尺寸规格",
+  "startedAt": "2026-10-26T16:24:14.758Z",
+  "promptSource": "A",
+  "promptChars": 79,
+  "aspectRatio": "1:1",
+  "imageSize": null,
+  "httpStatus": 200,
+  "ok": true,
+  "message": null,
+  "imageCount": 2,
+  "imageRefs": [
+    "/api/result/HZ-27-p0-e4-ratio-1v1-s01-mvpgx7p4-zns9a.png",
+    "/api/result/HZ-27-p0-e4-ratio-1v1-s01-mvpgx7p4-zns9a.png",
+    "https://oss-us.dimenoss.com/images/2026/10/27/1793031920_1e44c1dc383066de156ba0a88c8781fb.png"
+  ],
+  "ms": 100618,
+  "finishedAt": "2026-10-26T16:25:55.377Z"
+}
