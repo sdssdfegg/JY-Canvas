@@ -2,6 +2,8 @@
 // 真实能力以 `/api/config` 的 routing catalog capabilities 为准
 // （见 src/shared/routing.js 的 modelCapabilities）。
 // 顺序与 server/channel-config.js 的 ROUTING_MODELS 一致：2.0 → 2.5 → 香蕉 2 → 香蕉 2.1 → 香蕉 Pro。
+// 注意：已隐藏的模型（如 SD Pro / doubao-seedream-5-0-pro，上游渠道失效待恢复）不在此离线兜底列表，
+// 但其离线能力回退仍保留在 src/shared/routing.js 的 FALLBACK_MODEL_CAPABILITIES / FALLBACK_MODEL_CHANNELS。
 // 注意：这里只用于"目录还没回来"和局部回贴弹窗的静态列表；正常运行时模型顺序以
 // `/api/config` 返回的目录为准（那份顺序才是用户看到的顺序）。
 export const DEFAULT_MODELS = [
@@ -65,16 +67,8 @@ export const DEFAULT_MODELS = [
     maxPromptLength: 20000,
     maxImageBytes: 16 * 1024 * 1024
   },
-  {
-    value: "doubao-seedream-5-0-pro",
-    label: "SD Pro",
-    ratios: ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "21:9", "auto"],
-    sizes: ["1K", "2K"],
-    quality: [],
-    maxInputImages: 14,
-    maxPromptLength: 20000,
-    maxImageBytes: 16 * 1024 * 1024
-  }
+  // 2026-10-26：SD Pro（doubao-seedream-5-0-pro）因上游渠道失效已隐藏，等找到合适价格再显示，
+  // 故不在此离线兜底列表；离线能力回退仍保留于 routing.js 的 FALLBACK_MODEL_CAPABILITIES / FALLBACK_MODEL_CHANNELS。
 ];
 
 export function imageSourceFromResult(image) {
