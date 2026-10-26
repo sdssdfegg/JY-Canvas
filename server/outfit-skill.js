@@ -11,3 +11,5 @@
 // 与 detail-skills.js 同属"有意保留的打包间接层"：prompts/server/** 是提示词真相源，
 // server/*.js 是给 bundler / esbuild 的入口。
 export * from "../prompts/server/outfit-skill.js";
+// P1-7：分层 Prompt 模板注册表（模板挂载 + 版本冻结）。同样只在壳里转发，逻辑在 prompts/server/。
+export * from "../prompts/server/outfit-prompt-template.js";
