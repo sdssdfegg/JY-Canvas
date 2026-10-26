@@ -131,6 +131,9 @@ import {
 } from "../core/uploads.js";
 import { outfitUploadFileGroups } from "../core/outfit-upload-groups.js";
 
+// P1-6：换装任务内嵌写入（只嵌两侧——入口建任务 / 出口落结果；不改生成路径、不新增路由、不动并发槽）。
+import { beginTryOnTask, settleTryOnTaskInBackground } from "../ai-tryon/route-inlay.js";
+
 export function registerOutfitRoutes(app) {
   app.post("/api/generate-outfit", wrapOutfitUpload(imageForwardUpload.fields([
     { name: "image", maxCount: IMAGE_UPLOAD_PARSE_CEILING },
@@ -392,6 +395,9 @@ export function registerOutfitRoutes(app) {
       await removeUploadedFiles(req.files);
       return res.status(400).json({ ok: false, error: capability.code, message: capability.message });
     }
+    // P1-6 入口侧：建/复用换装任务（idempotency_key=requestId ⇒ 重复提交不重复建任务）。
+    // 失败返回 null，生成照常继续（任务写入绝不能挡住 P0 生成生命线）。
+    const tryonTask = await beginTryOnTask({ requestId, params, payload, files });
     if (maskFile) {
       params.maskFile = maskFile;
     }
@@ -696,9 +702,18 @@ export function registerOutfitRoutes(app) {
               timingMs: Date.now() - receivedAt,
               attempts
             });
+            // P1-6 出口侧：落 attempt + 结果资产引用 + 终态（后台写，不占响应时间）。
+            settleTryOnTaskInBackground(tryonTask, {
+              ok: true,
+              requestId,
+              model: variant.model || params.model,
+              channel: params.channelId || null,
+              images
+            });
             return res.json({
               ok: true,
               taskId: requestId,
+              tryonTaskId: tryonTask?.task_id || null,
               image: displayImage,
               prompt: params.prompt,
               timingMs: Date.now() - receivedAt,
@@ -744,9 +759,18 @@ export function registerOutfitRoutes(app) {
               timingMs: Date.now() - receivedAt,
               attempts
             });
+            settleTryOnTaskInBackground(tryonTask, {
+              ok: false,
+              requestId,
+              model: variant.model || params.model,
+              channel: params.channelId || null,
+              status: publicPayload.status,
+              error: errorMessage
+            });
             return res.status(publicPayload.status).json({
               ...publicPayload,
               errors: [publicPayload.message],
+              tryonTaskId: tryonTask?.task_id || null,
               smartIntervention: smartInterventionEnabled,
               poseAi,
               timingMs: Date.now() - receivedAt
@@ -774,9 +798,18 @@ export function registerOutfitRoutes(app) {
         timingMs: Date.now() - receivedAt,
         attempts
       });
+      settleTryOnTaskInBackground(tryonTask, {
+        ok: false,
+        requestId,
+        model: params.model,
+        channel: params.channelId || null,
+        status: publicPayload.status,
+        error: upstreamMessage
+      });
       res.status(publicPayload.status).json({
         ...publicPayload,
         errors: [publicPayload.message],
+        tryonTaskId: tryonTask?.task_id || null,
         smartIntervention: smartInterventionEnabled,
         poseAi,
         timingMs: Date.now() - receivedAt
