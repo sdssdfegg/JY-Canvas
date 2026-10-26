@@ -1,16 +1,23 @@
 // P1-5 统一执行入口单元测试（纯进程内，不起服务、不扣模型额度）。
 // 验证：retryOrRoute 决策、classifyTryOnError 分类、buildTryOnPrompt 委托、
 // createTryOnTask 幂等 + 状态推进、generateTryOn 经注入 dispatch 的成功/预算拒/可重试/致命 四条路径。
-// 注：编排路径会真实写入 data/ai-tryon/tasks（复用 P1-1 存储层，属预期），
-// 但**结束必须自清理**——否则每跑一次门禁/调试就在用户数据目录留 4 条残留任务（已发生过一次）。
+// 注：编排路径必须真写盘（复用 P1-1 存储层），因此本脚本**先把数据根重定向到临时沙盒**
+// （在 import 任何服务端模块之前设 JINGYIN_RELEASE_ROOT），结束整目录删除 ⇒ 绝不污染用户 data/。
+// 教训：早期版本直接写真实 data/ai-tryon/tasks，每跑一次门禁留 4 条残留（累积过 34 条）。
 
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
 import { unlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const importAbs = (rel) => import(pathToFileURL(path.join(repoRoot, rel)).href);
+
+// 🔴 必须早于任何服务端模块 import：app-paths 在 import 期就把 rootDir 固化了。
+const sandboxRoot = mkdtempSync(path.join(tmpdir(), "tryon-exec-check-"));
+process.env.JINGYIN_RELEASE_ROOT = sandboxRoot;
 
 const exec = await importAbs("server/ai-tryon/execution.js");
 const { readTask, rebuildIndexForStore } = await importAbs("server/ai-tryon/task-store.js");
@@ -30,6 +37,8 @@ async function cleanupCreatedTasks() {
     }
   }
   await rebuildIndexForStore().catch(() => {});
+  // 双保险：整沙盒删除（无论上面的按 id 清理是否命中，都不留痕迹）。
+  rmSync(sandboxRoot, { recursive: true, force: true });
 }
 function check(name, cond, detail) {
   if (!cond) failures.push(`${name} ${detail || ""}`);
