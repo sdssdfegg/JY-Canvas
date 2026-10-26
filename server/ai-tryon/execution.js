@@ -30,7 +30,15 @@ import {
 } from "./state-machine.js";
 import { resolveModelCapabilities } from "../channel-config.js";
 import { normalizeImageRequest, validateImageRouting } from "../channel.js";
-import { buildOutfitPrompt } from "../outfit-skill.js";
+import {
+  buildOutfitPrompt,
+  resolvePromptTemplate,
+  DEFAULT_PROMPT_TEMPLATE_VERSION,
+  buildFixRuleLayer,
+  buildGarmentProfileLayer,
+  buildModelConstraintLayer,
+  assembleLayers
+} from "../outfit-skill.js";
 import { writeGenerationLog } from "../core/generation-logger.js";
 import {
   isImageAuthError,
@@ -109,9 +117,17 @@ export async function createTryOnTask(payload = {}) {
     throw new Error(`createTryOnTask 校验失败：${validation.message}`);
   }
 
+  // 冻结模板版本（contracts/tryon-task.md §4）：进入 READY_TO_GENERATE 时冻结 version + hash。
+  // 冻结后模板文本再改，在途任务记录不受影响（可回溯比对）；未知版本 ⇒ 记 null（未挂载）。
+  const frozenTemplate = resolvePromptTemplate(task.prompt_template_version);
+  const frozenVersion = frozenTemplate ? frozenTemplate.version : null;
+  const frozenHash = frozenTemplate ? frozenTemplate.hash : null;
+
   // VALIDATING → READY_TO_GENERATE（冻结输入/模型策略/预算，见 tryon-task.md §4）
   await updateStatus(taskId, transition({ status: TASK_STATES.VALIDATING }, TASK_EVENTS.MARK_READY), {
-    frozen_at: now
+    frozen_at: now,
+    prompt_template_version: frozenVersion,
+    prompt_template_hash: frozenHash
   });
 
   await writeGenerationLog({
@@ -120,7 +136,9 @@ export async function createTryOnTask(payload = {}) {
     task_id: taskId,
     model: task.model,
     channel_id: task.channel_id,
-    idempotency_key: idempotencyKey
+    idempotency_key: idempotencyKey,
+    prompt_template_version: frozenVersion,
+    prompt_template_hash: frozenHash
   });
 
   return readTask(taskId);
@@ -134,12 +152,21 @@ function validateTryOnInput(task) {
   return { ok: true };
 }
 
-// ── 提示词构建（P1 实现接口；委托 outfit-skill 服务端权威提示词）──────────────
+// ── 提示词构建（P1 实现接口；委托 outfit-skill 服务端权威提示词 + P1-7 分层挂载）──
 /**
- * 构建换装提示词（统一入口之一）。薄封装 buildOutfitPrompt，返回可审计 {prompt, hash}。
- * P1-7 才做「模板版本冻结」语义；本单只做委托 + 哈希留档。
- * @param {object} task TryOnTask（至少含 model / workflowMode? / options? / prompt?）
- * @returns {{prompt:string, hash:string, templateVersion:string|null}}
+ * 构建换装提示词（统一入口之一）。返回可审计 {prompt, hash, templateVersion, templateHash, layers}。
+ *
+ * P1-7「模板挂载 + 版本冻结」语义：
+ *   - **默认不挂载**：DEFAULT_PROMPT_TEMPLATE_VERSION = null ⇒ 只装配「单次任务指令层」
+ *     （= 现有权威构建 buildOutfitPrompt 结果），最终提示词与历史契约**逐字一致**，
+ *     P0 生命线（快捷/批量生成/批量换装/局部回贴）零风险；
+ *   - **显式挂载**：task.prompt_template_version 命中注册表 ⇒ 按契约 §1 装配四层
+ *     固定规则 + 服装档案[P2 桩，空] + 目标模特约束[P3 桩，空] + 单次任务指令[权威]；
+ *   - **冻结**：返回 templateVersion + templateHash，由 createTryOnTask 写入任务与日志
+ *     （contracts/tryon-task.md §4 / contracts/log-fields.md §2）⇒ 模板后续改动不影响在途任务。
+ *
+ * @param {object} task TryOnTask（至少含 model / workflowMode? / options? / prompt? / prompt_template_version?）
+ * @returns {{prompt:string, hash:string, templateVersion:string|null, templateHash:string|null, layers:object}}
  */
 export function buildTryOnPrompt(task) {
   const payload = {
@@ -148,11 +175,25 @@ export function buildTryOnPrompt(task) {
     prompt: task.prompt || "",
     ...(task.options || {})
   };
-  const prompt = buildOutfitPrompt(payload);
+  // 单次任务指令层：始终由服务端权威构建，语义不变（只增不改）。
+  const taskInstruction = buildOutfitPrompt(payload);
+  // 固定规则层：仅当显式挂载模板版本时才叠加；未挂载 ⇒ 空，装配自动跳过。
+  const template = resolvePromptTemplate(
+    task.prompt_template_version || DEFAULT_PROMPT_TEMPLATE_VERSION
+  );
+  const layers = {
+    fixRule: buildFixRuleLayer(template),
+    garmentProfile: buildGarmentProfileLayer(),
+    modelConstraint: buildModelConstraintLayer(),
+    taskInstruction
+  };
+  const prompt = assembleLayers(layers);
   return {
     prompt,
     hash: shortHash(prompt),
-    templateVersion: task.prompt_template_version || null
+    templateVersion: template ? template.version : null,
+    templateHash: template ? template.hash : null,
+    layers
   };
 }
 

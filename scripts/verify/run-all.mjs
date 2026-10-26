@@ -233,6 +233,8 @@ const FAST_ORDER = [
   "tryon-execution-check",
   // P1-6（2026-10-26）：启动恢复 + 路由内嵌写入验收（假存储注入，不碰用户数据）。
   "tryon-recovery-check",
+  // P1-7（2026-10-26）：分层 Prompt 模板挂载 + 版本冻结验收（临时沙盒，不污染用户 data/）。
+  "tryon-prompt-template-check",
   "import-path-check",
   "docs-path-check",
   // V121（2026-10-19）：封装种子机制静态门禁，纯源码静态断言 <1s，进提交钩子快速子集（--fast 32→33）。
