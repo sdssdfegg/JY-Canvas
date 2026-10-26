@@ -1,0 +1,24 @@
+{
+  "caseId": "e1-body-s01",
+  "exp": "E1",
+  "sample": "s01",
+  "model": "tt-image-2.5",
+  "mask": "mask-body.png",
+  "note": "人体保护粗掩膜",
+  "startedAt": "2026-10-26T14:48:12.657Z",
+  "promptSource": "A",
+  "promptChars": 79,
+  "aspectRatio": null,
+  "imageSize": null,
+  "httpStatus": 200,
+  "ok": true,
+  "message": null,
+  "imageCount": 2,
+  "imageRefs": [
+    "/api/result/HZ-26-p0-e1-body-s01-mvpdhlyr-nut7c.png",
+    "/api/result/HZ-26-p0-e1-body-s01-mvpdhlyr-nut7c.png",
+    "https://oss-us.dimenoss.com/images/2026/10/26/1793026136_868bccc39881b4ff0d26038043984396.png"
+  ],
+  "ms": 109490,
+  "finishedAt": "2026-10-26T14:50:02.147Z"
+}

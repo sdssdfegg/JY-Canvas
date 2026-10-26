@@ -1,0 +1,22 @@
+{
+  "caseId": "e1-none-s02",
+  "exp": "E1",
+  "sample": "s02",
+  "model": "tt-image-2.5",
+  "mask": null,
+  "note": "",
+  "startedAt": "2026-10-26T14:50:02.153Z",
+  "promptSource": "A",
+  "promptChars": 79,
+  "aspectRatio": null,
+  "imageSize": null,
+  "httpStatus": 200,
+  "ok": true,
+  "message": null,
+  "imageCount": 1,
+  "imageRefs": [
+    "https://oss-us.dimenoss.com/images/2026/10/26/1793026239_c91539949f43af4b01bbf2ae76eee094.png"
+  ],
+  "ms": 95649,
+  "finishedAt": "2026-10-26T14:51:37.802Z"
+}

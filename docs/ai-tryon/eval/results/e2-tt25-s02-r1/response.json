@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "taskId": "p0-e2-tt25-s02-r1",
+  "tryonTaskId": "tryon-bb2454bdfa37ca30",
+  "image": {
+    "type": "url",
+    "value": "/api/result/HZ-26-p0-e2-tt25-s02-r1-mvpey7dl-uhkhj.png",
+    "localUrl": "/api/result/HZ-26-p0-e2-tt25-s02-r1-mvpey7dl-uhkhj.png",
+    "archiveMime": "image/png",
+    "resultArchiveFile": "HZ-26-p0-e2-tt25-s02-r1-mvpey7dl-uhkhj.png",
+    "sourceUrl": "https://oss-us.dimenoss.com/images/2026/10/26/1793028574_e6f5a7e80d63d46351637a4e0739713b.png"
+  },
+  "prompt": "以图 1 模特为基准，替换为图 2 的外套，并保留原站姿、下装保持不变与白底棚拍效果。标准中性白平衡，色彩准确，无色偏，中性灰纯净。     可以根据衣服调整",
+  "timingMs": 101015,
+  "usedModel": "tt-image-2.5",
+  "autoSavePending": false,
+  "smartIntervention": false,
+  "poseAi": null
+}

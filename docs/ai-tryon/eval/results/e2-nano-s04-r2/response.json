@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "taskId": "p0-e2-nano-s04-r2",
+  "tryonTaskId": "tryon-95a851bf86565cfc",
+  "image": {
+    "type": "url",
+    "value": "/api/result/HZ-26-p0-e2-nano-s04-r2-mvpfg3xq-d3twe.png",
+    "localUrl": "/api/result/HZ-26-p0-e2-nano-s04-r2-mvpfg3xq-d3twe.png",
+    "archiveMime": "image/png",
+    "resultArchiveFile": "HZ-26-p0-e2-nano-s04-r2-mvpfg3xq-d3twe.png"
+  },
+  "prompt": "以图 1 模特为基准，替换为图 2 的外套，并保留原站姿、下装保持不变与白底棚拍效果。标准中性白平衡，色彩准确，无色偏，中性灰纯净。     可以根据衣服调整",
+  "timingMs": 38322,
+  "usedModel": "nano-banana-pro",
+  "autoSavePending": false,
+  "smartIntervention": false,
+  "poseAi": null
+}

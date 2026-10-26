@@ -1,0 +1,22 @@
+{
+  "caseId": "e1-body-s03",
+  "exp": "E1",
+  "sample": "s03",
+  "model": "tt-image-2.5",
+  "mask": "mask-body.png",
+  "note": "",
+  "startedAt": "2026-10-26T14:59:00.471Z",
+  "promptSource": "A",
+  "promptChars": 79,
+  "aspectRatio": null,
+  "imageSize": null,
+  "httpStatus": 200,
+  "ok": true,
+  "message": null,
+  "imageCount": 1,
+  "imageRefs": [
+    "https://oss-us.dimenoss.com/images/2026/10/26/1793026769_a58440d3fc2256b14c5427343ef82271.png"
+  ],
+  "ms": 79582,
+  "finishedAt": "2026-10-26T15:00:20.053Z"
+}

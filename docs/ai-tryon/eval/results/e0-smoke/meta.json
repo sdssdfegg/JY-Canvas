@@ -1,0 +1,22 @@
+{
+  "caseId": "e0-smoke",
+  "exp": "E0",
+  "sample": "s01",
+  "model": "tt-image-2.5",
+  "mask": null,
+  "note": "冒烟：验链路与字段",
+  "startedAt": "2026-10-26T14:38:36.728Z",
+  "promptSource": "A",
+  "promptChars": 79,
+  "aspectRatio": null,
+  "imageSize": null,
+  "httpStatus": 200,
+  "ok": true,
+  "message": null,
+  "imageCount": 1,
+  "imageRefs": [
+    "https://oss-us.dimenoss.com/images/2026/10/26/1793025562_46d8e7e8e41599c25cfaddc56c08f9b5.png"
+  ],
+  "ms": 103055,
+  "finishedAt": "2026-10-26T14:40:19.784Z"
+}

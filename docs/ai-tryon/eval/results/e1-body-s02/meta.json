@@ -1,0 +1,24 @@
+{
+  "caseId": "e1-body-s02",
+  "exp": "E1",
+  "sample": "s02",
+  "model": "tt-image-2.5",
+  "mask": "mask-body.png",
+  "note": "",
+  "startedAt": "2026-10-26T14:53:25.192Z",
+  "promptSource": "A",
+  "promptChars": 79,
+  "aspectRatio": null,
+  "imageSize": null,
+  "httpStatus": 200,
+  "ok": true,
+  "message": null,
+  "imageCount": 2,
+  "imageRefs": [
+    "/api/result/HZ-26-p0-e1-body-s02-mvpdp53m-3gd6t.png",
+    "/api/result/HZ-26-p0-e1-body-s02-mvpdp53m-3gd6t.png",
+    "https://oss-us.dimenoss.com/images/2026/10/26/1793026475_0ee3a01cd0552ed30ec543494e19b612.png"
+  ],
+  "ms": 141208,
+  "finishedAt": "2026-10-26T14:55:46.400Z"
+}

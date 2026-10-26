@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "taskId": "p0-e2-tt25-s01-r2",
+  "tryonTaskId": "tryon-f4466e94ec7ee21b",
+  "image": {
+    "type": "url",
+    "value": "https://oss-us.dimenoss.com/images/2026/10/26/1793028391_ab7a88a8b388fe08520fb9ecf7c0d63f.png"
+  },
+  "prompt": "以图 1 模特为基准，替换为图 2 的外套，并保留原站姿、下装保持不变与白底棚拍效果。标准中性白平衡，色彩准确，无色偏，中性灰纯净。     可以根据衣服调整",
+  "timingMs": 78542,
+  "usedModel": "tt-image-2.5",
+  "autoSavePending": false,
+  "smartIntervention": false,
+  "poseAi": null
+}

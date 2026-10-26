@@ -1,0 +1,13 @@
+{
+  "ok": false,
+  "requestId": "p0-e2-tt25-s04-r1",
+  "status": 504,
+  "error": "channel_timeout",
+  "message": "生成超时，请重新生成。",
+  "attemptCount": 1,
+  "errors": [
+    "生成超时，请重新生成。"
+  ],
+  "smartIntervention": false,
+  "poseAi": null
+}

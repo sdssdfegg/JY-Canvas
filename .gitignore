@@ -37,9 +37,12 @@ tmp/
 # results/ = 实验出图与响应回执（169MB/121 文件，随每次跑批增长）；
 # samples/ = 用户投放的模特/服装原图与掩膜（44MB，属用户素材）。
 # 隐私口径：样本仅本地留存，不随仓库外发；二进制入库会不可逆膨胀仓库。
-# 保留在磁盘，靠样本登记表（eval/样本登记表.md）+ 用例（eval/p0-cases.json）
-# + 预算（eval/budget-state.json）三个文本档复现实验。
-docs/ai-tryon/eval/results/
+# 排除粒度取「图片文件」而非整个目录：results/ 下的 meta.json /
+# response.json（已脱敏）与 score.md（评分证据）属文本证据，须入库；
+# 实验可复现性由 样本登记表 + p0-cases.json + budget-state.json 三档保证。
+docs/ai-tryon/eval/results/**/*.png
+docs/ai-tryon/eval/results/**/*.jpg
+docs/ai-tryon/eval/results/**/*.webp
 docs/ai-tryon/eval/samples/
 
 # ---- 真实密钥（绝不能进提交）----

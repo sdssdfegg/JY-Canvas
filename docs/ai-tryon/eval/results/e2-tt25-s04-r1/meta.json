@@ -1,0 +1,20 @@
+{
+  "caseId": "e2-tt25-s04-r1",
+  "exp": "E2",
+  "sample": "s04",
+  "model": "tt-image-2.5",
+  "mask": null,
+  "note": "",
+  "startedAt": "2026-10-26T15:39:17.644Z",
+  "promptSource": "A",
+  "promptChars": 79,
+  "aspectRatio": null,
+  "imageSize": null,
+  "httpStatus": 504,
+  "ok": false,
+  "message": "生成超时，请重新生成。",
+  "imageCount": 0,
+  "imageRefs": [],
+  "ms": 63372,
+  "finishedAt": "2026-10-26T15:40:21.016Z"
+}

@@ -1,0 +1,24 @@
+{
+  "caseId": "e1-none-s01",
+  "exp": "E1",
+  "sample": "s01",
+  "model": "tt-image-2.5",
+  "mask": null,
+  "note": "无mask对照",
+  "startedAt": "2026-10-26T14:44:08.365Z",
+  "promptSource": "A",
+  "promptChars": 79,
+  "aspectRatio": null,
+  "imageSize": null,
+  "httpStatus": 200,
+  "ok": true,
+  "message": null,
+  "imageCount": 2,
+  "imageRefs": [
+    "/api/result/HZ-26-p0-e1-none-s01-mvpdd1e8-tf5sb.png",
+    "/api/result/HZ-26-p0-e1-none-s01-mvpdd1e8-tf5sb.png",
+    "https://oss-us.dimenoss.com/images/2026/10/26/1793025925_e3d49348af5ab43d2fbd518c0113846c.png"
+  ],
+  "ms": 130809,
+  "finishedAt": "2026-10-26T14:46:19.176Z"
+}

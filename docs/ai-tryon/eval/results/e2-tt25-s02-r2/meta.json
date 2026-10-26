@@ -1,0 +1,24 @@
+{
+  "caseId": "e2-tt25-s02-r2",
+  "exp": "E2",
+  "sample": "s02",
+  "model": "tt-image-2.5",
+  "mask": null,
+  "note": "",
+  "startedAt": "2026-10-26T15:30:45.067Z",
+  "promptSource": "A",
+  "promptChars": 79,
+  "aspectRatio": null,
+  "imageSize": null,
+  "httpStatus": 200,
+  "ok": true,
+  "message": null,
+  "imageCount": 2,
+  "imageRefs": [
+    "/api/result/HZ-26-p0-e2-tt25-s02-r2-mvpf1h84-g0sb0.png",
+    "/api/result/HZ-26-p0-e2-tt25-s02-r2-mvpf1h84-g0sb0.png",
+    "https://oss-us.dimenoss.com/images/2026/10/26/1793028750_a42ccddd09f76027de65c636f87ccf07.png"
+  ],
+  "ms": 156907,
+  "finishedAt": "2026-10-26T15:33:21.974Z"
+}

@@ -1,0 +1,24 @@
+{
+  "caseId": "e1-garment-s03",
+  "exp": "E1",
+  "sample": "s03",
+  "model": "tt-image-2.5",
+  "mask": "mask-garment.png",
+  "note": "",
+  "startedAt": "2026-10-26T14:57:35.761Z",
+  "promptSource": "A",
+  "promptChars": 79,
+  "aspectRatio": null,
+  "imageSize": null,
+  "httpStatus": 200,
+  "ok": true,
+  "message": null,
+  "imageCount": 2,
+  "imageRefs": [
+    "/api/result/HZ-26-p0-e1-garment-s03-mvpdt4tr-w4nq4.png",
+    "/api/result/HZ-26-p0-e1-garment-s03-mvpdt4tr-w4nq4.png",
+    "https://oss-us.dimenoss.com/images/2026/10/26/1793026687_86814751ca869994ce547aa10196efc5.png"
+  ],
+  "ms": 84704,
+  "finishedAt": "2026-10-26T14:59:00.465Z"
+}
