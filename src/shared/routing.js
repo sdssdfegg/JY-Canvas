@@ -70,7 +70,10 @@ export const HIDDEN_CHANNEL_IDS = Object.freeze([
   //   - BR-default特价（2.5，silent-tt25-line-04）
   // 与 server/channel-config.js 的 HIDDEN_CHANNEL_IDS 同步：服务端目录同时不下发，已发布客户端免重打包生效。
   "silent-tt2-line-01",
-  "silent-tt25-line-04"
+  "silent-tt25-line-04",
+  // 2026-10-26：SD Pro 上游渠道（mc-seedream-5-0-pro）失效，暂时隐藏待恢复。
+  // 与 server/channel-config.js 的 HIDDEN_CHANNEL_IDS 同步：前端隐藏、服务端仍接受。
+  "mc-seedream-5-0-pro"
 ]);
 
 const HIDDEN_CHANNEL_ID_SET = new Set(

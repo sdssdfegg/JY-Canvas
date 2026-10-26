@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-26",
-  "reason": "接入名创AI 豆包生图模型 SD/SD Pro：models.js 新增 2 条 DEFAULT_MODELS(+20)、routing.js 新增别名/兜底能力/兜底渠道(+34)，为功能必需增量，非重构膨胀",
+  "reason": "P1-隐藏SD Pro：client routing.js HIDDEN_CHANNEL_IDS 同源同步 server/channel-config.js（双保险纪律必需）；models.js 因移除 SD Pro 离线兜底项 -6 行，净增 +3 为既定双文件同步所需，非膨胀",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -112,7 +112,7 @@
     "src/shared/list-order.js": 29,
     "src/shared/local-edit-geometry.js": 530,
     "src/shared/local-edit-mask.js": 568,
-    "src/shared/models.js": 90,
+    "src/shared/models.js": 84,
     "src/shared/numeric.js": 27,
     "src/shared/outfit-intent.js": 580,
     "src/shared/prompt-library.js": 370,
@@ -122,7 +122,7 @@
     "src/shared/release-seed.js": 295,
     "src/shared/result-image.js": 334,
     "src/shared/retouch-intent.js": 284,
-    "src/shared/routing.js": 471,
+    "src/shared/routing.js": 474,
     "src/shared/text-normalize.js": 42,
     "src/shared/ui/AppSidebar.jsx": 39,
     "src/shared/ui/Button.jsx": 53,

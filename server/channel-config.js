@@ -46,7 +46,10 @@ export function isForbiddenChannelId(value) {
 export const HIDDEN_CHANNEL_IDS = Object.freeze([
   // 2026-10-22：用户实测不通，先隐藏待恢复（上游均为 api.lk888.ai）。
   "silent-tt2-line-01",   // MC-TT-cf（TT2.0）
-  "silent-tt25-line-04"   // BR-default特价（TT2.5）
+  "silent-tt25-line-04",  // BR-default特价（TT2.5）
+  // 2026-10-26：SD Pro 上游渠道（名创AI 5.0 Pro，mc-seedream-5-0-pro）失效，暂时隐藏，
+  // 等找到合适价格再显示。与 src/shared/routing.js 的 HIDDEN_CHANNEL_IDS 同源同步。
+  "mc-seedream-5-0-pro"   // SD Pro 名创AI 渠道
 ]);
 
 const HIDDEN_CHANNEL_ID_SET = new Set(
@@ -55,6 +58,20 @@ const HIDDEN_CHANNEL_ID_SET = new Set(
 
 export function isHiddenChannelId(value) {
   return HIDDEN_CHANNEL_ID_SET.has(String(value || "").trim().toLowerCase());
+}
+
+// 前端隐藏模型（2026-10-26）：模型定义保留（ROUTING_MODELS / CHANNEL_MODELS / 客户端
+// FALLBACK_* 都留着），只是不下发到前端目录（publicRoutingCatalog / publicChannelModels
+// 都走同一过滤）。与 HIDDEN_CHANNEL_IDS 同语义：服务端仍接受该模型（已存的设置 / API 直调），
+// 客户端本地隐藏作为双保险；等找到合适价格，从本数组移除即可恢复显示。
+export const HIDDEN_MODEL_IDS = Object.freeze([
+  "doubao-seedream-5-0-pro" // SD Pro：上游渠道失效，暂时隐藏
+]);
+const HIDDEN_MODEL_ID_SET = new Set(
+  HIDDEN_MODEL_IDS.map((value) => String(value || "").trim().toLowerCase())
+);
+export function isHiddenModelId(value) {
+  return HIDDEN_MODEL_ID_SET.has(String(value || "").trim().toLowerCase());
 }
 
 // 能力字段说明（唯一来源 = 本目录，前端与服务端都读这里）：
@@ -329,12 +346,14 @@ export function publicRoutingCatalog() {
   const channels = publicRoutingChannels();
   return {
     dispatchModes: [{ id: "manual", label: "手动选择渠道", status: "ACTIVE", manual: true }],
-    models: ROUTING_MODELS.map((model) => ({
-      id: model.value,
-      label: model.label,
-      status: "ACTIVE",
-      capabilities: routingModelCapabilities(model.value)
-    })),
+    models: ROUTING_MODELS
+      .filter((model) => !isHiddenModelId(model.value))
+      .map((model) => ({
+        id: model.value,
+        label: model.label,
+        status: "ACTIVE",
+        capabilities: routingModelCapabilities(model.value)
+      })),
     channels: channels.map((channel) => ({
       id: channel.id,
       label: channel.label,
@@ -347,10 +366,12 @@ export function publicRoutingCatalog() {
     pricing: {
       currency: "CNY",
       unit: "image",
-      models: Object.fromEntries(ROUTING_MODELS.map((model) => {
-        const line = channels.find((channel) => channel.model === model.value);
-        return [model.value, { price: line?.price || 0, currency: "CNY", unit: "image" }];
-      }))
+      models: Object.fromEntries(ROUTING_MODELS
+        .filter((model) => !isHiddenModelId(model.value))
+        .map((model) => {
+          const line = channels.find((channel) => channel.model === model.value);
+          return [model.value, { price: line?.price || 0, currency: "CNY", unit: "image" }];
+        }))
     },
     priceVersion: "v11-3.0-routing-2026-09-24"
   };
@@ -519,7 +540,9 @@ export function publicChannelPolicyConfig() {
 }
 
 export function publicChannelModels() {
-  return CHANNEL_MODELS.filter((model) => model.enabled).map((model) => ({
+  return CHANNEL_MODELS
+    .filter((model) => model.enabled && !isHiddenModelId(model.value))
+    .map((model) => ({
     value: model.value,
     label: model.label,
     ratios: model.ratios,
