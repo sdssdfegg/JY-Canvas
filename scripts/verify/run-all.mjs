@@ -229,6 +229,8 @@ const FAST_ORDER = [
   "generation-log-fields-check",
   // P1-4（2026-10-26）：换装任务状态机纯函数验收，纯进程内断言 <1s，进提交钩子快速子集。
   "state-machine-check",
+  // P1-5（2026-10-26）：统一执行入口编排验收（纯进程内、注入假 dispatch），进提交钩子快速子集。
+  "tryon-execution-check",
   "import-path-check",
   "docs-path-check",
   // V121（2026-10-19）：封装种子机制静态门禁，纯源码静态断言 <1s，进提交钩子快速子集（--fast 32→33）。
