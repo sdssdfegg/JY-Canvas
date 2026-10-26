@@ -35,6 +35,12 @@ const BUDGET_FILE = join(EVAL_DIR, "budget-state.json");
 
 const DEFAULT_BASE = "http://127.0.0.1:8787";
 const DEFAULT_TIMEOUT_MS = 240000;
+// P0-B 探针补丁：服务端强制要求 channelId（server/channel.js:199 missing_channel），
+// 而用例未带 channel。按「与 app 默认渠道一致」解析——各模型取配置里排第一的公开渠道（云枢）。
+const DEFAULT_CHANNEL_BY_MODEL = {
+  "tt-image-2.5": "silent-tt25-line-06",   // Origin（TT2.5 第二线路，¥0.10；用户裁定不用云枢）
+  "nano-banana-pro": "silent-pro-line-01", // 云枢（香蕉Pro 默认首线路，¥0.14）
+};
 const REDACT_KEYS = new Set(["apikey", "key", "token", "authorization", "secret", "password"]);
 
 // ---------- CLI ----------
@@ -298,7 +304,7 @@ async function runCase(c, casesDoc, budget) {
       taskId: `p0-${c.id}`,
       apiKey: process.env.JINGYIN_PROBE_API_KEY,
       model: c.model,
-      channelId: "",
+      channelId: c.channelId || DEFAULT_CHANNEL_BY_MODEL[c.model] || "",
       dispatchMode: "manual",
       prompt,
       pageName: defaults.pageName || "批量换装",
