@@ -1,10 +1,10 @@
 # STATUS — 高保真换装能力体系
 
-> 更新规则：每次 AI 完成任务必须更新本文件（总纲 §4.2）。最后更新：2026-10-26（执行方，P1-1～P1-7 收官 + P0-B E0/E1/E2 实测后档案归整）。
+> 更新规则：每次 AI 完成任务必须更新本文件（总纲 §4.2）。最后更新：2026-10-27（统筹，P1-7 合入 main `32113a0` 并归档 ⇒ P1 阶段正式收官）。
 
 ## 当前阶段
 
-**P1 已完成；P0-B 实验进行中（E4/E5 待跑）** — 上位总纲：`docs/ai-tryon/升级实施方案-V11-电商换装能力升级.md`；分解：`docs/ai-tryon/执行单/P1-分解总览.md`；实验：`docs/ai-tryon/eval/`。
+**P1 已收官（P1-1～P1-7 全部合入 main 并归档）；P0-B 实验进行中（E4/E5 待跑）** — 上位总纲：`docs/ai-tryon/升级实施方案-V11-电商换装能力升级.md`；分解：`docs/ai-tryon/执行单/P1-分解总览.md`；实验：`docs/ai-tryon/eval/`。
 
 ## 已验收项（P0-A 源码核验，2026-10-22 统筹实测）
 
@@ -41,7 +41,7 @@
 - **P1-4 状态机最小版**（合入 main `46db7b9`）：新增 `server/ai-tryon/state-machine.js`（零依赖叶子，纯函数）实现子集 `CREATED→VALIDATING→READY_TO_GENERATE→GENERATING→EVALUATING→SUCCEEDED/FAILED/CANCELLED/NEEDS_REVIEW` + `transition`/`isTerminalState`/`checkBudgetBeforeCall`/`isRetryableError` + 契约 §5 十标签；ANALYZING/POSTPROCESSING/REPAIR_PENDING/RETRY_WAIT 留位；新增单测 `scripts/verify/state-machine-check.mjs` 入 `run-all` `FAST_ORDER`；门禁全绿（check-syntax 297/297、ESLint 0 error、size-ratchet 0 回归、run-all --fast 37/37、vite build EXIT=0），依赖 P1-1 `437cca2`，零 P0-B 依赖。
 - **P1-5 统一接口子集（统一执行入口·核心）**（合入 main `739a56e`）：新增 `server/ai-tryon/execution.js` 编排层——`createTryOnTask`（幂等建任务 + 冻结推进）/ `buildTryOnPrompt`（委托 outfit-skill 权威提示词）/ `classifyTryOnError`（委托 image-error-policy）/ `retryOrRoute`（纯函数，有限可解释退避、不内部循环）/ `generateTryOn`（调用前编排：预算门 P1-4 + 能力门 P1-2 + 路由校验 + 状态推进 + attempt/日志 P1-1/P1-3 + 失败终态），真正出海由**注入 dispatch** 承担（边界收敛，零改动现有请求路径）；`analyzeInputs/postProcess/evaluateResult` 预留签名抛 `NotImplementedError`；新增单测 `scripts/verify/tryon-execution-check.mjs` 入 `run-all` `FAST_ORDER`；门禁全绿（check-syntax 299/299、ESLint 0 error、size-ratchet 0 回归、run-all --fast 38/38、vite build EXIT=0）。
 - **P1-6 路由内嵌写入与启动恢复**（合入 main）：新增 `server/ai-tryon/recovery.js`（零依赖叶子，启动链路挂接）+ `server/ai-tryon/route-inlay.js`（入口建任务 / 出口落 attempt+结果资产+终态，后台写不占响应时间）+ `state-machine.js` 新增 `planPathToTerminal`（终态收敛路径规划，两处复用）；`outfit.routes.js` 4 处内嵌（不改生成路径、不新增路由、不动并发槽），响应体回传 `tryonTaskId`；`server/index.js` 启动挂 `runAiTryonStartupRecovery`（永不抛出、绝不自动重新生图）；新增单测 `scripts/verify/tryon-recovery-check.mjs`（45 项，含零依赖叶子红线静态扫描）入 `FAST_ORDER`；门禁全绿（check-syntax 302/302、ESLint 0 error、size-ratchet 0 回归、run-all --fast 39/39、vite build EXIT=0、**public 首启动冒烟 http=200**）。另修复 P1-5 单测污染数据目录问题（改为自清理，存量 34 条测试残留已清）。
-- **P1-7 分层 Prompt 模板挂载与版本冻结**（特性分支 `feature/p1-7-prompt-template-freeze`，待统筹复核合入）：新增 `prompts/server/outfit-prompt-template.js`（**零依赖叶子**，仅 node:crypto）——模板注册表 `PROMPT_TEMPLATES` 含 **v1** 契约 §2 全文（保留未固化双分支句，作 P0-B B 组实验基线/历史留档）与 **v2**（按 P0-B E1 实测结论**固化**到「已验证的兜底流程」分支）；`computeTemplateHash`（sha256 前 12 位，模板文本任一字符改动即换哈希＝冻结回溯的前提）；`assembleLayers` 按契约 §1 装配四层（固定规则→服装档案→模特约束→单次任务指令），空层自动跳过；层 2/3 为 **P2/P3 占位桩**（恒空串，不改变输出）。`execution.buildTryOnPrompt` 的单次任务指令层仍由权威 `buildOutfitPrompt` 构建（语义不变），命中模板版本时才叠加固定规则层，并返回 `templateVersion`/`templateHash`/`layers`；`createTryOnTask` 于进入 `READY_TO_GENERATE` 时**冻结** version+hash 写入任务与生成日志（contracts/tryon-task.md §4 / log-fields.md §2）。新增单测 `scripts/verify/tryon-prompt-template-check.mjs` 入 `run-all` `FAST_ORDER`（**--fast 39→40**）。**🔴 默认不挂载模板**（`DEFAULT_PROMPT_TEMPLATE_VERSION=null`）⇒ 生产提示词与历史契约逐字一致，P0 生命线零风险；是否切到 v2 需先跑基线/回归样本评测（总纲 §4.1），本单不自动生效。门禁全绿（check-syntax 304/304、ESLint 0 error、size-ratchet 0 回归、run-all --fast 40/40、vite build EXIT=0）。
+- **P1-7 分层 Prompt 模板挂载与版本冻结**（**已合入 main `32113a0`，已归档 `已完成/2026-10/`**）：新增 `prompts/server/outfit-prompt-template.js`（**零依赖叶子**，仅 node:crypto）——模板注册表 `PROMPT_TEMPLATES` 含 **v1** 契约 §2 全文（保留未固化双分支句，作 P0-B B 组实验基线/历史留档）与 **v2**（按 P0-B E1 实测结论**固化**到「已验证的兜底流程」分支）；`computeTemplateHash`（sha256 前 12 位，模板文本任一字符改动即换哈希＝冻结回溯的前提）；`assembleLayers` 按契约 §1 装配四层（固定规则→服装档案→模特约束→单次任务指令），空层自动跳过；层 2/3 为 **P2/P3 占位桩**（恒空串，不改变输出）。`execution.buildTryOnPrompt` 的单次任务指令层仍由权威 `buildOutfitPrompt` 构建（语义不变），命中模板版本时才叠加固定规则层，并返回 `templateVersion`/`templateHash`/`layers`；`createTryOnTask` 于进入 `READY_TO_GENERATE` 时**冻结** version+hash 写入任务与生成日志（contracts/tryon-task.md §4 / log-fields.md §2）。新增单测 `scripts/verify/tryon-prompt-template-check.mjs` 入 `run-all` `FAST_ORDER`（**--fast 39→40**）。**🔴 默认不挂载模板**（`DEFAULT_PROMPT_TEMPLATE_VERSION=null`）⇒ 生产提示词与历史契约逐字一致，P0 生命线零风险；是否切到 v2 需先跑基线/回归样本评测（总纲 §4.1），本单不自动生效。门禁全绿（check-syntax 304/304、ESLint 0 error、size-ratchet 0 回归、run-all --fast 40/40、vite build EXIT=0）。
 - **P1 收官**：P1-1～P1-7 全部落地 ⇒ **P1「统一图像编辑执行入口」阶段完成**。下一阶段 = P2（单图连续编辑 + 版本管理 + 服装档案），其前置为 P0-B 剩余项（E4 seed / E5 结构化提示词）与 E6 视觉分析结论。
 
 ## P0-B 实验进度（2026-10-26：暂停解除并实测）
@@ -66,7 +66,7 @@
 
 - **P0-B 实验**：E4（7 例）/ E5（12 例）待跑，受预算缺口阻塞（见上）；E6 视觉分析可用性待直播抽查（已确认既有 generation.jsonl 中无分析记录，无捷径）；E3 代码侧已完成，上游真实上限仍 UNKNOWN。
 - **P0-B 人工评分**：E1（12 张）+ E2（16 张）结果图尚未按 `eval/人工评分规则.md` 逐张补 `score.md`，`EVIDENCE.md` §三 汇总指标待回填。
-- **P1-7 合入**：代码已提交特性分支 `feature/p1-7-prompt-template-freeze`（`68511a0` 探针渠道修复 / `33e71b0` 模板实现），**待统筹复核后合入 main** 并归档。
+- **P1-7 合入**：✅ 已完成 —— 2026-10-27 统筹复核通过，merge `32113a0` 入 main，执行单归档至 `docs/ai-tryon/执行单/已完成/2026-10/`。**P1 阶段 7 张单全部落地并归档**。
 - **ADR-001/002 草案**：待实验数据（E4/E5/E6）补齐后定稿。
 - **P0 退出报告**（含能力矩阵三态、A/B/C 基线、最小开发清单）：待实验完成后出具，交用户确认。
 
