@@ -235,6 +235,8 @@ const FAST_ORDER = [
   "tryon-recovery-check",
   // P1-7（2026-10-26）：分层 Prompt 模板挂载 + 版本冻结验收（临时沙盒，不污染用户 data/）。
   "tryon-prompt-template-check",
+  // P1-8（2026-10-27）：结构化提示词 v3（部位化保持不变 + 掩膜区域约束）验收，纯进程内（--fast 40→41）。
+  "tryon-prompt-template-v3-check",
   "import-path-check",
   "docs-path-check",
   // V121（2026-10-19）：封装种子机制静态门禁，纯源码静态断言 <1s，进提交钩子快速子集（--fast 32→33）。

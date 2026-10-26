@@ -82,10 +82,12 @@ check(
   "装配顺序须为 固定规则→服装档案→模特约束→单次指令"
 );
 check("layers.keys", Array.isArray(tpl.PROMPT_TEMPLATE_LAYERS) && tpl.PROMPT_TEMPLATE_LAYERS.length === 4);
-check("default.notMounted", tpl.DEFAULT_PROMPT_TEMPLATE_VERSION === null);
+// P1-8：默认挂载版本由 null → v3（用户裁决「往结构化提示词方向靠」）。
+// 回滚 = 把该常量改回 null；生效范围由守门收敛到带合法 outfitIntent 的批量换装分支。
+check("default.isV3", tpl.DEFAULT_PROMPT_TEMPLATE_VERSION === "prompt-template-v3");
 check("versions.listed", tpl.listPromptTemplateVersions().length >= 2);
 
-// ── buildTryOnPrompt：默认行为零变化（回归护栏）────────────────────────────
+// ── buildTryOnPrompt：守门护栏（不带 outfitIntent ⇒ 逐字零变化）──────────
 const { buildOutfitPrompt } = await importAbs("server/outfit-skill.js");
 const plainTask = { model: "tt-image-2.5", workflowMode: "outfit", prompt: "换外套保留下装", options: {} };
 const builtDefault = exec.buildTryOnPrompt(plainTask);
@@ -95,21 +97,32 @@ const authoritative = buildOutfitPrompt({
   prompt: "换外套保留下装"
 });
 check(
-  "buildTryOnPrompt.defaultUnchanged",
+  "buildTryOnPrompt.gateUnchanged",
   builtDefault.prompt === authoritative,
-  `默认须与权威构建逐字一致\n   got: ${JSON.stringify(builtDefault.prompt)}\n   exp: ${JSON.stringify(authoritative)}`
+  `无 outfitIntent 分支须与权威构建逐字一致\n   got: ${JSON.stringify(builtDefault.prompt)}\n   exp: ${JSON.stringify(authoritative)}`
 );
-check("buildTryOnPrompt.defaultNoTemplate", builtDefault.templateVersion === null && builtDefault.templateHash === null);
+check("buildTryOnPrompt.gateNoTemplate", builtDefault.templateVersion === null && builtDefault.templateHash === null);
 check("buildTryOnPrompt.hashIsString", typeof builtDefault.hash === "string" && builtDefault.hash.length > 0);
 
-// ── buildTryOnPrompt：显式挂载 v2 ────────────────────────────────────────
-const mounted = exec.buildTryOnPrompt({ ...plainTask, prompt_template_version: "prompt-template-v2" });
+// ── buildTryOnPrompt：显式挂载 v2（须带合法 outfitIntent 才过守门）────────
+const intentOptions = { outfitIntent: { parts: ["upper"] } };
+const authoritativeWithIntent = buildOutfitPrompt({
+  workflowMode: "outfit",
+  model: "tt-image-2.5",
+  prompt: "换外套保留下装",
+  outfitIntent: { parts: ["upper"] }
+});
+const mounted = exec.buildTryOnPrompt({
+  ...plainTask,
+  options: intentOptions,
+  prompt_template_version: "prompt-template-v2"
+});
 check("mount.version", mounted.templateVersion === "prompt-template-v2");
 check("mount.hash", mounted.templateHash === v2.hash);
 check("mount.hasFixRule", mounted.prompt.includes(v2.text), "须含固定规则层全文");
 check("mount.hasInstruction", mounted.prompt.includes("换外套保留下装"), "须含单次任务指令层正文");
 check("mount.order", mounted.prompt.indexOf(v2.text) === 0, "固定规则层须在最前");
-check("layers.shape", mounted.layers && mounted.layers.taskInstruction === authoritative);
+check("layers.shape", mounted.layers && mounted.layers.taskInstruction === authoritativeWithIntent);
 
 // ── 未知版本优雅回落 ──────────────────────────────────────────────────────
 const bogus = exec.buildTryOnPrompt({ ...plainTask, prompt_template_version: "v9-bogus" });

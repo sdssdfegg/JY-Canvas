@@ -68,6 +68,7 @@ import {
 } from "../channel.js";
 import {
   buildOutfitPrompt,
+  withPromptTemplate,
   primaryOutfitGenerationError,
 } from "../outfit-skill.js";
 import { validateOutfitIntent } from "../../src/shared/outfit-intent.js";
@@ -299,7 +300,8 @@ export function registerOutfitRoutes(app) {
     // 智能介入会带服务器 KEY 调上游（可能真实扣费），旧 channelId 不能等到那之后才拒绝。
     const preflightParams = normalizeImageRequest({
       ...payload,
-      prompt: buildOutfitPrompt(payload),
+      // P1-8：模板挂载点（守门在 withPromptTemplate 内：非批量换装分支原样返回）。
+      prompt: withPromptTemplate(payload, buildOutfitPrompt(payload)),
       n: 1,
       source: "outfit"
     });
@@ -380,7 +382,8 @@ export function registerOutfitRoutes(app) {
 
     const params = normalizeImageRequest({
       ...promptPayload,
-      prompt: buildOutfitPrompt(promptPayload),
+      // P1-8：模板挂载点（守门在 withPromptTemplate 内：非批量换装分支原样返回）。
+      prompt: withPromptTemplate(promptPayload, buildOutfitPrompt(promptPayload)),
       n: 1,
       source: "outfit"
     });

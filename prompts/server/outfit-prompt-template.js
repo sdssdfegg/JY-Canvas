@@ -63,6 +63,32 @@ const FIX_RULE_V2 = [
 ].join("\n");
 
 /**
+ * v3 固定规则层 = v2 + **部位化「保持不变」** + **掩膜区域约束**（P1-8，用户 2026-10-27 裁决）。
+ *
+ * 用户原始语义（必须包含，不可丢）：「换上衣就得描述图1的下装保持不变，换下装就是图1的上装
+ * 保持不变，鞋子不用说」。该口径与前端 `src/shared/outfit-intent.js:434 outfitKeepText` 完全一致，
+ * 由调用方 `buildOutfitStructureVars()` 复用同一函数生成 ⇒ 服务端不另写一份，杜绝口径漂移。
+ *
+ * 三个变量槽各占**独立一行**：有值则就地替换；无值则整行删除，不产生空句或多余标点。
+ * hash 只对**含占位符的规则文本**取（不含变量值）⇒ 变量随任务变，模板版本标识保持稳定。
+ */
+const FIX_RULE_V3 = [
+  "任务：将服装参考图 B 中的服装自然地穿到目标模特图 A 上。",
+  "参考职责：A 决定人物身份、脸部、身体比例、姿势、手臂和手部位置、头发、构图、背景及整体光线；B 只决定服装本身的款式、版型、颜色、图案、材质观感与结构细节。",
+  "{{replaceClause}}",
+  "{{keepClause}}",
+  "人体保护：保留 A 的人物身份和身体比例，不要复制 B 中模特的胸部体积、肩宽、腰围、腹部形态、手臂粗细或姿势。不得为了容纳衣服而无依据地改变 A 的身体轮廓。",
+  "版型保真：按 B 的真实版型还原服装。合身款不能生成成宽松款；宽松款保留设计余量，但不要额外制造不合理的空腔、鼓包或夸张膨胀。区分衣服自身的褶皱与人体体积，不要把阴影误当成人体结构。",
+  "细节保真：尽量保持领口、肩线、袖长、袖口、门襟、纽扣、口袋、下摆、Logo、印花和格纹的相对位置与比例。颜色以 B 的服装区域为参考，不要随意改色。",
+  "编辑范围：仅修改完成换装所必需的区域。脸部、头发、裸露皮肤、手部、背景及其他非目标区域尽可能保持 A 原样。",
+  "{{maskClause}}",
+  "输出要求：生成真实自然、结构合理、边缘干净的换装结果；不要增加不存在的服装部件，不要改变人物身份，不要改变背景，不要生成额外文字或水印。"
+].join("\n");
+
+/** v3 变量槽名（顺序 = 模板中出现顺序）。 */
+const V3_SLOTS = Object.freeze(["replaceClause", "keepClause", "maskClause"]);
+
+/**
  * 内容哈希：sha256 前 12 位十六进制。
  * 用途：`prompt_template_hash` 冻结——模板文本任一字符改动即换哈希，可回溯/比对。
  * @param {string} text 模板文本
@@ -79,15 +105,21 @@ function makeTemplate(id, text) {
 /** 模板注册表（版本标识 → 冻结模板）。 */
 export const PROMPT_TEMPLATES = Object.freeze({
   "prompt-template-v1": makeTemplate("prompt-template-v1", FIX_RULE_V1), // 实验基线，含未固化双分支句
-  "prompt-template-v2": makeTemplate("prompt-template-v2", FIX_RULE_V2) // E1 结论固化后版本
+  "prompt-template-v2": makeTemplate("prompt-template-v2", FIX_RULE_V2), // E1 结论固化后版本
+  "prompt-template-v3": makeTemplate("prompt-template-v3", FIX_RULE_V3) // P1-8：部位化保持不变 + 掩膜槽
 });
 
 /**
- * 默认挂载版本 = null（**不挂载**）。
- * 保证默认链路最终提示词与历史契约逐字一致（只发权威构建正文），P0 生命线零风险。
+ * 默认挂载版本（P1-8 起 = v3；2026-10-27 用户裁决「往结构化提示词方向靠」）。
+ *
+ * 🔴 生效范围被**收敛**到「带合法 outfitIntent 的批量换装分支」（`workflowMode === "outfit"`），
+ *    由调用方 `withPromptTemplate()` 守门：其它 workflow（快捷生成 / 批量生成 / **局部回贴** /
+ *    精修 / 改色 …）不带 outfitIntent ⇒ 直接返回原正文，行为**逐字不变**。
+ *
+ * 🔴 一键回滚：把本常量改回 `null` 即全线回到历史契约，无需改其它代码。
  * @type {string|null}
  */
-export const DEFAULT_PROMPT_TEMPLATE_VERSION = null;
+export const DEFAULT_PROMPT_TEMPLATE_VERSION = "prompt-template-v3";
 
 /**
  * 解析模板版本。未知/空一律返回 null（不挂载，回落历史契约）。
@@ -105,9 +137,45 @@ export function listPromptTemplateVersions() {
   return Object.keys(PROMPT_TEMPLATES);
 }
 
-/** 层 1：固定规则层内容 = 模板全文。 */
-export function buildFixRuleLayer(template) {
-  return template && typeof template.text === "string" ? template.text : "";
+/**
+ * 层 1：固定规则层内容 = 模板全文（v3 起按变量槽渲染）。
+ *
+ * 无槽模板（v1/v2）⇒ 原样返回全文，行为与 P1-7 完全一致。
+ * @param {{text:string}|null} template
+ * @param {{replaceClause?:string, keepClause?:string, maskClause?:string}} [vars]
+ * @returns {string}
+ */
+export function buildFixRuleLayer(template, vars = {}) {
+  if (!template || typeof template.text !== "string") return "";
+  return renderFixRule(template, vars);
+}
+
+/**
+ * 按变量槽渲染模板文本（纯函数）。
+ *
+ * 规则：槽位在模板里各占**独立一行** ——
+ *   - 有值 ⇒ 就地替换占位符；
+ *   - 无值 ⇒ **整行删除**（不留空行、不留悬空标点）。
+ * 兼容 CRLF（正则带 `\r?\n`）。
+ *
+ * @param {{text:string}|null} template
+ * @param {Record<string,string>} [vars]
+ * @returns {string}
+ */
+export function renderFixRule(template, vars = {}) {
+  const text = template && typeof template.text === "string" ? template.text : "";
+  if (!text) return "";
+  let out = text;
+  for (const slot of V3_SLOTS) {
+    const value = String((vars && vars[slot]) || "").trim();
+    if (value) {
+      out = out.replace(`{{${slot}}}`, value);
+      continue;
+    }
+    // 无值 ⇒ 删除占位符所在整行
+    out = out.replace(new RegExp(`^.*\\{\\{${slot}\\}\\}[^\\r\\n]*(?:\\r?\\n|$)`, "gm"), "");
+  }
+  return out.replace(/\n{3,}/g, "\n\n").replace(/\s+$/, "");
 }
 
 /**

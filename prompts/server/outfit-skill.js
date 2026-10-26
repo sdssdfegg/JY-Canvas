@@ -17,8 +17,19 @@
 //
 // 服务端仍然是权威：非法枚举在路由层直接 400（见 server/index.js），这里再归一化一次。
 
-import { compileOutfitPrompt, validateOutfitIntent } from "../../src/shared/outfit-intent.js";
+import {
+  compileOutfitPrompt,
+  validateOutfitIntent,
+  outfitKeepText,
+  OUTFIT_PART_OPTIONS
+} from "../../src/shared/outfit-intent.js";
 import { compileRetouchPrompt, validateRetouchIntent } from "../../src/shared/retouch-intent.js";
+import {
+  resolvePromptTemplate,
+  DEFAULT_PROMPT_TEMPLATE_VERSION,
+  renderFixRule,
+  assembleLayers
+} from "./outfit-prompt-template.js";
 
 // 蒙版换装（mask-inpaint）模式追加的硬约束：蒙版外区域由上游协议级保留，
 // 提示词再强调一次，双保险。仅当 payload.maskEdit === true 时拼接，其它 workflow 行为不变。
@@ -125,4 +136,74 @@ export function buildOutfitPrompt(payload) {
   const poseAnchorPrompt = String(payload?.poseAnchorPrompt || "").trim();
   const text = [base, poseAnchorPrompt].filter(Boolean).join("\n\n");
   return payload?.maskEdit ? [text, INPAINT_MASK_CONSTRAINT].filter(Boolean).join("\n\n") : text;
+}
+
+// ── 掩膜区域约束（P1-8）────────────────────────────────────────────────
+/**
+ * 掩膜模式 → 区域约束句。挂在 v3 固定规则层的 `{{maskClause}}` 槽。
+ *
+ * 默认 `none` = 沿用 P0-B E1 结论（ADR-002 暂定 B）：粗掩膜未见量化增量，
+ * 故保持「已验证的兜底流程」，不附加区域约束。**能力加进来、默认不开**：
+ * 调用方显式传 `maskMode=garment|body` 才切换，避免改变已稳定的出图行为。
+ */
+export const MASK_MODE_CLAUSE = Object.freeze({
+  none: "本任务采用已验证的兜底流程：不附加区域/掩膜约束，依靠 A+B 双图输入保持人物身份、姿势与非编辑区域一致。",
+  garment: "已提供服装区域掩膜：重绘只允许发生在掩膜覆盖的服装区域内；掩膜之外的人物身份、脸部、头发、裸露皮肤、手部、背景与未更换部位必须与图1完全一致。",
+  body: "已提供人体区域掩膜：该掩膜标识需要保护的人体区域，重绘不得侵入掩膜内的人体（脸部、头发、裸露皮肤、手臂、腿部）；服装替换只允许发生在人体掩膜之外的服装区域。"
+});
+
+export const MASK_MODES = Object.freeze(Object.keys(MASK_MODE_CLAUSE));
+
+/**
+ * 从请求体抽取 v3 模板变量槽（P1-8）。纯函数。
+ *
+ * 「保持不变」的口径**直接复用**前端唯一实现 `outfitKeepText()`（outfit-intent.js:434），
+ * 不在服务端另写一份 ⇒ 鞋子不写、选连衣裙时上下装都不写，两边永远一致。
+ *
+ * @param {object} [payload]
+ * @returns {{parts:string[], maskMode:string, replaceClause:string, keepClause:string, maskClause:string}}
+ */
+export function buildOutfitStructureVars(payload) {
+  const raw = payload && typeof payload.outfitIntent === "object" ? payload.outfitIntent : null;
+  const check = raw ? validateOutfitIntent(raw) : { ok: false };
+  const intent = check.ok ? check.intent : null;
+  const parts = Array.isArray(intent && intent.parts) ? intent.parts : [];
+  const labels = parts
+    .map((value) => (OUTFIT_PART_OPTIONS.find((item) => item.value === value) || {}).promptLabel)
+    .filter(Boolean);
+  const replaceClause = labels.length ? `本次只更换图1的${labels.join("和")}。` : "";
+  const keepClause = intent ? String(outfitKeepText(intent) || "").trim() : "";
+  const maskMode = Object.prototype.hasOwnProperty.call(MASK_MODE_CLAUSE, String(payload?.maskMode || ""))
+    ? String(payload.maskMode)
+    : "none";
+  return { parts, maskMode, replaceClause, keepClause, maskClause: MASK_MODE_CLAUSE[maskMode] };
+}
+
+/**
+ * 提示词模板挂载点（P1-8 真实链路入口）。
+ *
+ * 守门规则（只增不改）：**只有带合法 outfitIntent 的批量换装分支**才叠加固定规则层；
+ * 其它 workflow（快捷生成 / 批量生成 / 局部回贴 / 精修 / 改色 …）直接返回 `taskInstruction`
+ * ⇒ 与历史契约**逐字一致**，P0 生命线零风险。
+ *
+ * 去重：前端「通用换装提示词」框里往往已含编译结果（如"图1的下装保持不变。"），
+ * 若正文里已有完全相同的保持句，则省略模板里的那一句，避免同一约束发两遍。
+ *
+ * @param {object} payload 请求体（含 outfitIntent? / workflowMode? / maskMode? / prompt_template_version?）
+ * @param {string} taskInstruction 权威构建出的正文（buildOutfitPrompt 结果）
+ * @returns {string} 最终提示词
+ */
+export function withPromptTemplate(payload, taskInstruction) {
+  if (!usesOutfitIntent(payload)) return taskInstruction; // 守门：非批量换装分支零变化
+  const template = resolvePromptTemplate(
+    payload?.prompt_template_version || DEFAULT_PROMPT_TEMPLATE_VERSION
+  );
+  if (!template) return taskInstruction;
+  const vars = buildOutfitStructureVars(payload);
+  if (vars.keepClause && String(taskInstruction || "").includes(vars.keepClause)) {
+    vars.keepClause = ""; // 正文已有同句 ⇒ 省略，避免重复
+  }
+  const fixRule = renderFixRule(template, vars);
+  if (!fixRule) return taskInstruction;
+  return assembleLayers({ fixRule, taskInstruction });
 }

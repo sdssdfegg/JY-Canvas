@@ -32,6 +32,8 @@ import { resolveModelCapabilities } from "../channel-config.js";
 import { normalizeImageRequest, validateImageRouting } from "../channel.js";
 import {
   buildOutfitPrompt,
+  buildOutfitStructureVars,
+  usesOutfitIntent,
   resolvePromptTemplate,
   DEFAULT_PROMPT_TEMPLATE_VERSION,
   buildFixRuleLayer,
@@ -177,12 +179,14 @@ export function buildTryOnPrompt(task) {
   };
   // 单次任务指令层：始终由服务端权威构建，语义不变（只增不改）。
   const taskInstruction = buildOutfitPrompt(payload);
-  // 固定规则层：仅当显式挂载模板版本时才叠加；未挂载 ⇒ 空，装配自动跳过。
-  const template = resolvePromptTemplate(
-    task.prompt_template_version || DEFAULT_PROMPT_TEMPLATE_VERSION
-  );
+  // 固定规则层：仅当命中模板版本**且**是带合法 outfitIntent 的批量换装分支时才叠加
+  // （P1-8 守门，与 withPromptTemplate 同口径）；其余 ⇒ 空，装配自动跳过。
+  const template = usesOutfitIntent(payload)
+    ? resolvePromptTemplate(task.prompt_template_version || DEFAULT_PROMPT_TEMPLATE_VERSION)
+    : null;
+  const structure = buildOutfitStructureVars(payload);
   const layers = {
-    fixRule: buildFixRuleLayer(template),
+    fixRule: buildFixRuleLayer(template, structure),
     garmentProfile: buildGarmentProfileLayer(),
     modelConstraint: buildModelConstraintLayer(),
     taskInstruction
@@ -193,6 +197,7 @@ export function buildTryOnPrompt(task) {
     hash: shortHash(prompt),
     templateVersion: template ? template.version : null,
     templateHash: template ? template.hash : null,
+    structure, // P1-8：部位/掩膜变量槽快照，供日志与回归比对
     layers
   };
 }
