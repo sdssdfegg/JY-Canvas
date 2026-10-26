@@ -83,6 +83,13 @@ function isBananaModel(model) {
   return /^(banana|nano-banana)/i.test(String(model || ""));
 }
 
+// TokenGo 的 doubao-seedream 系列：上游原生要的是 `size`(宽高比串，如 "5:4") + `resolution`("2k"/"4k")，
+// 而不是像素尺寸串。本地若按其它模型那样发像素串（如 "2304x1843"），new-api 反推比例对不规整比例
+// 会失败（2:1 直接 503、9:21 静默 fallback 成 1:1）。故 seedream 单独走原生字段。
+function isSeedreamModel(model) {
+  return /^doubao-seedream/i.test(String(model || ""));
+}
+
 async function appendUploadFile(form, fieldName, file, fallbackName = "reference.png") {
   if (!file?.buffer && !file?.path) return;
   const type = file.mimetype || "application/octet-stream";
@@ -282,6 +289,12 @@ export function buildTextImageBody(params, format = "legacy") {
   };
   appendRoutingFields(body, params);
   appendCapabilityFields(body, params);
+  if (format === "seedream") {
+    // 上游原生：size=宽高比串、resolution=清晰度(小写)。与 TokenGo 文档 param_schema 对齐。
+    body.size = params.aspectRatio;
+    body.resolution = String(params.imageSize || "").toLowerCase();
+    return body;
+  }
   if (format === "size") {
     body.size = exactImageSizeText(params.aspectRatio, params.imageSize);
     return body;
@@ -301,7 +314,10 @@ export async function buildEditImageForm(params, files, format = "legacy") {
   form.set("model", params.model);
   form.set("prompt", params.prompt);
   form.set("n", String(params.n));
-  if (format === "size") {
+  if (format === "seedream") {
+    form.set("size", params.aspectRatio);
+    form.set("resolution", String(params.imageSize || "").toLowerCase());
+  } else if (format === "size") {
     form.set("size", exactImageSizeText(params.aspectRatio, params.imageSize));
   } else if (format === "pixel-image-size") {
     form.set("image_size", exactImageSizeText(params.aspectRatio, params.imageSize));
@@ -454,17 +470,19 @@ export function buildImageRequestVariants(params, files) {
     });
   };
 
-  const orderedFormats = isBananaModel(params.model)
-    ? [
-        { suffix: "", requestFormatSuffix: "", format: "legacy" },
-        { suffix: "-pixel", requestFormatSuffix: "-pixel", format: "pixel-image-size" },
-        { suffix: "-size", requestFormatSuffix: "-size", format: "size" }
-      ]
-    : [
-        { suffix: "-size", requestFormatSuffix: "-size", format: "size" },
-        { suffix: "-pixel", requestFormatSuffix: "-pixel", format: "pixel-image-size" },
-        { suffix: "", requestFormatSuffix: "", format: "legacy" }
-      ];
+  const orderedFormats = isSeedreamModel(params.model)
+    ? [{ suffix: "", requestFormatSuffix: "-seedream", format: "seedream" }]
+    : isBananaModel(params.model)
+      ? [
+          { suffix: "", requestFormatSuffix: "", format: "legacy" },
+          { suffix: "-pixel", requestFormatSuffix: "-pixel", format: "pixel-image-size" },
+          { suffix: "-size", requestFormatSuffix: "-size", format: "size" }
+        ]
+      : [
+          { suffix: "-size", requestFormatSuffix: "-size", format: "size" },
+          { suffix: "-pixel", requestFormatSuffix: "-pixel", format: "pixel-image-size" },
+          { suffix: "", requestFormatSuffix: "", format: "legacy" }
+        ];
 
   const forceCompatFormats = isBananaModel(params.model) && params.workflowMode === "random-background";
   const activeFormats = ENABLE_IMAGE_COMPAT_VARIANTS || forceCompatFormats ? orderedFormats : orderedFormats.slice(0, 1);

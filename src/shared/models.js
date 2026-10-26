@@ -54,6 +54,26 @@ export const DEFAULT_MODELS = [
     maxInputImages: 14,
     maxPromptLength: 20000,
     maxImageBytes: 16 * 1024 * 1024
+  },
+  {
+    value: "doubao-seedream-5-0",
+    label: "SD",
+    ratios: ["1:1", "4:3", "3:4", "16:9", "9:16", "2:3", "21:9", "5:4", "4:5"],
+    sizes: ["2K", "4K"],
+    quality: [],
+    maxInputImages: 14,
+    maxPromptLength: 20000,
+    maxImageBytes: 16 * 1024 * 1024
+  },
+  {
+    value: "doubao-seedream-5-0-pro",
+    label: "SD Pro",
+    ratios: ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "21:9", "auto"],
+    sizes: ["1K", "2K"],
+    quality: [],
+    maxInputImages: 14,
+    maxPromptLength: 20000,
+    maxImageBytes: 16 * 1024 * 1024
   }
 ];
 

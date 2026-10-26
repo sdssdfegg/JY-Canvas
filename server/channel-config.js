@@ -133,7 +133,11 @@ const ROUTING_CHANNELS = Object.freeze([
   { id: "silent-pro-line-01", label: "云枢", price: 0.14, model: "nano-banana-pro" },
   { id: "silent-pro-line-10", label: "Subdirect", price: 0.14, model: "nano-banana-pro" },
   { id: "silent-pro-line-12", label: "laoye", price: 0.14, model: "nano-banana-pro" },
-  { id: "silent-pro-line-09", label: "Origin", price: 0.16, model: "nano-banana-pro" }
+  { id: "silent-pro-line-09", label: "Origin", price: 0.16, model: "nano-banana-pro" },
+  // 2026-10-24：SD / SD Pro 各挂一条「名创AI」渠道（TokenGo 上游，154 new-api 渠道 28/29）。
+  // 价格 ¥0.11 / ¥0.15 与中转站 ModelPrice（上游成本 0.078 / 0.117 + 毛利）一致；4K 与 2K 同价，无加价。
+  { id: "mc-seedream-5-0", label: "名创AI", price: 0.11, model: "doubao-seedream-5-0" },
+  { id: "mc-seedream-5-0-pro", label: "名创AI", price: 0.15, model: "doubao-seedream-5-0-pro" }
 ]);
 
 export const ROUTING_MODELS = Object.freeze([
@@ -189,6 +193,32 @@ export const ROUTING_MODELS = Object.freeze([
     sizes: ["1K", "2K", "4K"],
     maxInputImages: 14,
     quality: ["auto", "low", "medium", "high"],
+    maxPromptLength: DEFAULT_MAX_PROMPT_LENGTH,
+    maxImageBytes: DEFAULT_MAX_IMAGE_BYTES
+  },
+  // 2026-10-24：新增 SD / SD Pro（TokenGo doubao-seedream-5.0 系列，名创AI 渠道，154 new-api 渠道 28/29）。
+  // 尺寸严格按上游实际支持：SD 仅 2K/4K（无 1K）；SD Pro 仅 1K/2K（无 4K）。
+  // 长宽比按上游 param_schema 枚举暴露，并剔除上游实测定有问题的比例：
+  //   SD 剔除 2:1 / 1:2（硬拒 HTTP 503）、9:21 / 3:2（静默返回 9:16 尺寸错图）；
+  //   SD Pro 9 个比例 + auto 全部实测通过（154 /tmp/ratio_seq.log）。
+  // maxInputImages=14（与已有文生图模型一致；上游参考图上限 10，服务端已兜底）。
+  {
+    value: "doubao-seedream-5-0",
+    label: "SD",
+    ratios: ["1:1", "4:3", "3:4", "16:9", "9:16", "2:3", "21:9", "5:4", "4:5"],
+    sizes: ["2K", "4K"],
+    maxInputImages: 14,
+    quality: [],
+    maxPromptLength: DEFAULT_MAX_PROMPT_LENGTH,
+    maxImageBytes: DEFAULT_MAX_IMAGE_BYTES
+  },
+  {
+    value: "doubao-seedream-5-0-pro",
+    label: "SD Pro",
+    ratios: ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "21:9", "auto"],
+    sizes: ["1K", "2K"],
+    maxInputImages: 14,
+    quality: [],
     maxPromptLength: DEFAULT_MAX_PROMPT_LENGTH,
     maxImageBytes: DEFAULT_MAX_IMAGE_BYTES
   }

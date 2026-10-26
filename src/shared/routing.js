@@ -22,7 +22,12 @@ export const LEGACY_MODEL_ALIASES = Object.freeze({
   "tt-image-2.5": "tt-image-2.5",
   "tt-image-2-5": "tt-image-2.5",
   "banana-2.1": "banana-2.1",
-  "nano-banana-2.1": "banana-2.1"
+  "nano-banana-2.1": "banana-2.1",
+  // 2026-10-24：名创AI 接入的豆包生图模型，canonical ID 即自身（TokenGo 上游模型名）。
+  // 不登记会被 canonicalModel 回退成 tt-image-2，导致 SD / SD Pro 在前端被识别成 TT2.0、
+  // 实际请求 model 也变成 tt-image-2（中转站误走到 TT2.0 渠道）。
+  "doubao-seedream-5-0": "doubao-seedream-5-0",
+  "doubao-seedream-5-0-pro": "doubao-seedream-5-0-pro"
 });
 
 // 已下线旧线路：前端目录、服务端目录、服务端校验三处都必须拒绝。
@@ -155,6 +160,28 @@ export const FALLBACK_MODEL_CAPABILITIES = Object.freeze({
     ratios: ["1:1", "2:3", "3:4", "4:3", "16:9", "9:16"],
     sizes: ["1K", "2K"],
     quality: ["auto", "low", "medium", "high"],
+    backgrounds: [],
+    versions: [],
+    customSize: false
+  }),
+  "doubao-seedream-5-0": Object.freeze({
+    maxInputImages: 14,
+    maxImageBytes: 16 * 1024 * 1024,
+    maxPromptLength: 20000,
+    ratios: ["1:1", "4:3", "3:4", "16:9", "9:16", "2:3", "21:9", "5:4", "4:5"],
+    sizes: ["2K", "4K"],
+    quality: [],
+    backgrounds: [],
+    versions: [],
+    customSize: false
+  }),
+  "doubao-seedream-5-0-pro": Object.freeze({
+    maxInputImages: 14,
+    maxImageBytes: 16 * 1024 * 1024,
+    maxPromptLength: 20000,
+    ratios: ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "21:9", "auto"],
+    sizes: ["1K", "2K"],
+    quality: [],
     backgrounds: [],
     versions: [],
     customSize: false
@@ -308,7 +335,14 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
   // 香蕉 2 / 香蕉 Pro 用白名单本身兜底，不在这里重复维护。
   "banana-2": MODEL_CHANNEL_ALLOWLIST["banana-2"],
   "nano-banana-pro": MODEL_CHANNEL_ALLOWLIST["nano-banana-pro"],
-  "banana-2.1": MODEL_CHANNEL_ALLOWLIST["banana-2.1"]
+  "banana-2.1": MODEL_CHANNEL_ALLOWLIST["banana-2.1"],
+  // 2026-10-24：SD / SD Pro 离线兜底渠道（与 ROUTING_CHANNELS 同源；目录加载后以目录为准）。
+  "doubao-seedream-5-0": Object.freeze([
+    { id: "mc-seedream-5-0", label: "名创AI", price: 0.11 }
+  ]),
+  "doubao-seedream-5-0-pro": Object.freeze([
+    { id: "mc-seedream-5-0-pro", label: "名创AI", price: 0.15 }
+  ])
 });
 
 /**
