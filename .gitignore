@@ -33,6 +33,15 @@ yarn-error.log*
 data/
 tmp/
 
+# ---- P0-B 模型能力实验产物（大体积二进制 + 用户素材，不入库）----
+# results/ = 实验出图与响应回执（169MB/121 文件，随每次跑批增长）；
+# samples/ = 用户投放的模特/服装原图与掩膜（44MB，属用户素材）。
+# 隐私口径：样本仅本地留存，不随仓库外发；二进制入库会不可逆膨胀仓库。
+# 保留在磁盘，靠样本登记表（eval/样本登记表.md）+ 用例（eval/p0-cases.json）
+# + 预算（eval/budget-state.json）三个文本档复现实验。
+docs/ai-tryon/eval/results/
+docs/ai-tryon/eval/samples/
+
 # ---- 真实密钥（绝不能进提交）----
 .env
 .env.*

@@ -1,0 +1,294 @@
+{
+  "cap": 50,
+  "used": 32,
+  "runs": [
+    {
+      "ts": "2026-10-26T14:05:22.806Z",
+      "caseId": "e0-smoke",
+      "exp": "E0",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": false,
+      "ms": 11192
+    },
+    {
+      "ts": "2026-10-26T14:06:30.880Z",
+      "caseId": "e0-smoke",
+      "exp": "E0",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": false,
+      "ms": 11043
+    },
+    {
+      "ts": "2026-10-26T14:07:50.590Z",
+      "caseId": "e0-smoke",
+      "exp": "E0",
+      "sample": "s01",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 50092
+    },
+    {
+      "ts": "2026-10-26T14:40:19.784Z",
+      "caseId": "e0-smoke",
+      "exp": "E0",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 103055
+    },
+    {
+      "ts": "2026-10-26T14:46:19.176Z",
+      "caseId": "e1-none-s01",
+      "exp": "E1",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 130809
+    },
+    {
+      "ts": "2026-10-26T14:48:12.649Z",
+      "caseId": "e1-garment-s01",
+      "exp": "E1",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 113453
+    },
+    {
+      "ts": "2026-10-26T14:50:02.147Z",
+      "caseId": "e1-body-s01",
+      "exp": "E1",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 109490
+    },
+    {
+      "ts": "2026-10-26T14:51:37.802Z",
+      "caseId": "e1-none-s02",
+      "exp": "E1",
+      "sample": "s02",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 95649
+    },
+    {
+      "ts": "2026-10-26T14:53:25.186Z",
+      "caseId": "e1-garment-s02",
+      "exp": "E1",
+      "sample": "s02",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 107376
+    },
+    {
+      "ts": "2026-10-26T14:55:46.400Z",
+      "caseId": "e1-body-s02",
+      "exp": "E1",
+      "sample": "s02",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 141208
+    },
+    {
+      "ts": "2026-10-26T14:57:35.752Z",
+      "caseId": "e1-none-s03",
+      "exp": "E1",
+      "sample": "s03",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 109346
+    },
+    {
+      "ts": "2026-10-26T14:59:00.465Z",
+      "caseId": "e1-garment-s03",
+      "exp": "E1",
+      "sample": "s03",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 84704
+    },
+    {
+      "ts": "2026-10-26T15:00:20.053Z",
+      "caseId": "e1-body-s03",
+      "exp": "E1",
+      "sample": "s03",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 79582
+    },
+    {
+      "ts": "2026-10-26T15:02:15.003Z",
+      "caseId": "e1-none-s04",
+      "exp": "E1",
+      "sample": "s04",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 114941
+    },
+    {
+      "ts": "2026-10-26T15:03:58.073Z",
+      "caseId": "e1-garment-s04",
+      "exp": "E1",
+      "sample": "s04",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 103061
+    },
+    {
+      "ts": "2026-10-26T15:05:58.896Z",
+      "caseId": "e1-body-s04",
+      "exp": "E1",
+      "sample": "s04",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 120814
+    },
+    {
+      "ts": "2026-10-26T15:25:45.550Z",
+      "caseId": "e2-tt25-s01-r1",
+      "exp": "E2",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 96746
+    },
+    {
+      "ts": "2026-10-26T15:27:19.041Z",
+      "caseId": "e2-tt25-s01-r2",
+      "exp": "E2",
+      "sample": "s01",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 93471
+    },
+    {
+      "ts": "2026-10-26T15:28:00.542Z",
+      "caseId": "e2-nano-s01-r1",
+      "exp": "E2",
+      "sample": "s01",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 41493
+    },
+    {
+      "ts": "2026-10-26T15:28:46.061Z",
+      "caseId": "e2-nano-s01-r2",
+      "exp": "E2",
+      "sample": "s01",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 45512
+    },
+    {
+      "ts": "2026-10-26T15:30:45.061Z",
+      "caseId": "e2-tt25-s02-r1",
+      "exp": "E2",
+      "sample": "s02",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 118992
+    },
+    {
+      "ts": "2026-10-26T15:33:21.974Z",
+      "caseId": "e2-tt25-s02-r2",
+      "exp": "E2",
+      "sample": "s02",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 156907
+    },
+    {
+      "ts": "2026-10-26T15:34:05.942Z",
+      "caseId": "e2-nano-s02-r1",
+      "exp": "E2",
+      "sample": "s02",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 43962
+    },
+    {
+      "ts": "2026-10-26T15:34:47.630Z",
+      "caseId": "e2-nano-s02-r2",
+      "exp": "E2",
+      "sample": "s02",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 41682
+    },
+    {
+      "ts": "2026-10-26T15:36:15.368Z",
+      "caseId": "e2-tt25-s03-r1",
+      "exp": "E2",
+      "sample": "s03",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 87730
+    },
+    {
+      "ts": "2026-10-26T15:38:02.103Z",
+      "caseId": "e2-tt25-s03-r2",
+      "exp": "E2",
+      "sample": "s03",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 106728
+    },
+    {
+      "ts": "2026-10-26T15:38:38.801Z",
+      "caseId": "e2-nano-s03-r1",
+      "exp": "E2",
+      "sample": "s03",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 36690
+    },
+    {
+      "ts": "2026-10-26T15:39:17.637Z",
+      "caseId": "e2-nano-s03-r2",
+      "exp": "E2",
+      "sample": "s03",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 38830
+    },
+    {
+      "ts": "2026-10-26T15:40:21.016Z",
+      "caseId": "e2-tt25-s04-r1",
+      "exp": "E2",
+      "sample": "s04",
+      "model": "tt-image-2.5",
+      "ok": false,
+      "ms": 63372
+    },
+    {
+      "ts": "2026-10-26T15:42:55.624Z",
+      "caseId": "e2-tt25-s04-r2",
+      "exp": "E2",
+      "sample": "s04",
+      "model": "tt-image-2.5",
+      "ok": true,
+      "ms": 154594
+    },
+    {
+      "ts": "2026-10-26T15:43:43.973Z",
+      "caseId": "e2-nano-s04-r1",
+      "exp": "E2",
+      "sample": "s04",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 48342
+    },
+    {
+      "ts": "2026-10-26T15:44:22.986Z",
+      "caseId": "e2-nano-s04-r2",
+      "exp": "E2",
+      "sample": "s04",
+      "model": "nano-banana-pro",
+      "ok": true,
+      "ms": 39006
+    }
+  ]
+}

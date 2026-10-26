@@ -8,13 +8,13 @@
 | # | 事实 | 证据位置 | 结论 |
 |---|---|---|---|
 | S1 | 模型真实 ID：GPT 系 `tt-image-2`/`tt-image-2.5`；香蕉系 `banana-2`/`banana-2.1`/`nano-banana-pro` | `src/shared/models.js:9-49` | 总纲「GPT 2.5」=`tt-image-2.5`，「香蕉 Pro」=`nano-banana-pro` |
-| S2 | **已有按模型能力声明**：maxInputImages / maxPromptLength / maxImageBytes / supportedSizes / supportedVersions / supportedBackgroundModes / supportsCustomSize；越界即拒（imageCount>maxInputImages） | `server/channel-config.js:62,145,155,168,180,190,234,277`；读取器 `server/channel.js:210-231`（`validateModelCapabilities`/`routingModelCapabilities`） | **能力矩阵的现成基座**——P1 起扩展此结构，不新建第二套 |
+| S2 | **已有按模型能力声明**：maxInputImages / maxPromptLength / maxImageBytes / supportedSizes / supportedVersions / supportedBackgroundModes / supportsCustomSize；越界即拒（imageCount>maxInputImages） | `server/channel-config.js:62,145,155,168,180,190,234,277`；读取器 `server/channel-config.js:250,274`（`validateModelCapabilities`/`routingModelCapabilities`） | **能力矩阵的现成基座**——P1 起扩展此结构，不新建第二套 |
 | S3 | A+B 多参考图：换装生成把 A 模特 + B 服装（+参考）按序 append 进同一 `image` 字段 | `src/features/outfit/handlers/outfit-batch-execution.js:365,380,385-390` | 多图传输已通，P0 验证的是**上游理解质量** |
 | S4 | 多图时上游自动走编辑端点：`hasImages ? "/images/edits" : "/images/generations"` | `server/channel.js:55` | 双图换装实际打在 `/images/edits` |
 | S5 | Mask 上传通道存在：multer `{ name: "mask", maxCount: 1 }`，maskFile 进渠道参数 | `server/routes/outfit.routes.js:137,395-396` | 通道具备 |
 | S6 | **标准换装流程把 mask 置空**：`if (!outpaintWorkflow && !payload.maskEdit) { maskFile = null; }` | `server/routes/outfit.routes.js:210-211` | 「人体保护掩膜」= **缺口，不是能力缺失**；P3 的主改点 |
-| S7 | 请求 payload 字段全清单：taskId/apiKey/model/channelId/dispatchMode/imageSize/aspectRatio/prompt/productNote/smartIntervention/outfitIntent/retouchIntent/workflowMode/pageName/uploadLabels/pairingMode/preprocessMode/deferAutoSave/maskEdit/localEdit | `outfit-batch-execution.js:327-358`；服务端读取见 `outfit.routes.js`（`payload.*`） | 实验脚本请求结构的依据 |
-| S8 | 路由字段生成规则：`{ model: canonical, channelId: channel?.id \|\| "", dispatchMode: "manual" }` | `src/shared/routing.js:370-375` | channelId 可空，服务端按模型解析默认线路 |
+| S7 | 请求 payload 字段全清单：taskId/apiKey/model/channelId/dispatchMode/imageSize/aspectRatio/prompt/productNote/smartIntervention/outfitIntent/retouchIntent/workflowMode/pageName/uploadLabels/pairingMode/preprocessMode/deferAutoSave/maskEdit/localEdit | `outfit-batch-execution.js:327-364`；服务端读取见 `outfit.routes.js`（`payload.*`） | 实验脚本请求结构的依据 |
+| S8 | 路由字段生成规则：`{ model: canonical, channelId: channel?.id \|\| "", dispatchMode: "manual" }` | `src/shared/routing.js:404-409` | channelId 可空，服务端按模型解析默认线路 |
 | S9 | 服务端默认端口 8787（未设 PORT 时 +0~+10 回退） | `server/core/runtime-config.js:73-76` | 实验脚本默认 BASE |
 | S10 | 生成日志：`generation.jsonl` 记录 endpoint/method/status/ok/model/尺寸/workflowMode/n/fileCount/uploadBytes/mask/contentLength/promptChars/url/channel/attempt/imageCount 等；另有任务日志 URL | `server/core/generation-logger.js:39,139-162` | P1 扩展字段（task_id/attempt/版本/成本）而非另建 |
 | S11 | 历史归档：history-store + `data/history-images/` | `server/core/history-store.js` | 档案 MVP 的落盘模式参照 |
@@ -32,24 +32,66 @@
 | Mask 通道 | ✅ 上传通道在（S5） | 标准换装不用（S6）；上游是否遵守 mask 未知 | P0 验证 → P3 接入 |
 | 模型能力声明 | ✅ 目录已存（S2） | 缺换装语义级声明（mask 支持/seed/局部编辑） | P0 补三态标注 |
 | 任务编排 | 🟡 客户端驱动 + 并发槽（S14） | 无状态机/幂等/预算/恢复 | P1 |
-| Prompt 体系 | 🟡 前端编译 + 服务端权威构建 | 无换装分层模板/版本冻结 | P1 |
+| Prompt 体系 | 🟡 服务端权威构建（前端仅透传 settings.prompt 原文） | 无换装分层模板/版本冻结 | P1 |
 | 服装档案 | ❌ 无 | 全新（本地文件+JSON 索引） | P2 |
 | 人体保护 | ❌ 无 | 掩膜生成/应用或语义编辑+原图恢复 | P3（路线看 P0 Mask 结论） |
 | 校色/后处理 | ❌ 无 | CIELAB/ΔE 受约束校色、边缘融合 | P4 |
 | 质量评估 | ❌ 无 | 失败标签/分级/人工反馈 | P4 |
 | 观测 | 🟡 generation.jsonl 字段已较全（S10） | 补 task/attempt/版本/成本字段 | P1 |
 
-## 三、实验记录索引（P0-B，跑完后回填）
+## 三、实验记录索引（P0-B）
 
 | 实验 | 状态 | 结果位置 | 结论 |
 |---|---|---|---|
-| E1 Mask 语义（生死题） | 待跑 | `eval/results/e1-*` | |
-| E2 双图忠实度 + A 组基线 | 待跑 | `eval/results/e2-*` | |
+| E0 冒烟 | ✅ **已通过**（2026-10-26） | `eval/results/e0-smoke/` | TT2.5 + Origin `silent-tt25-line-06` → http 200 / 103s；探针→服务端→上游→结果回收全链路打通 |
+| E1 Mask 语义（生死题） | ✅ **已跑 12/12**（2026-10-26，TT2.5+Origin） | `eval/results/e1-*` | **结论见下方 §三-A**：掩膜链路端到端接通；基础换装不传掩膜即能稳定保身份/保背景；粗掩膜无量化增量 → 精确掩膜有效性交 P2/P3（钉 seed）复验。已解锁 P1-7。 |
+| E2 双图忠实度 + A 组基线 | ✅ **已跑 15/16**（2026-10-26） | `eval/results/e2-*` | **结论见下方 §三-B**：香蕉 Pro 全 8/8 成功、均 ~41.9s；TT2.5 7/8（1 次瞬时 504 后重试成功）、均 ~113.1s。⚠️ 此为**耗时/稳定性**口径，**画质尚未逐维评分**。 |
 | E3 输入限制抽查（不烧额度） | **代码侧已完成** | 本表 S2/S16 | 我方链路上限：maxPromptLength 20000 字、maxImageBytes 16MB、multer 解析硬顶 16 张、maxInputImages = GPT2.5 8 / 香蕉系 14 / tt-image-2 14；**上游真实上限仍 UNKNOWN，待实测抽查** |
-| E4 尺寸/可复现性 | 待跑 | `eval/results/e4-*` | |
-| E5 B 组结构化 Prompt 初探 | 待跑 | `eval/results/e5-*` | |
+| E4 尺寸/可复现性 | ⏸ **待跑（7 例）** | `eval/results/e4-*` | ⚠️ 文档多处记 6 例，`p0-cases.json` 实测 **7 例**（3 比例 + 1 分辨率 + 3 重复）；受预算缺口阻塞 |
+| E5 B 组结构化 Prompt 初探 | ⏸ **待跑（12 例）** | `eval/results/e5-*` | 覆盖 s01–s03 × 两模型 × r1/r2，**缺 s04**（覆盖缺口，不阻塞）；受预算缺口阻塞 |
 | E6 视觉分析可用性（不烧生成额度） | 待跑（直播抽查） | `eval/results/e6-*` | ⚠️ 既有日志无捷径：generation.jsonl（1272 行）中 master-fit/quality 分析记录 **0 条**——分析输出不落标准日志，必须直播抽查 |
 | E7 成本/限流/稳定性（伴随记录） | 伴随 | 各结果目录 meta.json | |
+
+### 三-A E1 Mask 语义 实测结论（2026-10-26）
+
+**执行**：12 例全部 http 200（TT2.5 + Origin `silent-tt25-line-06`，用户裁定不用云枢）；预算 4→16/50。用例 = s01–s04 × 三模式（无掩膜 / 服装掩膜 `mask-garment.png` / 人体掩膜 `mask-body.png`）。
+
+**链路核查（结论一：掩膜接线通）**：
+- 探针 `p0-probe.mjs:322-324` 在 `c.mask` 存在时把掩膜文件作为多部件 `mask` 字段上传；
+- 服务端 `server/channel.js:339` / `:378` 在换装多部件路径 `appendUploadFile(form, "mask", params.maskFile, "mask.png")` 转发给上游 → **掩膜一路传到上游，不存在「发了但被丢弃」**。
+
+**视觉核查（结论二：基础换装无需掩膜即稳）**：
+- s01（瘦小的人 + 驼色夹克）三模式逐张比对：三种模式均成功换成参考外套、人物身份/体型/姿态保留、脸/手/发/白底背景无漂移、无穿模鼓包；
+- 无掩膜模式（`e1-none-s01`）本身即产出合格换装 → **模型靠 A+B 双图输入已能保身份/保非编辑区**，与是否附加粗掩膜无关；
+- 粗掩膜（躯干椭圆，覆盖面≈全身）未呈现出「较无掩膜更约束 / 更保护」的可量化差异 → 在当前低精度掩膜下，**掩膜对基础换装是「无增量」而非「有害」**。
+
+**方法论局限（必须如实记录）**：
+- 12 例**未钉 seed**（上游 `seedSupport` 当时 UNKNOWN，属 E4 范畴）→ 每次生成本就随机，单图无法隔离「掩膜效应 vs 随机差异」；
+- 粗掩膜为躯干椭圆，服装/人体两掩膜覆盖面高度重叠，灵敏度不足，本就不是解剖级测试；
+- 因此 E1 **不能**给出「精确掩膜在复杂遮挡场景是否有效」的定论——该定论归属 P2/P3（精确掩膜 + 钉 seed 复验）。
+
+**对 P1-7 的解锁裁定**：P1-7 阻塞点 = prompt 模板 §2「双分支句」二选一。依据本结论，**基础换装依赖双图身份保持、不依赖掩膜**，且精确人体保护掩膜属 P3（EVIDENCE S6/S33 既定归属）→ P1-7 双分支句固化到「**不提前承诺掩膜分支；基础换装走双图身份保持，精确人体保护掩膜留 P3 接入**」。E1 实测不构成「必须现在写掩膜分支」的证据，故解锁。
+
+**待办（不阻塞解锁）**：按 `人工评分规则.md` 对 12 张结果图的 6 维打分尚未逐张完成（已做 s01 三模式重点比对 + 全量 http 状态核验）；如需正式评分表，由复核人补 `score.md` 后回填本表汇总指标。
+
+### 三-B E2 双图忠实度 实测结论（2026-10-26）
+
+**执行**：16 例，**15 例 http 200**，1 例瞬时故障（`e2-tt25-s04-r1`，504 `channel_timeout`，其同参重试 r2 成功）。预算 16→32/50。全部走用户真实 A 组提示词（方案 (a) 真实基线，未改用收窄语义）。
+
+**渠道与耗时（仅统计成功例）**：
+
+| 模型 | 渠道 | 成功 | 耗时范围 | 平均 |
+|---|---|---|---|---|
+| `nano-banana-pro` | 云枢 `silent-pro-line-01` | **8/8** | 36.7–48.3s | **41.9s** |
+| `tt-image-2.5` | Origin `silent-tt25-line-06` | 7/8 | 87.7–156.9s | 116.5s |
+
+**结论一（稳定性口径）**：在你这套真实流程上，香蕉 Pro **快约 2.8 倍且零失败**；TT2.5 明显更慢且抖动（最慢 156.9s，逼近上游网关超时阈值，已实际出现 1 次 504）。
+
+**结论二（故障形态）**：唯一失败例 `e2-tt25-s04-r1` 为 504 `channel_timeout`、`attemptCount:1`、63.4s，同参 r2 于 154.6s 成功 ⇒ 判定为**上游瞬时超时**，**不计为模型能力缺陷**，但计入 TT2.5 的稳定性风险。
+
+**⚠️ 口径警示（必须保留）**：以上仅为**耗时/可用性**证据，**不代表画质优劣**。`人工评分规则.md` 的 6 维评分（服装保真 / 人体保护 / 非编辑区 / 边缘质量 / 身份保持 / 整体可用）**尚未逐张执行**，E2 的画质结论**未定**，不得据耗时数据直接切换生产模型。
+
+**待办**：① 对 28 张结果图（E1 12 + E2 16）逐张补 `score.md` 并回填本表汇总指标；② E5 用例集缺 s04（仅覆盖 s01–s03），如需全样本对比需补 4 例（受预算约束）。
 
 ## 四、已知风险与未决项
 
