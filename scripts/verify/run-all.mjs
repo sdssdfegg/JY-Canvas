@@ -225,6 +225,8 @@ const FAST_ORDER = [
   "state-singleton-check",
   "server-duplication-check",
   "app-paths-check",
+  // P1-3（2026-10-26）：generation.jsonl 扩展字段 + KEY 脱敏兜底，纯进程内断言 <1s，进提交钩子快速子集。
+  "generation-log-fields-check",
   "import-path-check",
   "docs-path-check",
   // V121（2026-10-19）：封装种子机制静态门禁，纯源码静态断言 <1s，进提交钩子快速子集（--fast 32→33）。

@@ -22,6 +22,41 @@ import { rootDir } from "./app-paths.js";
 import { ASSET_LOG_MAX_BYTES, GENERATION_LOG_MAX_BYTES, RUNTIME_LOG_MAX_BYTES } from "./runtime-config.js";
 import { compactLogMessage, localDateFolder, localDateTime, readableBytes, readableMs, sanitizeFilePart } from "./format-utils.js";
 
+/**
+ * @typedef {Object} GenerationLogEntry
+ * 写入 generation.jsonl 的日志条目。
+ * 既有字段（time/requestId/ok/stage/endpoint/model/attempt/detail/...）保留不动；
+ * P1-3 起额外接受 `contracts/log-fields.md` §2 的全部可选字段
+ * （task_id / attempt_id / idempotency_key / failure_tag / model_policy_version /
+ * input_asset_id(+hash,+version) / garment_profile_id(+version) /
+ * mask_asset_id(+version,+strategy) / prompt_template_version(+hash) /
+ * preprocess_version / postprocess_version / quality_policy_version /
+ * stage_timing_ms / retry_count / estimated_cost / actual_cost / budget_remaining /
+ * 质量与反馈字段）。
+ * 新字段全部可选、缺失按「未知」处理，不报错；
+ * 写入前统一经 `sanitizeLogEntry` 剥离任何 KEY 类字段（脱敏红线 §4）。
+ */
+
+// ── 脱敏红线（log-fields.md §4 + 封装框架①）──────────────────────────────────
+// API Key / token / authorization 一律不进日志。历史链路本就不记，这里做一道
+// 防御性兜底：任何写入前先剥离 KEY 类字段，即便某次调用方误传也能保证不落地。
+// 正则覆盖大小写与常见分隔写法（apiKey / api_key / token / authorization / secret / ...）。
+// 深度上限 3 层：日志 entry 嵌套不深（detail.payload 两层封顶），足够且防失控。
+const KEY_FIELD_PATTERN = /^(api[_-]?key|apikey|token|secret|authorization|auth[_-]?token|password|passwd|pwd|cookie|access[_-]?key|private[_-]?key|secret[_-]?key|bearer)$/i;
+
+export function sanitizeLogEntry(entry, depth = 0) {
+  if (depth > 3) return entry;
+  if (Array.isArray(entry)) return entry.map((item) => sanitizeLogEntry(item, depth + 1));
+  if (!entry || typeof entry !== "object") return entry;
+  const out = {};
+  for (const [key, value] of Object.entries(entry)) {
+    // 剥离 KEY 类字段（无论顶层还是 detail / detail.payload 嵌套）
+    if (typeof key === "string" && KEY_FIELD_PATTERN.test(key.trim())) continue;
+    out[key] = value && typeof value === "object" ? sanitizeLogEntry(value, depth + 1) : value;
+  }
+  return out;
+}
+
 // ── 任务文本日志「写失败」的可见化（V30）───────────────────────────────────
 // appendTaskTextLog 以前失败是完全静默的（`.catch(() => {})`），导致「单任务 txt 没生成」
 // 无法区分下面两种性质完全不同的情况：
@@ -42,7 +77,8 @@ export async function writeGenerationLog(entry) {
   const logFile = path.join(logDir, "generation.jsonl");
   await mkdir(logDir, { recursive: true });
   await rotateLogFileIfNeeded(logFile, GENERATION_LOG_MAX_BYTES);
-  await appendFile(logFile, `${JSON.stringify(entry)}\n`, "utf8");
+  const safeEntry = sanitizeLogEntry(entry);
+  await appendFile(logFile, `${JSON.stringify(safeEntry)}\n`, "utf8");
   // 单任务 txt 是「诊断用」的旁路产物：它写失败绝不能影响出图主流程，
   // 所以这里必须保留 .catch()，只是把以前吞掉的错误改成留一条可追溯的记录。
   await appendTaskTextLog(entry).catch((error) => {
@@ -208,6 +244,23 @@ export function taskLogLines(entry) {
     }
   }
 
+  // P1-3：log-fields.md §2 扩展字段（全部可选）。统一在此透出，避免逐字段 if 链。
+  // 只挑有值的展示；KEY 类字段已被 write* 写入前剥离，这里不会再出现敏感键。
+  const EXTENDED_LOG_FIELDS = [
+    "task_id", "attempt_id", "idempotency_key", "failure_tag",
+    "model_policy_version", "input_asset_id", "input_asset_hash", "input_asset_version",
+    "garment_profile_id", "garment_profile_version", "mask_asset_id", "mask_version", "mask_strategy",
+    "prompt_template_version", "prompt_template_hash",
+    "preprocess_version", "postprocess_version", "quality_policy_version",
+    "stage_timing_ms", "retry_count", "estimated_cost", "actual_cost", "budget_remaining"
+  ];
+  for (const key of EXTENDED_LOG_FIELDS) {
+    const value = entry[key];
+    if (value === undefined || value === null || value === "") continue;
+    const text = typeof value === "object" ? JSON.stringify(value) : String(value);
+    lines.push(`${key}：${compactLogMessage(text, 200)}`);
+  }
+
   const error = entry.error || entry.upstreamError || entry.message;
   if (error) lines.push(`错误/备注：${compactLogMessage(error, 360)}`);
   return lines;
@@ -237,7 +290,8 @@ export async function writeRuntimeFaultLog(entry) {
   const logFile = path.join(logDir, "runtime-errors.log");
   await mkdir(logDir, { recursive: true });
   await rotateLogFileIfNeeded(logFile, RUNTIME_LOG_MAX_BYTES);
-  await appendFile(logFile, `${JSON.stringify(entry)}\n`, "utf8");
+  const safeEntry = sanitizeLogEntry(entry);
+  await appendFile(logFile, `${JSON.stringify(safeEntry)}\n`, "utf8");
 }
 
 /** 把「单任务 txt 想写没写成」记进 runtime-errors.log（同类错误 60 秒内最多 1 条）。
@@ -273,7 +327,8 @@ export async function writeAssetLog(entry) {
   const logFile = path.join(logDir, "asset-errors.jsonl");
   await mkdir(logDir, { recursive: true });
   await rotateLogFileIfNeeded(logFile, ASSET_LOG_MAX_BYTES);
-  await appendFile(logFile, `${JSON.stringify(entry)}\n`, "utf8");
+  const safeEntry = sanitizeLogEntry(entry);
+  await appendFile(logFile, `${JSON.stringify(safeEntry)}\n`, "utf8");
 }
 
 export function processFaultMessage(error) {
