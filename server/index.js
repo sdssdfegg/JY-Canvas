@@ -3,6 +3,9 @@ import path from "node:path";
 import { rootDir } from "./core/app-paths.js";
 import { PORT } from "./core/runtime-config.js";
 import { attachFrontend, listenOnPort } from "./app.js";
+// P1-6：换装任务启动恢复（零依赖叶子，只依赖 app-paths + task-store/state-machine）。
+// 契约：runAiTryonStartupRecovery 永不抛出，恢复失败绝不能挡住服务启动。
+import { runAiTryonStartupRecovery } from "./ai-tryon/recovery.js";
 
 // 发布版（打包 exe / 以 release 模式构建）运行时必须命中 production 分支，
 // 否则 server/app.js 的 attachFrontend() 会拉起 vite dev server（启动进入慢）。
@@ -18,7 +21,9 @@ if (!process.env.NODE_ENV) {
   }
 }
 
-attachFrontend().then(() => {
+attachFrontend().then(async () => {
+  // 非终态换装任务收敛（绝不自动重新生图，只按既有证据落到终态）。
+  await runAiTryonStartupRecovery();
   listenOnPort(PORT);
 }).catch((error) => {
   console.error(error);

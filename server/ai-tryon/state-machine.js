@@ -177,3 +177,53 @@ export function checkBudgetBeforeCall(task, budget = BUDGET_DEFAULTS) {
 export function isRetryableError(category) {
   return RETRYABLE_ERROR_CATEGORIES.includes(category);
 }
+
+// ── 终态收敛路径规划（P1-6 复用：启动恢复 + 路由出口共用，避免两处各写一份边表）──
+// 场景：进程被中断时任务停在非终态（如 GENERATING），恢复/收尾需要「沿合法边」走到终态。
+// 状态机没有「非终态 → 终态」的直达边，必须逐段走（先到 EVALUATING 再到终态）。
+
+/** 各非终态 → EVALUATING 的合法事件路径。留位态不在表内 → 不做收敛。 */
+const PATH_TO_EVALUATING = Object.freeze({
+  [TASK_STATES.CREATED]: [
+    TASK_EVENTS.START_VALIDATION,
+    TASK_EVENTS.MARK_READY,
+    TASK_EVENTS.START_GENERATION,
+    TASK_EVENTS.EVALUATE
+  ],
+  [TASK_STATES.VALIDATING]: [
+    TASK_EVENTS.MARK_READY,
+    TASK_EVENTS.START_GENERATION,
+    TASK_EVENTS.EVALUATE
+  ],
+  [TASK_STATES.READY_TO_GENERATE]: [
+    TASK_EVENTS.START_GENERATION,
+    TASK_EVENTS.EVALUATE
+  ],
+  [TASK_STATES.GENERATING]: [TASK_EVENTS.EVALUATE],
+  [TASK_STATES.EVALUATING]: []
+});
+
+/** EVALUATING → 终态的事件。 */
+const TERMINAL_EVENT = Object.freeze({
+  [TASK_STATES.SUCCEEDED]: TASK_EVENTS.SUCCEED,
+  [TASK_STATES.FAILED]: TASK_EVENTS.FAIL,
+  [TASK_STATES.NEEDS_REVIEW]: TASK_EVENTS.MARK_NEEDS_REVIEW
+});
+
+/**
+ * 规划「从当前态沿合法边走到指定终态」的事件序列（纯函数，不写盘）。
+ * @param {string} fromStatus 当前非终态
+ * @param {string} targetTerminal SUCCEEDED / FAILED / NEEDS_REVIEW
+ * @returns {{ok:boolean, events:string[]|null, reason:string|null}}
+ */
+export function planPathToTerminal(fromStatus, targetTerminal) {
+  const path = PATH_TO_EVALUATING[fromStatus];
+  if (!path) {
+    return { ok: false, events: null, reason: `reserved-or-unknown-state:${fromStatus}` };
+  }
+  const finalEvent = TERMINAL_EVENT[targetTerminal];
+  if (!finalEvent) {
+    return { ok: false, events: null, reason: `invalid-terminal-target:${targetTerminal}` };
+  }
+  return { ok: true, events: [...path, finalEvent], reason: null };
+}

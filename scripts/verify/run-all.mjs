@@ -231,6 +231,8 @@ const FAST_ORDER = [
   "state-machine-check",
   // P1-5（2026-10-26）：统一执行入口编排验收（纯进程内、注入假 dispatch），进提交钩子快速子集。
   "tryon-execution-check",
+  // P1-6（2026-10-26）：启动恢复 + 路由内嵌写入验收（假存储注入，不碰用户数据）。
+  "tryon-recovery-check",
   "import-path-check",
   "docs-path-check",
   // V121（2026-10-19）：封装种子机制静态门禁，纯源码静态断言 <1s，进提交钩子快速子集（--fast 32→33）。
