@@ -56,3 +56,6 @@ export const referenceAssetDir = path.join(dataDir, "reference-assets");
 export const resultDir = path.join(dataDir, "results");
 export const uploadTempDir = path.join(rootDir, "tmp", "uploads");
 export const appSettingsFile = path.join(dataDir, "app-settings.json");
+// P1-1 换装任务存储目录（仅路径出口，无副作用；task-store.js 消费）。
+// 落点对齐 contracts/tryon-task.md §3：data/ai-tryon/tasks/<task_id>.json + index.json。
+export const aiTryonTasksDir = path.join(dataDir, "ai-tryon", "tasks");
