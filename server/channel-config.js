@@ -157,6 +157,15 @@ const ROUTING_CHANNELS = Object.freeze([
   { id: "mc-seedream-5-0-pro", label: "名创AI", price: 0.15, model: "doubao-seedream-5-0-pro" }
 ]);
 
+// 换装语义能力三态（P1-2）：SUPPORTED / UNSUPPORTED / UNKNOWN。
+// 未实测前一律 UNKNOWN；总纲 §6.1 规定生产策略不得把 UNKNOWN 当 SUPPORTED 进主路径。
+export const TRYON_CAPABILITY_STATES = Object.freeze(["SUPPORTED", "UNSUPPORTED", "UNKNOWN"]);
+
+// 三态归一：非法的或缺失的值一律退回 UNKNOWN，杜绝把未知当支持。
+export function normalizeTryonState(value) {
+  return TRYON_CAPABILITY_STATES.includes(value) ? value : "UNKNOWN";
+}
+
 export const ROUTING_MODELS = Object.freeze([
   {
     value: "tt-image-2",
@@ -281,9 +290,39 @@ export function routingModelCapabilities(model) {
     maxInputImages: item.maxInputImages,
     maxPromptLength: item.maxPromptLength,
     maxImageBytes: item.maxImageBytes,
+    // P1-2：换装语义三态，当前全部 UNKNOWN（等 P0-B 实测后由数据驱动改写）。
+    maskSupport: normalizeTryonState(item.maskSupport),
+    seedSupport: normalizeTryonState(item.seedSupport),
+    dualImageUnderstanding: normalizeTryonState(item.dualImageUnderstanding),
     routes: { manual: "ACTIVE" },
     defaultRoute: "manual",
     verified: true
+  };
+}
+
+// P1-2 统一能力出口：返回含换装语义三态的结构，供后续「统一图像编辑执行入口」(P1-5) 的换装域消费。
+// 与 routingModelCapabilities / validateModelCapabilities 共存：后两者保留作传输层校验，本函数只补全换装语义视图。
+// capVersion 预留给 P0-B 实测后由数据驱动的策略版本（模型选择按参考图类型/品类/质量模式路由）；
+// 当前仅 "v1" = 声明默认 UNKNOWN，策略版本加载待 P0-B 基线 + 用户批准后再启用（ADR-005）。
+export function resolveModelCapabilities(modelId, _channelId = "", _capVersion = "v1") {
+  const caps = routingModelCapabilities(modelId);
+  if (!caps) {
+    return {
+      modelId: String(modelId || ""),
+      available: false,
+      evidence: "unknown_model",
+      maskSupport: "UNKNOWN",
+      seedSupport: "UNKNOWN",
+      dualImageUnderstanding: "UNKNOWN"
+    };
+  }
+  return {
+    modelId: caps.modelId,
+    available: true,
+    evidence: "declared-default-unknown",
+    maskSupport: normalizeTryonState(caps.maskSupport),
+    seedSupport: normalizeTryonState(caps.seedSupport),
+    dualImageUnderstanding: normalizeTryonState(caps.dualImageUnderstanding)
   };
 }
 
