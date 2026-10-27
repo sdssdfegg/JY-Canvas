@@ -368,13 +368,13 @@ export async function buildEditImageForm(params, files, format = "legacy") {
   return form;
 }
 
-// 火山引擎(volc) 图生图 / 换装编辑：Seedream 不兼容 OpenAI `/images/edits`（实测 404），
-// 必须走 /images/generations + reference_images（裸 base64，去掉 data: 前缀）+ image_mode:"reference"。
-// 参考图来自 referenceDataUrls（data URL）；蒙版（局部重绘）同样作为一张参考图传入，与官方
-// 「原图 + mask 两张参考」用法一致。
-function stripDataUrlPrefix(dataUrl) {
-  return String(dataUrl || "").replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
-}
+// 火山方舟(volc) 图生图 / 换装编辑：Seedream 不兼容 OpenAI `/images/edits`（实测 404），
+// 必须走 /images/generations。官方文档（ark.volcengine.com 图片生成 API）：
+//   参考图字段是 **image**（string | string[]），支持 URL 或 Base64，
+//   且 Base64 **必须带前缀** `data:image/<格式>;base64,<编码>`（格式小写）。
+// ⚠️ 曾经误用 reference_images（裸 base64）+ image_mode + reference_strength ——
+//   那套是「豆包 LAS 算子」的参数，方舟不认，会被静默忽略：
+//   实测上传人物图 + "只换背景" → 输出是另一个完全不同的人（参考图未被使用）。
 
 // 图片链路用 imageForwardUpload = multer.diskStorage，上传件落在磁盘：file.buffer 缺省，
 // 只有 file.path。所以取字节必须异步按需读盘（与 core/uploads.js 的 ensureFileBuffer 同思路，
@@ -412,18 +412,18 @@ async function resolveVolcReferenceDataUrls(params, files) {
 
 function buildVolcEditBody(params, channel) {
   const model = channel?.upstreamModel || params.model;
-  const references = [];
+  // 官方要求：image 元素是 URL 或「带 data:image/<格式>;base64, 前缀」的完整 data URL。
+  const images = [];
   for (const url of Array.isArray(params.referenceDataUrls) ? params.referenceDataUrls : []) {
-    const bare = stripDataUrlPrefix(url);
-    if (bare) references.push({ type: "image", base64: bare });
+    if (typeof url === "string" && url) images.push(url);
   }
-  // 蒙版（局部重绘）作为第二张参考图，与官方「原图 + mask 两张参考」用法一致。
+  // 蒙版（局部重绘）追加为一张参考图（image 支持多张，flash 最多 10 张）。
   // maskBuffer 由调用方异步读盘后传入（落盘存储时 maskFile.buffer 缺省）。
   const maskBuf = Buffer.isBuffer(params.maskBuffer) && params.maskBuffer.length
     ? params.maskBuffer
     : (Buffer.isBuffer(params.maskFile?.buffer) ? params.maskFile.buffer : null);
   if (maskBuf && maskBuf.length) {
-    references.push({ type: "image", base64: maskBuf.toString("base64") });
+    images.push(`data:image/png;base64,${maskBuf.toString("base64")}`);
   }
   const body = {
     model,
@@ -434,11 +434,11 @@ function buildVolcEditBody(params, channel) {
     // 改 size 后精确命中（1536x2304→严格 2:3，1776x2368→严格 3:4）。
     size: exactImageSizeText(params.aspectRatio, params.imageSize),
     response_format: "url",
-    watermark: true,
-    reference_images: references,
-    reference_strength: 0.75,
-    image_mode: "reference"
+    watermark: true
   };
+  // 官方字段名是 image（string | string[]），不是 reference_images。
+  if (images.length === 1) body.image = images[0];
+  else if (images.length > 1) body.image = images;
   const neg = String(params.negativePrompt || "").trim();
   body.negative_prompt = neg || "畸形，扭曲，水印，低质量";
   if (params.dispatchMode) body.dispatchMode = params.dispatchMode;
@@ -558,7 +558,7 @@ export function buildImageRequestVariants(params, files) {
   }
 
   // 火山引擎(volc) 图生图 / 换装编辑：Seedream 不兼容 OpenAI `/images/edits`（实测 404），
-  // 改用 /images/generations + reference_images（裸 base64，去掉 data: 前缀）+ image_mode=reference。
+  // 改用 /images/generations + image（官方字段，元素为带 data: 前缀的 data URL，见 buildVolcEditBody）。
   // 触发条件：被编辑原图要么来自上传文件(files)，要么来自前端下发的 referenceDataUrls(data URL)——
   // 两种来源都算"有图要编辑"，避免某一来源缺失时回落到 404 的 /images/edits 分支。
   // 参考图优先取前端下发的 referenceDataUrls（data URL），缺失时回退用上传文件的内存 buffer 现转。
