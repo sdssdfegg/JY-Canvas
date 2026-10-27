@@ -651,8 +651,11 @@
   /* V138 三轮：与快捷生成画廊统一尺寸口径——轨道宽固定 = --asset-card-min，**不用 1fr 拉伸**。
      原来 minmax(min, 1fr) 会把卡片撑成 (容器宽 - 间距)/N：容器稍窄时 N 掉一档，每张反而被撑大，
      于是「批量比快捷大、一排 6 个 vs 7 个」。改固定轨道后两侧卡片宽度恒等（都用
-     GALLERY_CARD_MIN_BASE，见 src/shared/gallery-layout.js），以后改一处两边一致。 */
-  grid-template-columns: repeat(auto-fill, var(--asset-card-min, 176px));
+     GALLERY_CARD_MIN_BASE，见 src/shared/gallery-layout.js），以后改一处两边一致。
+     V138 四轮：auto-fill → auto-fit。auto-fill 会按容器宽贪心铺满所有轨道，余下无图的第 7 列
+     仍占 176px 空位 ⇒ 出现「第 7 个位置空着就转行」的空洞。auto-fit 把空轨道塌缩为 0 宽，
+     既消除空洞，又使「每排个数」计算与快捷画廊 flex-wrap 完全一致（同窗口/同缩放下同排同数）。 */
+  grid-template-columns: repeat(auto-fit, var(--asset-card-min, 176px));
   justify-content: start;
   gap: 12px;
   margin-top: 12px;
