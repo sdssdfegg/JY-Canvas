@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   FolderOpen,
@@ -269,6 +269,19 @@ export default function OutfitWorkflow({
 }) {
   const [config, setConfig] = useState({ models: DEFAULT_MODELS });
   const [activeView, setActiveView] = useState("outfit");
+  // V138 五轮补充（用户实测确认移除 WorkbenchSidebar）：嵌入态下侧栏已隐藏（见 outfit-workflow.css
+  //   .outfitWorkflowEmbedded.embedded .sidebar{display:none}），其 6 个子视图按钮改由主应用全局侧栏接管。
+  // 但主应用侧栏只控制顶层 activeView，仅 "outfit"/"resize" 会挂载本组件并传入 view prop；
+  // 本组件内部 activeView 是独立 state（默认值 "outfit"），若不随 view prop 同步，则点主应用「批量改尺寸」
+  // 不会切到换装内「批量尺寸导出」子视图（pre-existing 潜在断点，隐藏侧栏后成为唯一入口故暴露）。
+  // 同步后主应用侧栏 6 项与换装原 6 子视图一一对应，隐藏侧栏零功能损失。
+  // 用 ref 读取最新 activeView 以避免把 activeView 列入依赖导致的「互相改写」循环；
+  // 非嵌入态 view 恒为 "outfit" 不变 ⇒ effect 仅首跑且为 no-op，不干扰 WorkbenchSidebar 的独立切换。
+  const activeViewRef = useRef(activeView);
+  activeViewRef.current = activeView;
+  useEffect(() => {
+    if (view && view !== activeViewRef.current) setActiveView(view);
+  }, [view, setActiveView]);
   const [outfitPages, setOutfitPages] = useState(readOutfitPages);
   const initialOutfitPage = pickInitialOutfitPage(outfitPages);
   const [activeOutfitPageId, setActiveOutfitPageId] = useState(() => initialOutfitPage.id || "");

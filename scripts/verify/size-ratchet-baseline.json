@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-27",
-  "reason": "V138 三轮（用户实测改版）：批量结果网格改固定轨道（对齐快捷生成尺寸口径，不再 1fr 拉伸）、参考图加悬浮标注编辑按钮（main-canvas-board + main-handlers 新增 openQuickReferenceAnnotationEdit / applyReferenceAnnotationFile）、文生图态提示词框避让右上角 4 按钮",
+  "reason": "V138 五轮补充：嵌入态隐藏 WorkbenchSidebar 后，OutfitWorkflow 内新增 useEffect 同步 view→activeView，主应用全局侧栏才能完整接管 6 个子视图（功能保命，必要增量 +13 行）",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -96,7 +96,7 @@
     "src/local-edit-mask.js": 1,
     "src/main.jsx": 1547,
     "src/models.js": 1,
-    "src/outfit-workflow.jsx": 1594,
+    "src/outfit-workflow.jsx": 1607,
     "src/shared/annotation-geometry.js": 192,
     "src/shared/app-defaults.js": 148,
     "src/shared/canvas-blob.js": 27,
@@ -235,7 +235,7 @@
     "src/image-editor.jsx::ImageEditorPanel": 827,
     "src/image-editor.jsx::ImageEditorSlot": 54,
     "src/main.jsx::App": 1250,
-    "src/outfit-workflow.jsx::OutfitWorkflow": 1330,
+    "src/outfit-workflow.jsx::OutfitWorkflow": 1343,
     "src/shared/annotation-geometry.js::drawAnnotationOnContext": 63,
     "src/shared/DebouncedTextarea.jsx::DebouncedTextarea": 84,
     "src/shared/generation-errors.js::classifyGenerationError": 52,
