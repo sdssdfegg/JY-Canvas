@@ -232,6 +232,14 @@ export function useMainHandlers(ctx) {
     setQuickAnnotationTarget(item);
   }
 
+  // V4.0 标注式 AI 编辑入口（composer 里的**已上传参考图**）。
+  // 与结果图共用同一个 quickAnnotationTarget + 同一个弹窗，只多带一个 annotationKind 标记，
+  // 提交时据此走「替换该张参考图」而不是「原位覆盖结果」。
+  function openQuickReferenceAnnotationEdit(item) {
+    if (!item?.id || !item?.url) return;
+    setQuickAnnotationTarget({ ...item, annotationKind: "reference" });
+  }
+
   // V4.0 标注式 AI 编辑提交：复用现有 generate 流程。
   // 处理原则（验收 §九 / §八）：
   //  - 原图像素绝不修改——仅用标注生成一张「标注参考图」作为一次性参考输入；
@@ -243,7 +251,8 @@ export function useMainHandlers(ctx) {
     try {
       const { fetchLocalBlob } = await import("../../api/assets.js");
       const { imageSourceFromResult: srcOf } = await import("../../shared/models.js");
-      const src = srcOf(item.image);
+      // 参考图走 item.url（预览 objectURL，即当前生效的那张），结果图走 image 解析。
+      const src = item.annotationKind === "reference" ? item.url : srcOf(item.image);
       if (!src) throw new Error("无法定位原图地址");
       const originalBlob = await fetchLocalBlob(src);
       const annotatedBlob = await annotationsToImageBlob(originalBlob, annotations, "image/png");
@@ -253,6 +262,10 @@ export function useMainHandlers(ctx) {
         { type: "image/png", lastModified: Date.now() }
       );
       setQuickAnnotationTarget(null);
+      if (item.annotationKind === "reference") {
+        applyReferenceAnnotationFile(item.id, file, instruction);
+        return;
+      }
       lateRef.current.generate({
         prompt: instruction && instruction.trim()
           ? instruction.trim()
@@ -267,6 +280,23 @@ export function useMainHandlers(ctx) {
       addEvent("标注编辑失败", message);
       setError(message);
     }
+  }
+
+  // 参考图标注提交：**原位替换**该张参考图（与既有「普通裁剪 / 局部回贴」对参考图的处理一致），
+  // 顺序与图号不变；原文件仍留在 originalFile，原图像素不修改。
+  // 指令不覆盖已有提示词：空则直接写入，非空则追加，绝不丢用户已输入的文字。
+  function applyReferenceAnnotationFile(itemId, file, instruction) {
+    setFiles((current) => current.map((entry) => (
+      entry.id !== itemId
+        ? entry
+        : { ...entry, file, originalFile: entry.originalFile || entry.file, cropEdit: null, localEdit: null, annotationEdit: { appliedAt: Date.now() } }
+    )));
+    const text = (instruction || "").trim();
+    if (text) {
+      const current = String(settings.prompt || "").trim();
+      updateSetting("prompt", current ? `${current}；${text}` : text);
+    }
+    addEvent("标注编辑", text ? "已用标注图替换该张参考图，编辑指令已并入提示词" : "已用标注图替换该张参考图");
   }
 
   function clearQuickCropEdit(itemId) {
@@ -556,6 +586,7 @@ export function useMainHandlers(ctx) {
     applyQuickCropEdit,
     applyQuickLocalEdit,
     openQuickAnnotationEdit,
+    openQuickReferenceAnnotationEdit,
     applyQuickAnnotationEdit,
     clearQuickCropEdit,
     clearQuickLocalEdit,

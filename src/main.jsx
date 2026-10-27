@@ -411,6 +411,7 @@ function App() {
     openContextMenu,
     openReferenceContextMenu,
     openQuickAnnotationEdit,
+    openQuickReferenceAnnotationEdit,
     applyQuickAnnotationEdit,
     rerunResult,
     markDeferredFeature
@@ -1110,6 +1111,7 @@ function App() {
             openQuickCropEdit={openQuickCropEdit}
             openQuickLocalEdit={openQuickLocalEdit}
             openQuickAnnotationEdit={openQuickAnnotationEdit}
+            openQuickReferenceAnnotationEdit={openQuickReferenceAnnotationEdit}
             settings={settings}
             updateSetting={updateSetting}
             isQuickChannelMenuOpen={isQuickChannelMenuOpen}
@@ -1282,6 +1284,7 @@ function App() {
         <AnnotationEditModal
           key={quickAnnotationTarget.id}
           item={quickAnnotationTarget}
+          imageSrc={quickAnnotationTarget.url || ""}
           onClose={() => setQuickAnnotationTarget(null)}
           onApply={applyQuickAnnotationEdit}
           initialAnnotations={annotationDraftsRef.current.get(quickAnnotationTarget.id) || null}

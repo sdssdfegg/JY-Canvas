@@ -648,7 +648,12 @@
 
 .outfitWorkflowEmbedded .taskGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--asset-card-min, 176px), 1fr));
+  /* V138 三轮：与快捷生成画廊统一尺寸口径——轨道宽固定 = --asset-card-min，**不用 1fr 拉伸**。
+     原来 minmax(min, 1fr) 会把卡片撑成 (容器宽 - 间距)/N：容器稍窄时 N 掉一档，每张反而被撑大，
+     于是「批量比快捷大、一排 6 个 vs 7 个」。改固定轨道后两侧卡片宽度恒等（都用
+     GALLERY_CARD_MIN_BASE，见 src/shared/gallery-layout.js），以后改一处两边一致。 */
+  grid-template-columns: repeat(auto-fill, var(--asset-card-min, 176px));
+  justify-content: start;
   gap: 12px;
   margin-top: 12px;
   /* 2026-09-26（按用户反馈）：结果网格原来自己带 max-height + overflow:auto，

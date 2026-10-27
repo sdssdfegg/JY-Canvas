@@ -904,6 +904,40 @@ textarea:focus {
   cursor: pointer;
 }
 
+/* V138 三轮：参考图悬浮「标注编辑」按钮。悬停 / 键盘聚焦浮现，移出即隐藏（纯 CSS，不触发重渲染）。
+   只加编辑、不加删除——右上角 X 已经是删除。选择器用 .referenceThumb .referenceHoverEdit
+   （0,2,0）压过上面 .referenceThumb button（0,1,1）的定位，否则会被 X 的右上角定位覆盖。 */
+.referenceThumb .referenceHoverEdit {
+  position: absolute;
+  top: auto;
+  right: 5px;
+  bottom: 5px;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 999px;
+  color: var(--accent);
+  background: rgba(0, 0, 0, 0.62);
+  border: 1px solid var(--soft-border);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease, background 0.14s ease;
+}
+
+.referenceThumb:hover .referenceHoverEdit,
+.referenceThumb:focus-within .referenceHoverEdit {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.referenceThumb .referenceHoverEdit:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
 .referenceThumb .thumbLocalMaskOverlay {
   position: absolute;
   inset: 0;
@@ -1168,6 +1202,14 @@ textarea:focus {
 
 .promptBox:focus {
   box-shadow: none;
+}
+
+/* V138 三轮：文生图（composer 里**没有**参考图）时，右上角 4 个功能按钮（.quickToolCluster
+   是 absolute top:12px right:12px，高 30px ⇒ 占 12~42px）会压住提示词输入框前两行。
+   只在无参考图时给输入框顶部让出 36px，文字从第 ~50px 起排，彻底避开按钮；
+   有参考图时参考图行已在顶部占位，不需要让位（保持原样，不动上传态排版）。 */
+.composer.textOnly .promptBox {
+  padding-top: 36px;
 }
 
 .composerFooter {

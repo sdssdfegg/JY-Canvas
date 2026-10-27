@@ -14,7 +14,8 @@ import {
   Scissors,
   BookOpen,
   Wand2,
-  Play
+  Play,
+  Pencil
 } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
 import DebouncedTextarea from "../../../shared/DebouncedTextarea.jsx";
@@ -71,6 +72,7 @@ export function MainCanvasBoard({
   openQuickCropEdit,
   openQuickLocalEdit,
   openQuickAnnotationEdit,
+  openQuickReferenceAnnotationEdit,
   settings,
   updateSetting,
   isQuickChannelMenuOpen,
@@ -117,7 +119,8 @@ export function MainCanvasBoard({
     openReferenceContextMenu,
     beginReferenceImageDrag,
     copyText,
-    openQuickAnnotationEdit
+    openQuickAnnotationEdit,
+    openQuickReferenceAnnotationEdit
   };
   const cardHandlers = useMemo(() => {
     const ref = cardHandlersRef;
@@ -137,7 +140,8 @@ export function MainCanvasBoard({
       openReferenceContextMenu: (...args) => ref.current.openReferenceContextMenu(...args),
       beginReferenceImageDrag: (...args) => ref.current.beginReferenceImageDrag(...args),
       copyText: (...args) => ref.current.copyText(...args),
-      openQuickAnnotationEdit: (...args) => ref.current.openQuickAnnotationEdit(...args)
+      openQuickAnnotationEdit: (...args) => ref.current.openQuickAnnotationEdit(...args),
+      openQuickReferenceAnnotationEdit: (...args) => ref.current.openQuickReferenceAnnotationEdit(...args)
     };
   }, []);
 
@@ -187,7 +191,7 @@ export function MainCanvasBoard({
       )}
 
       <section
-        className={`composer ${isComposerDragging ? "dragging" : ""}`}
+        className={`composer ${isComposerDragging ? "dragging" : ""} ${previewFiles.length === 0 ? "textOnly" : ""}`}
         onDragOver={onComposerDragOver}
         onDragLeave={onComposerDragLeave}
         onDrop={onComposerDrop}
@@ -228,6 +232,18 @@ export function MainCanvasBoard({
                 >
                   <b>图{index + 1}</b>
                   <img src={item.url} alt={item.file.name} draggable={false} />
+                  {/* V138 三轮：参考图悬浮「标注编辑」。纯 CSS 悬停/聚焦浮现，
+                      不新增删除按钮（右上角 X 已是删除）。 */}
+                  <button
+                    type="button"
+                    className="referenceHoverEdit"
+                    onClick={(event) => { event.stopPropagation(); openQuickReferenceAnnotationEdit(item); }}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    title="标注编辑"
+                    aria-label="标注编辑"
+                  >
+                    <Pencil size={16} />
+                  </button>
                   <button
                     type="button"
                     onClick={(event) => { event.stopPropagation(); removeReferenceImage(index); }}
