@@ -173,10 +173,17 @@
   display: none;
 }
 .outfitWorkflowEmbedded.embedded .workspace {
+  /* V138 五轮（续）：关掉 workspace 自身滚动。基规则是 overflow:auto，
+     会自己出一条滚动条吃掉 ~15px 宽，导致批量结果网格比快捷画廊稳定少一列
+     （快捷 canvasBoard 是 overflow:hidden，滚动在 galleryStrip 且带 scrollbar-gutter:stable）。
+     这里对齐：workspace 不再滚动，滚动交给内部 outfitScrollArea。 */
   padding: 14px 16px;
+  overflow: hidden;
 }
 .outfitWorkflowEmbedded.embedded .outfitScrollArea {
   padding-right: 8px;
+  /* 与快捷 galleryStrip 对齐：提前预留滚动条位，避免内容溢出时滚动条吃掉 15px 致少一列。 */
+  scrollbar-gutter: stable;
 }
 
 .outfitWorkflowEmbedded .viewPanel {
