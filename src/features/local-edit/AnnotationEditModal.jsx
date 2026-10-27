@@ -46,7 +46,9 @@ const TOOLS = [
   { id: "brush", label: "画笔", icon: Pencil }
 ];
 
-function AnnotationShape({ ann }) {
+// aspect = 原图宽高比（w/h）。SVG 用 viewBox="0 0 1 1" + preserveAspectRatio="none"，
+// x/y 缩放系数不同 ⇒ 直接在归一化空间算箭头头部会被拉歪；先按 aspect 把 x 拉到等比空间算，再映射回来。
+function AnnotationShape({ ann, aspect = 1 }) {
   const color = ann.color || ANNOTATION_COLORS[0];
   const common = {
     stroke: color,
@@ -57,26 +59,35 @@ function AnnotationShape({ ann }) {
     strokeLinecap: "round"
   };
   if (ann.type === "rect") {
-    return <rect x={ann.x} y={ann.y} width={ann.w} height={ann.h} {...common} />;
+    // 允许反向拖拽：渲染时归一化成正尺寸（SVG rect 负宽高不渲染）。
+    const box = normalizeRect(ann.x, ann.y, ann.x + ann.w, ann.y + ann.h);
+    return <rect x={box.x} y={box.y} width={box.w} height={box.h} {...common} />;
   }
   if (ann.type === "circle") {
+    const rx = Math.abs(ann.w) / 2;
+    const ry = Math.abs(ann.h) / 2;
     return (
       <ellipse
         cx={ann.x + ann.w / 2}
         cy={ann.y + ann.h / 2}
-        rx={ann.w / 2}
-        ry={ann.h / 2}
+        rx={rx}
+        ry={ry}
         {...common}
       />
     );
   }
   if (ann.type === "arrow") {
+    // 方向 = 起点 → 终点，w/h 必须保留符号（不能归一化，否则反向拖拽方向被翻转）。
     const ax = ann.x;
     const ay = ann.y;
     const bx = ann.x + ann.w;
     const by = ann.y + ann.h;
-    const hl = arrowHeadLength(ax, ay, bx, by, 0.012, 0.06, 0.22);
-    const [h1, h2] = arrowHeadPoints(ax, ay, bx, by, hl);
+    const ahx = ax * aspect;
+    const bhx = bx * aspect;
+    const hl = arrowHeadLength(ahx, ay, bhx, by, 0.012, 0.06, 0.22);
+    const [p1, p2] = arrowHeadPoints(ahx, ay, bhx, by, hl);
+    const h1 = { x: p1.x / aspect, y: p1.y };
+    const h2 = { x: p2.x / aspect, y: p2.y };
     return (
       <g>
         <line x1={ax} y1={ay} x2={bx} y2={by} {...common} />
@@ -99,12 +110,14 @@ function AnnotationShape({ ann }) {
   return null;
 }
 
-export function AnnotationEditModal({ item, onClose, onApply, initialAnnotations = null, onAnnotationsChange }) {
-  const src = imageSourceFromResult(item?.image);
+export function AnnotationEditModal({ item, onClose, onApply, initialAnnotations = null, onAnnotationsChange, imageSrc = "" }) {
+  const ownSrc = imageSourceFromResult(item?.image);
+  const src = imageSrc || ownSrc;
   const svgRef = useRef(null);
   const drawingRef = useRef(false);
 
   const [instruction, setInstruction] = useState("");
+  const [imageAspect, setImageAspect] = useState(1);
   const [annotations, setAnnotations] = useState([]);
   const [history, setHistory] = useState([]);
   const [future, setFuture] = useState([]);
@@ -202,9 +215,10 @@ export function AnnotationEditModal({ item, onClose, onApply, initialAnnotations
       } else {
         const tiny = Math.abs(current.w) < 0.005 && Math.abs(current.h) < 0.005;
         if (!tiny) {
-          // 反向拖拽会产生负宽高（SVG rect/ellipse 负半径不渲染）⇒ 提交时归一化为正矩形。
-          const box = normalizeRect(current.x, current.y, current.x + current.w, current.y + current.h);
-          commit({ ...current, ...box });
+          // 箭头必须保留 w/h 符号（方向 = 起点→终点）；只有矩形/圆需要归一化成正尺寸。
+          commit(current.type === "arrow"
+            ? current
+            : { ...current, ...normalizeRect(current.x, current.y, current.x + current.w, current.y + current.h) });
         }
       }
       return null;
@@ -249,7 +263,17 @@ export function AnnotationEditModal({ item, onClose, onApply, initialAnnotations
           <div className="annotationStage">
             <div className="annotationImageBox">
               {src ? (
-                <img className="annotationStageImage" src={src} alt="" draggable={false} />
+                <img
+                  className="annotationStageImage"
+                  src={src}
+                  alt=""
+                  draggable={false}
+                  onLoad={(event) => {
+                    const w = event.target.naturalWidth;
+                    const h = event.target.naturalHeight;
+                    if (w > 0 && h > 0) setImageAspect(w / h);
+                  }}
+                />
               ) : (
                 <div className="annotationStageEmpty">原图不可用</div>
               )}
@@ -265,9 +289,9 @@ export function AnnotationEditModal({ item, onClose, onApply, initialAnnotations
                 onContextMenu={(e) => e.preventDefault()}
               >
                 {annotations.map((ann, index) => (
-                  <AnnotationShape key={index} ann={ann} />
+                  <AnnotationShape key={index} ann={ann} aspect={imageAspect} />
                 ))}
-                {draftAnn && <AnnotationShape ann={draftAnn} />}
+                {draftAnn && <AnnotationShape ann={draftAnn} aspect={imageAspect} />}
               </svg>
             </div>
           </div>

@@ -782,6 +782,7 @@
 
 .outfitWorkflowEmbedded .assetDownloadButton,
 .outfitWorkflowEmbedded .assetRerunButton,
+.outfitWorkflowEmbedded .assetEditButton,
 .outfitWorkflowEmbedded .assetDeleteButton {
   position: absolute;
   right: 9px;
@@ -808,13 +809,23 @@
   color: var(--accent);
 }
 
+/* V138：标注编辑并入常驻按钮栈第 3 位，删除让位下移到第 4 位（与快捷生成一致）。 */
+.outfitWorkflowEmbedded .assetEditButton {
+  top: 71px;
+}
+
 .outfitWorkflowEmbedded .assetDeleteButton {
   top: 71px;
   color: var(--danger);
 }
 
+.outfitWorkflowEmbedded .assetCard.withAnnotationEdit .assetDeleteButton {
+  top: 102px;
+}
+
 .outfitWorkflowEmbedded .assetDownloadButton:hover,
 .outfitWorkflowEmbedded .assetRerunButton:hover,
+.outfitWorkflowEmbedded .assetEditButton:hover,
 .outfitWorkflowEmbedded .assetDeleteButton:hover {
   transform: translateY(-1px);
   background: rgba(0, 0, 0, 0.58);

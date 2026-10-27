@@ -347,9 +347,11 @@ textarea:focus {
   scrollbar-color: var(--soft-border) transparent;
 }
 
+/* V138：兜底值与批量生成对齐（两者真相源同为 shared/gallery-layout.js 的 GALLERY_CARD_MIN_BASE=176）。
+   正常路径由 inline style 注入 --asset-card-min，这里只是未注入时的兜底。 */
 .galleryStrip > .assetCard {
-  flex: 0 0 min(var(--asset-card-min, 170px), 100%);
-  width: min(var(--asset-card-min, 170px), 100%);
+  flex: 0 0 min(var(--asset-card-min, 176px), 100%);
+  width: min(var(--asset-card-min, 176px), 100%);
   max-width: 100%;
 }
 
@@ -452,6 +454,7 @@ textarea:focus {
 
 .assetDownloadButton,
 .assetRerunButton,
+.assetEditButton,
 .assetDeleteButton {
   position: absolute;
   right: 9px;
@@ -484,6 +487,7 @@ textarea:focus {
 
 .assetDownloadButton:hover,
 .assetRerunButton:hover,
+.assetEditButton:hover,
 .assetDeleteButton:hover {
   transform: translateY(-1px);
   background: rgba(0, 0, 0, 0.58);
@@ -4017,88 +4021,20 @@ textarea:focus {
 }
 
 /* ============================================================
- * V4.0 快捷生成卡片 · 悬浮操作层（标注编辑 + 删除确认）
- * 复用令牌：--panel / --border / --soft-border / --accent / --danger / --text / --muted / --faint
- * 仅悬停 / 键盘聚焦时浮现，纯 CSS 切换（不触发卡片 React 重渲染）。
+ * V138 快捷生成卡片 · 常驻按钮栈第 3 位「标注编辑」
+ * 用户反馈：卡片右上角自带下载/重刷/删除三个按钮，编辑应并入该栈（重刷下面），
+ * 不再单独做 hover 浮层；删除由第 3 位下移到第 4 位。
+ * 说明：.assetEditButton 的基础样式（定位/尺寸/配色）复用下方 .assetDownloadButton 组的声明，
+ * 这里只给栈内偏移；未渲染编辑按钮的卡片（如参考生图/视频）删除位置保持不变。
  * ============================================================ */
-.assetHoverActions {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(0.96);
-  z-index: 4;
-  display: flex;
-  gap: var(--space-2);
-  padding: 7px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.62); /* 与既有 .assetDownloadButton 等卡片按钮同族黑色蒙版，仅加深以承载成组按钮 */
-  border: 1px solid var(--soft-border);
-  box-shadow: var(--shadow);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.16s ease, transform 0.16s ease;
+.assetEditButton {
+  top: 71px;
 }
-.assetCard:hover .assetHoverActions,
-.assetCard:focus-within .assetHoverActions {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translate(-50%, -50%) scale(1);
+
+/* 有编辑按钮的卡片：删除让出第 3 位，下移到第 4 位。 */
+.assetCard.withAnnotationEdit .assetDeleteButton {
+  top: 102px;
 }
-.assetHoverActions .assetEditButton,
-.assetHoverActions .assetDeleteButtonHover {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: color-mix(in srgb, var(--panel-strong) 70%, transparent);
-  color: var(--accent);
-  cursor: pointer;
-  transition: background 0.14s ease, transform 0.14s ease;
-}
-.assetHoverActions .assetDeleteButtonHover {
-  color: #ff8f8f;
-}
-.assetHoverActions .assetEditButton:hover,
-.assetHoverActions .assetDeleteButtonHover:hover {
-  background: rgba(0, 0, 0, 0.6);
-  transform: translateY(-1px);
-}
-.assetDeleteConfirm {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 2px 4px;
-  border-radius: 999px;
-  background: var(--danger-bg);
-}
-.assetDeleteConfirmText {
-  font-size: var(--text-xs);
-  color: var(--text);
-  padding-left: 4px;
-  white-space: nowrap;
-}
-.assetConfirmYes,
-.assetConfirmNo {
-  border: none;
-  cursor: pointer;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  padding: 6px 10px;
-  border-radius: 999px;
-}
-.assetConfirmYes {
-  background: var(--danger);
-  color: var(--text);
-}
-.assetConfirmNo {
-  background: color-mix(in srgb, var(--panel-strong) 80%, transparent);
-  color: var(--muted);
-}
-.assetConfirmYes:hover { filter: brightness(1.08); }
-.assetConfirmNo:hover { color: var(--text); }
 
 /* ============================================================
  * V4.0 标注式 AI 编辑弹窗（AnnotationEditModal）
@@ -4275,5 +4211,46 @@ textarea:focus {
 }
 .annoSpacer {
   flex: 1 1 auto;
+}
+
+/* ============================================================
+ * V138 预览悬浮框（快捷生成放大预览）· 悬浮操作胶囊「标注编辑」
+ * 与结果卡同一套黑色蒙版胶囊视觉；不含删除（卡片/右键菜单已有）。
+ * .quickPreviewFrame 只给快捷预览加定位上下文（批量预览保持原样，避免波及其导航箭头定位）。
+ * ============================================================ */
+.quickPreviewFrame {
+  position: relative;
+}
+.previewFloatActions {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 4;
+}
+.previewFloatPill {
+  display: flex;
+  gap: var(--space-2);
+  padding: 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow);
+}
+.previewEditButton {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--panel-strong) 70%, transparent);
+  color: var(--accent);
+  cursor: pointer;
+  transition: background 0.14s ease, transform 0.14s ease;
+}
+.previewEditButton:hover {
+  background: rgba(0, 0, 0, 0.6);
+  transform: translateY(-1px);
 }
 

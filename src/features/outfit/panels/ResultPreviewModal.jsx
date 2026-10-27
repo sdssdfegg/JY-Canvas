@@ -5,7 +5,7 @@
 //   图标 X / Download / Maximize2、CachedImage、LocalPasteDiagnosticsPanel / CropReturnDiagnosticsPanel
 //   及纯函数 formatMs / displayResultImageSource / qualityStatusClass / qualityStatusLabel / formatClock / imageSource 直接 import；
 //   setPreview(null) 收敛为 onClose prop。与 imageLightbox 共享的 previewPan / previewZoom / 拖拽 handler 仍由父组件持有并下传。
-import { X, Download, Maximize2 } from "lucide-react";
+import { X, Download, Maximize2, Pencil } from "lucide-react";
 import { CachedImage } from "../../../shared/ui/cached-image.jsx";
 import { LocalPasteDiagnosticsPanel, CropReturnDiagnosticsPanel } from "./OutfitDiagnosticsPanels.jsx";
 import { qualityStatusClass, qualityStatusLabel, formatClock } from "../outfit-top.js";
@@ -29,6 +29,7 @@ export default function ResultPreviewModal({
   previewZoom,
   copyText,
   downloadTask,
+  openOutfitAnnotationEdit,
   activeOutfitPage
 }) {
   return (
@@ -113,6 +114,11 @@ export default function ResultPreviewModal({
       <Button size="md" onClick={() => window.open(imageSource(preview.result), "_blank")}>
         <Maximize2 size={16} />
         <span>新窗口打开</span>
+      </Button>
+      {/* V138：预览里也能直接进标注编辑（与快捷生成预览一致）。 */}
+      <Button size="md" onClick={() => openOutfitAnnotationEdit(preview)}>
+        <Pencil size={16} />
+        <span>标注编辑</span>
       </Button>
     </footer>
 </Modal>

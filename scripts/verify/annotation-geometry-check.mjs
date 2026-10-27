@@ -129,6 +129,38 @@ const box = { left: 100, top: 50, width: 200, height: 400 };
   assert(len > 0.012 && len <= 0.06, "箭头头部长度落在合理区间");
 }
 
+// 6b. 箭头方向：方向 = 起点→终点，反向拖拽不得被翻转
+// 回归背景：曾在提交时用 normalizeRect 归一化 w/h，把符号吃掉 ⇒ 箭头方向反转且只能朝右下。
+{
+  const drag = { x: 0.9, y: 0.2, w: -0.8, h: 0.6 }; // 从右上往左下拖
+  const endX = drag.x + drag.w;
+  const endY = drag.y + drag.h;
+  assert(approx(endX, 0.1) && approx(endY, 0.8), "反向拖拽：终点 = 拖拽结束点（w/h 保留符号，方向不被翻转）");
+  const [h1] = arrowHeadPoints(drag.x, drag.y, endX, endY, 0.1);
+  const dStart = Math.hypot(h1.x - drag.x, h1.y - drag.y);
+  const dEnd = Math.hypot(h1.x - endX, h1.y - endY);
+  assert(dEnd < dStart, "箭头头部靠近终点而非起点");
+
+  const left = { x: 0.9, y: 0.5, w: -0.8, h: 0 }; // 纯向左拖
+  assert(approx(left.x + left.w, 0.1), "向左拖拽终点 x = 0.1（保持向左，不是被翻成向右）");
+  const [l1] = arrowHeadPoints(left.x, left.y, left.x + left.w, left.y, 0.1);
+  assert(l1.x > 0.1 && l1.x < 0.9, "向左箭头头部回钩朝向起点（终点右侧）");
+}
+
+// 6c. 箭头头部在等比空间计算（非等比 viewBox 用 aspect 换算后映射回来，头部不变形）
+{
+  const aspect = 0.75; // 3:4 竖图
+  const ax = 0.2, ay = 0.2, bx = 0.8, by = 0.8;
+  const hl = arrowHeadLength(ax * aspect, ay, bx * aspect, by, 0.012, 0.06, 0.22);
+  const [p1, p2] = arrowHeadPoints(ax * aspect, ay, bx * aspect, by, hl);
+  const h1 = { x: p1.x / aspect, y: p1.y };
+  const h2 = { x: p2.x / aspect, y: p2.y };
+  // 映射回归一化空间后，两个倒钩到终点的「等比距离」应相等（否则屏幕上就是歪的）
+  const d1 = Math.hypot((h1.x - bx) * aspect, h1.y - by);
+  const d2 = Math.hypot((h2.x - bx) * aspect, h2.y - by);
+  assert(approx(d1, d2, 1e-9) && d1 > 0, "箭头两倒钩在等比空间到终点等距（宽高比换算未变形）");
+}
+
 // 7. drawAnnotationOnContext —— 矩形（800×600，标注 x0.25 y0.25 w0.5 h0.5）
 {
   const ctx = makeStubCtx();

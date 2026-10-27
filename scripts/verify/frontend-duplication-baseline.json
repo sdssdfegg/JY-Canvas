@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 135,
+    "fileCount": 136,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -114,6 +114,7 @@
       "src/shared/error-boundary.jsx",
       "src/shared/error-report.js",
       "src/shared/file-name.js",
+      "src/shared/gallery-layout.js",
       "src/shared/generation-errors.js",
       "src/shared/hooks/usePreviewDrag.js",
       "src/shared/hooks/useSaveDirectory.js",

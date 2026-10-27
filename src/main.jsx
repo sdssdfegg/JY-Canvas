@@ -1348,7 +1348,7 @@ function App() {
               closeLabel="关闭"
             />
             <div
-              className="previewImageFrame"
+              className="previewImageFrame quickPreviewFrame"
               onWheel={handlePreviewWheel}
               onPointerDown={beginPreviewDrag}
               onPointerMove={movePreviewDrag}
@@ -1400,6 +1400,27 @@ function App() {
                   </>
                 );
               })()}
+              {/* V138：预览悬浮框内加「标注编辑」（与结果卡同一套胶囊视觉；删除按钮本卡片/右键菜单已有，故不重复）。 */}
+              <div className="previewFloatActions">
+                <div className="previewFloatPill" role="group" aria-label="预览操作">
+                  <button
+                    type="button"
+                    className="previewEditButton"
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onPointerUp={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const target = previewResult;
+                      closePreview();
+                      openQuickAnnotationEdit(target);
+                    }}
+                    title="标注编辑"
+                    aria-label="标注编辑"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                </div>
+              </div>
             </div>
             {previewResult.prompt && (
               <button

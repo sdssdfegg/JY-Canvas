@@ -114,8 +114,9 @@ export function drawAnnotationOnContext(ctx, annotation, naturalWidth, naturalHe
   } else if (annotation.type === "circle") {
     const cx = clamp01(annotation.x + annotation.w / 2) * naturalWidth;
     const cy = clamp01(annotation.y + annotation.h / 2) * naturalHeight;
-    const rx = (annotation.w / 2) * naturalWidth;
-    const ry = (annotation.h / 2) * naturalHeight;
+    // 允许反向拖拽：rx/ry 取绝对值（负半径不渲染），圆心不受符号影响。
+    const rx = Math.abs(annotation.w / 2) * naturalWidth;
+    const ry = Math.abs(annotation.h / 2) * naturalHeight;
     ctx.beginPath();
     ctx.ellipse(cx, cy, Math.max(1, rx), Math.max(1, ry), 0, 0, Math.PI * 2);
     ctx.stroke();

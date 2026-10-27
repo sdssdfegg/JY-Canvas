@@ -12,7 +12,7 @@
 // 全部下沉到卡内计算：父组件 map 里只留 O(1) 的集合查询，卡 bail 时这些开销一并省掉。
 //   ⚠️ props 漏项 = 运行期 undefined（vite build 验不出），由 V5.0-006 §3.4 负向对照兜底。
 import React from "react";
-import { Check, CheckSquare, Download, ImageOff, Loader2, RefreshCw, Sparkles, Square, Trash2 } from "lucide-react";
+import { Check, CheckSquare, Download, ImageOff, Loader2, Pencil, RefreshCw, Sparkles, Square, Trash2 } from "lucide-react";
 import {
   canRerunTask,
   displayResultImageSource,
@@ -86,6 +86,7 @@ export const ResultCard = React.memo(function ResultCard({
   toggleTaskSelected,
   downloadTask,
   rerunResultTask,
+  openOutfitAnnotationEdit,
   deleteResultTask,
   setPreview,
   setImageLightbox,
@@ -119,7 +120,7 @@ export const ResultCard = React.memo(function ResultCard({
   );
   return (
     <article
-      className={`assetCard outfitAssetCard success ${selected ? "selected" : ""} ${task.rerunCandidate ? "rerunCandidate" : ""} ${hasCropReturn ? "cropReturnResult" : ""} ${isReplaceTarget ? "replaceTarget" : ""}`}
+      className={`assetCard outfitAssetCard withAnnotationEdit success ${selected ? "selected" : ""} ${task.rerunCandidate ? "rerunCandidate" : ""} ${hasCropReturn ? "cropReturnResult" : ""} ${isReplaceTarget ? "replaceTarget" : ""}`}
       onClick={() => setPreview(task)}
       onDragOver={(event) => handleResultReplaceDragOver(event, task)}
       onDragLeave={() => setResultReplaceTargetId((current) => current === task.id ? "" : current)}
@@ -160,6 +161,19 @@ export const ResultCard = React.memo(function ResultCard({
         aria-label="重刷这张结果"
       >
         <RefreshCw size={15} />
+      </button>
+      {/* V138：与快捷生成同款的「标注编辑」按钮，栈内第 3 位（下载 / 重刷 / 编辑 / 删除）。 */}
+      <button
+        className="assetEditButton"
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          openOutfitAnnotationEdit(task);
+        }}
+        title="标注编辑"
+        aria-label="标注编辑"
+      >
+        <Pencil size={15} />
       </button>
       <button
         className="assetDeleteButton"

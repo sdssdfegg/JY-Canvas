@@ -38,6 +38,7 @@ export function ResultQueue({
   retryTask,
   downloadTask,
   rerunResultTask,
+  openOutfitAnnotationEdit,
   deleteResultTask,
   setPreview,
   setImageLightbox,
@@ -61,6 +62,7 @@ export function ResultQueue({
     retryTask,
     downloadTask,
     rerunResultTask,
+    openOutfitAnnotationEdit,
     deleteResultTask,
     setPreview,
     setImageLightbox,
@@ -81,6 +83,7 @@ export function ResultQueue({
       retryTask: (...args) => ref.current.retryTask(...args),
       downloadTask: (...args) => ref.current.downloadTask(...args),
       rerunResultTask: (...args) => ref.current.rerunResultTask(...args),
+      openOutfitAnnotationEdit: (...args) => ref.current.openOutfitAnnotationEdit(...args),
       deleteResultTask: (...args) => ref.current.deleteResultTask(...args),
       setPreview: (...args) => ref.current.setPreview(...args),
       setImageLightbox: (...args) => ref.current.setImageLightbox(...args),
@@ -134,6 +137,7 @@ export function ResultQueue({
               toggleTaskSelected={cardHandlers.toggleTaskSelected}
               downloadTask={cardHandlers.downloadTask}
               rerunResultTask={cardHandlers.rerunResultTask}
+              openOutfitAnnotationEdit={cardHandlers.openOutfitAnnotationEdit}
               deleteResultTask={cardHandlers.deleteResultTask}
               setPreview={cardHandlers.setPreview}
               setImageLightbox={cardHandlers.setImageLightbox}
