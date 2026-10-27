@@ -412,7 +412,6 @@ async function resolveVolcReferenceDataUrls(params, files) {
 
 function buildVolcEditBody(params, channel) {
   const model = channel?.upstreamModel || params.model;
-  const { width, height } = exactImageSize(params.aspectRatio, params.imageSize);
   const references = [];
   for (const url of Array.isArray(params.referenceDataUrls) ? params.referenceDataUrls : []) {
     const bare = stripDataUrlPrefix(url);
@@ -430,8 +429,12 @@ function buildVolcEditBody(params, channel) {
     model,
     prompt: params.prompt,
     n: params.n,
-    width,
-    height,
+    // 火山方舟原生格式：尺寸必须走 size="WIDTHxHEIGHT" 像素串（与文生图 volc 分支一致）。
+    // 实测：传 width/height 会被上游忽略，输出退化成上游自选的 3:4（用户报"选 2:3 出 3:4"）；
+    // 改 size 后精确命中（1536x2304→严格 2:3，1776x2368→严格 3:4）。
+    size: exactImageSizeText(params.aspectRatio, params.imageSize),
+    response_format: "url",
+    watermark: true,
     reference_images: references,
     reference_strength: 0.75,
     image_mode: "reference"
