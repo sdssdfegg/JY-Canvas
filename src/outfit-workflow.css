@@ -158,6 +158,27 @@
   padding: 18px 22px 36px;
 }
 
+/* V138 五轮（用户实测反馈）：嵌入主应用时，全局 .appShell 已带 166px 侧栏 + 顶栏，
+   换装工作台自身的 .sidebar（WorkbenchSidebar，236px 视口列）是冗余的，还挤占了结果网格宽度，
+   导致批量结果每排比快捷生成少 1~数张。嵌入模式（embeddedMode）下：
+   ① 隐藏自身侧栏、把 .appShell 单列化 ⇒ 回收这 236px；
+   ② 工作区 padding 与快捷画廊对齐（canvasBoard 14px/16px、galleryStrip 右 8px），
+      使结果网格可用宽度 = 窗口 − 166(全局侧栏) − 30 − 8，与快捷画廊逐像素相等。
+   ⇒ 同窗口/同缩放下批量与快捷每排张数完全一致（全屏 11、缩小 7 等）。
+   非嵌入（独立）模式保持原 236px 侧栏 + 原 padding 不变。 */
+.outfitWorkflowEmbedded.embedded {
+  grid-template-columns: minmax(0, 1fr);
+}
+.outfitWorkflowEmbedded.embedded .sidebar {
+  display: none;
+}
+.outfitWorkflowEmbedded.embedded .workspace {
+  padding: 14px 16px;
+}
+.outfitWorkflowEmbedded.embedded .outfitScrollArea {
+  padding-right: 8px;
+}
+
 .outfitWorkflowEmbedded .viewPanel {
   display: none;
   min-height: 100%;

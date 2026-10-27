@@ -1161,7 +1161,7 @@ export default function OutfitWorkflow({
   }
 
   return (
-    <main className="appShell outfitWorkflowEmbedded" style={themeStyle}>
+    <main className={`appShell outfitWorkflowEmbedded${embeddedMode ? " embedded" : ""}`} style={themeStyle}>
       <WorkbenchSidebar
         activeView={activeView}
         onSwitchView={switchView}
