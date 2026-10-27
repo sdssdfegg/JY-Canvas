@@ -7,7 +7,7 @@
 // V5.0-002 (2026-10-23)：props 收敛——上游 15 个 handler 由父组件「晚期绑定委托」稳定化（见 main-canvas-board.jsx），
 // 整包集合 selectedIds/downloadFeedbackIds/quickResultReplaceTargetId 改由父组件每卡派生布尔 isSelected/isDownloaded/isReplaceTarget 透传，
 // 使 React.memo 在常态（非卡片相关状态变更）真正 bail、杜绝全树重渲染。brokenResultImages 保留整包（仅缺图时变更，不破常态 memo）。
-import React from "react";
+import React, { useState } from "react";
 import {
   Loader2,
   CheckSquare,
@@ -16,7 +16,8 @@ import {
   Download,
   RefreshCw,
   Trash2,
-  ImageOff
+  ImageOff,
+  Pencil
 } from "lucide-react";
 import { CachedImage } from "../../../shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "../../../shared/ui/reference-thumb-tray.jsx";
@@ -47,8 +48,11 @@ export const QuickGalleryCard = React.memo(function QuickGalleryCard({
   openReferencePreview,
   openReferenceContextMenu,
   beginReferenceImageDrag,
-  copyText
+  copyText,
+  openQuickAnnotationEdit
 }) {
+  // hook 必须无条件先声明（本组件在 loading 分支有早退，放在后面会违反 rules-of-hooks）。
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   if (galleryItem.kind === "task") {
     const task = galleryItem.task;
     return (
@@ -126,6 +130,67 @@ export const QuickGalleryCard = React.memo(function QuickGalleryCard({
       >
         <Trash2 size={15} />
       </button>
+      {/* V4.0 悬浮操作层：鼠标悬停 / 键盘聚焦时浮现「标注编辑 + 删除确认」，移出即隐藏（纯 CSS，不触发卡片重渲染）。
+          常驻的 select/download/rerun/delete 仍保留作触屏 / 键盘入口（验收 §九）。 */}
+      {!brokenReason && (
+        <div className="assetHoverActions" role="group" aria-label="悬浮操作">
+          {confirmingDelete ? (
+            <div className="assetDeleteConfirm">
+              <span className="assetDeleteConfirmText">确认删除？</span>
+              <button
+                type="button"
+                className="assetConfirmYes"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  deleteResult(item.id);
+                  setConfirmingDelete(false);
+                }}
+                aria-label="确认删除这张结果"
+              >
+                删除
+              </button>
+              <button
+                type="button"
+                className="assetConfirmNo"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setConfirmingDelete(false);
+                }}
+                aria-label="取消删除"
+              >
+                取消
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="assetEditButton"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openQuickAnnotationEdit(item);
+                }}
+                title="标注编辑"
+                aria-label="标注编辑"
+              >
+                <Pencil size={15} />
+              </button>
+              <button
+                type="button"
+                className="assetDeleteButtonHover"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setConfirmingDelete(true);
+                }}
+                title="删除这张结果"
+                aria-label="删除这张结果"
+              >
+                <Trash2 size={15} />
+              </button>
+            </>
+          )}
+        </div>
+      )}
       {item.generationMs && <div className="assetTimeBadge">用时 {formatMs(item.generationMs)}</div>}
       {brokenReason ? (
         <div className="assetImageFallback" title={brokenReason}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Archive,
@@ -11,6 +11,7 @@ import {
   FolderOpen,
   Layers,
   Move,
+  Pencil,
   RotateCcw,
   Trash2,
   Upload
@@ -31,6 +32,7 @@ import { AppSidebar } from "./shared/ui/AppSidebar";
 import { Modal, ModalHeader } from "./shared/ui/Modal.jsx";
 import { createReferenceUpload, quickReferenceOriginalFile } from "./features/upload/reference-upload.js";
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
+import { AnnotationEditModal } from "./features/local-edit/AnnotationEditModal.jsx";
 import {
   beginImageDownloadDrag,
   referenceSource,
@@ -313,6 +315,7 @@ function App() {
     quickResultReplaceTargetId, setQuickResultReplaceTargetId,
     quickCropEditTarget, setQuickCropEditTarget,
     quickLocalEditTarget, setQuickLocalEditTarget,
+    quickAnnotationTarget, setQuickAnnotationTarget,
     previewResult, setPreviewResult,
     uploadPreview, setUploadPreview,
     previewZoom, setPreviewZoom,
@@ -368,6 +371,12 @@ function App() {
   // TDZ：钩内 10 项晚期产出引用统一走 handlerLateRef.current，回填点在 syncHistoryFromServerRef 回填处
   //   （渲染期，此时各产出均已初始化；handler 只在事件回调 / effect 内被调用，均在渲染之后，无前向引用）。
   const handlerLateRef = useRef({});
+  // V4.0 标注式编辑：按 item.id 隔离的标注草稿（关闭弹窗不丢失、重开不串图）。
+  const annotationDraftsRef = useRef(new Map());
+  const handleAnnotationDraftChange = useCallback((id, anns) => {
+    if (!id) return;
+    annotationDraftsRef.current.set(id, anns);
+  }, []);
   const {
     updateSetting,
     addEvent,
@@ -401,6 +410,8 @@ function App() {
     handlePreviewWheel,
     openContextMenu,
     openReferenceContextMenu,
+    openQuickAnnotationEdit,
+    applyQuickAnnotationEdit,
     rerunResult,
     markDeferredFeature
   } = useMainHandlers({
@@ -421,6 +432,8 @@ function App() {
     setQuickCropEditTarget,
     quickLocalEditTarget,
     setQuickLocalEditTarget,
+    quickAnnotationTarget,
+    setQuickAnnotationTarget,
     previewResult,
     setPreviewResult,
     setPreviewZoom,
@@ -1096,6 +1109,7 @@ function App() {
             removeReferenceImage={removeReferenceImage}
             openQuickCropEdit={openQuickCropEdit}
             openQuickLocalEdit={openQuickLocalEdit}
+            openQuickAnnotationEdit={openQuickAnnotationEdit}
             settings={settings}
             updateSetting={updateSetting}
             isQuickChannelMenuOpen={isQuickChannelMenuOpen}
@@ -1261,6 +1275,17 @@ function App() {
           ratios={QUICK_LOCAL_EDIT_RATIOS}
           defaultCropRect={defaultQuickLocalEditCrop}
           fallbackToItem
+        />
+      )}
+
+      {quickAnnotationTarget && (
+        <AnnotationEditModal
+          key={quickAnnotationTarget.id}
+          item={quickAnnotationTarget}
+          onClose={() => setQuickAnnotationTarget(null)}
+          onApply={applyQuickAnnotationEdit}
+          initialAnnotations={annotationDraftsRef.current.get(quickAnnotationTarget.id) || null}
+          onAnnotationsChange={handleAnnotationDraftChange}
         />
       )}
 
@@ -1459,6 +1484,10 @@ function App() {
           <button type="button" onClick={() => { markDeferredFeature("局部编辑"); setContextMenu(null); }}>
             <Crop size={15} />
             <span>局部编辑</span>
+          </button>
+          <button type="button" onClick={() => { openQuickAnnotationEdit(contextItem); setContextMenu(null); }}>
+            <Pencil size={15} />
+            <span>标注编辑</span>
           </button>
           <button type="button" onClick={() => { void openSaveDirectory(); setContextMenu(null); }}>
             <FolderOpen size={15} />

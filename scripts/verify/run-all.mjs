@@ -139,6 +139,9 @@ const ORDER = [
   "history-integrity-check",
   "local-edit-ratio-check",
   "local-edit-base-file-check",
+  // 2026-10-27：标注式 AI 编辑坐标内核验收（纯逻辑、<1s、不碰 ROOT/data），
+  // 守「缩放/弹窗尺寸变化后标注坐标不变」与四种形状绘制坐标正确。
+  "annotation-geometry-check",
   "resize-long-edge-check",
   "generation-error-check",
   "reference-gate-check",
@@ -261,7 +264,9 @@ const FAST_ORDER = [
   "generation-error-check",
   "history-integrity-check",
   "local-edit-ratio-check",
-  "white-refine-split-check"
+  "white-refine-split-check",
+  // 2026-10-27：标注式 AI 编辑坐标内核验收（纯逻辑 <1s），进提交钩子快速子集。
+  "annotation-geometry-check"
 ];
 
 /**

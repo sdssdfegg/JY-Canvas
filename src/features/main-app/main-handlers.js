@@ -36,6 +36,7 @@ import {
   convergeSettingsForModel,
   modelCapabilities
 } from "../../shared/routing.js";
+import { annotationsToImageBlob } from "../../shared/annotation-geometry.js";
 
 export function useMainHandlers(ctx) {
   const {
@@ -56,6 +57,8 @@ export function useMainHandlers(ctx) {
     setQuickCropEditTarget,
     quickLocalEditTarget,
     setQuickLocalEditTarget,
+    quickAnnotationTarget,
+    setQuickAnnotationTarget,
     previewResult,
     setPreviewResult,
       setPreviewZoom,
@@ -154,6 +157,9 @@ export function useMainHandlers(ctx) {
       if (quickLocalEditTarget?.id && removed?.id === quickLocalEditTarget.id) {
         setQuickLocalEditTarget(null);
       }
+      if (quickAnnotationTarget?.id && removed?.id === quickAnnotationTarget.id) {
+        setQuickAnnotationTarget(null);
+      }
       return current.filter((_, itemIndex) => itemIndex !== index);
     });
   }
@@ -218,6 +224,49 @@ export function useMainHandlers(ctx) {
     }));
     setQuickLocalEditTarget(null);
     addEvent("局部编辑", cropped.editMode === LOCAL_EDIT_MASK_MODE ? "已启用涂抹蒙版，生成后只回贴涂抹区域" : "已启用局部裁剪，生成后会贴回原图");
+  }
+
+  // V4.0 标注式 AI 编辑入口：打开弹窗（不改动任何数据 / 配置）。
+  function openQuickAnnotationEdit(item) {
+    if (!item?.id) return;
+    setQuickAnnotationTarget(item);
+  }
+
+  // V4.0 标注式 AI 编辑提交：复用现有 generate 流程。
+  // 处理原则（验收 §九 / §八）：
+  //  - 原图像素绝不修改——仅用标注生成一张「标注参考图」作为一次性参考输入；
+  //  - 提示词 = 用户编辑指令；原位覆盖该结果（replaceResultId）；
+  //  - 不写入 composer、不改 API Key / 模型 / 提示词模板 / 模型调用配置。
+  async function applyQuickAnnotationEdit(item, payload = {}) {
+    const { annotations = [], instruction = "" } = payload;
+    if (!item?.id) return;
+    try {
+      const { fetchLocalBlob } = await import("../../api/assets.js");
+      const { imageSourceFromResult: srcOf } = await import("../../shared/models.js");
+      const src = srcOf(item.image);
+      if (!src) throw new Error("无法定位原图地址");
+      const originalBlob = await fetchLocalBlob(src);
+      const annotatedBlob = await annotationsToImageBlob(originalBlob, annotations, "image/png");
+      const file = new File(
+        [annotatedBlob],
+        `标注参考图-${(item.id || "image").slice(-8)}.png`,
+        { type: "image/png", lastModified: Date.now() }
+      );
+      setQuickAnnotationTarget(null);
+      lateRef.current.generate({
+        prompt: instruction && instruction.trim()
+          ? instruction.trim()
+          : "按图上的标注区域修改图片，未标注区域保持不变",
+        n: 1,
+        replaceResultId: item.id,
+        extraReferenceFiles: [file]
+      });
+      addEvent("标注编辑", "已提交标注参考图 + 编辑指令到现有生成流程");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      addEvent("标注编辑失败", message);
+      setError(message);
+    }
   }
 
   function clearQuickCropEdit(itemId) {
@@ -506,6 +555,8 @@ export function useMainHandlers(ctx) {
     openQuickLocalEdit,
     applyQuickCropEdit,
     applyQuickLocalEdit,
+    openQuickAnnotationEdit,
+    applyQuickAnnotationEdit,
     clearQuickCropEdit,
     clearQuickLocalEdit,
     clearAll,

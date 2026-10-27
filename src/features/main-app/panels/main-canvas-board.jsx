@@ -70,6 +70,7 @@ export function MainCanvasBoard({
   removeReferenceImage,
   openQuickCropEdit,
   openQuickLocalEdit,
+  openQuickAnnotationEdit,
   settings,
   updateSetting,
   isQuickChannelMenuOpen,
@@ -115,7 +116,8 @@ export function MainCanvasBoard({
     openReferencePreview,
     openReferenceContextMenu,
     beginReferenceImageDrag,
-    copyText
+    copyText,
+    openQuickAnnotationEdit
   };
   const cardHandlers = useMemo(() => {
     const ref = cardHandlersRef;
@@ -134,7 +136,8 @@ export function MainCanvasBoard({
       openReferencePreview: (...args) => ref.current.openReferencePreview(...args),
       openReferenceContextMenu: (...args) => ref.current.openReferenceContextMenu(...args),
       beginReferenceImageDrag: (...args) => ref.current.beginReferenceImageDrag(...args),
-      copyText: (...args) => ref.current.copyText(...args)
+      copyText: (...args) => ref.current.copyText(...args),
+      openQuickAnnotationEdit: (...args) => ref.current.openQuickAnnotationEdit(...args)
     };
   }, []);
 
@@ -170,6 +173,7 @@ export function MainCanvasBoard({
               openReferenceContextMenu={cardHandlers.openReferenceContextMenu}
               beginReferenceImageDrag={cardHandlers.beginReferenceImageDrag}
               copyText={cardHandlers.copyText}
+              openQuickAnnotationEdit={cardHandlers.openQuickAnnotationEdit}
             />
           );
         })}

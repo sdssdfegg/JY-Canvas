@@ -76,6 +76,8 @@ export function useQuickGenState() {
   const [quickResultReplaceTargetId, setQuickResultReplaceTargetId] = useState("");
   const [quickCropEditTarget, setQuickCropEditTarget] = useState(null);
   const [quickLocalEditTarget, setQuickLocalEditTarget] = useState(null);
+  // V4.0 标注式 AI 编辑：与 quickLocalEditTarget 同范式，收口到本 hook。
+  const [quickAnnotationTarget, setQuickAnnotationTarget] = useState(null);
   const [previewResult, setPreviewResult] = useState(null);
   const [uploadPreview, setUploadPreview] = useState(null);
   const [previewZoom, setPreviewZoom] = useState(1);
@@ -168,6 +170,7 @@ export function useQuickGenState() {
     quickResultReplaceTargetId, setQuickResultReplaceTargetId,
     quickCropEditTarget, setQuickCropEditTarget,
     quickLocalEditTarget, setQuickLocalEditTarget,
+    quickAnnotationTarget, setQuickAnnotationTarget,
     previewResult, setPreviewResult,
     uploadPreview, setUploadPreview,
     previewZoom, setPreviewZoom,
