@@ -1,4 +1,5 @@
 import { openAsBlob } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import {
   CHANNEL_IMAGE_SIZES,
@@ -375,6 +376,40 @@ function stripDataUrlPrefix(dataUrl) {
   return String(dataUrl || "").replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
 }
 
+// 图片链路用 imageForwardUpload = multer.diskStorage，上传件落在磁盘：file.buffer 缺省，
+// 只有 file.path。所以取字节必须异步按需读盘（与 core/uploads.js 的 ensureFileBuffer 同思路，
+// 此处不 import 它以保持 channel.js 的零依赖叶子纪律）。
+async function fileBufferOf(file) {
+  if (!file) return null;
+  if (Buffer.isBuffer(file.buffer) && file.buffer.length > 0) return file.buffer;
+  if (file.path) {
+    try {
+      const buf = await readFile(file.path);
+      return Buffer.isBuffer(buf) && buf.length > 0 ? buf : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+// 解析火山参考图（data URL 数组）：优先用前端下发的 referenceDataUrls，
+// 否则把上传件（可能落盘）逐张读成 data URL。必须在 createBody 阶段异步调用。
+async function resolveVolcReferenceDataUrls(params, files) {
+  const provided = Array.isArray(params?.referenceDataUrls)
+    ? params.referenceDataUrls.filter((url) => typeof url === "string" && url)
+    : [];
+  if (provided.length > 0) return provided;
+  const refs = [];
+  for (const file of Array.isArray(files) ? files : []) {
+    const buf = await fileBufferOf(file);
+    if (!buf) continue;
+    const mimeType = String(file?.mimetype || "image/png");
+    refs.push(`data:${mimeType};base64,${buf.toString("base64")}`);
+  }
+  return refs;
+}
+
 function buildVolcEditBody(params, channel) {
   const model = channel?.upstreamModel || params.model;
   const { width, height } = exactImageSize(params.aspectRatio, params.imageSize);
@@ -384,8 +419,10 @@ function buildVolcEditBody(params, channel) {
     if (bare) references.push({ type: "image", base64: bare });
   }
   // 蒙版（局部重绘）作为第二张参考图，与官方「原图 + mask 两张参考」用法一致。
-  const mask = params.maskFile;
-  const maskBuf = mask?.buffer && Buffer.isBuffer(mask.buffer) ? mask.buffer : null;
+  // maskBuffer 由调用方异步读盘后传入（落盘存储时 maskFile.buffer 缺省）。
+  const maskBuf = Buffer.isBuffer(params.maskBuffer) && params.maskBuffer.length
+    ? params.maskBuffer
+    : (Buffer.isBuffer(params.maskFile?.buffer) ? params.maskFile.buffer : null);
   if (maskBuf && maskBuf.length) {
     references.push({ type: "image", base64: maskBuf.toString("base64") });
   }
@@ -526,22 +563,24 @@ export function buildImageRequestVariants(params, files) {
     hasImages
     || (Array.isArray(params.referenceDataUrls) && params.referenceDataUrls.length > 0)
   );
+  // 不再要求同步拿到参考图：上传件可能落盘（diskStorage，无 buffer），
+  // 参考图改在 createBody（await 的异步阶段）读盘解析；只要确认是 volc 且有图要编辑就走本分支，
+  // 否则会因 refs 为空而回落 /images/edits（火山无此端点 → 404 → 前端 502）。
   if (hasVolcRefs) {
-    const refs = (Array.isArray(params.referenceDataUrls) && params.referenceDataUrls.length)
-      ? params.referenceDataUrls
-      : files.map((f) => (f?.buffer ? `data:${f.mimetype || "image/png"};base64,${f.buffer.toString("base64")}` : null)).filter(Boolean);
-    if (refs.length > 0) {
-      variants.push({
-        id: "volc-edit-reference",
-        model: channel?.upstreamModel || params.model,
-        requestFormat: "volc-generations-reference",
-        path: "/images/generations",
-        protocol: "json",
-        headers: { "Content-Type": "application/json" },
-        createBody: () => JSON.stringify(buildVolcEditBody({ ...params, referenceDataUrls: refs }, channel))
-      });
-      return variants;
-    }
+    variants.push({
+      id: "volc-edit-reference",
+      model: channel?.upstreamModel || params.model,
+      requestFormat: "volc-generations-reference",
+      path: "/images/generations",
+      protocol: "json",
+      headers: { "Content-Type": "application/json" },
+      createBody: async () => JSON.stringify(buildVolcEditBody({
+        ...params,
+        referenceDataUrls: await resolveVolcReferenceDataUrls(params, files),
+        maskBuffer: await fileBufferOf(params.maskFile)
+      }, channel))
+    });
+    return variants;
   }
 
   const addJingyinVariant = (variantParams, suffix, requestFormatSuffix, format) => {
