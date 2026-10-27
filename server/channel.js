@@ -80,6 +80,25 @@ function exactImageSizeText(aspectRatio, imageSize) {
   return `${width}x${height}`;
 }
 
+// 火山方舟 Seedream 5.0 flash 的 size 面积上限（实测：doubao-seedream-5-0-flash-260915）。
+// 超限会直接 400： "image area must be at most 4624220 pixels"。
+// 注意：官方网页写的 4096x4096 上限是其它模型的，flash 这条线实际是 462 万。
+// 同等长边下正方形面积最大，所以 2K 长边(2304) 的 1:1 = 2304x2304 = 5308416 必然超限，
+// 其它比例都不超（见实测扫描）。
+const VOLC_MAX_IMAGE_AREA = 4624220;
+
+// 火山专用尺寸串：在通用像素尺寸基础上按面积上限等比缩放，保证任何比例/档位都不被上游拒绝。
+function volcSizeText(aspectRatio, imageSize) {
+  let { width, height } = exactImageSize(aspectRatio, imageSize);
+  const area = width * height;
+  if (area > VOLC_MAX_IMAGE_AREA) {
+    const scale = Math.sqrt(VOLC_MAX_IMAGE_AREA / area);
+    width = Math.max(1, Math.floor(width * scale));
+    height = Math.max(1, Math.floor(height * scale));
+  }
+  return `${width}x${height}`;
+}
+
 function isBananaModel(model) {
   // canonical ID 是 banana-2 / nano-banana-pro；旧存档 nano-banana2 / nano-banana 也归到同一族。
   return /^(banana|nano-banana)/i.test(String(model || ""));
@@ -432,7 +451,8 @@ function buildVolcEditBody(params, channel) {
     // 火山方舟原生格式：尺寸必须走 size="WIDTHxHEIGHT" 像素串（与文生图 volc 分支一致）。
     // 实测：传 width/height 会被上游忽略，输出退化成上游自选的 3:4（用户报"选 2:3 出 3:4"）；
     // 改 size 后精确命中（1536x2304→严格 2:3，1776x2368→严格 3:4）。
-    size: exactImageSizeText(params.aspectRatio, params.imageSize),
+    // 用 volcSizeText（带面积上限钳制），避免 1:1 等比例因面积超限被上游 400 拒绝。
+    size: volcSizeText(params.aspectRatio, params.imageSize),
     response_format: "url",
     watermark: true
   };
