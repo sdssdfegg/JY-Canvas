@@ -227,6 +227,8 @@ export function normalizeOutfitPageSettings(value = {}, options = {}) {
   // 旧存档里的 garmentLengths / masterFit* 只做安全读取：
   // 它们留在对象里不报错，但不再影响批量换装的任何行为，也不会覆盖新的 outfitIntent。
   settings.outfitIntent = normalizeOutfitIntent(settings.outfitIntent);
+  // 掩膜约束档位（P1-8.1）：只允许 none/garment/body，其余一律回落 none。
+  settings.maskMode = settings.maskMode === "garment" || settings.maskMode === "body" ? settings.maskMode : "none";
   settings.retouchIntent = normalizeRetouchIntent(settings.retouchIntent);
   settings.randomBackgroundFocus = normalizeRandomBackgroundFocus(settings.randomBackgroundFocus);
   settings.concurrency = normalizeBatchConcurrency(settings.concurrency);

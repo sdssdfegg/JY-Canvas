@@ -238,6 +238,8 @@ export default function OutfitComposer({
           patchOutfitIntent={patchOutfitIntent}
           updateOutfitWearingValue={updateOutfitWearingValue}
           wearingFieldValue={wearingFieldValue}
+          maskMode={settings.maskMode}
+          onMaskModeChange={(value) => updateSetting("maskMode", value)}
         />
       </div>
     )}

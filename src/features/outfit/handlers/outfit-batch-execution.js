@@ -337,6 +337,8 @@ export function useOutfitBatchExecution(ctx) {
       randomBackgroundFocus: taskIsRandomBackground ? normalizeRandomBackgroundFocus(task.randomBackgroundFocus || settings.randomBackgroundFocus) : undefined,
       // 结构化换装意图：只认任务快照（批次开始后就冻结），不再读当前界面设置。
       outfitIntent: taskIsOutfit ? normalizeOutfitIntent(task.outfitIntent || settings.outfitIntent) : undefined,
+      // P1-8.1：掩膜约束档位随任务快照冻结（批次开始后界面切换不影响在途任务）。
+      maskMode: taskIsOutfit ? (settings.maskMode || "none") : undefined,
       // 精修结构化意图：同样只认任务快照（冻结），批次开始后改界面不影响在途任务。
       retouchIntent: taskIsWhiteRefine ? normalizeRetouchIntent(task.retouchIntent || settings.retouchIntent) : undefined,
       workflowMode: taskWorkflowMode,

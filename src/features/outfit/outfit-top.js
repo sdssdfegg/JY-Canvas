@@ -567,6 +567,9 @@ export const defaultSettings = {
   recolorUpperLayer: "single",
   // 批量换装的结构化意图（唯一来源）：更换部位 / 上装层级 / 穿法 / 图2服装事实。
   outfitIntent: defaultOutfitIntent(),
+  // 掩膜约束档位（P1-8.1）：none（默认，不附加）/ garment（服装区）/ body（人体区）。
+  // 仅作为提示词约束句注入；当前模型不做区域锁定（P0-B E1 结论）。
+  maskMode: "none",
   // 服装精修的结构化意图（唯一来源）：对称 / 衣摆或裙摆 / 版型 / 用户补充。
   retouchIntent: defaultRetouchIntent(),
   pairingMode: "fixed",

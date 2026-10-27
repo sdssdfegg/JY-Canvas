@@ -15,6 +15,13 @@ import {
 } from "../../../shared/outfit-intent.js";
 import { ModuleHeader } from "../../../shared/ui/ModuleHeader";
 
+// 掩膜约束档位（P1-8.1）：与后端 MASK_MODE_CLAUSE 的 key 保持一致（none / garment / body）。
+const OUTFIT_MASK_MODE_OPTIONS = [
+  { value: "none", label: "关闭" },
+  { value: "garment", label: "服装区" },
+  { value: "body", label: "人体区" }
+];
+
 export function OutfitIntentPanel({
   outfitIntent,
   /* V77 Park：层级说明句停用，但父级仍按原名传入 —— 别名 _ 前缀（eslint 允许的未使用参数命名），
@@ -27,7 +34,10 @@ export function OutfitIntentPanel({
   toggleOutfitPart,
   patchOutfitIntent,
   updateOutfitWearingValue,
-  wearingFieldValue
+  wearingFieldValue,
+  // P1-8.1：掩膜约束档位（none / garment / body），由父级 settings.maskMode 驱动。
+  maskMode,
+  onMaskModeChange
 }) {
   const parts = outfitIntent.parts;
   // V77（§3.5 已确认删）：keepLabels / layerHint / outfitWearingTextSummary 三个纯说明性文案及其
@@ -118,6 +128,28 @@ export function OutfitIntentPanel({
             </button>
           )}
         </div>
+      </div>
+
+      <div className="outfitIntentRow">
+        <span className="outfitIntentRowTitle">掩膜约束</span>
+        <div className="outfitIntentChips">
+          {OUTFIT_MASK_MODE_OPTIONS.map((mode) => {
+            const active = maskMode === mode.value;
+            return (
+              <button
+                className={active ? "active" : ""}
+                key={mode.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onMaskModeChange(mode.value)}
+              >
+                {active && <Check size={13} />}
+                <span>{mode.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <small className="outfitIntentHint">仅提示词约束，当前模型不做区域锁定</small>
       </div>
 
       {outfitIntent.wearing.mode === "custom" && wearingDetailOpen && (
