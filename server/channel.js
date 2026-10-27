@@ -6,6 +6,7 @@ import {
   FORBIDDEN_CHANNEL_IDS,
   isForbiddenChannelId,
   routingChannelForModel,
+  routingChannelById,
   routingModelCapabilities,
   routingModelFor,
   validateModelCapabilities
@@ -448,7 +449,11 @@ async function buildOpenAiEditImageForm(params, files) {
 export function buildImageRequestVariants(params, files) {
   const hasImages = files.length > 0;
   const variants = [];
-  const channel = routingChannelForModel(params.model, params.channelId);
+  // 换装 / 图片编辑链路会先把 model 换成上游模型名（doubao-seedream-5-0-flash-260915），
+  // ROUTING_CHANNELS 里登记的是 UI 模型名，按 model 过滤会落空导致 provider 丢失、
+  // volc 专用分支不触发（→ /images/edits 404）。故按 channelId 兜底回查渠道。
+  const channel = routingChannelForModel(params.model, params.channelId)
+    || routingChannelById(params.channelId);
   const provider = channel?.provider;
 
   // ---------------------------------------------------------------------

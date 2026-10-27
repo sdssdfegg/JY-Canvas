@@ -274,6 +274,17 @@ export function routingChannelForModel(model, channelId) {
   return routingChannelsForModel(model).find((channel) => channel.id === requested) || null;
 }
 
+// 按渠道 id 直接取渠道（不经过 model 过滤）。
+// 换装 / 图片编辑链路会先把 model 换成上游模型名（如 doubao-seedream-5-0-flash-260915），
+// 而 ROUTING_CHANNELS 里登记的是 UI 模型名（doubao-seedream-5-0），此时
+// routingChannelForModel 按 model 过滤不到任何渠道 → provider 丢失 →
+// 火山(volc)专用分支不触发，回落通用分支打到不存在的 /images/edits（404 → 前端 502）。
+export function routingChannelById(channelId) {
+  const requested = String(channelId || "").trim();
+  if (!requested || isForbiddenChannelId(requested)) return null;
+  return ROUTING_CHANNELS.find((channel) => channel.id === requested) || null;
+}
+
 // 前端目录：旧线路不进入任何一条输出，dropdown / DOM 里旧渠道名数量必须是 0。
 // HIDDEN 线路同样不下发（前端菜单不出现，但服务端校验仍接受其 channelId）。
 export function publicRoutingChannels() {
