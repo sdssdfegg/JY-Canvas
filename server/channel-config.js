@@ -154,6 +154,15 @@ const ROUTING_CHANNELS = Object.freeze([
   // 2026-10-24：SD / SD Pro 各挂一条「名创AI」渠道（TokenGo 上游，154 new-api 渠道 28/29）。
   // 价格 ¥0.11 / ¥0.15 与中转站 ModelPrice（上游成本 0.078 / 0.117 + 毛利）一致；4K 与 2K 同价，无加价。
   { id: "mc-seedream-5-0", label: "名创AI", price: 0.11, model: "doubao-seedream-5-0" },
+  // 2026-10-27：新增「HS」渠道（火山方舟官方 doubao-seedream-5-0-flash-260915，154 new-api 渠道 30）。
+  // provider=volc：上游原生要 size=像素串(WIDTHxHEIGHT) + response_format=url + watermark=true，
+  //   与 TokenGo 的 宽高比串+分辨率 完全不同，故单独走 volc 格式分支（见 server/channel.js）。
+  // upstreamModel：UI 模型名仍是 doubao-seedream-5-0（挂在 SD 模型下），但实际发给中转站的模型名是火山的
+  //   flash 版；中转站按该 model 选中 154 new-api 渠道 30。
+  // sizes=[1K,2K]：火山不支持 4K（直连实测 4K 档位 400 InvalidParameter），故限制；比例沿用 SD 模型，
+  //   火山接受任意 WIDTHxHEIGHT 像素串，所有比例均可用。
+  // 前端展示名统一用「HS」，不出现「火山引擎」字眼。
+  { id: "hs-seedream-5-0-flash", label: "HS", price: 0.12, model: "doubao-seedream-5-0", upstreamModel: "doubao-seedream-5-0-flash-260915", provider: "volc", sizes: ["1K", "2K"] },
   { id: "mc-seedream-5-0-pro", label: "名创AI", price: 0.15, model: "doubao-seedream-5-0-pro" }
 ]);
 

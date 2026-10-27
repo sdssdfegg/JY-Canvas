@@ -108,8 +108,19 @@ export function normalizeImageRequest(input) {
     ? canonicalModel
     : (routingModelFor(requestedModel) ? requestedModel : "tt-image-2");
   const modelConfig = CHANNEL_MODELS.find((item) => item.value === model);
-  const modelSizes = Array.isArray(modelConfig.sizes) && modelConfig.sizes.length ? modelConfig.sizes : CHANNEL_IMAGE_SIZES;
-  const imageSize = modelSizes.includes(String(input.imageSize || "").toUpperCase()) ? String(input.imageSize).toUpperCase() : modelSizes[0];
+  // 线路级尺寸覆盖（如火山引擎 HS 仅支持 1K/2K，SD 模型虽声明 2K/4K，但该线路必须限制）。
+  const channel = routingChannelForModel(model, input.channelId);
+  const lineSizes = Array.isArray(channel?.sizes) && channel.sizes.length ? channel.sizes : null;
+  const modelSizes = lineSizes
+    || (Array.isArray(modelConfig.sizes) && modelConfig.sizes.length ? modelConfig.sizes : CHANNEL_IMAGE_SIZES);
+  const wantedSize = String(input.imageSize || "").toUpperCase();
+  const sizeRank = { "1K": 1, "2K": 2, "4K": 3, "8K": 4 };
+  const rankOf = (s) => Number.isFinite(sizeRank[s]) ? sizeRank[s] : 0;
+  // 选中的尺寸若不在该线路/模型支持列表内，回退到「不大于原尺寸的最大支持尺寸」（如火山 HS 选 4K → 2K），
+  // 而非盲目取第一个，避免用户选大尺寸却被悄悄降级到最小档。
+  const imageSize = modelSizes.includes(wantedSize)
+    ? wantedSize
+    : (modelSizes.filter((s) => rankOf(s) <= rankOf(wantedSize)).sort((a, b) => rankOf(b) - rankOf(a))[0] || modelSizes[0]);
   const aspectRatio = modelConfig.ratios.includes(input.aspectRatio) ? input.aspectRatio : modelConfig.ratios[0];
   const qualityList = Array.isArray(modelConfig.quality) ? modelConfig.quality : [];
   const requestedQuality = String(input.quality || "").trim().toLowerCase();
@@ -304,6 +315,13 @@ export function buildTextImageBody(params, format = "legacy") {
     body.aspect_ratio = params.aspectRatio;
     return body;
   }
+  if (format === "volc") {
+    // 火山方舟原生格式：size=像素串(WIDTHxHEIGHT) + response_format=url + watermark=true。
+    body.size = exactImageSizeText(params.aspectRatio, params.imageSize);
+    body.response_format = "url";
+    body.watermark = true;
+    return body;
+  }
   body.image_size = params.imageSize;
   body.aspect_ratio = params.aspectRatio;
   return body;
@@ -322,6 +340,11 @@ export async function buildEditImageForm(params, files, format = "legacy") {
   } else if (format === "pixel-image-size") {
     form.set("image_size", exactImageSizeText(params.aspectRatio, params.imageSize));
     form.set("aspect_ratio", params.aspectRatio);
+  } else if (format === "volc") {
+    // 火山方舟原生格式（multipart）：size=像素串 + response_format=url + watermark=true。
+    form.set("size", exactImageSizeText(params.aspectRatio, params.imageSize));
+    form.set("response_format", "url");
+    form.set("watermark", "true");
   } else {
     form.set("image_size", params.imageSize);
     form.set("aspect_ratio", params.aspectRatio);
@@ -341,6 +364,46 @@ export async function buildEditImageForm(params, files, format = "legacy") {
   await appendUploadFile(form, "mask", params.maskFile, "mask.png");
 
   return form;
+}
+
+// 火山引擎(volc) 图生图 / 换装编辑：Seedream 不兼容 OpenAI `/images/edits`（实测 404），
+// 必须走 /images/generations + reference_images（裸 base64，去掉 data: 前缀）+ image_mode:"reference"。
+// 参考图来自 referenceDataUrls（data URL）；蒙版（局部重绘）同样作为一张参考图传入，与官方
+// 「原图 + mask 两张参考」用法一致。
+function stripDataUrlPrefix(dataUrl) {
+  return String(dataUrl || "").replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
+}
+
+function buildVolcEditBody(params, channel) {
+  const model = channel?.upstreamModel || params.model;
+  const { width, height } = exactImageSize(params.aspectRatio, params.imageSize);
+  const references = [];
+  for (const url of Array.isArray(params.referenceDataUrls) ? params.referenceDataUrls : []) {
+    const bare = stripDataUrlPrefix(url);
+    if (bare) references.push({ type: "image", base64: bare });
+  }
+  // 蒙版（局部重绘）作为第二张参考图，与官方「原图 + mask 两张参考」用法一致。
+  const mask = params.maskFile;
+  const maskBuf = mask?.buffer && Buffer.isBuffer(mask.buffer) ? mask.buffer : null;
+  if (maskBuf && maskBuf.length) {
+    references.push({ type: "image", base64: maskBuf.toString("base64") });
+  }
+  const body = {
+    model,
+    prompt: params.prompt,
+    n: params.n,
+    width,
+    height,
+    reference_images: references,
+    reference_strength: 0.75,
+    image_mode: "reference"
+  };
+  const neg = String(params.negativePrompt || "").trim();
+  body.negative_prompt = neg || "畸形，扭曲，水印，低质量";
+  if (params.dispatchMode) body.dispatchMode = params.dispatchMode;
+  if (params.channelId) body.channelId = params.channelId;
+  body.manualModel = model;
+  return body;
 }
 
 function imageOrientation(aspectRatio) {
@@ -385,6 +448,8 @@ async function buildOpenAiEditImageForm(params, files) {
 export function buildImageRequestVariants(params, files) {
   const hasImages = files.length > 0;
   const variants = [];
+  const channel = routingChannelForModel(params.model, params.channelId);
+  const provider = channel?.provider;
 
   // ---------------------------------------------------------------------
   // 2026-09-25 香蕉 Pro 参考图通道修复
@@ -447,6 +512,33 @@ export function buildImageRequestVariants(params, files) {
     return variants;
   }
 
+  // 火山引擎(volc) 图生图 / 换装编辑：Seedream 不兼容 OpenAI `/images/edits`（实测 404），
+  // 改用 /images/generations + reference_images（裸 base64，去掉 data: 前缀）+ image_mode=reference。
+  // 触发条件：被编辑原图要么来自上传文件(files)，要么来自前端下发的 referenceDataUrls(data URL)——
+  // 两种来源都算"有图要编辑"，避免某一来源缺失时回落到 404 的 /images/edits 分支。
+  // 参考图优先取前端下发的 referenceDataUrls（data URL），缺失时回退用上传文件的内存 buffer 现转。
+  const hasVolcRefs = provider === "volc" && (
+    hasImages
+    || (Array.isArray(params.referenceDataUrls) && params.referenceDataUrls.length > 0)
+  );
+  if (hasVolcRefs) {
+    const refs = (Array.isArray(params.referenceDataUrls) && params.referenceDataUrls.length)
+      ? params.referenceDataUrls
+      : files.map((f) => (f?.buffer ? `data:${f.mimetype || "image/png"};base64,${f.buffer.toString("base64")}` : null)).filter(Boolean);
+    if (refs.length > 0) {
+      variants.push({
+        id: "volc-edit-reference",
+        model: channel?.upstreamModel || params.model,
+        requestFormat: "volc-generations-reference",
+        path: "/images/generations",
+        protocol: "json",
+        headers: { "Content-Type": "application/json" },
+        createBody: () => JSON.stringify(buildVolcEditBody({ ...params, referenceDataUrls: refs }, channel))
+      });
+      return variants;
+    }
+  }
+
   const addJingyinVariant = (variantParams, suffix, requestFormatSuffix, format) => {
     variants.push({
       id: `jingyin-channel${suffix}`,
@@ -470,24 +562,32 @@ export function buildImageRequestVariants(params, files) {
     });
   };
 
-  const orderedFormats = isSeedreamModel(params.model)
-    ? [{ suffix: "", requestFormatSuffix: "-seedream", format: "seedream" }]
-    : isBananaModel(params.model)
-      ? [
-          { suffix: "", requestFormatSuffix: "", format: "legacy" },
-          { suffix: "-pixel", requestFormatSuffix: "-pixel", format: "pixel-image-size" },
-          { suffix: "-size", requestFormatSuffix: "-size", format: "size" }
-        ]
-      : [
-          { suffix: "-size", requestFormatSuffix: "-size", format: "size" },
-          { suffix: "-pixel", requestFormatSuffix: "-pixel", format: "pixel-image-size" },
-          { suffix: "", requestFormatSuffix: "", format: "legacy" }
-        ];
+  // 优先按线路 provider 选格式：火山引擎(volc)走原生像素串格式，与 TokenGo 的 seedream 分支区分。
+  const orderedFormats = provider === "volc"
+    ? [{ suffix: "", requestFormatSuffix: "-volc", format: "volc" }]
+    : isSeedreamModel(params.model)
+      ? [{ suffix: "", requestFormatSuffix: "-seedream", format: "seedream" }]
+      : isBananaModel(params.model)
+        ? [
+            { suffix: "", requestFormatSuffix: "", format: "legacy" },
+            { suffix: "-pixel", requestFormatSuffix: "-pixel", format: "pixel-image-size" },
+            { suffix: "-size", requestFormatSuffix: "-size", format: "size" }
+          ]
+        : [
+            { suffix: "-size", requestFormatSuffix: "-size", format: "size" },
+            { suffix: "-pixel", requestFormatSuffix: "-pixel", format: "pixel-image-size" },
+            { suffix: "", requestFormatSuffix: "", format: "legacy" }
+          ];
 
   const forceCompatFormats = isBananaModel(params.model) && params.workflowMode === "random-background";
   const activeFormats = ENABLE_IMAGE_COMPAT_VARIANTS || forceCompatFormats ? orderedFormats : orderedFormats.slice(0, 1);
   for (const item of activeFormats) {
-    addJingyinVariant(params, item.suffix, item.requestFormatSuffix, item.format);
+    // volc 线路的实际上游模型名(flash 版)与 UI 模型名不同，需覆盖 body.model / manualModel 为上游真实模型，
+    // 中转站才能按 model 选中 154 new-api 渠道 30。
+    const variantParams = item.format === "volc" && channel?.upstreamModel
+      ? { ...params, model: channel.upstreamModel, manualModel: channel.upstreamModel }
+      : params;
+    addJingyinVariant(variantParams, item.suffix, item.requestFormatSuffix, item.format);
   }
 
   if (params.model === "tt-image-2" && ENABLE_OPENAI_GPT_IMAGE_VARIANT) {

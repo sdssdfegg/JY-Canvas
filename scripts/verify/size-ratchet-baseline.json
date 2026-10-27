@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-27",
-  "reason": "V138 五轮补充：嵌入态隐藏 WorkbenchSidebar 后，OutfitWorkflow 内新增 useEffect 同步 view→activeView，主应用全局侧栏才能完整接管 6 个子视图（功能保命，必要增量 +13 行）",
+  "reason": "HS 渠道兜底条目 hs-seedream-5-0-flash 纳入 FALLBACK_MODEL_CHANNELS（label 统一为 HS，满足前端命名约束），必要增量 +2 行",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -125,7 +125,7 @@
     "src/shared/release-seed.js": 295,
     "src/shared/result-image.js": 334,
     "src/shared/retouch-intent.js": 284,
-    "src/shared/routing.js": 474,
+    "src/shared/routing.js": 476,
     "src/shared/text-normalize.js": 42,
     "src/shared/ui/AppSidebar.jsx": 39,
     "src/shared/ui/Button.jsx": 53,
