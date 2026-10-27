@@ -4031,7 +4031,7 @@ textarea:focus {
   gap: var(--space-2);
   padding: 7px;
   border-radius: 999px;
-  background: rgba(7, 8, 15, 0.62);
+  background: rgba(0, 0, 0, 0.62); /* 与既有 .assetDownloadButton 等卡片按钮同族黑色蒙版，仅加深以承载成组按钮 */
   border: 1px solid var(--soft-border);
   box-shadow: var(--shadow);
   opacity: 0;
