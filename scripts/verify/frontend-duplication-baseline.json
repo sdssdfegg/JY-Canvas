@@ -14,8 +14,9 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 137,
+    "fileCount": 142,
     "files": [
+      "src/api/ai-canvas-agent.js",
       "src/api/assets.js",
       "src/api/client.js",
       "src/api/config.js",
@@ -29,6 +30,10 @@
       "src/api/seed.js",
       "src/api/storage.js",
       "src/api/videos.js",
+      "src/features/ai-canvas/ai-canvas-agent.js",
+      "src/features/ai-canvas/ai-canvas-generation.js",
+      "src/features/ai-canvas/ai-canvas-store.js",
+      "src/features/ai-canvas/ai-canvas-view.jsx",
       "src/features/auth/api-key.js",
       "src/features/canvas/canvas-generation-handlers.js",
       "src/features/crop/quick-crop-panels.jsx",
@@ -155,5 +160,10 @@
       "src/shared/video-task.js"
     ]
   },
-  "duplicates": {}
+  "duplicates": {
+    "normalizeApiKeyInput": [
+      "src/features/ai-canvas/ai-canvas-generation.js",
+      "src/features/auth/api-key.js"
+    ]
+  }
 }

@@ -1,0 +1,362 @@
+/* src/features/ai-canvas/ai-canvas.css */
+/* V143 AI 无限画布 MVP-1：画布工作空间样式。所有类名以 aiCanvas 前缀，避免污染全局。
+   颜色一律走 src/styles/tokens.css 的 CSS 变量（含多主题），不写硬编码 hex（满足 hardcoded-color-check）。 */
+.aiCanvasRoot {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+  background: var(--panel);
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+/* —— 工具栏 —— */
+.aiCanvasToolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--topbar);
+  flex: 0 0 auto;
+}
+.aiCanvasBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-right: var(--space-1);
+  color: var(--accent);
+}
+.aiCanvasBrand b { font-size: var(--text-md); }
+.aiCanvasDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 var(--space-1);
+}
+.aiCanvasSpacer { flex: 1 1 auto; }
+.aiCanvasHint { color: var(--faint); font-size: 11px; margin-left: var(--space-2); }
+
+/* —— 主体：项目栏 + 画布 —— */
+.aiCanvasBody {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.aiCanvasProjects {
+  flex: 0 0 200px;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--app-bg) 80%, transparent);
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-2);
+}
+.aiCanvasProjectsHead {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+  margin-bottom: var(--space-2);
+  padding: 0 var(--space-1);
+}
+.aiCanvasProjectList { display: flex; flex-direction: column; gap: var(--space-1); }
+.aiCanvasEmpty { color: var(--faint); font-size: var(--text-sm); padding: var(--space-1); line-height: 1.5; }
+.aiCanvasProjectItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--muted);
+}
+.aiCanvasProjectItem:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.aiCanvasProjectItem.active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--text); }
+.aiCanvasProjectName {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aiCanvasProjectDel {
+  border: none;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+}
+.aiCanvasProjectDel:hover { color: var(--danger); background: var(--danger-bg); }
+
+/* —— 画布舞台 —— */
+.aiCanvasStage { position: relative; flex: 1 1 auto; min-width: 0; }
+
+.aiCanvasViewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  background-color: var(--app-bg);
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.aiCanvasViewport:active { cursor: grabbing; }
+
+/* 世界层（被视口 transform 缩放/平移）；本身不接收事件，仅节点接收。
+   置于连线层之上，使连线在节点之下。 */
+.aiCanvasWorld {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* 连线层（屏幕坐标，置于世界层之下，路径可点击） */
+.aiCanvasEdges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+.aiCanvasEdge {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  pointer-events: stroke;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.aiCanvasEdge:hover { stroke: var(--danger); opacity: 1; }
+.aiCanvasEdgePending {
+  stroke: var(--accent);
+  stroke-dasharray: 6 5;
+  opacity: 0.45;
+}
+
+/* —— 节点 —— */
+.aiCanvasNode {
+  position: absolute;
+  pointer-events: auto;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+}
+.aiCanvasNode.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+.aiCanvasNodeHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-2);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  font-size: 11px;
+  color: var(--muted);
+  cursor: move;
+}
+.aiCanvasNodeDel {
+  border: none;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 1px;
+  border-radius: var(--radius-sm);
+}
+.aiCanvasNodeDel:hover { color: var(--danger); }
+.aiCanvasNodeBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2);
+  overflow: hidden;
+}
+.aiCanvasNodeBody img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: var(--radius-sm); }
+.aiCanvasNodePlaceholder { color: var(--faint); font-size: var(--text-sm); }
+.aiCanvasPromptText {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--text);
+}
+.aiCanvasPromptEdit {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  border: none;
+  background: var(--app-bg);
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  outline: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+/* 端口 */
+.aiCanvasPort {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--panel-strong);
+  border: 2px solid var(--accent);
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: crosshair;
+  z-index: 2;
+}
+.aiCanvasPort:hover { background: var(--accent); }
+.aiCanvasPortIn { left: -7px; }
+.aiCanvasPortOut { right: -7px; }
+
+/* —— 小地图 —— */
+.aiCanvasMinimap {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  width: 180px;
+  height: 120px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  z-index: 3;
+  cursor: pointer;
+}
+.aiCanvasMinimapSvg { display: block; }
+.aiCanvasMiniNode { fill: color-mix(in srgb, var(--accent) 55%, transparent); }
+.aiCanvasMiniView { fill: color-mix(in srgb, var(--text) 8%, transparent); stroke: var(--text); stroke-width: 1; opacity: 0.5; }
+
+/* —— 欢迎页 —— */
+.aiCanvasWelcome {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  color: var(--faint);
+}
+.aiCanvasWelcome p { margin: 0; font-size: var(--text-md); }
+
+/* —— 生成节点 —— */
+.aiCanvasGenBody {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: stretch;
+  justify-content: flex-start;
+  text-align: left;
+}
+.aiCanvasGenModel,
+.aiCanvasGenPrompt {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--app-bg);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  outline: none;
+}
+.aiCanvasGenModel:focus,
+.aiCanvasGenPrompt:focus { border-color: var(--accent); }
+.aiCanvasGenPrompt { flex: 1 1 auto; resize: none; min-height: 42px; }
+.aiCanvasGenResult {
+  width: 100%;
+  max-height: 84px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  margin-top: var(--space-1);
+}
+.aiCanvasGenError {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--danger, rgba(255, 99, 99, 1));
+  font-size: 10px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+.aiCanvasGenOk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--success, rgba(99, 200, 120, 1));
+  font-size: 10px;
+}
+.aiCanvasSpin { animation: aiCanvasSpin 0.9s linear infinite; }
+@keyframes aiCanvasSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* —— MVP-3：画布 Agent 面板（左侧栏底部） —— */
+.aiCanvasAgent {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.aiCanvasAgentHead {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+.aiCanvasAgentInput {
+  width: 100%;
+  min-height: 66px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  background: var(--app-bg);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  font-size: 11px;
+  line-height: 1.45;
+  outline: none;
+}
+.aiCanvasAgentInput:focus { border-color: var(--accent); }
+.aiCanvasAgentReply {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.aiCanvasAgentList {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--faint);
+}
+.aiCanvasAgentListWarn { color: var(--warn); }

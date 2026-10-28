@@ -91,6 +91,8 @@ const VIEW_LOADING = (
 );
 const LazyOutfitWorkflow = React.lazy(() => import("./outfit-workflow.jsx"));
 const LazyImageEditorPanel = React.lazy(() => import("./image-editor.jsx"));
+// V143：AI 无限画布 MVP-1（隔离 feature，懒加载，不进首屏主包）。
+const LazyAiCanvas = React.lazy(() => import("./features/ai-canvas/ai-canvas-view.jsx"));
 
 
 
@@ -952,7 +954,7 @@ function App() {
       </aside>
 
       <section className={`quickgenArea ${["outfit", "resize"].includes(activeView) ? "embeddedWorkflowArea" : ""}`}>
-        {!["outfit", "resize"].includes(activeView) && (
+        {!["outfit", "resize", "ai-canvas"].includes(activeView) && (
           <MainTopBar
             activeView={activeView}
             quickMode={quickMode}
@@ -1052,6 +1054,12 @@ function App() {
             referenceStrengthOptions={REFERENCE_STRENGTH_OPTIONS}
             referenceControlOptions={referenceControlOptions}
           />
+        ) : activeView === "ai-canvas" ? (
+          <ErrorBoundary label="AI 无限画布">
+            <React.Suspense fallback={VIEW_LOADING}>
+              <LazyAiCanvas />
+            </React.Suspense>
+          </ErrorBoundary>
         ) : activeView === "quickgen" && quickMode === "video" ? (
           <VideoView
             videoApi={videoApi}

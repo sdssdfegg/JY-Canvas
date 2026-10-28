@@ -40,6 +40,7 @@ import { registerAssetsRoutes } from "./routes/assets.routes.js";
 import { registerSaveRoutes } from "./routes/save.routes.js";
 import { registerDetailRoutes } from "./routes/detail.routes.js";
 import { registerOutfitAnalysisRoutes } from "./routes/outfit-analysis.routes.js";
+import { registerAiCanvasAgentRoutes } from "./routes/ai-canvas-agent.routes.js";
 import { registerImageProxyRoutes } from "./routes/image-proxy.routes.js";
 import { registerImagesRoutes } from "./routes/images.routes.js";
 import { registerOutfitRoutes } from "./routes/outfit.routes.js";
@@ -91,6 +92,9 @@ registerDetailRoutes(app);
 
 registerOutfitRoutes(app);
 registerOutfitAnalysisRoutes(app);
+
+// V143 MVP-3：AI 无限画布 Agent（自然语言指令 → 画布动作清单；纯新增，不触发生成）。
+registerAiCanvasAgentRoutes(app);
 
 // V123：封装配置同步路由（仅 internal/开发模式；public 打包经 esbuild define(NODE_ENV=production)
 // 在 registerSeedRoutes 内部死代码消除，客户版无此出口）。
