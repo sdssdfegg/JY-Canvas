@@ -22,7 +22,8 @@ import {
   channelsForModel,
   convergeSettingsForModel,
   isRoutingCatalogReady,
-  modelCapabilities
+  modelCapabilities,
+  sizesForChannel
 } from "./shared/routing.js";
 import { ErrorBoundary } from "./shared/error-boundary.jsx";
 import { QuickCropViewportModal } from "./features/crop/quick-crop-panels.jsx";
@@ -528,7 +529,9 @@ function App() {
   // 能力限制唯一来源：routing catalog 的 capabilities（见 src/shared/routing.js）。
   const quickCapabilities = modelCapabilities(settings.model, config.routing || config);
   const ratios = quickCapabilities.ratios;
-  const quickSizes = quickCapabilities.sizes;
+  // 尺寸按「模型能力 ∩ 当前渠道自声明 sizes」收敛（2026-10-28）：
+  // HS（火山 flash）渠道只支持 1K/2K，选它时 4K 从下拉隐藏；其余渠道沿用模型级 sizes，行为不变。
+  const quickSizes = sizesForChannel(settings.model, settings.channelId, config.routing || config);
   // 上传图片数量随当前模型能力收敛：tt-image-2.5 是 8，其余是 14。
   // DEFAULT_MAX_REFERENCE_FILES 只在目录和能力都拿不到时兜底。
   const quickMaxReferenceFiles = Math.max(1, quickCapabilities.maxInputImages || DEFAULT_MAX_REFERENCE_FILES);

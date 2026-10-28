@@ -11,7 +11,8 @@ import { DEFAULT_MODELS } from "./shared/models.js";
 import { GALLERY_CARD_MIN_BASE } from "./shared/gallery-layout.js";
 import {
     channelsForModel,
-  modelCapabilities
+  modelCapabilities,
+  sizesForChannel
 } from "./shared/routing.js";
 import {
   resolveLocalEditBaseFile
@@ -404,7 +405,9 @@ export default function OutfitWorkflow({
   // 能力限制唯一来源：routing catalog 的 capabilities（见 src/shared/routing.js）。
   const outfitCapabilities = modelCapabilities(settings.model, config.routing || config);
   const ratios = outfitCapabilities.ratios;
-  const outfitSizes = outfitCapabilities.sizes;
+  // 尺寸按「模型能力 ∩ 当前渠道自声明 sizes」收敛（2026-10-28）：
+  // HS（火山 flash）渠道只支持 1K/2K，选它时 4K 从下拉隐藏；其余渠道沿用模型级 sizes，行为不变。
+  const outfitSizes = sizesForChannel(settings.model, settings.channelId, config.routing || config);
   // 每个模型的单次请求图片数量上限（tt-image-2.5 = 8，其余 = 14）。
   const outfitMaxImages = Math.max(1, Math.min(MAX_UPLOAD_IMAGES, outfitCapabilities.maxInputImages));
   const outfitChannels = channelsForModel(settings.model, config.routing || config);

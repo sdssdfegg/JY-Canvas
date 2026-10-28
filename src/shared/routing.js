@@ -296,7 +296,10 @@ function normalizeChannelRow(channel, model, priceOverride) {
     id: channel.id,
     label: String(channel.label || channel.id),
     price: Number.isFinite(price) ? price : 0,
-    currency: channel.pricing?.[model]?.currency || channel.currency || "CNY"
+    currency: channel.pricing?.[model]?.currency || channel.currency || "CNY",
+    // 渠道级尺寸子集（2026-10-28）：服务端目录对自声明 sizes 的渠道（如 HS 火山 flash 仅 1K/2K）
+    // 会下发该字段；未声明时保持 undefined，沿用模型级 sizes，行为不变。
+    ...(Array.isArray(channel.sizes) && channel.sizes.length ? { sizes: [...channel.sizes] } : {})
   };
 }
 
@@ -343,7 +346,8 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
   "doubao-seedream-5-0": Object.freeze([
     { id: "mc-seedream-5-0", label: "名创AI", price: 0.11 },
     // 2026-10-27：HS 渠道（与 server/channel-config.js 的 ROUTING_CHANNELS 同源）。前端展示名统一用「HS」，不出现「火山引擎」字眼。
-    { id: "hs-seedream-5-0-flash", label: "HS", price: 0.12 }
+    // 2026-10-28：补 sizes（火山 flash 仅 1K/2K，不支持 4K），离线兜底时尺寸下拉同样按渠道收敛。
+    { id: "hs-seedream-5-0-flash", label: "HS", price: 0.12, sizes: ["1K", "2K"] }
   ]),
   "doubao-seedream-5-0-pro": Object.freeze([
     { id: "mc-seedream-5-0-pro", label: "名创AI", price: 0.15 }
@@ -403,6 +407,24 @@ export function channelForModel(model, channelId, catalog = null) {
 }
 
 /**
+ * 渠道级尺寸（2026-10-28）：当前模型在指定渠道下可用的尺寸档位。
+ * - 规则 = 「模型能力 sizes ∩ 渠道自声明 sizes」；渠道未声明 sizes 时沿用模型能力，行为不变。
+ * - 交集顺序沿用模型能力的顺序；交集为空（配置异常）时回退模型能力，绝不让下拉变空。
+ * - 典型用例：SD（doubao-seedream-5-0）模型级 2K/4K，HS（火山 flash）渠道级 1K/2K
+ *   ⇒ 选 HS 时下拉只剩 2K（4K 隐藏；1K 因服务端模型级校验不支持而同样不出现）。
+ */
+export function sizesForChannel(model, channelId, catalog = null) {
+  const canonical = canonicalModel(model);
+  const caps = modelCapabilities(canonical, catalog);
+  const channel = channelForModel(canonical, channelId, catalog);
+  const channelSizes = Array.isArray(channel?.sizes) ? channel.sizes : null;
+  if (!channelSizes || !channelSizes.length) return caps.sizes;
+  const allowed = new Set(channelSizes.map((value) => String(value).trim().toUpperCase()));
+  const intersected = caps.sizes.filter((value) => allowed.has(String(value).trim().toUpperCase()));
+  return intersected.length ? intersected : caps.sizes;
+}
+
+/**
  * 请求路由字段：model / channelId / dispatchMode。
  * 任何情况下都返回 canonical model，且 channelId 一定落在当前模型的合法线路里。
  */
@@ -432,9 +454,19 @@ export function convergeSettingsForModel(settings = {}, catalog = null, options 
   next.model = canonical;
   next.dispatchMode = "manual";
   const caps = modelCapabilities(canonical, catalog);
+  // 渠道级尺寸收敛（2026-10-28）：先解析渠道，尺寸按「模型 ∩ 渠道」判断，
+  // 避免存档里 imageSize=4K + 渠道=HS（火山 flash 不支持 4K）时目录加载后仍保留 4K。
+  const channel = channelForModel(canonical, next.channelId, catalog);
+  const channelSizes = Array.isArray(channel?.sizes) && channel.sizes.length
+    ? (() => {
+        const allowed = new Set(channel.sizes.map((value) => String(value).trim().toUpperCase()));
+        const intersected = caps.sizes.filter((value) => allowed.has(String(value).trim().toUpperCase()));
+        return intersected.length ? intersected : caps.sizes;
+      })()
+    : caps.sizes;
 
   if (!caps.ratios.includes(next.aspectRatio)) next.aspectRatio = caps.ratios[0];
-  if (!caps.sizes.includes(next.imageSize)) next.imageSize = caps.sizes.includes("2K") ? "2K" : caps.sizes[0];
+  if (!channelSizes.includes(next.imageSize)) next.imageSize = channelSizes.includes("2K") ? "2K" : channelSizes[0];
 
   const requestedCount = Number.parseInt(next.n, 10) || 1;
   next.n = Math.max(1, Math.min(requestedCount, caps.maxInputImages));
@@ -459,7 +491,7 @@ export function convergeSettingsForModel(settings = {}, catalog = null, options 
   }
 
   if (options.preserveChannel !== true) {
-    next.channelId = channelForModel(canonical, next.channelId, catalog)?.id || "";
+    next.channelId = channel?.id || "";
   }
   return next;
 }

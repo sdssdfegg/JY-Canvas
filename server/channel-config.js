@@ -420,6 +420,10 @@ export function publicRoutingCatalog() {
       manual: true,
       public: true,
       supportedModels: [channel.model],
+      // 渠道级尺寸子集（2026-10-28）：渠道自声明 sizes（如 HS 火山 flash 仅 1K/2K，不支持 4K）
+      // 时下发给前端，前端按「模型能力 ∩ 渠道 sizes」收敛尺寸下拉。未声明的渠道不带该字段，
+      // 前端沿用模型级 sizes，行为不变。
+      ...(Array.isArray(channel.sizes) && channel.sizes.length ? { sizes: channel.sizes } : {}),
       pricing: { [channel.model]: { price: channel.price, currency: "CNY", unit: "image" } }
     })),
     pricing: {

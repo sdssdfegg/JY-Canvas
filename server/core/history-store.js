@@ -286,11 +286,32 @@ function enqueueHistoryWrite(task) {
   return run;
 }
 
+// 2026-10-28：Windows 下 rename 的目标文件（history.json / history.backup.json）偶尔会被
+// 本机其他程序瞬态占用（杀毒实时扫描 / 系统索引 / 同步盘），rename 抛 EPERM/EBUSY/EACCES。
+// 实测案例：generation.jsonl 仅 1 条（2026-10-28 07:24，stage=api-images-background-persist），
+// 后果 = 出图不受影响，但该批次历史条目丢失。对这三类「共享冲突」错误做短退避重试
+//（50→800ms 共 6 次，总等待约 1.55s），绝大多数瞬态锁在 1 秒内释放。其他错误照旧立即抛出。
+const RENAME_RETRY_CODES = new Set(["EPERM", "EBUSY", "EACCES"]);
+const RENAME_RETRY_DELAYS_MS = [50, 100, 200, 400, 800];
+
+async function renameWithRetry(from, to) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await rename(from, to);
+      return;
+    } catch (error) {
+      const retryable = RENAME_RETRY_CODES.has(error?.code);
+      if (!retryable || attempt >= RENAME_RETRY_DELAYS_MS.length) throw error;
+      await new Promise((resolve) => setTimeout(resolve, RENAME_RETRY_DELAYS_MS[attempt]));
+    }
+  }
+}
+
 async function writeHistoryFileAtomic(file, text) {
   const temporary = `${file}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
   try {
     await writeFile(temporary, text, "utf8");
-    await rename(temporary, file); // rename 覆盖已存在文件，原子替换
+    await renameWithRetry(temporary, file); // rename 覆盖已存在文件，原子替换；瞬态占用时内部重试
   } catch (error) {
     // V55：rename 失败（典型：Windows 下目标文件正被其他程序占用/锁定）时必须清掉
     // 临时文件，否则 data/ 里会永久积累 .tmp 残渣。unlink 失败不掩盖原始错误。
