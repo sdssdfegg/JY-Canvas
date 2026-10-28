@@ -670,3 +670,6 @@ function fitView(current, stageSize, actions) {
   const cy = (bounds.minY + bounds.maxY) / 2;
   actions.setViewport({ x: stageSize.w / 2 - cx * zoom, y: stageSize.h / 2 - cy * zoom, zoom });
 }
+
+// React.lazy 加载本模块时只认 default 导出；其余模块按名字引用（如有）仍走上面的命名导出。
+export default AiCanvasView;

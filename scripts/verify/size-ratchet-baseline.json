@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-28",
-  "reason": "V143：生成节点出图参数（新增零 import 的 ai-canvas-params.js + generation 走 resolveGenerationParams 并下发 imageSize/aspectRatio/source + panels 加尺寸比例下拉），纯新增特性必要体量增长；非既有逻辑膨胀",
+  "reason": "V143 修复：ai-canvas-view.jsx 补 export default AiCanvasView（React.lazy 必须 default 导出，与 outfit-workflow/image-editor 懒加载同款约定），+3 行为必需，非逻辑膨胀",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -30,7 +30,7 @@
     "src/features/ai-canvas/ai-canvas-store.js": 377,
     "src/features/ai-canvas/ai-canvas-transfer.js": 139,
     "src/features/ai-canvas/ai-canvas-versions.js": 75,
-    "src/features/ai-canvas/ai-canvas-view.jsx": 672,
+    "src/features/ai-canvas/ai-canvas-view.jsx": 675,
     "src/features/ai-canvas/ai-canvas-workflow.js": 91,
     "src/features/auth/api-key.js": 67,
     "src/features/canvas/canvas-generation-handlers.js": 490,

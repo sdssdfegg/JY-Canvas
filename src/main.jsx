@@ -985,7 +985,7 @@ function App() {
         )}
 
         {["outfit", "resize"].includes(activeView) ? (
-          <ErrorBoundary label="批量生成">
+          <ErrorBoundary label="批量生成" key="batch">
             <React.Suspense fallback={VIEW_LOADING}>
               <LazyOutfitWorkflow
                 view={activeView}
@@ -996,7 +996,7 @@ function App() {
             </React.Suspense>
           </ErrorBoundary>
         ) : activeView === "image-editor" ? (
-          <ErrorBoundary label="图片编辑">
+          <ErrorBoundary label="图片编辑" key="editor">
             <React.Suspense fallback={VIEW_LOADING}>
               <LazyImageEditorPanel
                 incomingImage={imageEditorSeed}
@@ -1055,7 +1055,7 @@ function App() {
             referenceControlOptions={referenceControlOptions}
           />
         ) : activeView === "ai-canvas" ? (
-          <ErrorBoundary label="AI 无限画布">
+          <ErrorBoundary label="AI 无限画布" key="canvas">
             <React.Suspense fallback={VIEW_LOADING}>
               <LazyAiCanvas />
             </React.Suspense>
