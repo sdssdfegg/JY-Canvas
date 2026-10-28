@@ -367,6 +367,16 @@ textarea:focus {
   align-content: start;
 }
 
+/* V139（2026-10-28）：快捷结果画廊禁用 CSS 级虚拟化（覆盖 .assetCard 的 content-visibility:auto）。
+   症状：生成多排后滚动/缩放，离屏卡片按「上次渲染记住的尺寸」或 260px 估计值占位，与可见卡片的
+   真实高度（轨道宽×4/3）混在同一网格 ⇒ 行高忽高忽低、卡片大小不一、间距挤紧（用户实测截图实锤）。
+   关掉后卡片尺寸完全由「固定轨道宽 + aspect-ratio + 固定 12px gap」决定，恒定均匀不重叠。
+   代价：长画廊失去渲染跳过优化；结果卡结构简单（单 img + 角标），实测可接受。批量侧同步改
+   （outfit-workflow.css .outfitWorkflowEmbedded .assetCard），参考/视频画廊不动。 */
+.galleryStrip.galleryStripColumns .assetCard {
+  content-visibility: visible;
+}
+
 .galleryStrip::-webkit-scrollbar {
   width: 9px;
 }
