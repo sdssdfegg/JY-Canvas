@@ -10,18 +10,10 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize,
-  Trash2,
   FolderPlus,
-  FolderOpen,
   X,
   Network,
   Sparkles,
-  Play,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-  Bot,
-  Send,
   Zap
 } from "lucide-react";
 import { Button } from "../../shared/ui/Button";
@@ -36,6 +28,7 @@ import {
 import { requestCanvasAgentPlan } from "../../api/ai-canvas-agent.js";
 import { applyCanvasAgentPlan, buildCanvasSnapshot } from "./ai-canvas-agent.js";
 import { planWorkflowRuns } from "./ai-canvas-workflow.js";
+import { AgentPanel, NodeBody, ProjectList, WorkflowStatus } from "./ai-canvas-panels.jsx";
 import "./ai-canvas.css";
 
 const MIN_ZOOM = 0.2;
@@ -412,68 +405,30 @@ export function AiCanvasView() {
         <Button size="sm" iconOnly title="适应视图" onClick={() => fitView(current, stageSize, actions)}><Maximize size={16} /></Button>
         <span className="aiCanvasSpacer" />
         <span className="aiCanvasHint">滚轮缩放 · 拖空白平移 · 拖端口连线 · 自动保存</span>
-        {workflow?.state === "running" ? (
-          <span className="aiCanvasWorkflowMsg">运行中 {Math.min(workflow.index + 1, workflow.queue.length)}/{workflow.queue.length}</span>
-        ) : null}
-        {workflow?.state === "done" ? (
-          <span className="aiCanvasWorkflowMsg">已跑完 {workflow.ranCount} 个生成节点</span>
-        ) : null}
-        {workflow?.state === "failed" ? (
-          <span className="aiCanvasWorkflowMsg aiCanvasWorkflowMsgErr">运行失败：{workflow.error}</span>
-        ) : null}
+        <WorkflowStatus workflow={workflow} />
         <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={onPickFiles} />
       </div>
 
       <div className="aiCanvasBody">
         <aside className="aiCanvasProjects">
           <div className="aiCanvasProjectsHead">画布项目</div>
-          <div className="aiCanvasProjectList">
-            {state.projects.length === 0 && <p className="aiCanvasEmpty">还没有画布，点上方「新建画布」开始。</p>}
-            {state.projects.map((p) => (
-              <div
-                key={p.id}
-                className={`aiCanvasProjectItem ${p.id === state.currentId ? "active" : ""}`}
-                onClick={() => actions.openProject(p.id)}
-              >
-                <FolderOpen size={14} />
-                <span className="aiCanvasProjectName" title={p.name}>{p.name}</span>
-                <button
-                  type="button"
-                  className="aiCanvasProjectDel"
-                  title="删除项目"
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    if (window.confirm(`删除画布「${p.name}」？此操作不可撤销。`)) actions.deleteProject(p.id);
-                  }}
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            ))}
-          </div>
+          <ProjectList
+            projects={state.projects}
+            currentId={state.currentId}
+            onOpen={actions.openProject}
+            onDelete={actions.deleteProject}
+          />
 
-          <div className="aiCanvasAgent">
-            <div className="aiCanvasAgentHead"><Bot size={14} /><span>画布 Agent</span></div>
-            <textarea
-              className="aiCanvasAgentInput"
-              placeholder="用一句话说要做什么，例如：把两张图连到生成节点，提示词写成换成红色连衣裙"
-              value={agentText}
-              onChange={(e) => setAgentText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) runAgent(); }}
-            />
-            <Button size="sm" tone="primary" disabled={agentBusy || !agentText.trim()} onClick={runAgent}>
-              {agentBusy ? <Loader2 size={14} className="aiCanvasSpin" /> : <Send size={14} />}
-              <span>{agentBusy ? "思考中…" : "执行"}</span>
-            </Button>
-            {agentError ? <span className="aiCanvasGenError"><AlertCircle size={13} /> {agentError}</span> : null}
-            {agentReply ? <p className="aiCanvasAgentReply">{agentReply}</p> : null}
-            {agentApplied.length ? (
-              <ul className="aiCanvasAgentList">{agentApplied.map((item, i) => <li key={`a${i}`}>{item}</li>)}</ul>
-            ) : null}
-            {agentSkipped.length ? (
-              <ul className="aiCanvasAgentList aiCanvasAgentListWarn">{agentSkipped.map((item, i) => <li key={`s${i}`}>{item}</li>)}</ul>
-            ) : null}
-          </div>
+          <AgentPanel
+            text={agentText}
+            onTextChange={setAgentText}
+            busy={agentBusy}
+            onRun={runAgent}
+            reply={agentReply}
+            applied={agentApplied}
+            skipped={agentSkipped}
+            error={agentError}
+          />
         </aside>
 
         <div className="aiCanvasStage">
@@ -550,64 +505,13 @@ export function AiCanvasView() {
                     </div>
 
                     <div className="aiCanvasNodeBody">
-                      {node.type === "generation" ? (
-                        <div className="aiCanvasGenBody">
-                          <input
-                            className="aiCanvasGenModel"
-                            placeholder="模型(空=用设置默认)"
-                            value={node.data.model || ""}
-                            onChange={(e) => actions.updateNodeData(node.id, { model: e.target.value })}
-                          />
-                          <textarea
-                            className="aiCanvasGenPrompt"
-                            placeholder="提示词（也可连一个提示词节点）"
-                            value={node.data.prompt || ""}
-                            onChange={(e) => actions.updateNodeData(node.id, { prompt: e.target.value })}
-                          />
-                          <Button
-                            size="sm"
-                            tone="primary"
-                            disabled={node.data.status === "running"}
-                            onClick={() => runGeneration(node)}
-                          >
-                            {node.data.status === "running" ? <Loader2 size={14} className="aiCanvasSpin" /> : <Play size={14} />}
-                            <span>{node.data.status === "running" ? "生成中…" : "执行生成"}</span>
-                          </Button>
-                          {node.data.status === "success" && node.data.resultUrl ? (
-                            <img className="aiCanvasGenResult" src={node.data.resultUrl} alt="结果" draggable={false} />
-                          ) : null}
-                          {node.data.status === "failed" ? (
-                            <span className="aiCanvasGenError"><AlertCircle size={13} /> {node.data.error}</span>
-                          ) : null}
-                          {node.data.status === "success" ? (
-                            <span className="aiCanvasGenOk"><CheckCircle2 size={13} /> {node.data.usedModel || ""} · 已生成结果节点</span>
-                          ) : null}
-                        </div>
-                      ) : node.type === "result" ? (
-                        (node.data.src || node.data.url) ? (
-                          <img src={node.data.src || node.data.url} alt={node.data.name || "结果"} draggable={false} />
-                        ) : (
-                          <span className="aiCanvasNodePlaceholder">（空结果）</span>
-                        )
-                      ) : node.type === "image" && node.data.src ? (
-                        <img src={node.data.src} alt={node.data.name || "图片"} draggable={false} />
-                      ) : node.type === "image" ? (
-                        <span className="aiCanvasNodePlaceholder">（空图片）</span>
-                      ) : node.type === "prompt" ? (
-                        editingNodeId === node.id ? (
-                          <textarea
-                            autoFocus
-                            className="aiCanvasPromptEdit"
-                            defaultValue={node.data.text || ""}
-                            onBlur={(e) => { actions.updateNodeData(node.id, { text: e.target.value }); setEditingNodeId(null); }}
-                            onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { actions.updateNodeData(node.id, { text: e.target.value }); setEditingNodeId(null); } }}
-                          />
-                        ) : (
-                          <span className="aiCanvasPromptText">{node.data.text || "（双击编辑提示词）"}</span>
-                        )
-                      ) : (
-                        <span className="aiCanvasNodePlaceholder">{node.data.text || ""}</span>
-                      )}
+                      <NodeBody
+                        node={node}
+                        isEditing={editingNodeId === node.id}
+                        onEndEdit={() => setEditingNodeId(null)}
+                        onUpdateData={actions.updateNodeData}
+                        onRunGeneration={runGeneration}
+                      />
                     </div>
 
                     <div
