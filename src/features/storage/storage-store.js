@@ -107,7 +107,11 @@ export function loadState() {
   const stored = readJsonStorage(STORAGE_KEY, null)
     || LEGACY_STORAGE_KEYS.map((key) => readJsonStorage(key, null)).find(Boolean)
     || {};
-  const { baseUrl: _discardedBaseUrl, ...safeStored } = stored;
+  // V139（2026-10-28，用户要求）：软件启动时渠道选择一律回到「默认的第一个渠道」——
+  // 剥离存档里的 channelId，让 config 目录加载后由 convergeSettingsForModel /
+  // channelForModel 回退到该模型第一条合法线路。会话期间（不重启）用户的选择照常
+  // 持久化并生效；只在下次启动时重置。本函数仅在根组件 useState 懒初始化调用一次。
+  const { baseUrl: _discardedBaseUrl, channelId: _discardedChannelId, ...safeStored } = stored;
   const merged = { ...defaultState, ...safeStored, baseUrl: defaultState.baseUrl };
   merged.model = canonicalModel(merged.model);
   merged.dispatchMode = "manual";

@@ -49,7 +49,12 @@ export const HIDDEN_CHANNEL_IDS = Object.freeze([
   "silent-tt25-line-04",  // BR-default特价（TT2.5）
   // 2026-10-26：SD Pro 上游渠道（名创AI 5.0 Pro，mc-seedream-5-0-pro）失效，暂时隐藏，
   // 等找到合适价格再显示。与 src/shared/routing.js 的 HIDDEN_CHANNEL_IDS 同源同步。
-  "mc-seedream-5-0-pro"   // SD Pro 名创AI 渠道
+  "mc-seedream-5-0-pro",  // SD Pro 名创AI 渠道
+  // 2026-10-28（经与上游核实）：老夜渠道出问题共 3 条线路死亡，云枢两条随之下线，
+  // 前端隐藏（服务端保留，渠道恢复后从本数组移除即可）。老夜 0.1（silent-tt2-line-12）
+  // 已在同日从目录摘除；laoye超分（silent-tt2-line-15，新特价 KEY）实测正常，保持显示。
+  "silent-tt2-line-10",   // 云枢（TT2.0）
+  "silent-tt25-line-05"   // 云枢（TT2.5）
 ]);
 
 const HIDDEN_CHANNEL_ID_SET = new Set(

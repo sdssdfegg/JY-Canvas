@@ -649,6 +649,19 @@ export function readOutfitPages() {
     makeOutfitPage(DEFAULT_OUTFIT_PAGE_NAME, { settings: baseSettings, tasks: readTaskHistory() })
   ], baseSettings);
 }
+/**
+ * V139（2026-10-28，用户要求）：软件启动时批量生成的渠道选择回到「默认的第一个渠道」。
+ * 只允许在「真正的整页刷新/首次打开」（documentBoot=true）时调用——切走再切回来是组件
+ * 重挂载，必须保留用户会话内的渠道选择。页面对象浅拷贝，settings.channelId 置空后由
+ * channelForModel / OutfitComposer 的兜底自动落到该模型第一条合法线路。
+ */
+export function resetOutfitPagesChannelForBoot(pages = []) {
+  return (Array.isArray(pages) ? pages : []).map((page) => (
+    page?.settings?.channelId
+      ? { ...page, settings: { ...page.settings, channelId: "" } }
+      : page
+  ));
+}
 export function pickInitialOutfitPage(pages = []) {
   const list = Array.isArray(pages) ? pages.filter(Boolean) : [];
   return list.find((page) => inferOutfitWorkflowMode(page.name, page.uploadLabels) === "outfit")

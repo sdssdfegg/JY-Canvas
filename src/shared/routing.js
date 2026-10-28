@@ -73,7 +73,11 @@ export const HIDDEN_CHANNEL_IDS = Object.freeze([
   "silent-tt25-line-04",
   // 2026-10-26：SD Pro 上游渠道（mc-seedream-5-0-pro）失效，暂时隐藏待恢复。
   // 与 server/channel-config.js 的 HIDDEN_CHANNEL_IDS 同步：前端隐藏、服务端仍接受。
-  "mc-seedream-5-0-pro"
+  "mc-seedream-5-0-pro",
+  // 2026-10-28（经与上游核实）：老夜渠道出问题共 3 条线路死亡，云枢两条随之下线，
+  // 前端隐藏（服务端保留，渠道恢复后从本数组移除即可）。与 server/channel-config.js 同源同步。
+  "silent-tt2-line-10",   // 云枢（TT2.0）
+  "silent-tt25-line-05"   // 云枢（TT2.5）
 ]);
 
 const HIDDEN_CHANNEL_ID_SET = new Set(

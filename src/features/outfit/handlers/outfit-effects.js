@@ -33,6 +33,7 @@ import {
   ensureWorkflowPages,
   loadOutfitDraftState,
   persistOutfitDraftState,
+  resetOutfitPagesChannelForBoot,
   serializeOutfitPage
 } from "../outfit-page-actions.js";
 
@@ -185,7 +186,12 @@ export function useOutfitEffects(ctx) {
     loadOutfitDraftState({ detachReason: documentBoot ? "reload" : "page-switch" })
       .then((draft) => {
         if (cancelled || !draft?.pages?.length) return;
-        const pages = ensureWorkflowPages(draft.pages, readSettings());
+        // V139（2026-10-28，用户要求）：软件启动时渠道回到默认第一条；只在真正的整页刷新/
+        // 首次打开（documentBoot）剥离，切走再切回来的重挂载必须保留用户会话内的选择。
+        const pages = ensureWorkflowPages(
+          documentBoot ? resetOutfitPagesChannelForBoot(draft.pages) : draft.pages,
+          readSettings()
+        );
         const activePage = pages.find((page) => page.id === draft.activeId) || pages[0];
         setOutfitPages(pages);
         setActiveOutfitPageId(activePage.id);

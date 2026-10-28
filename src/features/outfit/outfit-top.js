@@ -583,6 +583,11 @@ export function readSettings() {
   try {
     const stored = readJsonStorage(STORAGE_KEY, {});
     const settings = { ...defaultSettings, ...stored };
+    // V139（2026-10-28，用户要求）：软件启动时渠道回到「默认的第一个渠道」——读取层剥离
+    // 存档 channelId（置空后由 channelForModel / OutfitComposer 兜底落到第一条合法线路）。
+    // 只影响从 localStorage 读出的全局基底；会话内的活状态由 React state 持有，不受影响，
+    // 用户切换渠道后照常持久化，重挂载时由 IndexedDB 草稿恢复。
+    settings.channelId = "";
     if (shouldUpgradeLegacyBatchConcurrency(settings)) {
       settings.concurrency = DEFAULT_BATCH_CONCURRENCY;
       settings[BATCH_CONCURRENCY_DEFAULT_MIGRATION_KEY] = true;

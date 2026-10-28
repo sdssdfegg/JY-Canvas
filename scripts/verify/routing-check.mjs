@@ -557,9 +557,9 @@ const toTt25 = routingModule.convergeSettingsForModel({
   model: "tt-image-2.5"
 }, fakeCatalog);
 check(
-  "切到 tt-image-2.5：数量收敛到 8 且渠道换到合法线路（默认=第一条 云枢）",
+  "切到 tt-image-2.5：数量收敛到 8 且渠道换到合法线路（2026-10-28 云枢 line-05 前端隐藏后默认=第一条 Origin line-06）",
   toTt25.n === 8
-    && toTt25.channelId === "silent-tt25-line-05"
+    && toTt25.channelId === "silent-tt25-line-06"
     && routingModule.channelsForModel("tt-image-2.5", fakeCatalog).some((item) => item.id === toTt25.channelId),
   JSON.stringify(toTt25)
 );
