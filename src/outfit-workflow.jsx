@@ -292,7 +292,7 @@ export default function OutfitWorkflow({
   const [referenceImages, setReferenceImages] = useState(() => initialOutfitPage.referenceImages || []);
   const [fixedClothingId, setFixedClothingId] = useState(() => initialOutfitPage.fixedClothingId || "");
   const [tasks, setTasks] = useState(() => initialOutfitPage.tasks?.length ? initialOutfitPage.tasks : readTaskHistory());
-  const [galleryZoom, setGalleryZoom] = useState(1);
+  const [galleryZoom, setGalleryZoom] = useState(0.75);
   const [resultFilter, setResultFilter] = useState("all");
   const [saveDirectory, setSaveDirectory] = useState("");
   const [directoryDraft, setDirectoryDraft] = useState("");

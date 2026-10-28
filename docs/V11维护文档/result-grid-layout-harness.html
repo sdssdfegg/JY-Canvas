@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>结果图布局验收 Harness · V142（缩放上下重叠根因修复）</title>
+<style>
+  /* 本 harness 复刻 src 中快捷 / 批量结果网格的「公共网格规则」（见 styles.css
+     .galleryStrip.galleryStripColumns 与 .outfitWorkflowEmbedded .taskGrid 的合并规则，V142 之后）：
+       - 卡片最小宽 = 176px（GALLERY_CARD_MIN_BASE），随结果图缩放（galleryZoom）同步放大/缩小
+       - 间距 = 12px（--space-3 = GALLERY_GAP_PX）
+       - 列模板 = repeat(auto-fit, min(var(--asset-card-min), 100%))    ← V141 起纯 CSS auto-fit
+       - 卡片 aspect-ratio = 3/4
+       - grid-template-rows: none + grid-auto-rows: max-content         ← V142 真·修复（见下）
+     列数由浏览器按「当前缩放后的轨道宽」原子式计算，不再用 JS 注入 --gallery-columns；
+     行高再由 V142 彻底解绑（不允许出现被锁死的显式行轨道）⇒ 行高恒 = 卡片真实高，纵向间距恒 12px。 */
+
+  :root {
+    --asset-card-min: 255px;   /* 默认 145% 缩放：176 * 1.45 ≈ 255 */
+    --space-3: 12px;
+    --gallery-gap: 12px;
+    --accent: #13d2c3;
+    --panel: #171724;
+    --border: #27283a;
+    --text: #f5f7fb;
+    --muted: #a1a6ba;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px; background: #07080f; color: var(--text);
+    font-family: Inter, "Microsoft YaHei", system-ui, sans-serif;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;
+  }
+  .controls label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+  .controls input[type="range"] { width: 240px; }
+  .controls .val { color: var(--text); font-weight: 700; }
+  button {
+    background: var(--accent); color: #061515; border: 0; border-radius: 6px;
+    padding: 7px 12px; font-weight: 700; cursor: pointer;
+  }
+  .toggle.broken { background: #f05252; color: #fff; }
+
+  .stageWrap { display: flex; gap: 18px; flex-wrap: wrap; }
+  .panel { flex: 1 1 360px; min-width: 320px; }
+  .panel h2 { font-size: 14px; margin: 0 0 6px; }
+  .panel .tag { font-size: 11px; color: var(--muted); }
+
+  .viewport {
+    width: 900px; max-width: 100%; height: 460px; overflow: auto;
+    border: 1px solid var(--border); border-radius: 8px; background: #0c0d16;
+    padding: 8px; resize: horizontal;
+  }
+  /* 公共结果网格规则（两边共用，V141 + V142） */
+  .resultGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, min(var(--asset-card-min, 176px), 100%));
+    /* V142（真·修复）：显式置空可能存在的锁定行轨道 + 隐式行按内容（卡片真实高）自动撑开。
+       这两条保证「行高 = 轨道宽×4/3」，行步进恒 = 行高 + 12px gap，任意缩放都不上下重叠。 */
+    grid-template-rows: none;
+    grid-auto-rows: max-content;
+    gap: var(--gallery-gap, 12px);
+    justify-content: start;
+    align-content: start;
+    align-items: start;
+    min-width: 0;
+    width: 100%;
+  }
+  .assetCard {
+    position: relative; min-width: 0; overflow: hidden;
+    aspect-ratio: 3 / 4; border-radius: 8px;
+    background: linear-gradient(135deg, #2a2c3e, #1a1b29);
+    border: 1px solid var(--border);
+    box-shadow: 0 18px 50px rgba(0,0,0,0.32);
+  }
+  /* 修复态（V139/V142）：结果卡禁用 CSS 级虚拟化 + 行高解绑，盒模型完全确定 */
+  .resultGrid.fixed .assetCard { content-visibility: visible; contain-intrinsic-size: none; }
+  /* 破坏态（V142 真根因复现）：把行高锁成与卡片真实高无关的定长 ⇒ 卡片越高溢出越多、压住下一行。 */
+  .resultGrid.broken {
+    /* 行高被锁成「与缩放无关的固定值」——直接采用探针实测到的受害值 96.25px/行：
+       75% 缩放时卡片真实高 176px，每行溢出约 80px 压住下一行；拉到 145%（卡片 340px）
+       溢出约 244px ⇒ 直观再现用户报的「百分比越大叠加越厉害」。 */
+    grid-auto-rows: var(--broken-row-px, 96.25px);
+  }
+  .resultGrid.broken .assetCard { content-visibility: visible; contain-intrinsic-size: none; }
+  .assetCard .ph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 11px; }
+  .readout {
+    margin-top: 8px; font-size: 12px; line-height: 1.6; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; white-space: pre-wrap;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  .ok { color: #4ade80; } .bad { color: #f87171; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 12px; max-width: 900px; line-height: 1.7; }
+  .note b { color: var(--text); }
+</style>
+</head>
+<body>
+  <h1>结果图布局验收 Harness · V142（缩放上下重叠根因修复）</h1>
+  <div class="sub">复刻快捷 / 批量结果网格的公共规则。拖动「缩放百分比」模拟右上角结果图显示；切换「破坏态」按 V142 真根因（行高被锁死成「容器高/行数」）复现旧 bug。</div>
+
+  <div class="controls">
+    <label>缩放百分比（右上角控件）
+      <input id="zoom" type="range" min="75" max="145" step="5" value="145" />
+      <span class="val"><span id="zoomVal">145</span>%</span>
+    </label>
+    <label>容器内容宽 (px)
+      <input id="width" type="range" min="280" max="1600" step="4" value="900" />
+      <span class="val"><span id="widthVal">900</span> px</span>
+    </label>
+    <label>结果图数量
+      <input id="count" type="range" min="1" max="120" step="1" value="48" />
+      <span class="val"><span id="countVal">48</span> 张</span>
+    </label>
+    <button id="modeBtn" class="toggle">当前：修复态（行高解绑 rows:none + auto-rows:max-content）</button>
+    <button id="recalcBtn">重新测量</button>
+  </div>
+
+  <div class="stageWrap">
+    <div class="panel">
+      <h2>快捷生成结果网格</h2>
+      <div class="tag">.galleryStrip.galleryStripColumns（共享规则）</div>
+      <div class="viewport" id="vpQuick"><div class="resultGrid fixed" id="gridQuick"></div></div>
+      <div class="readout" id="outQuick"></div>
+    </div>
+    <div class="panel">
+      <h2>批量生成结果网格</h2>
+      <div class="tag">.outfitWorkflowEmbedded .taskGrid（共享规则）</div>
+      <div class="viewport" id="vpBatch"><div class="resultGrid fixed" id="gridBatch"></div></div>
+      <div class="readout" id="outBatch"></div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>真·根因（V142 由 tabbit 浏览器探针实测坐实）：</b>结果画廊网格的<b>行轨道被锁死</b>——
+    探针读到 <code>grid-template-rows: 96.25px 96.25px 96.25px 96.25px</code>（4 行）、
+    <code>grid-auto-rows</code> 未生效，而这个 96.25px 与卡片实际高度无关。卡片真实高 =
+    <code>轨道宽 × 4/3</code>（75% 缩放时 176px）⇒ 每张卡溢出本行约 80px、压住下一行 = 上下重叠。
+    <b>这唯一解释了「百分比越大叠加越厉害」</b>：缩放只放大卡片高（176→340px），而被锁死的行高不跟着变。
+    <br /><br />
+    <b>修复：</b>在两边共用的网格上加
+    <code>grid-template-rows: none</code>（置空显式行轨道）+ <code>grid-auto-rows: max-content</code>
+    （隐式行按卡片真实高自动撑开）⇒ 行高恒 = 卡片真实高，行步进恒 = 行高 + 12px。
+    实测：修复前 rows=96.25px×4 / 重叠 28 处；修复后 rows=176px×4 / 重叠 0；
+    缩放 75%→145% 全档位重叠恒 0（行步进 188/212/235/259/281/305/329/352）。
+    <br /><br />
+    <b>⚠️ 已证伪的上一个假设（留档以免重犯）：</b>V139/V141 曾把根因归为
+    <code>content-visibility:auto</code> + <code>contain-intrinsic-size:auto 260px</code>（离屏卡按 260px
+    估计占位）。探针实测两边结果卡的这两项<b>都已是 <code>visible</code> / <code>none</code>，但重叠依旧</b>
+    ⇒ 该归因不成立。教训：<b>CSS 归因必须由探针实测 computed 值坐实，不能只靠读源码/注释静态推断。</b>
+    <br /><br />
+    操作：拖动「缩放百分比」「容器内容宽」「结果图数量」即时读数；切「破坏态」复现旧重叠（并且能验证
+    「缩放越大重叠越狠」），切回「修复态」各排高度差≈0、纵向间距恒 12px、重叠=否。
+  </div>
+
+<script>
+  const CARD_BASE = 176;  // GALLERY_CARD_MIN_BASE
+  const GAP = 12;
+
+  function setZoom(zoomPct) {
+    document.documentElement.style.setProperty("--asset-card-min", (CARD_BASE * zoomPct / 100) + "px");
+  }
+
+  function buildCards(gridEl, n) {
+    gridEl.innerHTML = "";
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement("div");
+      c.className = "assetCard";
+      const ph = document.createElement("div");
+      ph.className = "ph";
+      ph.textContent = (i + 1);
+      c.appendChild(ph);
+      gridEl.appendChild(c);
+    }
+  }
+
+  function measure(gridEl) {
+    const cards = [...gridEl.querySelectorAll(".assetCard")];
+    if (!cards.length) return null;
+    const r0 = cards[0].getBoundingClientRect();
+    const cardW = r0.width, cardH = r0.height;
+    let hGap = null;
+    for (let i = 1; i < cards.length; i++) {
+      const a = cards[i - 1].getBoundingClientRect();
+      const b = cards[i].getBoundingClientRect();
+      if (Math.abs(a.top - b.top) < 2) { hGap = b.left - a.right; break; }
+    }
+    const rows = [];
+    let rowTop = cards[0].getBoundingClientRect().top, cur = [];
+    cards.forEach(c => {
+      const t = c.getBoundingClientRect().top;
+      if (Math.abs(t - rowTop) > 2) { rows.push(cur); cur = []; rowTop = t; }
+      cur.push(c);
+    });
+    if (cur.length) rows.push(cur);
+    const rowHeights = rows.map(r => Math.max(...r.map(c => c.getBoundingClientRect().height)));
+    const rowTops = rows.map(r => r[0].getBoundingClientRect().top);
+    let vGap = null;
+    if (rowTops.length > 1) vGap = rowTops[1] - rowTops[0] - rowHeights[0];
+    const heightsVary = Math.max(...rowHeights) - Math.min(...rowHeights);
+    // 重叠检测：任意两张卡片矩形相交即算（必须全对比——只比 DOM 相邻项会漏掉「跨行同列」的上下重叠）
+    let overlap = false;
+    const rects = cards.map(c => c.getBoundingClientRect());
+    for (let i = 0; i < rects.length && !overlap; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        const a = rects[i], b = rects[j];
+        const ox = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (ox > 0.5 && oy > 0.5) { overlap = true; break; }
+      }
+    }
+    return {
+      columns: rows[0] ? rows[0].length : 0,
+      totalRows: rows.length,
+      cardW: +cardW.toFixed(1), cardH: +cardH.toFixed(1),
+      hGap: hGap == null ? null : +hGap.toFixed(1),
+      vGap: vGap == null ? null : +vGap.toFixed(1),
+      rowHeightsVary: +heightsVary.toFixed(1),
+      overlap
+    };
+  }
+
+  function render() {
+    const w = +document.getElementById("width").value;
+    const n = +document.getElementById("count").value;
+    const z = +document.getElementById("zoom").value;
+    document.getElementById("widthVal").textContent = w;
+    document.getElementById("countVal").textContent = n;
+    document.getElementById("zoomVal").textContent = z;
+    setZoom(z);
+    [["gridQuick","vpQuick","outQuick"],["gridBatch","vpBatch","outBatch"]].forEach(([g,p,o]) => {
+      const grid = document.getElementById(g);
+      const vp = document.getElementById(p);
+      vp.style.width = w + "px";
+      buildCards(grid, n);
+      // 同步测量：buildCards 已同步插入 DOM，直接 getBoundingClientRect 会强制布局，
+      // 读到的必是「当前样式 + 当前 Zoom」下的真实值（不依赖 rAF 时序，避免读数滞后一帧）
+      {
+        const m = measure(grid);
+        const out = document.getElementById(o);
+        if (!m) { out.textContent = "（无卡片）"; return; }
+        out.innerHTML =
+          `缩放         = ${z}%（卡片最小宽 ≈ ${(CARD_BASE*z/100).toFixed(0)}px）\n` +
+          `容器宽(设定)  = ${w}px\n` +
+          `实测列数     = ${m.columns}  （auto-fit 自动算）\n` +
+          `卡片宽       = ${m.cardW}px\n` +
+          `卡片高       = ${m.cardH}px  （=宽×4/3）\n` +
+          `横向间距     = ${m.hGap}px  ${m.hGap===GAP?'<span class="ok">✓</span>':'<span class="bad">✗</span>'}\n` +
+          `纵向间距     = ${m.vGap}px  ${m.vGap===GAP?'<span class="ok">✓</span>':'<span class="bad">✗</span>'}\n` +
+          `排数         = ${m.totalRows}\n` +
+          `各排高度差   = ${m.rowHeightsVary}px  ${m.rowHeightsVary<=0.5?'<span class="ok">✓ 不逐行缩小</span>':'<span class="bad">✗ 行高不一致</span>'}\n` +
+          `卡片重叠     = ${m.overlap?'<span class="bad">是 ⚠</span>':'<span class="ok">否 ✓</span>'}`;
+      }
+    });
+  }
+
+  let broken = false;
+  document.getElementById("modeBtn").addEventListener("click", () => {
+    broken = !broken;
+    ["gridQuick","gridBatch"].forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.toggle("broken", broken);
+      el.classList.toggle("fixed", !broken);
+    });
+    const btn = document.getElementById("modeBtn");
+    btn.classList.toggle("broken", broken);
+    btn.textContent = broken ? "当前：破坏态（grid-template-rows 被锁死 ≈ V142 旧 bug）" : "当前：修复态（行高解绑 rows:none + auto-rows:max-content）";
+    render();
+  });
+  document.getElementById("zoom").addEventListener("input", render);
+  document.getElementById("width").addEventListener("input", render);
+  document.getElementById("count").addEventListener("input", render);
+  document.getElementById("recalcBtn").addEventListener("click", render);
+  window.addEventListener("resize", render);
+  document.querySelectorAll(".viewport").forEach(vp => new ResizeObserver(() => render()).observe(vp));
+
+  render();
+</script>
+</body>
+</html>

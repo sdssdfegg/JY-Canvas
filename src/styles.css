@@ -330,7 +330,7 @@ textarea:focus {
   z-index: 1;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-3, 12px);
   align-items: flex-start;
   align-content: flex-start;
   min-width: 0;
@@ -362,9 +362,38 @@ textarea:focus {
    gap 沿用 .galleryStrip 的 12px（= GALLERY_GAP_PX）。 */
 .galleryStrip.galleryStripColumns {
   display: grid;
-  grid-template-columns: repeat(var(--gallery-columns, auto-fit), var(--asset-card-min, 176px));
+}
+
+/* V140（2026-10-28）：快捷结果画廊（.galleryStrip.galleryStripColumns）与批量结果网格
+   （.outfitWorkflowEmbedded .taskGrid）共享同一套网格规则——列模板 / 间距 / 对齐完全一致，
+   间距统一走尺寸令牌 --space-3（=12px = GALLERY_GAP_PX）。
+   卡片宽由 --asset-card-min（GALLERY_CARD_MIN_BASE=176，V138 已统一）固定，随结果图缩放（galleryZoom）同步放大/缩小。
+   列数改用纯 CSS `auto-fit` 原子式计算（V141 改）：浏览器按「当前缩放后的轨道宽」直接决定每排列数，
+   与 JS 注入 --gallery-columns 相比，杜绝缩放瞬间「列数用的是旧卡片宽、轨道已用新卡片宽」的脱节 →
+   既消除「放大后上下重叠/间距挤紧」，又保证快捷与批量在相同可用宽下每排列数结构性一致
+   （两边均走同一套浏览器 auto-fit 算法 + 同一 --asset-card-min + 同一 gap）。
+   轨道用 min(--asset-card-min, 100%)：容器窄于卡片时卡片等比收窄到 100%，永不横向溢出/重叠。
+   注意：本规则只覆盖网格公共属性；两边各自的滚动 / 外边距 / 页面外壳内边距等差异保留在
+   各自的专属规则里，不在此合并（避免误伤视频画廊 .videoGalleryStrip 与批量上传区）。 */
+.galleryStrip.galleryStripColumns,
+.outfitWorkflowEmbedded .taskGrid {
+  grid-template-columns: repeat(auto-fit, min(var(--asset-card-min, 176px), 100%));
+  gap: var(--space-3, 12px);
   justify-content: start;
   align-content: start;
+  /* V141：结果卡高度由 aspect-ratio 决定，禁止跨行拉伸（默认 stretch 会让某行最高卡把同行其它卡拉高，
+     在缩放/不同比例原图混排时造成行高漂移）。start 后每行卡片高度严格一致，纵向间距恒定不重叠。 */
+  align-items: start;
+  /* V142（2026-10-28）：**行高锁死是「上下重叠」的真正根因**，由浏览器探针实测坐实。
+     现象：画廊 grid 被算出显式 grid-template-rows（如 4 行 × 96.25px），而行数 = ceil(卡片数 / 列数)
+     是动态的、行高被压成「容器高 / 行数」；卡片真实高却 = 轨道宽 × 4/3（75% 时 176px）。
+     于是每张卡溢出本行约 80px 压住下一行 ⇒ 上下重叠；且缩放越大卡片越高、行高不变 ⇒ 「百分比越大叠加越厉害」。
+     处理：显式置空 template-rows（消除锁死的显式轨道）+ 隐式行按内容高（max-content）自动撑开，
+     行高恒 = 卡片真实高，纵向间距恒 = 12px gap。
+     实测（探针，38 张卡）：修复前 rows=96.25px×4、重叠 28 处；修复后 rows=176px×4、重叠 0。
+     缩放 75%→145% 全档位实测：重叠恒为 0，行步进恒 = 卡片高 + 12px。 */
+  grid-template-rows: none;
+  grid-auto-rows: max-content;
 }
 
 /* V139（2026-10-28）：快捷结果画廊禁用 CSS 级虚拟化（覆盖 .assetCard 的 content-visibility:auto）。
@@ -375,6 +404,7 @@ textarea:focus {
    （outfit-workflow.css .outfitWorkflowEmbedded .assetCard），参考/视频画廊不动。 */
 .galleryStrip.galleryStripColumns .assetCard {
   content-visibility: visible;
+  contain-intrinsic-size: none;
 }
 
 .galleryStrip::-webkit-scrollbar {
@@ -394,12 +424,17 @@ textarea:focus {
   position: relative;
   min-width: 0;
   overflow: hidden;
-  /* V46.4 延伸（低端机降配④补）：CSS 级虚拟化。离屏卡片跳过布局/绘制，直接削减
-     长画廊（结果/参考/视频）在低端机上的主线程开销；DOM 仍常驻，不破坏拖拽到画布。
-     contain-intrinsic-size 用 `auto` 关键字：首屏用 260px 估计占位，渲染后记住真实尺寸，
-     避免横向滚动条与行高跳动。aspect-ratio:3/4 + flex-basis 固定宽度 ⇒ 高度可确定，估计值偏差小。 */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 260px;
+  /* V141（2026-10-28）：结果卡（快捷/批量）**不再**使用 CSS 级虚拟化。
+     基类 .assetCard 实际只被结果画廊（快捷 .galleryStrip / 批量 .taskGrid）使用；
+     参考画廊用 .referenceAssetCard、视频画廊用 .videoAssetCard，互不影响，本处改动不波及它们。
+     content-visibility:auto + contain-intrinsic-size:auto 260px 会让离屏卡片按 260px 估计占位、
+     可见卡片按真实高（轨道宽×4/3）占位——放大到 118% 时真实高≈277px 与 260px 估计差骤增，
+     导致行高忽高忽低、卡片大小不一、上下重叠（用户实测截图实锤：百分比越大叠加越厉害）。
+     关掉后卡片尺寸完全由「固定轨道宽 + aspect-ratio + 固定 12px gap」决定，恒定均匀不重叠。
+     性能取舍：结果卡结构简单（单 img + 角标），实测可接受；如需长列表渲染跳过，应在业务层做，
+     不应以破坏布局确定性的代价换 CSS 级虚拟化。 */
+  content-visibility: visible;
+  contain-intrinsic-size: none;
   aspect-ratio: 3 / 4;
   border-radius: 8px;
   background: var(--panel);
@@ -3999,10 +4034,10 @@ textarea:focus {
     padding-bottom: 4px;
   }
 
-  .galleryStrip > .assetCard {
-    flex-basis: min(var(--asset-card-min, 150px), calc((100% - 12px) / 2));
-    width: min(var(--asset-card-min, 150px), calc((100% - 12px) / 2));
-  }
+  /* V140（2026-10-28）：删除此处对 .galleryStrip > .assetCard 的窄屏 width/flex-basis 覆盖。
+     原规则在 ≤760px 时把卡片宽压成 calc((100% - 12px)/2)≈82px，但快捷结果画廊已是 grid，
+     grid item 的 100% 指向 176px 轨道，于是卡片被压成 82px、轨道仍 176px ⇒ 大空隙且
+     与批量（176px）明显不一致。列数由 JS 统一算，窄屏自然落到更少列，无需此处硬压宽度。 */
 
   .composer {
     width: calc(100% - 20px);

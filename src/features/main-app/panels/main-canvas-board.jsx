@@ -20,7 +20,6 @@ import {
 import { Button } from "../../../shared/ui/Button";
 import DebouncedTextarea from "../../../shared/DebouncedTextarea.jsx";
 import { channelPriceLabel } from "../../../shared/routing.js";
-import { useGalleryColumns } from "../../../shared/use-gallery-columns.js";
 import { fileSize } from "../../../lib/format/index.js";
 import { QuickGalleryCard } from "./quick-gallery-card.jsx";
 
@@ -146,9 +145,9 @@ export function MainCanvasBoard({
     };
   }, []);
 
-  // 列数由 JS 统一算：与批量结果网格共用 computeGalleryColumns()，写入 --gallery-columns，
-  // 消除两边因可用宽差异导致的「一边先换排、另一边差一点才换」。
-  useGalleryColumns(quickGalleryRef, galleryCardMin);
+  // V141：列数改由纯 CSS auto-fit 原子式计算（见 styles.css 合并网格规则），两边共用
+  // 同一 --asset-card-min + 同一 gap；不再用 JS 注入 --gallery-columns，避免缩放瞬间
+  // 列数与轨道宽脱节导致上下重叠。
 
   return (
     <div className="canvasBoard" onWheel={onQuickBoardWheel}>

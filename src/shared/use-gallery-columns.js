@@ -1,21 +1,16 @@
 // src/shared/use-gallery-columns.js
-// V138 后续（2026-10-28）：快捷生成画廊与批量结果网格的「每排列数」统一由 JS 计算。
-//
-// 背景：两边原本一个 flex-wrap、一个 grid auto-fit，列数公式相同但**输入的可
-// 用宽不同**（横向 padding 与滚动条预留差约 20px）⇒ 缩窗时一边先换排、另一边
-// 差一点才换。改为两侧共用 `computeGalleryColumns()` 并把结果写进
-// `--gallery-columns`，CSS 用 `repeat(var(--gallery-columns, auto-fit), ...)`
-// 兜底：JS 未跑时退回 auto-fit（与改造前一致，不会闪成单列）。
-//
+// V138：可用宽 → 列数公式的 React 封装。V141 起列数改由纯 CSS auto-fit 计算，本 hook 已无调用点。
 // 纪律：本文件只依赖 React 与零依赖叶子 gallery-layout.js，不碰业务状态。
 import { useEffect } from "react";
 import { GALLERY_GAP_PX, computeGalleryColumns } from "./gallery-layout.js";
 
 /**
- * 观测容器内容宽，写入 `--gallery-columns`。
+ * 观测容器内容宽（clientWidth - padding）写入 `--gallery-columns`。
  *
- * 内容宽取 `clientWidth - paddingLeft - paddingRight`：clientWidth 已排除
- * 滚动条与边框，正是 CSS grid/flex 实际用于排布的宽度，两侧口径一致。
+ * @internal 保留原因 V141：当前无 import，因列数已改由纯 CSS auto-fit 计算。保留是因
+ * `computeGalleryColumns()` 是 V138 沉淀的唯一列数公式（按列预分配时可复用），且删本文件
+ * 会连带判死 gallery-layout.js 的 GALLERY_GAP_PX / computeGalleryColumns（超本单范围）。
+ * 确认不再恢复 JS 列数时，应与那两个导出一起删除。
  *
  * @param {{current: HTMLElement|null}} ref 容器 ref
  * @param {number} cardMin 卡片宽（--asset-card-min）

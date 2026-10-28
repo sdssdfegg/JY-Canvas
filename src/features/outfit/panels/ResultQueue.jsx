@@ -18,7 +18,6 @@
 import { useMemo, useRef } from "react";
 import { Sparkles } from "lucide-react";
 import { ResultCard, TaskStatusCard } from "./result-card.jsx";
-import { useGalleryColumns } from "../../../shared/use-gallery-columns.js";
 
 export function ResultQueue({
   visibleTasks,
@@ -102,9 +101,9 @@ export function ResultQueue({
   // activeOutfitPage 只在卡的 diagnostic 里用 .workflowMode ⇒ 派生为标量，规避对象引用波动。
   const workflowMode = activeOutfitPage?.workflowMode || "";
 
-  // 列数由 JS 统一算：与快捷生成画廊共用 computeGalleryColumns()，写入 --gallery-columns，
-  // 消除两边因可用宽差异导致的「一边先换排、另一边差一点才换」。
-  useGalleryColumns(taskGridRef, galleryCardMin);
+  // V141：列数改由纯 CSS auto-fit 原子式计算（见 styles.css 合并网格规则），与快捷生成
+  // 共用同一 --asset-card-min + 同一 gap；不再用 JS 注入 --gallery-columns，避免缩放瞬间
+  // 列数与轨道宽脱节导致上下重叠。
 
   return (
     <section className="resultPanel queuePanel" id="result-archive-section">

@@ -67,7 +67,7 @@ export function useQuickGenState() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [status, setStatus] = useState("idle");
   const [quickTasks, setQuickTasks] = useState([]);
-  const [galleryZoom, setGalleryZoom] = useState(1);
+  const [galleryZoom, setGalleryZoom] = useState(0.75);
   const [downloadFeedbackIds, setDownloadFeedbackIds] = useState(() => new Set());
   const [error, setError] = useState("");
   const [isQuickPromptOptimizing, setIsQuickPromptOptimizing] = useState(false);
