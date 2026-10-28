@@ -309,6 +309,9 @@ function normalizeChannelRow(channel, model, priceOverride) {
 export const FALLBACK_MODEL_CHANNELS = Object.freeze({
   // laoye 第一（默认线路）/ 云枢 第二；vakv 质量差，2026-10-20 同价位排最后，与 server/channel-config.js 顺序一致。
   "tt-image-2": Object.freeze([
+    // 2026-10-28：laoye超分（老夜同上游 GPT特价 KEY，OPEN 协议同 laoye 2.0，前端 ¥0.08/张）。
+    // 0.08 最低价 ⇒ 排第一 = 默认线路（routing-check 强制渠道按价格升序）。
+    { id: "silent-tt2-line-15", label: "laoye超分", price: 0.08 },
     { id: "silent-tt2-line-12", label: "laoye", price: 0.1 },
     { id: "silent-tt2-line-10", label: "云枢", price: 0.1 },
     { id: "silent-tt2-line-11", label: "Origin", price: 0.1 },

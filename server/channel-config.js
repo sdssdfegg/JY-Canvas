@@ -91,7 +91,14 @@ export const DEFAULT_MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 // 与 3.0 `/api/ecommerce/routing` 对齐的客户可见模型目录。
 // 线路 ID 是静音中转适配器的 publicId，不能替换成本地自造 ID。
 const ROUTING_CHANNELS = Object.freeze([
-  // TT2.0 默认线路顺序：laoye 第一（默认线路）/ 云枢 第二；vakv 质量差，2026-10-20 由「同价位第三」改为「同价位排最后」。
+  // 2026-10-28：新增「laoye超分」——老夜同上游（api.luckfill.com）的 GPT特价 KEY 专跑低价，
+  //   传参协议与 laoye 2.0 的 OPEN 协议完全一致，上游模型仍为 gpt-image-2。
+  //   前端 ¥0.08/张；154 适配器 publicId=silent-tt2-line-15（见 /opt/jingyin-silent-gpt-image-adapter/
+  //   provider_families.json），KEY 只存适配器 env（LK888_SILENT_LAOYE_SUPERRES_API_KEY），前端与源码零 KEY。
+  //   排第一 = TT2.0 默认线路（routing-check 强制渠道按价格升序，0.08 最低价 ⇒ 默认，省钱）。
+  { id: "silent-tt2-line-15", label: "laoye超分", price: 0.08, model: "tt-image-2" },
+  // TT2.0 线路顺序（2026-10-28 起）：laoye超分 第一（默认线路，¥0.08 最便宜）/ laoye / 云枢 其后；
+  // vakv 质量差，2026-10-20 由「同价位第三」改为「同价位排最后」。
   // 2.0 各线路价格口径不变（Origin 0.10 / MC-TT-cf 等 0.11），仅默认线路前移。
   // 数组顺序 = 前端菜单顺序；第一条同时也是"用户没选过线路时"的默认线路
   // （channelForModel / convergeSettingsForModel 都取 channels[0]）。

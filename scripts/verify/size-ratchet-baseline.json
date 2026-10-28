@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-28",
-  "reason": "HS渠道隐藏4K（渠道级尺寸交集：catalog下发渠道sizes+routing.sizesForChannel+converge渠道感知化，两消费点接线）与历史写盘EPERM瞬态重试（renameWithRetry），均为必要增量",
+  "reason": "TT2.0新增laoye超分渠道（silent-tt2-line-15,0.08）：两侧目录同源登记+注释，必要增量",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -125,7 +125,7 @@
     "src/shared/release-seed.js": 295,
     "src/shared/result-image.js": 334,
     "src/shared/retouch-intent.js": 284,
-    "src/shared/routing.js": 508,
+    "src/shared/routing.js": 511,
     "src/shared/text-normalize.js": 42,
     "src/shared/ui/AppSidebar.jsx": 39,
     "src/shared/ui/Button.jsx": 53,
