@@ -1,6 +1,6 @@
 {
   "note": "前端跨文件同名顶层函数基线：记录当前已存在的跨文件同名顶层函数，只用来拦「新增」。注意本基线按「行首顶层」判据生成（缩进的内层函数不纳入），与评估报告初版那 104 条（未锚定行首、混入内层函数）不是同一口径。抽到 src/shared/ 消掉后跑一次 --update 把它从账单里划掉。【已知选择性失明 · §0.9 第 11/17 条】本基线启用 MIN_NAME_LENGTH=4 过滤：名字长度 1–3 字符的顶层函数不进视野，其跨文件同名既不计数也不报红；⇒ 「基线条数」与「门禁全绿」都只覆盖 ≥4 字符的函数，前端覆盖率弱于服务端（服务端 duplication 门禁刻意不启用该过滤）。判据见 scripts/verify/lib/def-patterns.mjs。",
-  "generatedAt": "2026-10-27",
+  "generatedAt": "2026-10-28",
   "scanScope": {
     "root": "src/",
     "extensions": [
@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 136,
+    "fileCount": 137,
     "files": [
       "src/api/assets.js",
       "src/api/client.js",
@@ -151,6 +151,7 @@
       "src/shared/ui/elapsed-timer.jsx",
       "src/shared/ui/reference-thumb-tray.jsx",
       "src/shared/ui/stable-textarea.jsx",
+      "src/shared/use-gallery-columns.js",
       "src/shared/video-task.js"
     ]
   },

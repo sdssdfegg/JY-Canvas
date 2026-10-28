@@ -683,7 +683,10 @@
      V138 四轮：auto-fill → auto-fit。auto-fill 会按容器宽贪心铺满所有轨道，余下无图的第 7 列
      仍占 176px 空位 ⇒ 出现「第 7 个位置空着就转行」的空洞。auto-fit 把空轨道塌缩为 0 宽，
      既消除空洞，又使「每排个数」计算与快捷画廊 flex-wrap 完全一致（同窗口/同缩放下同排同数）。 */
-  grid-template-columns: repeat(auto-fit, var(--asset-card-min, 176px));
+  /* V138 后续（2026-10-28）：列数改由 JS 统一算（--gallery-columns，见
+     shared/use-gallery-columns.js），与快捷画廊共用 computeGalleryColumns()。
+     未注入时退回 auto-fit（与改造前一致），注入后两边排数结构性一致。 */
+  grid-template-columns: repeat(var(--gallery-columns, auto-fit), var(--asset-card-min, 176px));
   justify-content: start;
   gap: 12px;
   margin-top: 12px;

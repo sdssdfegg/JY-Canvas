@@ -20,6 +20,7 @@ import {
 import { Button } from "../../../shared/ui/Button";
 import DebouncedTextarea from "../../../shared/DebouncedTextarea.jsx";
 import { channelPriceLabel } from "../../../shared/routing.js";
+import { useGalleryColumns } from "../../../shared/use-gallery-columns.js";
 import { fileSize } from "../../../lib/format/index.js";
 import { QuickGalleryCard } from "./quick-gallery-card.jsx";
 
@@ -145,9 +146,13 @@ export function MainCanvasBoard({
     };
   }, []);
 
+  // 列数由 JS 统一算：与批量结果网格共用 computeGalleryColumns()，写入 --gallery-columns，
+  // 消除两边因可用宽差异导致的「一边先换排、另一边差一点才换」。
+  useGalleryColumns(quickGalleryRef, galleryCardMin);
+
   return (
     <div className="canvasBoard" onWheel={onQuickBoardWheel}>
-      <section ref={quickGalleryRef} className="galleryStrip" style={{ "--asset-card-min": `${galleryCardMin}px` }}>
+      <section ref={quickGalleryRef} className="galleryStrip galleryStripColumns" style={{ "--asset-card-min": `${galleryCardMin}px` }}>
         {quickGalleryItems.map((galleryItem, index) => {
           // V5.0-002：整包集合改每卡派生布尔——单张选中/下载/拖拽高亮只翻转该卡对应布尔，
           // 其余卡布尔值不变（基元相等）→ React.memo 跳过，杜绝全树重渲染。
