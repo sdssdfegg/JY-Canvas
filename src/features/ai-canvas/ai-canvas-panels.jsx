@@ -50,10 +50,21 @@ export function ProjectList({ projects, currentId, onOpen, onDelete }) {
 }
 
 // —— 左侧栏底部：画布 Agent 指令面板 ——
-export function AgentPanel({ text, onTextChange, busy, onRun, reply, applied, skipped, error }) {
+export function AgentPanel({ text, onTextChange, busy, mode, onModeChange, onRun, reply, applied, skipped, error }) {
   return (
     <div className="aiCanvasAgent">
       <div className="aiCanvasAgentHead"><Bot size={14} /><span>画布 Agent</span></div>
+      <select
+        className="aiCanvasAgentMode"
+        value={mode || "auto"}
+        disabled={busy}
+        title="选择 Agent 编排方式：先搭图再写提示词 / 只搭图 / 只写提示词"
+        onChange={(e) => onModeChange?.(e.target.value)}
+      >
+        <option value="auto">自动编排：先搭图，再写提示词</option>
+        <option value="plan">只搭图</option>
+        <option value="prompt">只写提示词</option>
+      </select>
       <textarea
         className="aiCanvasAgentInput"
         placeholder="用一句话说要做什么，例如：把两张图连到生成节点，提示词写成换成红色连衣裙"

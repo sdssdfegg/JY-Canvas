@@ -39,10 +39,13 @@ export function registerAiCanvasAgentRoutes(app) {
         timing: result.timing,
         attempts: result.attempts
       });
+      // MVP-5：prompter 角色的产出走 prompts 字段（role 一并回传，便于前端按阶段展示）。
       res.json({
         ok: true,
+        role: result.role,
         reply: result.reply,
         actions: result.actions,
+        prompts: result.prompts,
         dropped: result.dropped,
         model: result.model,
         timingMs: Date.now() - receivedAt

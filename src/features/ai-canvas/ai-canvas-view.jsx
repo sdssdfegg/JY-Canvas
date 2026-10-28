@@ -25,9 +25,8 @@ import {
   readJySettings,
   fetchJyConfig
 } from "./ai-canvas-generation.js";
-import { requestCanvasAgentPlan } from "../../api/ai-canvas-agent.js";
-import { applyCanvasAgentPlan, buildCanvasSnapshot } from "./ai-canvas-agent.js";
 import { planWorkflowRuns } from "./ai-canvas-workflow.js";
+import { runAgentPipeline } from "./ai-canvas-orchestrator.js";
 import { AgentPanel, NodeBody, ProjectList, WorkflowStatus } from "./ai-canvas-panels.jsx";
 import "./ai-canvas.css";
 
@@ -51,6 +50,8 @@ export function AiCanvasView() {
   const [agentApplied, setAgentApplied] = useState([]);
   const [agentSkipped, setAgentSkipped] = useState([]);
   const [agentError, setAgentError] = useState("");
+  // MVP-5：Agent 编排方式（auto=先搭图再写词 / plan=只搭图 / prompt=只写提示词）
+  const [agentMode, setAgentMode] = useState("auto");
 
   // 用 ref 持有最新视口 / 当前项目，供 window 级监听器读取（避免监听器身份随渲染变化导致泄漏）。
   const viewportRef = useRef(viewport);
@@ -301,31 +302,31 @@ export function AiCanvasView() {
     setAgentApplied([]);
     setAgentSkipped([]);
     try {
-      const snapshot = buildCanvasSnapshot(project.nodes || [], project.edges || []);
-      const result = await requestCanvasAgentPlan({
-        apiKey: settings?.apiKey || "",
+      // MVP-5：交给编排器跑多 Agent（默认 auto = planner 搭图 → prompter 写提示词）。
+      const stages = await runAgentPipeline({
         instruction,
-        nodes: snapshot.nodes,
-        edges: snapshot.edges
-      });
-      const outcome = applyCanvasAgentPlan({
-        actions: result?.actions || [],
-        nodes: project.nodes || [],
+        apiKey: settings?.apiKey || "",
+        project,
         createNode: (type, data, position) => makeNode(type, position.x, position.y, data),
-        handlers: actions
+        handlers: actions,
+        mode: agentMode
       });
-      setAgentReply(String(result?.reply || "").trim());
-      setAgentApplied(outcome.applied || []);
-      setAgentSkipped(outcome.skipped || []);
-      if (result?.dropped) {
-        setAgentSkipped((prev) => [...prev, `模型返回了 ${result.dropped} 条不合规动作，已丢弃`]);
-      }
+      const applied = [];
+      const skipped = [];
+      stages.forEach((stage) => {
+        stage.applied.forEach((item) => applied.push(`${stage.title}：${item}`));
+        stage.skipped.forEach((item) => skipped.push(`${stage.title}：${item}`));
+        if (stage.dropped) skipped.push(`${stage.title}：模型返回了 ${stage.dropped} 条不合规产出，已丢弃`);
+      });
+      setAgentReply(stages.map((stage) => (stage.reply ? `【${stage.title}】${stage.reply}` : "")).filter(Boolean).join("\n"));
+      setAgentApplied(applied);
+      setAgentSkipped(skipped);
     } catch (err) {
       setAgentError(err instanceof Error ? err.message : String(err));
     } finally {
       setAgentBusy(false);
     }
-  }, [agentText, actions]);
+  }, [agentText, agentMode, actions]);
 
   // —— 工具栏以画布中心为锚缩放（带空画布守卫）——
   const zoomCenter = useCallback((factor) => {
@@ -423,6 +424,8 @@ export function AiCanvasView() {
             text={agentText}
             onTextChange={setAgentText}
             busy={agentBusy}
+            mode={agentMode}
+            onModeChange={setAgentMode}
             onRun={runAgent}
             reply={agentReply}
             applied={agentApplied}

@@ -344,6 +344,19 @@
   outline: none;
 }
 .aiCanvasAgentInput:focus { border-color: var(--accent); }
+.aiCanvasAgentMode {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--app-bg);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  outline: none;
+}
+.aiCanvasAgentMode:focus { border-color: var(--accent); }
+.aiCanvasAgentMode:disabled { color: var(--faint); }
 .aiCanvasAgentReply {
   margin: 0;
   font-size: 11px;

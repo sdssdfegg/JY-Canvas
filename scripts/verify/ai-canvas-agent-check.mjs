@@ -13,9 +13,11 @@ import process from "node:process";
 import {
   CANVAS_AGENT_ACTION_TYPES,
   applyCanvasAgentPlan,
+  applyPromptPatches,
   buildCanvasSnapshot
 } from "../../src/features/ai-canvas/ai-canvas-agent.js";
-import { ACTION_CONTRACT, createCanvasAgentPlan } from "../../server/ai-canvas-agent.js";
+import { ACTION_CONTRACT, createCanvasAgentPlan, resolveRole } from "../../server/ai-canvas-agent.js";
+import { runAgentPipeline } from "../../src/features/ai-canvas/ai-canvas-orchestrator.js";
 
 const results = [];
 function check(name, pass, detail = "") {
@@ -299,6 +301,162 @@ await withFetch(
 check("空指令时直接拒绝且不发起请求",
   /请先输入/.test(noInstructionMessage) && fetchCalls === 0,
   `${noInstructionMessage} fetchCalls=${fetchCalls}`);
+
+// —— 9) MVP-5：prompter 角色（只写提示词，不碰图结构）——
+const prompterSeen = [];
+const prompterPlan = await withFetch(
+  async (url, init) => {
+    prompterSeen.push({ url, init });
+    return jsonResponse(200, chatBody(JSON.stringify({
+      reply: "提示词已写好",
+      prompts: [
+        { ref: "g1", text: "把上装换成图2的红色连衣裙，保持图1的模特脸、发型、姿势、下装和背景不变。" },
+        { ref: "n99", text: "写在不存在的节点上" },
+        { ref: "g2", text: "" }
+      ]
+    })));
+  },
+  () => createCanvasAgentPlan({
+    input: { instruction: "换成红色连衣裙", role: "prompter", nodes: [{ ref: "g1", type: "generation" }], edges: [] },
+    apiKey: "sk-test",
+    baseUrls: ["http://relay.test"]
+  })
+);
+check("prompter 角色被采纳并原样回传", prompterPlan.role === "prompter", prompterPlan.role);
+// 契约：服务端只保证「ref 与 text 都非空」——它不该重复实现前端的代号解析；
+// ref 指向的节点是否真实存在，由前端 applyPromptPatches 再 fail-closed 校验一次（见用例 10）。
+check("prompter 丢掉字段不全的条目（空文本被丢，ref 非空即留给前端判活）",
+  prompterPlan.prompts.length === 2
+    && prompterPlan.dropped === 1
+    && prompterPlan.prompts.every((item) => item.ref && item.text)
+    && !prompterPlan.prompts.some((item) => item.ref === "g2"),
+  `${JSON.stringify(prompterPlan.prompts)} dropped=${prompterPlan.dropped}`);
+check("prompter 不产出任何图结构动作（职责隔离）",
+  prompterPlan.actions.length === 0,
+  JSON.stringify(prompterPlan.actions));
+check("prompter 用提示词专家的系统提示词（与 planner 不同）",
+  /提示词专家/.test(JSON.stringify(JSON.parse(prompterSeen[0].init.body).messages)),
+  "");
+check("未知角色 / 不传角色都回落到 planner（向后兼容 MVP-3）",
+  resolveRole(undefined) === "planner" && resolveRole("乱写的角色") === "planner" && resolveRole("PROMPTER") === "prompter",
+  `${resolveRole(undefined)} / ${resolveRole("乱写的角色")} / ${resolveRole("PROMPTER")}`);
+
+// —— 10) MVP-5：提示词落盘（生成节点写 prompt，提示词节点写 text）——
+const patchNodes = [makeNode("g1", "generation", { prompt: "" }), makeNode("p1", "prompt", { text: "" })];
+const ph = harness();
+const patchOut = applyPromptPatches({
+  prompts: [
+    { ref: "n1", text: "生成节点的提示词" },
+    { ref: "n2", text: "提示词节点的文本" },
+    { ref: "n9", text: "写在不存在的节点上" }
+  ],
+  nodes: patchNodes,
+  handlers: ph.handlers
+});
+check("提示词写进生成节点的 data.prompt",
+  ph.calls.updateNodeData[0]?.data.prompt === "生成节点的提示词",
+  JSON.stringify(ph.calls.updateNodeData[0]?.data));
+check("提示词写进提示词节点的 data.text",
+  ph.calls.updateNodeData[1]?.data.text === "提示词节点的文本",
+  JSON.stringify(ph.calls.updateNodeData[1]?.data));
+check("代号不存在时跳过且不写入画布",
+  ph.calls.updateNodeData.length === 2 && patchOut.skipped.length === 1,
+  `written=${ph.calls.updateNodeData.length} skipped=${patchOut.skipped.length}`);
+
+// —— 11) MVP-5：多 Agent 编排（串行两跳，第二跳必须看到新建的节点）——
+// 注意：前端调的是**我们自己的路由** /api/ai-canvas-agent，响应形状是
+// { ok, role, reply, actions, prompts, dropped }，不是上游 chat/completions 的 choices 形状。
+// 桩必须按路由形状返回，否则测的就不是真实链路（曾因桩写错而掩盖了路由漏传 prompts 的真 bug）。
+function pipelineFetch(calls) {
+  return async (url, init) => {
+    const body = JSON.parse(init.body);
+    calls.push(body);
+    if (body.role === "planner") {
+      return jsonResponse(200, {
+        ok: true, role: "planner", reply: "已搭好生成节点",
+        actions: [{ type: "add_generation_node", ref: "g1", prompt: "" }],
+        prompts: [], dropped: 0, model: "m", timingMs: 1
+      });
+    }
+    return jsonResponse(200, {
+      ok: true, role: "prompter", reply: "已写好提示词", actions: [],
+      prompts: [{ ref: "n2", text: "把上装换成红色连衣裙，保持背景不变" }],
+      dropped: 0, model: "m", timingMs: 1
+    });
+  };
+}
+function pipelineFixture() {
+  const h = harness();
+  const created = [];
+  return {
+    harness: h,
+    created,
+    createNode: (type, data, position) => {
+      const node = { id: `c${created.length + 1}`, type, x: position.x, y: position.y, w: 240, h: 130, data };
+      created.push(node);
+      return node;
+    },
+    project: { nodes: [makeNode("i1", "image", { src: "data:image/png;base64,AAA" })], edges: [] }
+  };
+}
+
+const autoCalls = [];
+const autoFixture = pipelineFixture();
+const autoStages = await withFetch(
+  pipelineFetch(autoCalls),
+  () => runAgentPipeline({
+    instruction: "换成红色连衣裙",
+    apiKey: "sk-test",
+    project: autoFixture.project,
+    createNode: autoFixture.createNode,
+    handlers: autoFixture.harness.handlers,
+    mode: "auto"
+  })
+);
+check("auto 模式串行跑两个阶段（planner → prompter）",
+  autoStages.length === 2 && autoStages[0].role === "planner" && autoStages[1].role === "prompter",
+  autoStages.map((stage) => stage.role).join("→"));
+check("第二阶段读的是『搭完图之后』的画布（含上一跳新建的节点）",
+  (autoCalls[1]?.nodes || []).length === 2,
+  `prompter 看到的节点数=${(autoCalls[1]?.nodes || []).length}（应为 1 原有 + 1 新建）`);
+check("提示词落到了新建的生成节点上（不是落到旧节点）",
+  autoFixture.harness.calls.updateNodeData[0]?.id === "c1"
+    && /红色连衣裙/.test(autoFixture.harness.calls.updateNodeData[0]?.data.prompt || ""),
+  JSON.stringify(autoFixture.harness.calls.updateNodeData[0]));
+
+const planOnlyCalls = [];
+const planFixture = pipelineFixture();
+const planStages = await withFetch(
+  pipelineFetch(planOnlyCalls),
+  () => runAgentPipeline({
+    instruction: "搭个图",
+    apiKey: "sk-test",
+    project: planFixture.project,
+    createNode: planFixture.createNode,
+    handlers: planFixture.harness.handlers,
+    mode: "plan"
+  })
+);
+check("只搭图模式：单阶段且不发 prompter 请求",
+  planStages.length === 1 && planStages[0].role === "planner" && planOnlyCalls.length === 1,
+  `stages=${planStages.map((s) => s.role).join(",")} calls=${planOnlyCalls.length}`);
+
+const promptOnlyCalls = [];
+const promptFixture = pipelineFixture();
+const promptStages = await withFetch(
+  pipelineFetch(promptOnlyCalls),
+  () => runAgentPipeline({
+    instruction: "写提示词",
+    apiKey: "sk-test",
+    project: promptFixture.project,
+    createNode: promptFixture.createNode,
+    handlers: promptFixture.harness.handlers,
+    mode: "prompt"
+  })
+);
+check("只写提示词模式：单阶段且跳过 planner",
+  promptStages.length === 1 && promptStages[0].role === "prompter" && promptOnlyCalls[0].role === "prompter",
+  `stages=${promptStages.map((s) => s.role).join(",")}`);
 
 const failed = results.filter((item) => !item.pass);
 console.log(JSON.stringify({

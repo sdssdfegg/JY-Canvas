@@ -68,6 +68,8 @@ export function applyCanvasAgentPlan({ actions = [], nodes = [], createNode, han
 
   const applied = [];
   const skipped = [];
+  // MVP-5：新建的节点要带出去——第二角色（prompter）需要在「搭完图之后」的画布上写提示词。
+  const createdNodes = [];
   let slot = 0;
 
   const resolveRef = (ref) => refToId.get(String(ref || "").trim()) || null;
@@ -94,6 +96,7 @@ export function applyCanvasAgentPlan({ actions = [], nodes = [], createNode, han
         slotPosition(nodes, slot)
       );
       slot += 1;
+      createdNodes.push(node);
       handlers.addNode?.(node);
       if (ref) refToId.set(ref, node.id);
       applied.push(`新增${isPrompt ? "提示词" : "生成"}节点${ref ? ` ${ref}` : ""}`);
@@ -127,6 +130,42 @@ export function applyCanvasAgentPlan({ actions = [], nodes = [], createNode, han
       handlers.deleteNode?.(id);
       applied.push(`删除节点 ${ref}`);
     }
+  });
+
+  if (list.length > MAX_APPLY_ACTIONS) {
+    skipped.push(`超出 ${MAX_APPLY_ACTIONS} 条上限，其余 ${list.length - MAX_APPLY_ACTIONS} 条未执行`);
+  }
+
+  return { applied, skipped, createdNodes };
+}
+
+// MVP-5：把 prompter 写好的提示词落到节点上。
+// 生成节点写 data.prompt，提示词节点写 data.text；代号解析不到或文本为空一律跳过（fail-closed）。
+export function applyPromptPatches({ prompts = [], nodes = [], handlers = {} }) {
+  const refToId = new Map();
+  nodes.forEach((node, index) => refToId.set(`n${index + 1}`, node.id));
+
+  const applied = [];
+  const skipped = [];
+  const list = Array.isArray(prompts) ? prompts : [];
+
+  list.slice(0, MAX_APPLY_ACTIONS).forEach((patch, index) => {
+    const label = `第 ${index + 1} 条`;
+    const ref = String(patch?.ref || "").trim();
+    const text = String(patch?.text || "").trim().slice(0, MAX_TEXT);
+    const id = refToId.get(ref);
+    if (!id) {
+      skipped.push(`${label}：找不到节点 ${ref || "(空)"}`);
+      return;
+    }
+    if (!text) {
+      skipped.push(`${label}：提示词是空的`);
+      return;
+    }
+    const node = nodes.find((item) => item.id === id);
+    const field = node?.type === "generation" ? "prompt" : "text";
+    handlers.updateNodeData?.(id, { [field]: text });
+    applied.push(`写好 ${ref} 的提示词`);
   });
 
   if (list.length > MAX_APPLY_ACTIONS) {
