@@ -153,6 +153,9 @@ const ORDER = [
   // V143（2026-10-28）：AI 无限画布**工作流引擎**无头验收 —— 拓扑排序（线性链/菱形/环/自环/
   // 重复边/悬空边）、有环拒绝执行（防无限循环）、gen→gen 链式多轮输入解析。纯逻辑 <1s。
   "ai-canvas-workflow-check",
+  // V143（2026-10-29）：生成结果**版本管理**验收 —— 追加/上限丢最旧/空地址判失败/
+  // 下标越界夹取/切换版本/版本摘要，外加「store 必须走 appendVersion」源码钉桩。纯逻辑 <1s。
+  "ai-canvas-versions-check",
   "resize-long-edge-check",
   "generation-error-check",
   "reference-gate-check",
@@ -283,7 +286,9 @@ const FAST_ORDER = [
   // V143（2026-10-29）：画布 Agent 路由级验收（真实 HTTP + 临时沙盒 <1s），进提交钩子快速子集（--fast 44→45）。
   "ai-canvas-agent-route-check",
   // V143（2026-10-28）：画布工作流引擎无头验收（纯逻辑 <1s），进提交钩子快速子集（--fast 43→44）。
-  "ai-canvas-workflow-check"
+  "ai-canvas-workflow-check",
+  // V143（2026-10-29）：生成结果版本管理验收（纯逻辑 <1s），进提交钩子快速子集（--fast 45→46）。
+  "ai-canvas-versions-check"
 ];
 
 /**

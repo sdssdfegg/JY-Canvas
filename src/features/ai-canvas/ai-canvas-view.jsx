@@ -514,6 +514,7 @@ export function AiCanvasView() {
                         onEndEdit={() => setEditingNodeId(null)}
                         onUpdateData={actions.updateNodeData}
                         onRunGeneration={runGeneration}
+                        onSelectVersion={actions.selectVersion}
                       />
                     </div>
 

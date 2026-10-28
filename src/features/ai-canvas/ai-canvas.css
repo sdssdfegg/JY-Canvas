@@ -309,6 +309,27 @@
   color: var(--success, rgba(99, 200, 120, 1));
   font-size: 10px;
 }
+/* —— MVP-6：生成结果版本切换条 —— */
+.aiCanvasGenVersions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+}
+.aiCanvasGenVersionBtn {
+  border: 1px solid var(--border);
+  background: var(--app-bg);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 7px;
+}
+.aiCanvasGenVersionBtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.aiCanvasGenVersionBtn:disabled { color: var(--faint); cursor: not-allowed; opacity: 0.5; }
+.aiCanvasGenVersionText { font-size: 10px; color: var(--muted); }
+
 .aiCanvasSpin { animation: aiCanvasSpin 0.9s linear infinite; }
 @keyframes aiCanvasSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 

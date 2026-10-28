@@ -8,6 +8,7 @@
 //
 // 这些组件只依赖传入的 props，不共享父组件的可变闭包，因此搬出来语义零变化。
 import { Button } from "../../shared/ui/Button";
+import { versionSummary } from "./ai-canvas-versions.js";
 import {
   AlertCircle,
   Bot,
@@ -106,8 +107,9 @@ export function WorkflowStatus({ workflow }) {
 
 // —— 节点体：按类型渲染内容 ——
 // 生成节点带模型 / 提示词 / 执行按钮；图片与结果节点出图；提示词节点可双击编辑。
-export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGeneration }) {
+export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGeneration, onSelectVersion }) {
   if (node.type === "generation") {
+    const versions = versionSummary(node.data);
     return (
       <div className="aiCanvasGenBody">
         <input
@@ -131,6 +133,25 @@ export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGenera
           {node.data.status === "running" ? <Loader2 size={14} className="aiCanvasSpin" /> : <Play size={14} />}
           <span>{node.data.status === "running" ? "生成中…" : "执行生成"}</span>
         </Button>
+        {versions.total > 1 ? (
+          <div className="aiCanvasGenVersions">
+            <button
+              type="button"
+              className="aiCanvasGenVersionBtn"
+              title="上一版"
+              disabled={!versions.hasPrev}
+              onClick={() => onSelectVersion?.(node.id, versions.index - 1)}
+            >‹</button>
+            <span className="aiCanvasGenVersionText">第 {versions.index + 1}/{versions.total} 版</span>
+            <button
+              type="button"
+              className="aiCanvasGenVersionBtn"
+              title="下一版"
+              disabled={!versions.hasNext}
+              onClick={() => onSelectVersion?.(node.id, versions.index + 1)}
+            >›</button>
+          </div>
+        ) : null}
         {node.data.status === "success" && node.data.resultUrl ? (
           <img className="aiCanvasGenResult" src={node.data.resultUrl} alt="结果" draggable={false} />
         ) : null}

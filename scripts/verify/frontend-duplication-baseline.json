@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 145,
+    "fileCount": 146,
     "files": [
       "src/api/ai-canvas-agent.js",
       "src/api/assets.js",
@@ -35,6 +35,7 @@
       "src/features/ai-canvas/ai-canvas-orchestrator.js",
       "src/features/ai-canvas/ai-canvas-panels.jsx",
       "src/features/ai-canvas/ai-canvas-store.js",
+      "src/features/ai-canvas/ai-canvas-versions.js",
       "src/features/ai-canvas/ai-canvas-view.jsx",
       "src/features/ai-canvas/ai-canvas-workflow.js",
       "src/features/auth/api-key.js",

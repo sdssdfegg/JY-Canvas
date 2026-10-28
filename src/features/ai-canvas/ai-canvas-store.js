@@ -4,6 +4,7 @@
 // 复用 src/lib/storage/json-storage.js（与现有设置存储同款）。
 import { useEffect, useMemo, useReducer, useRef } from "react";
 import { readJsonStorage, writeJsonStorage } from "../../lib/storage/json-storage.js";
+import { appendVersion, selectVersion } from "./ai-canvas-versions.js";
 
 const PROJECTS_KEY = "jingyin-ai-canvases-v1";
 const HISTORY_LIMIT = 60;
@@ -176,6 +177,12 @@ function reducer(state, action) {
       if (idx < 0) return state;
       const genNode = state.projects[idx].nodes.find((n) => n.id === action.id);
       if (!genNode) return state;
+      // MVP-6：成功不是覆盖上一张，而是**追加一版**并把当前指向移到最新。
+      const versionPatch = appendVersion(genNode.data, {
+        url: action.resultUrl,
+        usedModel: action.usedModel,
+        prompt: genNode.data?.prompt || ""
+      });
       const extraNodes = [];
       if (action.createResultNode) {
         const resultNode = makeNode(
@@ -192,17 +199,21 @@ function reducer(state, action) {
         const patched = patchNodeDataNoHistory(
           { ...state, projects: state.projects.map((p, i) => (i === idx ? { ...p, edges } : p)) },
           action.id,
-          { status: "success", resultUrl: action.resultUrl, usedModel: action.usedModel, error: null },
+          versionPatch,
           extraNodes
         );
         return patched;
       }
-      return patchNodeDataNoHistory(state, action.id, {
-        status: "success",
-        resultUrl: action.resultUrl,
-        usedModel: action.usedModel,
-        error: null
-      });
+      return patchNodeDataNoHistory(state, action.id, versionPatch);
+    }
+
+    // MVP-6：切到某一版结果（只改当前指向，不改版本列表）。
+    case "SELECT_GENERATION_VERSION": {
+      const idx = state.projects.findIndex((p) => p.id === state.currentId);
+      if (idx < 0) return state;
+      const node = state.projects[idx].nodes.find((n) => n.id === action.id);
+      if (!node) return state;
+      return patchNodeDataNoHistory(state, action.id, selectVersion(node.data, action.index));
     }
 
     case "GENERATION_FAILED":
@@ -310,6 +321,8 @@ export function useAiCanvasStore() {
       startGeneration: (id) => dispatch({ type: "GENERATION_STARTED", id }),
       completeGeneration: (id, payload) => dispatch({ type: "GENERATION_SUCCESS", id, ...payload }),
       failGeneration: (id, error) => dispatch({ type: "GENERATION_FAILED", id, error }),
+      // MVP-6：切换生成节点的结果版本
+      selectVersion: (id, index) => dispatch({ type: "SELECT_GENERATION_VERSION", id, index }),
       // MVP-4：整张画布按拓扑序运行
       startWorkflow: (queue) => dispatch({ type: "WORKFLOW_START", queue }),
       stepWorkflow: (index, ranCount) => dispatch({ type: "WORKFLOW_STEP", index, ranCount }),
