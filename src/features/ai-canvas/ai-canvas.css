@@ -396,6 +396,18 @@
 .aiCanvasAgentListWarn { color: var(--warn); }
 
 /* —— MVP-4：整张画布运行状态条 —— */
+/* —— 导入 / 导出结果提示 —— */
+.aiCanvasNotice {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: var(--space-2);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aiCanvasNoticeWarn { color: var(--warn); }
+
 /* —— 持久化失败告警（宁可吵，不可静默丢数据）—— */
 .aiCanvasStorageWarn {
   font-size: 11px;

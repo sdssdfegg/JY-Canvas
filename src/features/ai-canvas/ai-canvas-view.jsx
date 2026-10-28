@@ -11,6 +11,8 @@ import {
   ZoomOut,
   Maximize,
   FolderPlus,
+  Download,
+  Upload,
   X,
   Network,
   Sparkles,
@@ -27,6 +29,7 @@ import {
 } from "./ai-canvas-generation.js";
 import { planWorkflowRuns } from "./ai-canvas-workflow.js";
 import { runAgentPipeline } from "./ai-canvas-orchestrator.js";
+import { parseProjectFile, serializeProject } from "./ai-canvas-transfer.js";
 import { AgentPanel, NodeBody, ProjectList, WorkflowStatus } from "./ai-canvas-panels.jsx";
 import "./ai-canvas.css";
 
@@ -39,6 +42,7 @@ export function AiCanvasView() {
 
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
+  const transferInputRef = useRef(null);
   const interaction = useRef(null);
   const [pendingConn, setPendingConn] = useState(null);
   const [editingNodeId, setEditingNodeId] = useState(null);
@@ -52,6 +56,9 @@ export function AiCanvasView() {
   const [agentError, setAgentError] = useState("");
   // MVP-5：Agent 编排方式（auto=先搭图再写词 / plan=只搭图 / prompt=只写提示词）
   const [agentMode, setAgentMode] = useState("auto");
+  // 导入 / 导出的结果提示（成功与失败都要让用户看见）
+  const [notice, setNotice] = useState("");
+  const [noticeIsError, setNoticeIsError] = useState(false);
 
   // 用 ref 持有最新视口 / 当前项目，供 window 级监听器读取（避免监听器身份随渲染变化导致泄漏）。
   const viewportRef = useRef(viewport);
@@ -218,6 +225,46 @@ export function AiCanvasView() {
       reader.readAsDataURL(f);
     });
   }, [actions, getCanvasPoint]);
+
+  // —— 导出当前画布为 JSON 文件（备份 / 分享用）——
+  const exportProject = useCallback(() => {
+    const project = currentRef.current;
+    if (!project) {
+      setNotice("先打开一个画布再导出");
+      setNoticeIsError(true);
+      return;
+    }
+    const blob = new Blob([serializeProject(project)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${String(project.name || "画布").replace(/[\\/:*?"<>|]/g, "_")}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setNotice(`已导出「${project.name}」`);
+    setNoticeIsError(false);
+  }, []);
+
+  // —— 导入画布 JSON 文件（格式 / 脏数据由 transfer 模块 fail-closed 挡住）——
+  const onImportProjectFile = useCallback((e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = parseProjectFile(String(reader.result || ""), { idPrefix: `imp${Date.now().toString(36)}` });
+      if (!result.ok) {
+        setNotice(result.error);
+        setNoticeIsError(true);
+        return;
+      }
+      actions.importProject(result.project);
+      const dropped = result.stats.droppedNodes + result.stats.droppedEdges;
+      setNotice(`已导入 ${result.stats.importedNodes} 个节点${dropped ? `（丢弃 ${dropped} 项无效数据）` : ""}`);
+      setNoticeIsError(false);
+    };
+    reader.readAsText(file);
+  }, [actions]);
 
   // —— 生成节点执行：复用 JY 现有 /api/images（见 ai-canvas-generation.js）——
   const runGeneration = useCallback(async (node) => {
@@ -393,6 +440,8 @@ export function AiCanvasView() {
         <span className="aiCanvasBrand"><Network size={16} /><b>AI 无限画布</b></span>
         <span className="aiCanvasDivider" />
         <Button size="sm" tone="primary" iconOnly title="新建画布" onClick={() => actions.createProject()}><FolderPlus size={16} /></Button>
+        <Button size="sm" iconOnly title="导出当前画布（JSON 备份 / 分享）" onClick={exportProject}><Download size={16} /></Button>
+        <Button size="sm" iconOnly title="导入画布文件" onClick={() => transferInputRef.current?.click()}><Upload size={16} /></Button>
         <Button size="sm" iconOnly title="添加图片节点" onClick={() => fileInputRef.current?.click()}><ImageIcon size={16} /></Button>
         <Button size="sm" iconOnly title="添加提示词节点" onClick={() => addAtCenter("prompt", { text: "" })}><FileText size={16} /></Button>
         <Button size="sm" iconOnly title="添加生成节点" onClick={() => addAtCenter("generation", { model: "", prompt: "", status: "idle" })}><Sparkles size={16} /></Button>
@@ -407,10 +456,14 @@ export function AiCanvasView() {
         <span className="aiCanvasSpacer" />
         <span className="aiCanvasHint">滚轮缩放 · 拖空白平移 · 拖端口连线 · 自动保存</span>
         <WorkflowStatus workflow={workflow} />
+        {notice ? (
+          <span className={`aiCanvasNotice ${noticeIsError ? "aiCanvasNoticeWarn" : ""}`} title={notice}>{notice}</span>
+        ) : null}
         {storageError ? (
           <span className="aiCanvasStorageWarn" title={storageError}>未保存 · {storageError}</span>
         ) : null}
         <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={onPickFiles} />
+        <input ref={transferInputRef} type="file" accept="application/json,.json" hidden onChange={onImportProjectFile} />
       </div>
 
       <div className="aiCanvasBody">

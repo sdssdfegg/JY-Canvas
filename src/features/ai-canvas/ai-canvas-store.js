@@ -104,6 +104,21 @@ function reducer(state, action) {
       return { ...state, projects: [...state.projects, project], currentId: id, selectedNodeId: null, past: [], future: [] };
     }
 
+    // 导入外部画布文件：节点 id 已由 transfer 模块重生成，不会与现有项目撞车。
+    case "IMPORT_PROJECT": {
+      const id = uid("p");
+      const project = {
+        id,
+        name: action.name || "导入的画布",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        nodes: Array.isArray(action.nodes) ? action.nodes : [],
+        edges: Array.isArray(action.edges) ? action.edges : [],
+        viewport: action.viewport || { x: 0, y: 0, zoom: DEFAULT_ZOOM }
+      };
+      return { ...state, projects: [...state.projects, project], currentId: id, selectedNodeId: null, past: [], future: [] };
+    }
+
     case "OPEN_PROJECT": {
       if (!state.projects.some((p) => p.id === action.id)) return state;
       return { ...state, currentId: action.id, selectedNodeId: null, past: [], future: [] };
@@ -321,6 +336,8 @@ export function useAiCanvasStore() {
   const actions = useMemo(
     () => ({
       createProject: (name) => dispatch({ type: "CREATE_PROJECT", name }),
+      // 导入外部画布文件（数据已由 ai-canvas-transfer.js 校验并清洗过）
+      importProject: (payload) => dispatch({ type: "IMPORT_PROJECT", ...payload }),
       openProject: (id) => dispatch({ type: "OPEN_PROJECT", id }),
       deleteProject: (id) => dispatch({ type: "DELETE_PROJECT", id }),
       renameProject: (name) => dispatch({ type: "RENAME_PROJECT", name }),

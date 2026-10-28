@@ -159,6 +159,9 @@ const ORDER = [
   // V143（2026-10-29）：画布持久化**失败可见化**验收 —— 各浏览器配额错误识别、中文处置建议、
   // 占用估算，外加两条钉桩：必须用能带回异常的写入函数 + 必须有防「写→dispatch→再写」循环守卫。
   "ai-canvas-storage-guard-check",
+  // V143（2026-10-29）：画布**导入/导出**验收 —— 往返无损、七类不可信输入拒绝、
+  // 脏节点与悬空边丢弃并计数、id 重生成防撞车、体量上限、缺字段兜底。纯逻辑 <1s。
+  "ai-canvas-transfer-check",
   "resize-long-edge-check",
   "generation-error-check",
   "reference-gate-check",
@@ -293,7 +296,9 @@ const FAST_ORDER = [
   // V143（2026-10-29）：生成结果版本管理验收（纯逻辑 <1s），进提交钩子快速子集（--fast 45→46）。
   "ai-canvas-versions-check",
   // V143（2026-10-29）：画布持久化失败可见化验收（纯逻辑 <1s），进提交钩子快速子集（--fast 46→47）。
-  "ai-canvas-storage-guard-check"
+  "ai-canvas-storage-guard-check",
+  // V143（2026-10-29）：画布导入/导出验收（纯逻辑 <1s），进提交钩子快速子集（--fast 47→48）。
+  "ai-canvas-transfer-check"
 ];
 
 /**
