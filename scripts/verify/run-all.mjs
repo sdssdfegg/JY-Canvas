@@ -146,6 +146,10 @@ const ORDER = [
   // 前后端动作契约一致、服务端规划器（fetch 桩：json_object 降级重试 / Markdown 围栏解析 / 缺 Key 拒绝）。
   // 纯逻辑 <1s，不起服务、不联网、不扣费（端到端出图仍需真实 Key，留给浏览器实测）。
   "ai-canvas-agent-check",
+  // V143（2026-10-29）：画布 Agent 的**路由级**验收（起最小 express 实例、真实 HTTP 打进去）——
+  // 补单元测试够不到的两层：路由是否真挂上、响应字段是否传全（prompter 的 prompts 曾漏传）。
+  // 数据走临时沙盒（JINGYIN_RELEASE_ROOT），不碰用户 data/，纯进程内 <1s。
+  "ai-canvas-agent-route-check",
   // V143（2026-10-28）：AI 无限画布**工作流引擎**无头验收 —— 拓扑排序（线性链/菱形/环/自环/
   // 重复边/悬空边）、有环拒绝执行（防无限循环）、gen→gen 链式多轮输入解析。纯逻辑 <1s。
   "ai-canvas-workflow-check",
@@ -276,6 +280,8 @@ const FAST_ORDER = [
   "annotation-geometry-check",
   // V143（2026-10-28）：AI 无限画布 Agent 无头验收（纯逻辑 + fetch 桩 <1s），进提交钩子快速子集（--fast 42→43）。
   "ai-canvas-agent-check",
+  // V143（2026-10-29）：画布 Agent 路由级验收（真实 HTTP + 临时沙盒 <1s），进提交钩子快速子集（--fast 44→45）。
+  "ai-canvas-agent-route-check",
   // V143（2026-10-28）：画布工作流引擎无头验收（纯逻辑 <1s），进提交钩子快速子集（--fast 43→44）。
   "ai-canvas-workflow-check"
 ];
