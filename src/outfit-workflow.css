@@ -158,6 +158,34 @@
   padding: 18px 22px 36px;
 }
 
+/* V138 五轮（用户实测反馈）：嵌入主应用时，全局 .appShell 已带 166px 侧栏 + 顶栏，
+   换装工作台自身的 .sidebar（WorkbenchSidebar，236px 视口列）是冗余的，还挤占了结果网格宽度，
+   导致批量结果每排比快捷生成少 1~数张。嵌入模式（embeddedMode）下：
+   ① 隐藏自身侧栏、把 .appShell 单列化 ⇒ 回收这 236px；
+   ② 工作区 padding 与快捷画廊对齐（canvasBoard 14px/16px、galleryStrip 右 8px），
+      使结果网格可用宽度 = 窗口 − 166(全局侧栏) − 30 − 8，与快捷画廊逐像素相等。
+   ⇒ 同窗口/同缩放下批量与快捷每排张数完全一致（全屏 11、缩小 7 等）。
+   非嵌入（独立）模式保持原 236px 侧栏 + 原 padding 不变。 */
+.outfitWorkflowEmbedded.embedded {
+  grid-template-columns: minmax(0, 1fr);
+}
+.outfitWorkflowEmbedded.embedded .sidebar {
+  display: none;
+}
+.outfitWorkflowEmbedded.embedded .workspace {
+  /* V138 五轮（续）：关掉 workspace 自身滚动。基规则是 overflow:auto，
+     会自己出一条滚动条吃掉 ~15px 宽，导致批量结果网格比快捷画廊稳定少一列
+     （快捷 canvasBoard 是 overflow:hidden，滚动在 galleryStrip 且带 scrollbar-gutter:stable）。
+     这里对齐：workspace 不再滚动，滚动交给内部 outfitScrollArea。 */
+  padding: 14px 16px;
+  overflow: hidden;
+}
+.outfitWorkflowEmbedded.embedded .outfitScrollArea {
+  padding-right: 8px;
+  /* 与快捷 galleryStrip 对齐：提前预留滚动条位，避免内容溢出时滚动条吃掉 15px 致少一列。 */
+  scrollbar-gutter: stable;
+}
+
 .outfitWorkflowEmbedded .viewPanel {
   display: none;
   min-height: 100%;
@@ -648,7 +676,18 @@
 
 .outfitWorkflowEmbedded .taskGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--asset-card-min, 176px), 1fr));
+  /* V138 三轮：与快捷生成画廊统一尺寸口径——轨道宽固定 = --asset-card-min，**不用 1fr 拉伸**。
+     原来 minmax(min, 1fr) 会把卡片撑成 (容器宽 - 间距)/N：容器稍窄时 N 掉一档，每张反而被撑大，
+     于是「批量比快捷大、一排 6 个 vs 7 个」。改固定轨道后两侧卡片宽度恒等（都用
+     GALLERY_CARD_MIN_BASE，见 src/shared/gallery-layout.js），以后改一处两边一致。
+     V138 四轮：auto-fill → auto-fit。auto-fill 会按容器宽贪心铺满所有轨道，余下无图的第 7 列
+     仍占 176px 空位 ⇒ 出现「第 7 个位置空着就转行」的空洞。auto-fit 把空轨道塌缩为 0 宽，
+     既消除空洞，又使「每排个数」计算与快捷画廊 flex-wrap 完全一致（同窗口/同缩放下同排同数）。 */
+  /* V138 后续（2026-10-28）：列数改由 JS 统一算（--gallery-columns，见
+     shared/use-gallery-columns.js），与快捷画廊共用 computeGalleryColumns()。
+     未注入时退回 auto-fit（与改造前一致），注入后两边排数结构性一致。 */
+  grid-template-columns: repeat(var(--gallery-columns, auto-fit), var(--asset-card-min, 176px));
+  justify-content: start;
   gap: 12px;
   margin-top: 12px;
   /* 2026-09-26（按用户反馈）：结果网格原来自己带 max-height + overflow:auto，
@@ -782,6 +821,7 @@
 
 .outfitWorkflowEmbedded .assetDownloadButton,
 .outfitWorkflowEmbedded .assetRerunButton,
+.outfitWorkflowEmbedded .assetEditButton,
 .outfitWorkflowEmbedded .assetDeleteButton {
   position: absolute;
   right: 9px;
@@ -808,13 +848,23 @@
   color: var(--accent);
 }
 
+/* V138：标注编辑并入常驻按钮栈第 3 位，删除让位下移到第 4 位（与快捷生成一致）。 */
+.outfitWorkflowEmbedded .assetEditButton {
+  top: 71px;
+}
+
 .outfitWorkflowEmbedded .assetDeleteButton {
   top: 71px;
   color: var(--danger);
 }
 
+.outfitWorkflowEmbedded .assetCard.withAnnotationEdit .assetDeleteButton {
+  top: 102px;
+}
+
 .outfitWorkflowEmbedded .assetDownloadButton:hover,
 .outfitWorkflowEmbedded .assetRerunButton:hover,
+.outfitWorkflowEmbedded .assetEditButton:hover,
 .outfitWorkflowEmbedded .assetDeleteButton:hover {
   transform: translateY(-1px);
   background: rgba(0, 0, 0, 0.58);

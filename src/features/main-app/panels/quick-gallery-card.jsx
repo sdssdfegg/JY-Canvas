@@ -16,7 +16,8 @@ import {
   Download,
   RefreshCw,
   Trash2,
-  ImageOff
+  ImageOff,
+  Pencil
 } from "lucide-react";
 import { CachedImage } from "../../../shared/ui/cached-image.jsx";
 import { ReferenceThumbTray } from "../../../shared/ui/reference-thumb-tray.jsx";
@@ -47,8 +48,10 @@ export const QuickGalleryCard = React.memo(function QuickGalleryCard({
   openReferencePreview,
   openReferenceContextMenu,
   beginReferenceImageDrag,
-  copyText
+  copyText,
+  openQuickAnnotationEdit
 }) {
+  // loading 分支：任务进行中的占位卡（无结果图，故不带任何操作按钮）。
   if (galleryItem.kind === "task") {
     const task = galleryItem.task;
     return (
@@ -72,7 +75,7 @@ export const QuickGalleryCard = React.memo(function QuickGalleryCard({
   const selected = isSelected;
   return (
     <article
-      className={`assetCard ${isReplaceTarget ? "replaceTarget" : ""}`}
+      className={`assetCard withAnnotationEdit ${isReplaceTarget ? "replaceTarget" : ""}`}
       onClick={() => openPreview(item)}
       onContextMenu={(event) => openContextMenu(event, item.id)}
       onDragOver={(event) => handleQuickResultReplaceDragOver(event, item)}
@@ -113,6 +116,20 @@ export const QuickGalleryCard = React.memo(function QuickGalleryCard({
         aria-label="重刷这张结果"
       >
         <RefreshCw size={15} />
+      </button>
+      {/* V138 用户反馈改版：编辑按钮并入右上角常驻按钮栈（下载 / 重刷 / 编辑 / 删除），
+          不再单独做 hover 浮层（原 hover 浮层的编辑 + 删除两步确认已取消；删除按钮本卡自带）。 */}
+      <button
+        className="assetEditButton"
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          openQuickAnnotationEdit(item);
+        }}
+        title="标注编辑"
+        aria-label="标注编辑"
+      >
+        <Pencil size={15} />
       </button>
       <button
         className="assetDeleteButton"

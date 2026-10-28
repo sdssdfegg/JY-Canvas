@@ -1,4 +1,5 @@
 import { openAsBlob } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import {
   CHANNEL_IMAGE_SIZES,
@@ -6,6 +7,7 @@ import {
   FORBIDDEN_CHANNEL_IDS,
   isForbiddenChannelId,
   routingChannelForModel,
+  routingChannelById,
   routingModelCapabilities,
   routingModelFor,
   validateModelCapabilities
@@ -78,6 +80,25 @@ function exactImageSizeText(aspectRatio, imageSize) {
   return `${width}x${height}`;
 }
 
+// 火山方舟 Seedream 5.0 flash 的 size 面积上限（实测：doubao-seedream-5-0-flash-260915）。
+// 超限会直接 400： "image area must be at most 4624220 pixels"。
+// 注意：官方网页写的 4096x4096 上限是其它模型的，flash 这条线实际是 462 万。
+// 同等长边下正方形面积最大，所以 2K 长边(2304) 的 1:1 = 2304x2304 = 5308416 必然超限，
+// 其它比例都不超（见实测扫描）。
+const VOLC_MAX_IMAGE_AREA = 4624220;
+
+// 火山专用尺寸串：在通用像素尺寸基础上按面积上限等比缩放，保证任何比例/档位都不被上游拒绝。
+function volcSizeText(aspectRatio, imageSize) {
+  let { width, height } = exactImageSize(aspectRatio, imageSize);
+  const area = width * height;
+  if (area > VOLC_MAX_IMAGE_AREA) {
+    const scale = Math.sqrt(VOLC_MAX_IMAGE_AREA / area);
+    width = Math.max(1, Math.floor(width * scale));
+    height = Math.max(1, Math.floor(height * scale));
+  }
+  return `${width}x${height}`;
+}
+
 function isBananaModel(model) {
   // canonical ID 是 banana-2 / nano-banana-pro；旧存档 nano-banana2 / nano-banana 也归到同一族。
   return /^(banana|nano-banana)/i.test(String(model || ""));
@@ -108,8 +129,19 @@ export function normalizeImageRequest(input) {
     ? canonicalModel
     : (routingModelFor(requestedModel) ? requestedModel : "tt-image-2");
   const modelConfig = CHANNEL_MODELS.find((item) => item.value === model);
-  const modelSizes = Array.isArray(modelConfig.sizes) && modelConfig.sizes.length ? modelConfig.sizes : CHANNEL_IMAGE_SIZES;
-  const imageSize = modelSizes.includes(String(input.imageSize || "").toUpperCase()) ? String(input.imageSize).toUpperCase() : modelSizes[0];
+  // 线路级尺寸覆盖（如火山引擎 HS 仅支持 1K/2K，SD 模型虽声明 2K/4K，但该线路必须限制）。
+  const channel = routingChannelForModel(model, input.channelId);
+  const lineSizes = Array.isArray(channel?.sizes) && channel.sizes.length ? channel.sizes : null;
+  const modelSizes = lineSizes
+    || (Array.isArray(modelConfig.sizes) && modelConfig.sizes.length ? modelConfig.sizes : CHANNEL_IMAGE_SIZES);
+  const wantedSize = String(input.imageSize || "").toUpperCase();
+  const sizeRank = { "1K": 1, "2K": 2, "4K": 3, "8K": 4 };
+  const rankOf = (s) => Number.isFinite(sizeRank[s]) ? sizeRank[s] : 0;
+  // 选中的尺寸若不在该线路/模型支持列表内，回退到「不大于原尺寸的最大支持尺寸」（如火山 HS 选 4K → 2K），
+  // 而非盲目取第一个，避免用户选大尺寸却被悄悄降级到最小档。
+  const imageSize = modelSizes.includes(wantedSize)
+    ? wantedSize
+    : (modelSizes.filter((s) => rankOf(s) <= rankOf(wantedSize)).sort((a, b) => rankOf(b) - rankOf(a))[0] || modelSizes[0]);
   const aspectRatio = modelConfig.ratios.includes(input.aspectRatio) ? input.aspectRatio : modelConfig.ratios[0];
   const qualityList = Array.isArray(modelConfig.quality) ? modelConfig.quality : [];
   const requestedQuality = String(input.quality || "").trim().toLowerCase();
@@ -304,6 +336,13 @@ export function buildTextImageBody(params, format = "legacy") {
     body.aspect_ratio = params.aspectRatio;
     return body;
   }
+  if (format === "volc") {
+    // 火山方舟原生格式：size=像素串(WIDTHxHEIGHT) + response_format=url + watermark=true。
+    body.size = exactImageSizeText(params.aspectRatio, params.imageSize);
+    body.response_format = "url";
+    body.watermark = true;
+    return body;
+  }
   body.image_size = params.imageSize;
   body.aspect_ratio = params.aspectRatio;
   return body;
@@ -322,6 +361,11 @@ export async function buildEditImageForm(params, files, format = "legacy") {
   } else if (format === "pixel-image-size") {
     form.set("image_size", exactImageSizeText(params.aspectRatio, params.imageSize));
     form.set("aspect_ratio", params.aspectRatio);
+  } else if (format === "volc") {
+    // 火山方舟原生格式（multipart）：size=像素串 + response_format=url + watermark=true。
+    form.set("size", exactImageSizeText(params.aspectRatio, params.imageSize));
+    form.set("response_format", "url");
+    form.set("watermark", "true");
   } else {
     form.set("image_size", params.imageSize);
     form.set("aspect_ratio", params.aspectRatio);
@@ -341,6 +385,86 @@ export async function buildEditImageForm(params, files, format = "legacy") {
   await appendUploadFile(form, "mask", params.maskFile, "mask.png");
 
   return form;
+}
+
+// 火山方舟(volc) 图生图 / 换装编辑：Seedream 不兼容 OpenAI `/images/edits`（实测 404），
+// 必须走 /images/generations。官方文档（ark.volcengine.com 图片生成 API）：
+//   参考图字段是 **image**（string | string[]），支持 URL 或 Base64，
+//   且 Base64 **必须带前缀** `data:image/<格式>;base64,<编码>`（格式小写）。
+// ⚠️ 曾经误用 reference_images（裸 base64）+ image_mode + reference_strength ——
+//   那套是「豆包 LAS 算子」的参数，方舟不认，会被静默忽略：
+//   实测上传人物图 + "只换背景" → 输出是另一个完全不同的人（参考图未被使用）。
+
+// 图片链路用 imageForwardUpload = multer.diskStorage，上传件落在磁盘：file.buffer 缺省，
+// 只有 file.path。所以取字节必须异步按需读盘（与 core/uploads.js 的 ensureFileBuffer 同思路，
+// 此处不 import 它以保持 channel.js 的零依赖叶子纪律）。
+async function fileBufferOf(file) {
+  if (!file) return null;
+  if (Buffer.isBuffer(file.buffer) && file.buffer.length > 0) return file.buffer;
+  if (file.path) {
+    try {
+      const buf = await readFile(file.path);
+      return Buffer.isBuffer(buf) && buf.length > 0 ? buf : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+// 解析火山参考图（data URL 数组）：优先用前端下发的 referenceDataUrls，
+// 否则把上传件（可能落盘）逐张读成 data URL。必须在 createBody 阶段异步调用。
+async function resolveVolcReferenceDataUrls(params, files) {
+  const provided = Array.isArray(params?.referenceDataUrls)
+    ? params.referenceDataUrls.filter((url) => typeof url === "string" && url)
+    : [];
+  if (provided.length > 0) return provided;
+  const refs = [];
+  for (const file of Array.isArray(files) ? files : []) {
+    const buf = await fileBufferOf(file);
+    if (!buf) continue;
+    const mimeType = String(file?.mimetype || "image/png");
+    refs.push(`data:${mimeType};base64,${buf.toString("base64")}`);
+  }
+  return refs;
+}
+
+function buildVolcEditBody(params, channel) {
+  const model = channel?.upstreamModel || params.model;
+  // 官方要求：image 元素是 URL 或「带 data:image/<格式>;base64, 前缀」的完整 data URL。
+  const images = [];
+  for (const url of Array.isArray(params.referenceDataUrls) ? params.referenceDataUrls : []) {
+    if (typeof url === "string" && url) images.push(url);
+  }
+  // 蒙版（局部重绘）追加为一张参考图（image 支持多张，flash 最多 10 张）。
+  // maskBuffer 由调用方异步读盘后传入（落盘存储时 maskFile.buffer 缺省）。
+  const maskBuf = Buffer.isBuffer(params.maskBuffer) && params.maskBuffer.length
+    ? params.maskBuffer
+    : (Buffer.isBuffer(params.maskFile?.buffer) ? params.maskFile.buffer : null);
+  if (maskBuf && maskBuf.length) {
+    images.push(`data:image/png;base64,${maskBuf.toString("base64")}`);
+  }
+  const body = {
+    model,
+    prompt: params.prompt,
+    n: params.n,
+    // 火山方舟原生格式：尺寸必须走 size="WIDTHxHEIGHT" 像素串（与文生图 volc 分支一致）。
+    // 实测：传 width/height 会被上游忽略，输出退化成上游自选的 3:4（用户报"选 2:3 出 3:4"）；
+    // 改 size 后精确命中（1536x2304→严格 2:3，1776x2368→严格 3:4）。
+    // 用 volcSizeText（带面积上限钳制），避免 1:1 等比例因面积超限被上游 400 拒绝。
+    size: volcSizeText(params.aspectRatio, params.imageSize),
+    response_format: "url",
+    watermark: true
+  };
+  // 官方字段名是 image（string | string[]），不是 reference_images。
+  if (images.length === 1) body.image = images[0];
+  else if (images.length > 1) body.image = images;
+  const neg = String(params.negativePrompt || "").trim();
+  body.negative_prompt = neg || "畸形，扭曲，水印，低质量";
+  if (params.dispatchMode) body.dispatchMode = params.dispatchMode;
+  if (params.channelId) body.channelId = params.channelId;
+  body.manualModel = model;
+  return body;
 }
 
 function imageOrientation(aspectRatio) {
@@ -385,6 +509,12 @@ async function buildOpenAiEditImageForm(params, files) {
 export function buildImageRequestVariants(params, files) {
   const hasImages = files.length > 0;
   const variants = [];
+  // 换装 / 图片编辑链路会先把 model 换成上游模型名（doubao-seedream-5-0-flash-260915），
+  // ROUTING_CHANNELS 里登记的是 UI 模型名，按 model 过滤会落空导致 provider 丢失、
+  // volc 专用分支不触发（→ /images/edits 404）。故按 channelId 兜底回查渠道。
+  const channel = routingChannelForModel(params.model, params.channelId)
+    || routingChannelById(params.channelId);
+  const provider = channel?.provider;
 
   // ---------------------------------------------------------------------
   // 2026-09-25 香蕉 Pro 参考图通道修复
@@ -447,6 +577,35 @@ export function buildImageRequestVariants(params, files) {
     return variants;
   }
 
+  // 火山引擎(volc) 图生图 / 换装编辑：Seedream 不兼容 OpenAI `/images/edits`（实测 404），
+  // 改用 /images/generations + image（官方字段，元素为带 data: 前缀的 data URL，见 buildVolcEditBody）。
+  // 触发条件：被编辑原图要么来自上传文件(files)，要么来自前端下发的 referenceDataUrls(data URL)——
+  // 两种来源都算"有图要编辑"，避免某一来源缺失时回落到 404 的 /images/edits 分支。
+  // 参考图优先取前端下发的 referenceDataUrls（data URL），缺失时回退用上传文件的内存 buffer 现转。
+  const hasVolcRefs = provider === "volc" && (
+    hasImages
+    || (Array.isArray(params.referenceDataUrls) && params.referenceDataUrls.length > 0)
+  );
+  // 不再要求同步拿到参考图：上传件可能落盘（diskStorage，无 buffer），
+  // 参考图改在 createBody（await 的异步阶段）读盘解析；只要确认是 volc 且有图要编辑就走本分支，
+  // 否则会因 refs 为空而回落 /images/edits（火山无此端点 → 404 → 前端 502）。
+  if (hasVolcRefs) {
+    variants.push({
+      id: "volc-edit-reference",
+      model: channel?.upstreamModel || params.model,
+      requestFormat: "volc-generations-reference",
+      path: "/images/generations",
+      protocol: "json",
+      headers: { "Content-Type": "application/json" },
+      createBody: async () => JSON.stringify(buildVolcEditBody({
+        ...params,
+        referenceDataUrls: await resolveVolcReferenceDataUrls(params, files),
+        maskBuffer: await fileBufferOf(params.maskFile)
+      }, channel))
+    });
+    return variants;
+  }
+
   const addJingyinVariant = (variantParams, suffix, requestFormatSuffix, format) => {
     variants.push({
       id: `jingyin-channel${suffix}`,
@@ -470,24 +629,32 @@ export function buildImageRequestVariants(params, files) {
     });
   };
 
-  const orderedFormats = isSeedreamModel(params.model)
-    ? [{ suffix: "", requestFormatSuffix: "-seedream", format: "seedream" }]
-    : isBananaModel(params.model)
-      ? [
-          { suffix: "", requestFormatSuffix: "", format: "legacy" },
-          { suffix: "-pixel", requestFormatSuffix: "-pixel", format: "pixel-image-size" },
-          { suffix: "-size", requestFormatSuffix: "-size", format: "size" }
-        ]
-      : [
-          { suffix: "-size", requestFormatSuffix: "-size", format: "size" },
-          { suffix: "-pixel", requestFormatSuffix: "-pixel", format: "pixel-image-size" },
-          { suffix: "", requestFormatSuffix: "", format: "legacy" }
-        ];
+  // 优先按线路 provider 选格式：火山引擎(volc)走原生像素串格式，与 TokenGo 的 seedream 分支区分。
+  const orderedFormats = provider === "volc"
+    ? [{ suffix: "", requestFormatSuffix: "-volc", format: "volc" }]
+    : isSeedreamModel(params.model)
+      ? [{ suffix: "", requestFormatSuffix: "-seedream", format: "seedream" }]
+      : isBananaModel(params.model)
+        ? [
+            { suffix: "", requestFormatSuffix: "", format: "legacy" },
+            { suffix: "-pixel", requestFormatSuffix: "-pixel", format: "pixel-image-size" },
+            { suffix: "-size", requestFormatSuffix: "-size", format: "size" }
+          ]
+        : [
+            { suffix: "-size", requestFormatSuffix: "-size", format: "size" },
+            { suffix: "-pixel", requestFormatSuffix: "-pixel", format: "pixel-image-size" },
+            { suffix: "", requestFormatSuffix: "", format: "legacy" }
+          ];
 
   const forceCompatFormats = isBananaModel(params.model) && params.workflowMode === "random-background";
   const activeFormats = ENABLE_IMAGE_COMPAT_VARIANTS || forceCompatFormats ? orderedFormats : orderedFormats.slice(0, 1);
   for (const item of activeFormats) {
-    addJingyinVariant(params, item.suffix, item.requestFormatSuffix, item.format);
+    // volc 线路的实际上游模型名(flash 版)与 UI 模型名不同，需覆盖 body.model / manualModel 为上游真实模型，
+    // 中转站才能按 model 选中 154 new-api 渠道 30。
+    const variantParams = item.format === "volc" && channel?.upstreamModel
+      ? { ...params, model: channel.upstreamModel, manualModel: channel.upstreamModel }
+      : params;
+    addJingyinVariant(variantParams, item.suffix, item.requestFormatSuffix, item.format);
   }
 
   if (params.model === "tt-image-2" && ENABLE_OPENAI_GPT_IMAGE_VARIANT) {

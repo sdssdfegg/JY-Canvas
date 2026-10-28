@@ -18,6 +18,7 @@
 import { useMemo, useRef } from "react";
 import { Sparkles } from "lucide-react";
 import { ResultCard, TaskStatusCard } from "./result-card.jsx";
+import { useGalleryColumns } from "../../../shared/use-gallery-columns.js";
 
 export function ResultQueue({
   visibleTasks,
@@ -38,6 +39,7 @@ export function ResultQueue({
   retryTask,
   downloadTask,
   rerunResultTask,
+  openOutfitAnnotationEdit,
   deleteResultTask,
   setPreview,
   setImageLightbox,
@@ -61,6 +63,7 @@ export function ResultQueue({
     retryTask,
     downloadTask,
     rerunResultTask,
+    openOutfitAnnotationEdit,
     deleteResultTask,
     setPreview,
     setImageLightbox,
@@ -81,6 +84,7 @@ export function ResultQueue({
       retryTask: (...args) => ref.current.retryTask(...args),
       downloadTask: (...args) => ref.current.downloadTask(...args),
       rerunResultTask: (...args) => ref.current.rerunResultTask(...args),
+      openOutfitAnnotationEdit: (...args) => ref.current.openOutfitAnnotationEdit(...args),
       deleteResultTask: (...args) => ref.current.deleteResultTask(...args),
       setPreview: (...args) => ref.current.setPreview(...args),
       setImageLightbox: (...args) => ref.current.setImageLightbox(...args),
@@ -97,6 +101,10 @@ export function ResultQueue({
   }, []);
   // activeOutfitPage 只在卡的 diagnostic 里用 .workflowMode ⇒ 派生为标量，规避对象引用波动。
   const workflowMode = activeOutfitPage?.workflowMode || "";
+
+  // 列数由 JS 统一算：与快捷生成画廊共用 computeGalleryColumns()，写入 --gallery-columns，
+  // 消除两边因可用宽差异导致的「一边先换排、另一边差一点才换」。
+  useGalleryColumns(taskGridRef, galleryCardMin);
 
   return (
     <section className="resultPanel queuePanel" id="result-archive-section">
@@ -134,6 +142,7 @@ export function ResultQueue({
               toggleTaskSelected={cardHandlers.toggleTaskSelected}
               downloadTask={cardHandlers.downloadTask}
               rerunResultTask={cardHandlers.rerunResultTask}
+              openOutfitAnnotationEdit={cardHandlers.openOutfitAnnotationEdit}
               deleteResultTask={cardHandlers.deleteResultTask}
               setPreview={cardHandlers.setPreview}
               setImageLightbox={cardHandlers.setImageLightbox}

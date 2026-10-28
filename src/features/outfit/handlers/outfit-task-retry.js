@@ -87,5 +87,52 @@ export function useOutfitTaskRetry(ctx) {
     }
   }
 
-  return { retryTask, rerunResultTask };
+  async function annotateRerunResultTask(task, annotationFile, instruction = "") {
+    if (!task?.result || task.status !== "success") return;
+    if (!(annotationFile instanceof Blob)) {
+      addEvent("标注编辑失败", "缺少标注参考图，无法提交");
+      return;
+    }
+    if (!canRerunTask(task)) {
+      addEvent("标注编辑", "这张历史结果缺少原始上传图，请重新上传后再生成");
+      return;
+    }
+    const previousTask = task;
+    // 标注参考图作为一条「额外参考图」随本次重刷发出（runSingleTask 已通用上传 referenceItems，
+    // 无需改动上传分支）；指令走任务级 annotationPrompt 覆盖（缺省回落到全局 settings.prompt）。
+    const annotationItem = {
+      id: `anno_ref_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      name: `标注参考图-${(task.id || "").slice(-8)}.png`,
+      file: annotationFile
+    };
+    const runnableTask = {
+      ...buildRerunReplacementTask(task),
+      localEditBatchMode: task.localEdit?.cropFile && task.localEdit?.cropRect ? "rerun-controlled-1" : "rerun",
+      annotationPrompt: String(instruction || "").trim(),
+      referenceItems: [...(task.referenceItems || []), annotationItem]
+    };
+    setTasks((current) => current.map((item) => item.id === task.id ? runnableTask : item));
+    beginGenerationRun();
+    addEvent("标注编辑", `#${task.order || ""} 已带标注参考图原位重刷`);
+    try {
+      await runSingleTask(runnableTask);
+      revokeResultImageRuntimeCache(previousTask.result);
+      addEvent("标注编辑完成", `#${task.order || ""} 已用新结果覆盖原图`);
+    } catch (error) {
+      setTasks((current) => current.map((item) => item.id === runnableTask.id ? {
+        ...previousTask,
+        error: "",
+        errorDetail: "",
+        runtimeStage: "标注编辑失败",
+        runtimeDetail: summarizeGenerationError(error),
+        runtimeUpdatedAt: Date.now(),
+        rerunCandidate: false
+      } : item));
+      addEvent("标注编辑失败", `${summarizeGenerationError(error)}；已保留原结果图`);
+    } finally {
+      endGenerationRun();
+    }
+  }
+
+  return { retryTask, rerunResultTask, annotateRerunResultTask };
 }

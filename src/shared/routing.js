@@ -341,7 +341,9 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
   "banana-2.1": MODEL_CHANNEL_ALLOWLIST["banana-2.1"],
   // 2026-10-24：SD / SD Pro 离线兜底渠道（与 ROUTING_CHANNELS 同源；目录加载后以目录为准）。
   "doubao-seedream-5-0": Object.freeze([
-    { id: "mc-seedream-5-0", label: "名创AI", price: 0.11 }
+    { id: "mc-seedream-5-0", label: "名创AI", price: 0.11 },
+    // 2026-10-27：HS 渠道（与 server/channel-config.js 的 ROUTING_CHANNELS 同源）。前端展示名统一用「HS」，不出现「火山引擎」字眼。
+    { id: "hs-seedream-5-0-flash", label: "HS", price: 0.12 }
   ]),
   "doubao-seedream-5-0-pro": Object.freeze([
     { id: "mc-seedream-5-0-pro", label: "名创AI", price: 0.15 }

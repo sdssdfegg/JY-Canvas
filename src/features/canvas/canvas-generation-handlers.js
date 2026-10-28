@@ -25,7 +25,8 @@ import {
   quickReferenceOriginalFile,
   quickReferenceRunUploadFile,
   quickReferenceUploadFiles,
-  referenceMetaFromQuickRunItems
+  referenceMetaFromQuickRunItems,
+  makeQuickReferenceItem
 } from "../../features/upload/reference-upload.js";
 import { composeQuickLocalEditBlob } from "../../features/local-edit/crop-rect-resize.js";
 import { dedupeResults, normalizeQuickReferenceItem } from "../../features/quickgen/quickgen-state.js";
@@ -253,14 +254,19 @@ export function useCanvasGenerationHandlers(ctx) {
   }
 
   async function generate(overrides = {}) {
-    const { replaceResultId = "", ...settingOverrides } = overrides;
+    const { replaceResultId = "", extraReferenceFiles = [], ...settingOverrides } = overrides;
     const runSettings = {
       ...settings,
       ...settingOverrides,
       n: clampCount(settingOverrides.n ?? settings.n),
       baseUrl: config.defaultBaseUrl || settings.baseUrl || defaultState.baseUrl
     };
-    const runItems = fileList.map(normalizeQuickReferenceItem).filter(Boolean);
+    // V4.0 标注式编辑：把「标注参考图」作为一次性参考输入合入本次生成。
+    // 不写入 composer、不改 API Key / 模型 / 提示词模板 / 模型调用配置（验收 §八/§九）。
+    const extraItems = (Array.isArray(extraReferenceFiles) ? extraReferenceFiles : [])
+      .filter((f) => f instanceof File)
+      .map((f) => makeQuickReferenceItem(f));
+    const runItems = [...fileList, ...extraItems].map(normalizeQuickReferenceItem).filter(Boolean);
     const localEditItems = runItems.filter(quickReferenceHasLocalEdit);
     const primaryRunItem = runItems[0] || null;
     const localEditItem = quickReferenceHasLocalEdit(primaryRunItem) ? primaryRunItem : null;

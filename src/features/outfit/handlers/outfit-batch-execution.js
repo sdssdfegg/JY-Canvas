@@ -331,7 +331,8 @@ export function useOutfitBatchExecution(ctx) {
       ...routingFields(settings.model, settings.channelId, config.routing || config),
       imageSize: settings.imageSize,
       aspectRatio: taskAspectRatio,
-      prompt: settings.prompt,
+      // V138 标注式编辑：任务级指令优先（缺省回落到全局 settings.prompt，行为与改动前完全一致）。
+      prompt: task.annotationPrompt || settings.prompt,
       productNote: settings.productNote,
       smartIntervention: settings.smartIntervention,
       randomBackgroundFocus: taskIsRandomBackground ? normalizeRandomBackgroundFocus(task.randomBackgroundFocus || settings.randomBackgroundFocus) : undefined,

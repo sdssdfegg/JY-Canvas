@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from "react";
+import { GALLERY_CARD_MIN_BASE } from "../../shared/gallery-layout.js";
 import { makeQuickReferenceItem } from "../upload/reference-upload.js";
 import { quickReferenceOriginalFile, quickReferenceUploadFile } from "../upload/reference-upload.js";
 
@@ -76,6 +77,8 @@ export function useQuickGenState() {
   const [quickResultReplaceTargetId, setQuickResultReplaceTargetId] = useState("");
   const [quickCropEditTarget, setQuickCropEditTarget] = useState(null);
   const [quickLocalEditTarget, setQuickLocalEditTarget] = useState(null);
+  // V4.0 标注式 AI 编辑：与 quickLocalEditTarget 同范式，收口到本 hook。
+  const [quickAnnotationTarget, setQuickAnnotationTarget] = useState(null);
   const [previewResult, setPreviewResult] = useState(null);
   const [uploadPreview, setUploadPreview] = useState(null);
   const [previewZoom, setPreviewZoom] = useState(1);
@@ -137,7 +140,8 @@ export function useQuickGenState() {
   }, [visibleResults, runningQuickTasks]);
   const quickSelectedCount = quickResults.reduce((count, item) => count + (selectedIds.has(item.id) ? 1 : 0), 0);
   const galleryZoomPercent = Math.round(galleryZoom * 100);
-  const galleryCardMin = Math.round(170 * galleryZoom);
+  // V138：基准值统一取自 shared/gallery-layout.js（与批量生成同一真相源，原为各自写死 170/176）。
+  const galleryCardMin = Math.round(GALLERY_CARD_MIN_BASE * galleryZoom);
   const quickStatus = runningQuickTasks.length > 0 ? "running" : status;
   const latestStatusText = runningQuickTasks.length > 0
     ? `运行中 ${runningQuickTasks.length} 个任务`
@@ -168,6 +172,7 @@ export function useQuickGenState() {
     quickResultReplaceTargetId, setQuickResultReplaceTargetId,
     quickCropEditTarget, setQuickCropEditTarget,
     quickLocalEditTarget, setQuickLocalEditTarget,
+    quickAnnotationTarget, setQuickAnnotationTarget,
     previewResult, setPreviewResult,
     uploadPreview, setUploadPreview,
     previewZoom, setPreviewZoom,

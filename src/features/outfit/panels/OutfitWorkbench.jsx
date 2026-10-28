@@ -68,6 +68,7 @@ export default function OutfitWorkbench({
   retryTask,
   downloadTask,
   rerunResultTask,
+  openOutfitAnnotationEdit,
   deleteResultTask,
   setPreview,
   setImageLightbox,
@@ -175,6 +176,7 @@ export default function OutfitWorkbench({
           retryTask={retryTask}
           downloadTask={downloadTask}
           rerunResultTask={rerunResultTask}
+          openOutfitAnnotationEdit={openOutfitAnnotationEdit}
           deleteResultTask={deleteResultTask}
           setPreview={setPreview}
           setImageLightbox={setImageLightbox}

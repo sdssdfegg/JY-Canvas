@@ -347,10 +347,24 @@ textarea:focus {
   scrollbar-color: var(--soft-border) transparent;
 }
 
+/* V138：兜底值与批量生成对齐（两者真相源同为 shared/gallery-layout.js 的 GALLERY_CARD_MIN_BASE=176）。
+   正常路径由 inline style 注入 --asset-card-min，这里只是未注入时的兜底。 */
 .galleryStrip > .assetCard {
-  flex: 0 0 min(var(--asset-card-min, 170px), 100%);
-  width: min(var(--asset-card-min, 170px), 100%);
+  flex: 0 0 min(var(--asset-card-min, 176px), 100%);
+  width: min(var(--asset-card-min, 176px), 100%);
   max-width: 100%;
+}
+
+/* V138 后续（2026-10-28）：快捷画廊改 grid，列数由 JS 统一算（--gallery-columns），
+   与批量 .taskGrid 共用 computeGalleryColumns() ⇒ 两侧排数口径结构性一致。
+   未注入 --gallery-columns 时退回 auto-fit，与改造前行为一致（不会闪成单列）。
+   只作用于带 .galleryStripColumns 的快捷画廊；视频 .videoGalleryStrip 不带本类，仍是 flex。
+   gap 沿用 .galleryStrip 的 12px（= GALLERY_GAP_PX）。 */
+.galleryStrip.galleryStripColumns {
+  display: grid;
+  grid-template-columns: repeat(var(--gallery-columns, auto-fit), var(--asset-card-min, 176px));
+  justify-content: start;
+  align-content: start;
 }
 
 .galleryStrip::-webkit-scrollbar {
@@ -452,6 +466,7 @@ textarea:focus {
 
 .assetDownloadButton,
 .assetRerunButton,
+.assetEditButton,
 .assetDeleteButton {
   position: absolute;
   right: 9px;
@@ -484,6 +499,7 @@ textarea:focus {
 
 .assetDownloadButton:hover,
 .assetRerunButton:hover,
+.assetEditButton:hover,
 .assetDeleteButton:hover {
   transform: translateY(-1px);
   background: rgba(0, 0, 0, 0.58);
@@ -900,6 +916,40 @@ textarea:focus {
   cursor: pointer;
 }
 
+/* V138 三轮：参考图悬浮「标注编辑」按钮。悬停 / 键盘聚焦浮现，移出即隐藏（纯 CSS，不触发重渲染）。
+   只加编辑、不加删除——右上角 X 已经是删除。选择器用 .referenceThumb .referenceHoverEdit
+   （0,2,0）压过上面 .referenceThumb button（0,1,1）的定位，否则会被 X 的右上角定位覆盖。 */
+.referenceThumb .referenceHoverEdit {
+  position: absolute;
+  top: auto;
+  right: 5px;
+  bottom: 5px;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 999px;
+  color: var(--accent);
+  background: rgba(0, 0, 0, 0.62);
+  border: 1px solid var(--soft-border);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease, background 0.14s ease;
+}
+
+.referenceThumb:hover .referenceHoverEdit,
+.referenceThumb:focus-within .referenceHoverEdit {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.referenceThumb .referenceHoverEdit:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
 .referenceThumb .thumbLocalMaskOverlay {
   position: absolute;
   inset: 0;
@@ -1164,6 +1214,14 @@ textarea:focus {
 
 .promptBox:focus {
   box-shadow: none;
+}
+
+/* V138 三轮：文生图（composer 里**没有**参考图）时，右上角 4 个功能按钮（.quickToolCluster
+   是 absolute top:12px right:12px，高 30px ⇒ 占 12~42px）会压住提示词输入框前两行。
+   只在无参考图时给输入框顶部让出 36px，文字从第 ~50px 起排，彻底避开按钮；
+   有参考图时参考图行已在顶部占位，不需要让位（保持原样，不动上传态排版）。 */
+.composer.textOnly .promptBox {
+  padding-top: 36px;
 }
 
 .composerFooter {
@@ -4014,5 +4072,239 @@ textarea:focus {
   .detailInfoActions {
     grid-template-columns: 1fr;
   }
+}
+
+/* ============================================================
+ * V138 快捷生成卡片 · 常驻按钮栈第 3 位「标注编辑」
+ * 用户反馈：卡片右上角自带下载/重刷/删除三个按钮，编辑应并入该栈（重刷下面），
+ * 不再单独做 hover 浮层；删除由第 3 位下移到第 4 位。
+ * 说明：.assetEditButton 的基础样式（定位/尺寸/配色）复用下方 .assetDownloadButton 组的声明，
+ * 这里只给栈内偏移；未渲染编辑按钮的卡片（如参考生图/视频）删除位置保持不变。
+ * ============================================================ */
+.assetEditButton {
+  top: 71px;
+}
+
+/* 有编辑按钮的卡片：删除让出第 3 位，下移到第 4 位。 */
+.assetCard.withAnnotationEdit .assetDeleteButton {
+  top: 102px;
+}
+
+/* ============================================================
+ * V4.0 标注式 AI 编辑弹窗（AnnotationEditModal）
+ * 复用令牌与现有弹窗壳（Modal / ModalHeader / Button）视觉。
+ * ============================================================ */
+.annotationEditModal {
+  width: min(960px, 94vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  border: 1px solid var(--soft-border);
+  box-shadow: var(--shadow);
+  animation: modalPop 0.14s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow: hidden;
+}
+.annotationEditModal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.annotationEditModal header h2 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text);
+}
+.annotationEditModal header span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.annotationEditBody {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  overflow: auto;
+  min-height: 0;
+}
+.annotationStageWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.annotationStage {
+  position: relative;
+  width: 100%;
+  min-height: 200px;
+  max-height: 62vh;
+  background: var(--app-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+/* 紧贴原图渲染盒：SVG 绝对覆盖此盒，故 [0,1] 归一化坐标对任意原图比例都精准对齐（验收 §九-8）。 */
+.annotationImageBox {
+  position: relative;
+  max-width: 100%;
+  max-height: 62vh;
+  line-height: 0;
+}
+.annotationStageImage {
+  display: block;
+  max-width: 100%;
+  max-height: 62vh;
+  width: auto;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.annotationCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+.annotationStageEmpty {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.annotationHint {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--faint);
+}
+.annotationSide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.annotationField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.annotationFieldLabel {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text);
+}
+.annotationInstruction {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--soft-border);
+  background: var(--input);
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  font-family: inherit;
+}
+.annotationInstruction:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.annotationInstructionActions {
+  display: flex;
+  justify-content: flex-end;
+}
+.annotationNote {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--faint);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 28%, transparent);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+}
+.annotationToolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--panel-strong);
+  flex-wrap: wrap;
+}
+.annoToolGroup {
+  display: flex;
+  gap: var(--space-1);
+}
+.annoColorGroup {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+.annoColorSwatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+}
+.annoColorSwatch.active {
+  border-color: var(--text);
+  transform: scale(1.12);
+}
+.annoSpacer {
+  flex: 1 1 auto;
+}
+
+/* ============================================================
+ * V138 预览悬浮框（快捷生成放大预览）· 悬浮操作胶囊「标注编辑」
+ * 与结果卡同一套黑色蒙版胶囊视觉；不含删除（卡片/右键菜单已有）。
+ * .quickPreviewFrame 只给快捷预览加定位上下文（批量预览保持原样，避免波及其导航箭头定位）。
+ * ============================================================ */
+.quickPreviewFrame {
+  position: relative;
+}
+.previewFloatActions {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 4;
+}
+.previewFloatPill {
+  display: flex;
+  gap: var(--space-2);
+  padding: 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow);
+}
+.previewEditButton {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--panel-strong) 70%, transparent);
+  color: var(--accent);
+  cursor: pointer;
+  transition: background 0.14s ease, transform 0.14s ease;
+}
+.previewEditButton:hover {
+  background: rgba(0, 0, 0, 0.6);
+  transform: translateY(-1px);
 }
 

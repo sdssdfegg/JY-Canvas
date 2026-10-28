@@ -14,11 +14,13 @@ import {
   Scissors,
   BookOpen,
   Wand2,
-  Play
+  Play,
+  Pencil
 } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
 import DebouncedTextarea from "../../../shared/DebouncedTextarea.jsx";
 import { channelPriceLabel } from "../../../shared/routing.js";
+import { useGalleryColumns } from "../../../shared/use-gallery-columns.js";
 import { fileSize } from "../../../lib/format/index.js";
 import { QuickGalleryCard } from "./quick-gallery-card.jsx";
 
@@ -70,6 +72,8 @@ export function MainCanvasBoard({
   removeReferenceImage,
   openQuickCropEdit,
   openQuickLocalEdit,
+  openQuickAnnotationEdit,
+  openQuickReferenceAnnotationEdit,
   settings,
   updateSetting,
   isQuickChannelMenuOpen,
@@ -115,7 +119,9 @@ export function MainCanvasBoard({
     openReferencePreview,
     openReferenceContextMenu,
     beginReferenceImageDrag,
-    copyText
+    copyText,
+    openQuickAnnotationEdit,
+    openQuickReferenceAnnotationEdit
   };
   const cardHandlers = useMemo(() => {
     const ref = cardHandlersRef;
@@ -134,13 +140,19 @@ export function MainCanvasBoard({
       openReferencePreview: (...args) => ref.current.openReferencePreview(...args),
       openReferenceContextMenu: (...args) => ref.current.openReferenceContextMenu(...args),
       beginReferenceImageDrag: (...args) => ref.current.beginReferenceImageDrag(...args),
-      copyText: (...args) => ref.current.copyText(...args)
+      copyText: (...args) => ref.current.copyText(...args),
+      openQuickAnnotationEdit: (...args) => ref.current.openQuickAnnotationEdit(...args),
+      openQuickReferenceAnnotationEdit: (...args) => ref.current.openQuickReferenceAnnotationEdit(...args)
     };
   }, []);
 
+  // 列数由 JS 统一算：与批量结果网格共用 computeGalleryColumns()，写入 --gallery-columns，
+  // 消除两边因可用宽差异导致的「一边先换排、另一边差一点才换」。
+  useGalleryColumns(quickGalleryRef, galleryCardMin);
+
   return (
     <div className="canvasBoard" onWheel={onQuickBoardWheel}>
-      <section ref={quickGalleryRef} className="galleryStrip" style={{ "--asset-card-min": `${galleryCardMin}px` }}>
+      <section ref={quickGalleryRef} className="galleryStrip galleryStripColumns" style={{ "--asset-card-min": `${galleryCardMin}px` }}>
         {quickGalleryItems.map((galleryItem, index) => {
           // V5.0-002：整包集合改每卡派生布尔——单张选中/下载/拖拽高亮只翻转该卡对应布尔，
           // 其余卡布尔值不变（基元相等）→ React.memo 跳过，杜绝全树重渲染。
@@ -170,6 +182,7 @@ export function MainCanvasBoard({
               openReferenceContextMenu={cardHandlers.openReferenceContextMenu}
               beginReferenceImageDrag={cardHandlers.beginReferenceImageDrag}
               copyText={cardHandlers.copyText}
+              openQuickAnnotationEdit={cardHandlers.openQuickAnnotationEdit}
             />
           );
         })}
@@ -183,7 +196,7 @@ export function MainCanvasBoard({
       )}
 
       <section
-        className={`composer ${isComposerDragging ? "dragging" : ""}`}
+        className={`composer ${isComposerDragging ? "dragging" : ""} ${previewFiles.length === 0 ? "textOnly" : ""}`}
         onDragOver={onComposerDragOver}
         onDragLeave={onComposerDragLeave}
         onDrop={onComposerDrop}
@@ -224,6 +237,18 @@ export function MainCanvasBoard({
                 >
                   <b>图{index + 1}</b>
                   <img src={item.url} alt={item.file.name} draggable={false} />
+                  {/* V138 三轮：参考图悬浮「标注编辑」。纯 CSS 悬停/聚焦浮现，
+                      不新增删除按钮（右上角 X 已是删除）。 */}
+                  <button
+                    type="button"
+                    className="referenceHoverEdit"
+                    onClick={(event) => { event.stopPropagation(); openQuickReferenceAnnotationEdit(item); }}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    title="标注编辑"
+                    aria-label="标注编辑"
+                  >
+                    <Pencil size={16} />
+                  </button>
                   <button
                     type="button"
                     onClick={(event) => { event.stopPropagation(); removeReferenceImage(index); }}

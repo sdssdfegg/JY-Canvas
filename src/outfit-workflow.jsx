@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   FolderOpen,
@@ -8,6 +8,7 @@ import {
   X
 } from "lucide-react";
 import { DEFAULT_MODELS } from "./shared/models.js";
+import { GALLERY_CARD_MIN_BASE } from "./shared/gallery-layout.js";
 import {
     channelsForModel,
   modelCapabilities
@@ -18,6 +19,7 @@ import {
 import { beginImageDownloadDrag } from "./shared/result-image.js";
 // CachedImage 已随 preview 浮层迁至 src/features/outfit/panels/ResultPreviewModal.jsx
 import { LocalEditModal } from "./features/local-edit/LocalEditModal.jsx";
+import { AnnotationEditModal } from "./features/local-edit/AnnotationEditModal.jsx";
 import { Button } from "./shared/ui/Button";
 import { Modal } from "./shared/ui/Modal.jsx";
 import { ModuleHeader } from "./shared/ui/ModuleHeader";
@@ -51,7 +53,8 @@ import { useSaveDirectory } from "./shared/hooks/useSaveDirectory.js";
 import { usePreviewDrag } from "./shared/hooks/usePreviewDrag.js";
 import {
   readTaskHistory,
-  normalizeRandomBackgroundFocus
+  normalizeRandomBackgroundFocus,
+  displayResultImageSource
 } from "./features/outfit/outfit-task.js";
 import { BatchResizePanel } from "./features/outfit/panels/BatchResizePanel.jsx";
 import { CropModal } from "./features/outfit/panels/OutfitCropModal.jsx";
@@ -266,6 +269,19 @@ export default function OutfitWorkflow({
 }) {
   const [config, setConfig] = useState({ models: DEFAULT_MODELS });
   const [activeView, setActiveView] = useState("outfit");
+  // V138 五轮补充（用户实测确认移除 WorkbenchSidebar）：嵌入态下侧栏已隐藏（见 outfit-workflow.css
+  //   .outfitWorkflowEmbedded.embedded .sidebar{display:none}），其 6 个子视图按钮改由主应用全局侧栏接管。
+  // 但主应用侧栏只控制顶层 activeView，仅 "outfit"/"resize" 会挂载本组件并传入 view prop；
+  // 本组件内部 activeView 是独立 state（默认值 "outfit"），若不随 view prop 同步，则点主应用「批量改尺寸」
+  // 不会切到换装内「批量尺寸导出」子视图（pre-existing 潜在断点，隐藏侧栏后成为唯一入口故暴露）。
+  // 同步后主应用侧栏 6 项与换装原 6 子视图一一对应，隐藏侧栏零功能损失。
+  // 用 ref 读取最新 activeView 以避免把 activeView 列入依赖导致的「互相改写」循环；
+  // 非嵌入态 view 恒为 "outfit" 不变 ⇒ effect 仅首跑且为 no-op，不干扰 WorkbenchSidebar 的独立切换。
+  const activeViewRef = useRef(activeView);
+  activeViewRef.current = activeView;
+  useEffect(() => {
+    if (view && view !== activeViewRef.current) setActiveView(view);
+  }, [view, setActiveView]);
   const [outfitPages, setOutfitPages] = useState(readOutfitPages);
   const initialOutfitPage = pickInitialOutfitPage(outfitPages);
   const [activeOutfitPageId, setActiveOutfitPageId] = useState(() => initialOutfitPage.id || "");
@@ -298,6 +314,9 @@ export default function OutfitWorkflow({
   const [cropTarget, setCropTarget] = useState(null);
   const [localEditTarget, setLocalEditTarget] = useState(null);
   const [preview, setPreview] = useState(null);
+  // V138：标注式 AI 编辑目标（批量生成结果卡 / 结果预览共用）。存「结果图描述符」而非整条任务，
+  // 避免把整条 task 快照塞进弹窗 state；提交时再按 id 回查任务走重刷分支。
+  const [outfitAnnotationTarget, setOutfitAnnotationTarget] = useState(null);
   const [referenceContextMenu, setReferenceContextMenu] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [apiKeyDraft, setApiKeyDraft] = useState(settings.apiKey || "");
@@ -457,7 +476,8 @@ export default function OutfitWorkflow({
   // "Cannot access 'selectedTaskIds' before initialization"（tasks 为空时 reduce 不执行回调，故空态不崩、
   // 极具迷惑性；v4.0.13 二进制已实测崩溃）。两值消费点全在 JSX（~1658/1661），已下移至 hook 之后。
   const galleryZoomPercent = Math.round(galleryZoom * 100);
-  const galleryCardMin = Math.round(176 * galleryZoom);
+  // V138：基准值统一取自 shared/gallery-layout.js（与快捷生成同一真相源，改一处两边一致）。
+  const galleryCardMin = Math.round(GALLERY_CARD_MIN_BASE * galleryZoom);
   const generationCount = normalizeGenerationCount(settings.generationCount);
   // 2026-09-26（按用户要求）：精修是「多图生图」——图1、图2…图N 一起上传，
   // 点一次生成**只出一张**成品图，所以这一页的计划数量恒为 1，不再跟生成数量走。
@@ -1043,7 +1063,8 @@ export default function OutfitWorkflow({
   // 消费方仅 JSX（OutfitWorkbench props → ResultQueue → result-card 按钮）。
   const {
     retryTask,
-    rerunResultTask
+    rerunResultTask,
+    annotateRerunResultTask
   } = useOutfitTaskRetry({
     running, canAppendWhileRunning,
     beginGenerationRun, endGenerationRun,
@@ -1051,6 +1072,42 @@ export default function OutfitWorkflow({
     tasksRef, setTasks,
     addEvent
   });
+
+  // ── V138 标注式 AI 编辑（批量生成）：与快捷生成共用 AnnotationEditModal ──────────────
+  // 打开：只存结果图描述符 + 已解析的图片地址（不塞整条任务快照）。
+  function openOutfitAnnotationEdit(task) {
+    if (!task?.result) return;
+    setOutfitAnnotationTarget({ id: task.id, src: displayResultImageSource(task.result) });
+  }
+
+  // 提交：原图像素绝不修改——由标注生成「标注参考图」副本，随该任务的重刷分支发出，
+  // 指令走任务级 annotationPrompt（缺省回落到全局 prompt）。不改 API Key / 模型 / 提示词模板。
+  async function applyOutfitAnnotationEdit(item, payload = {}) {
+    const { annotations = [], instruction = "" } = payload;
+    const target = outfitAnnotationTarget;
+    if (!target?.id || !target.src) return;
+    try {
+      const { fetchLocalBlob } = await import("./api/assets.js");
+      const { annotationsToImageBlob } = await import("./shared/annotation-geometry.js");
+      const originalBlob = await fetchLocalBlob(target.src);
+      const annotatedBlob = await annotationsToImageBlob(originalBlob, annotations, "image/png");
+      const file = new File(
+        [annotatedBlob],
+        `标注参考图-${String(target.id).slice(-8)}.png`,
+        { type: "image/png", lastModified: Date.now() }
+      );
+      const targetTask = tasks.find((entry) => entry.id === target.id);
+      setOutfitAnnotationTarget(null);
+      if (!targetTask) {
+        addEvent("标注编辑失败", "未找到对应任务，已取消");
+        return;
+      }
+      await annotateRerunResultTask(targetTask, file, instruction);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      addEvent("标注编辑失败", message);
+    }
+  }
 
   function openSaveDirectory() {
     const directory = saveDirectory || directoryDraft;
@@ -1117,7 +1174,7 @@ export default function OutfitWorkflow({
   }
 
   return (
-    <main className="appShell outfitWorkflowEmbedded" style={themeStyle}>
+    <main className={`appShell outfitWorkflowEmbedded${embeddedMode ? " embedded" : ""}`} style={themeStyle}>
       <WorkbenchSidebar
         activeView={activeView}
         onSwitchView={switchView}
@@ -1240,6 +1297,7 @@ export default function OutfitWorkflow({
           retryTask={retryTask}
           downloadTask={downloadTask}
           rerunResultTask={rerunResultTask}
+          openOutfitAnnotationEdit={openOutfitAnnotationEdit}
           deleteResultTask={deleteResultTask}
           setPreview={setPreview}
           setImageLightbox={setImageLightbox}
@@ -1502,7 +1560,18 @@ export default function OutfitWorkflow({
           previewZoom={previewZoom}
           copyText={copyText}
           downloadTask={downloadTask}
+          openOutfitAnnotationEdit={openOutfitAnnotationEdit}
           activeOutfitPage={activeOutfitPage}
+        />
+      )}
+
+      {outfitAnnotationTarget && (
+        <AnnotationEditModal
+          key={outfitAnnotationTarget.id}
+          item={outfitAnnotationTarget}
+          imageSrc={outfitAnnotationTarget.src}
+          onClose={() => setOutfitAnnotationTarget(null)}
+          onApply={applyOutfitAnnotationEdit}
         />
       )}
       {imageLightbox && (
