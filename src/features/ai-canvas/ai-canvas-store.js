@@ -3,8 +3,9 @@
 // 隔离存储键 jingyin-ai-canvases-v1，与休眠的 jingyin-infinite-canvases-v1 完全独立。
 // 复用 src/lib/storage/json-storage.js（与现有设置存储同款）。
 import { useEffect, useMemo, useReducer, useRef } from "react";
-import { readJsonStorage, writeJsonStorage } from "../../lib/storage/json-storage.js";
+import { readJsonStorage, writeJsonStorageDetailed } from "../../lib/storage/json-storage.js";
 import { appendVersion, selectVersion } from "./ai-canvas-versions.js";
+import { classifyStorageError, messageForFailure } from "./ai-canvas-storage-guard.js";
 
 const PROJECTS_KEY = "jingyin-ai-canvases-v1";
 const HISTORY_LIMIT = 60;
@@ -274,16 +275,21 @@ function reducer(state, action) {
       return { ...state, projects, past, future, selectedNodeId: null };
     }
 
+    // 持久化结果必须被用户看见：静默丢数据（以为在自动保存、刷新后全没了）是最坏的故障形态。
+    case "STORAGE_WRITE_RESULT":
+      return { ...state, storageError: action.message || "" };
+
     default:
       return state;
   }
 }
 
-const INITIAL = { projects: [], currentId: null, selectedNodeId: null, past: [], future: [] };
+const INITIAL = { projects: [], currentId: null, selectedNodeId: null, past: [], future: [], storageError: "" };
 
 export function useAiCanvasStore() {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const saveTimer = useRef(null);
+  const lastStorageMessage = useRef("");
 
   useEffect(() => {
     const data = readJsonStorage(PROJECTS_KEY, { projects: [] });
@@ -291,10 +297,18 @@ export function useAiCanvasStore() {
   }, []);
 
   // 防抖持久化（与设置存储同口径：300ms 写回）。
+  // 写入结果要看：失败时把可读原因放进 storageError，由工具栏提示——
+  // 否则配额写满后就是「以为在自动保存、刷新全没了」的静默丢数据。
   useEffect(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      writeJsonStorage(PROJECTS_KEY, { projects: state.projects });
+      const result = writeJsonStorageDetailed(PROJECTS_KEY, { projects: state.projects });
+      const message = result.ok ? "" : messageForFailure(classifyStorageError(result.error));
+      // 用 ref 记住上一次：否则 dispatch 改 state 会再次触发本 effect，形成写→dispatch→写的循环。
+      if (message !== lastStorageMessage.current) {
+        lastStorageMessage.current = message;
+        dispatch({ type: "STORAGE_WRITE_RESULT", message });
+      }
     }, 300);
     return () => clearTimeout(saveTimer.current);
   }, [state.projects]);
@@ -339,6 +353,7 @@ export function useAiCanvasStore() {
     state,
     current,
     actions,
+    storageError: state.storageError,
     canUndo: state.past.length > 0,
     canRedo: state.future.length > 0
   };

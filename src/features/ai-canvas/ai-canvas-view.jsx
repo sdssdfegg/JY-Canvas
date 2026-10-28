@@ -34,7 +34,7 @@ const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 2.5;
 
 export function AiCanvasView() {
-  const { state, current, actions, canUndo, canRedo } = useAiCanvasStore();
+  const { state, current, actions, canUndo, canRedo, storageError } = useAiCanvasStore();
   const viewport = current?.viewport || { x: 0, y: 0, zoom: 1 };
 
   const canvasRef = useRef(null);
@@ -407,6 +407,9 @@ export function AiCanvasView() {
         <span className="aiCanvasSpacer" />
         <span className="aiCanvasHint">滚轮缩放 · 拖空白平移 · 拖端口连线 · 自动保存</span>
         <WorkflowStatus workflow={workflow} />
+        {storageError ? (
+          <span className="aiCanvasStorageWarn" title={storageError}>未保存 · {storageError}</span>
+        ) : null}
         <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={onPickFiles} />
       </div>
 
