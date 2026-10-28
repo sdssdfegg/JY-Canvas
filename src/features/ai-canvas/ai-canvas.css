@@ -284,6 +284,19 @@
 }
 .aiCanvasGenModel:focus,
 .aiCanvasGenPrompt:focus { border-color: var(--accent); }
+/* 出图参数行：尺寸 / 比例（与输入框同款视觉，空值=跟随全局设置） */
+.aiCanvasGenParams { display: flex; gap: var(--space-1); }
+.aiCanvasGenSelect {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--app-bg);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 3px 4px;
+  font-size: 11px;
+}
+.aiCanvasGenSelect:focus { border-color: var(--accent); }
 .aiCanvasGenPrompt { flex: 1 1 auto; resize: none; min-height: 42px; }
 .aiCanvasGenResult {
   width: 100%;

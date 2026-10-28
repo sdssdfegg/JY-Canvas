@@ -7,6 +7,7 @@ import { getAppConfig } from "../../api/config.js";
 import { STORAGE_KEY } from "../../shared/app-defaults.js";
 import { readJsonStorage } from "../../lib/storage/json-storage.js";
 import { workflowInputsWithChain } from "./ai-canvas-workflow.js";
+import { resolveGenerationParams } from "./ai-canvas-params.js";
 
 // 与 server IMAGE_UPLOAD_PARSE_CEILING 对齐：最多 6 张输入图。
 const IMAGE_UPLOAD_CEILING = 6;
@@ -78,6 +79,10 @@ export async function runCanvasGeneration({ genNode, imageNodes, promptText, set
     throw new Error("缺少提示词：请在生成节点填写，或连接一个提示词节点。");
   }
 
+  // 出图参数：**节点显式设置 > 全局设置 > 内置默认**（解析在零 import 的 ai-canvas-params.js）。
+  // 注意服务端 channel.js:142/145 对不支持的尺寸/比例是「自动降级」而非报错，
+  // 所以这里传的值必须是 CHANNEL_IMAGE_SIZES / 模型 ratios 内的合法值（选项常量已对齐）。
+  const params = resolveGenerationParams(genNode, settings);
   const form = new FormData();
   const files = imageNodes
     .map((n, i) =>
@@ -87,10 +92,14 @@ export async function runCanvasGeneration({ genNode, imageNodes, promptText, set
     .slice(0, IMAGE_UPLOAD_CEILING);
   files.forEach((f) => form.append("image", f));
   form.set("prompt", promptText);
-  form.set("model", genNode.data.model || settings?.model || "tt-image-2");
+  form.set("model", params.model);
+  form.set("imageSize", params.imageSize);
+  form.set("aspectRatio", params.aspectRatio);
   form.set("n", "1");
   form.set("deferAutoSave", "1"); // 不污染主画廊历史（与现有业务隔离）
   form.set("apiKey", apiKey);
+  // server/channel.js:167 的 source 白名单已预留 "infinite-canvas"，便于日志区分来源。
+  form.set("source", "infinite-canvas");
 
   const res = await generateImages(form); // ok 时返回 payload；失败抛 ApiError
   const images = Array.isArray(res?.images) ? res.images : [];
@@ -102,7 +111,7 @@ export async function runCanvasGeneration({ genNode, imageNodes, promptText, set
   if (!resultUrl) {
     throw new Error("生成完成，但图片地址为空。");
   }
-  return { resultUrl, usedModel: res?.usedModel || genNode.data.model || settings?.model };
+  return { resultUrl, usedModel: res?.usedModel || params.model };
 }
 
 // 读取 JY 现有设置（与全 App 同一存储键 jingyin-internal-settings-v3），供生成节点取 apiKey / 默认模型。

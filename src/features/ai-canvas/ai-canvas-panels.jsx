@@ -9,6 +9,7 @@
 // 这些组件只依赖传入的 props，不共享父组件的可变闭包，因此搬出来语义零变化。
 import { Button } from "../../shared/ui/Button";
 import { versionSummary } from "./ai-canvas-versions.js";
+import { ASPECT_RATIO_OPTIONS, IMAGE_SIZE_OPTIONS } from "./ai-canvas-params.js";
 import {
   AlertCircle,
   Bot,
@@ -124,6 +125,26 @@ export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGenera
           value={node.data.prompt || ""}
           onChange={(e) => onUpdateData(node.id, { prompt: e.target.value })}
         />
+        <div className="aiCanvasGenParams">
+          <select
+            className="aiCanvasGenSelect"
+            title="出图尺寸（空=跟随设置）"
+            value={node.data.imageSize || ""}
+            onChange={(e) => onUpdateData(node.id, { imageSize: e.target.value })}
+          >
+            <option value="">尺寸·跟随</option>
+            {IMAGE_SIZE_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
+          <select
+            className="aiCanvasGenSelect"
+            title="出图比例（空=跟随设置）"
+            value={node.data.aspectRatio || ""}
+            onChange={(e) => onUpdateData(node.id, { aspectRatio: e.target.value })}
+          >
+            <option value="">比例·跟随</option>
+            {ASPECT_RATIO_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
+        </div>
         <Button
           size="sm"
           tone="primary"
