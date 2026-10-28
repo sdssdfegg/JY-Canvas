@@ -6,6 +6,7 @@ import { generateImages } from "../../api/images.js";
 import { getAppConfig } from "../../api/config.js";
 import { STORAGE_KEY } from "../../shared/app-defaults.js";
 import { readJsonStorage } from "../../lib/storage/json-storage.js";
+import { workflowInputsWithChain } from "./ai-canvas-workflow.js";
 
 // 与 server IMAGE_UPLOAD_PARSE_CEILING 对齐：最多 6 张输入图。
 const IMAGE_UPLOAD_CEILING = 6;
@@ -54,6 +55,15 @@ export function collectGenerationInputs(current, genNode) {
     ? promptNode.data.text.trim()
     : (genNode.data.prompt || "").trim();
   return { imageNodes, promptText };
+}
+
+// MVP-4 追加（不改上面的语义）：工作流运行时的输入收集。
+// 与 collectGenerationInputs 的差别只有一处——把「直接上游里已经生成成功的生成节点」
+// 也算作输入图（用它的 resultUrl），这样 gen → gen 的链式多轮（连续编辑）才能跑通。
+// 单独开一个函数是为了不碰原函数的语义：单节点「执行生成」仍走原来的口径。
+// 真正的解析逻辑放在零 import 的 ai-canvas-workflow.js（那边能被无头脚本直接断言）。
+export function collectWorkflowInputs(current, genNode) {
+  return workflowInputsWithChain(collectGenerationInputs(current, genNode), current, genNode);
 }
 
 // 执行生成：复用现有 /api/images（multipart image + 表单字段），成功返回首图 URL。

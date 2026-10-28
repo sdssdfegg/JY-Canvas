@@ -146,6 +146,9 @@ const ORDER = [
   // 前后端动作契约一致、服务端规划器（fetch 桩：json_object 降级重试 / Markdown 围栏解析 / 缺 Key 拒绝）。
   // 纯逻辑 <1s，不起服务、不联网、不扣费（端到端出图仍需真实 Key，留给浏览器实测）。
   "ai-canvas-agent-check",
+  // V143（2026-10-28）：AI 无限画布**工作流引擎**无头验收 —— 拓扑排序（线性链/菱形/环/自环/
+  // 重复边/悬空边）、有环拒绝执行（防无限循环）、gen→gen 链式多轮输入解析。纯逻辑 <1s。
+  "ai-canvas-workflow-check",
   "resize-long-edge-check",
   "generation-error-check",
   "reference-gate-check",
@@ -272,7 +275,9 @@ const FAST_ORDER = [
   // 2026-10-27：标注式 AI 编辑坐标内核验收（纯逻辑 <1s），进提交钩子快速子集。
   "annotation-geometry-check",
   // V143（2026-10-28）：AI 无限画布 Agent 无头验收（纯逻辑 + fetch 桩 <1s），进提交钩子快速子集（--fast 42→43）。
-  "ai-canvas-agent-check"
+  "ai-canvas-agent-check",
+  // V143（2026-10-28）：画布工作流引擎无头验收（纯逻辑 <1s），进提交钩子快速子集（--fast 43→44）。
+  "ai-canvas-workflow-check"
 ];
 
 /**

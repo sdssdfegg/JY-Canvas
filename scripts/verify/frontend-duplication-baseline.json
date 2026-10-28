@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 142,
+    "fileCount": 143,
     "files": [
       "src/api/ai-canvas-agent.js",
       "src/api/assets.js",
@@ -34,6 +34,7 @@
       "src/features/ai-canvas/ai-canvas-generation.js",
       "src/features/ai-canvas/ai-canvas-store.js",
       "src/features/ai-canvas/ai-canvas-view.jsx",
+      "src/features/ai-canvas/ai-canvas-workflow.js",
       "src/features/auth/api-key.js",
       "src/features/canvas/canvas-generation-handlers.js",
       "src/features/crop/quick-crop-panels.jsx",

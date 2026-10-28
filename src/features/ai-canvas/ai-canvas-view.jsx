@@ -21,18 +21,21 @@ import {
   AlertCircle,
   CheckCircle2,
   Bot,
-  Send
+  Send,
+  Zap
 } from "lucide-react";
 import { Button } from "../../shared/ui/Button";
 import { makeNode, useAiCanvasStore } from "./ai-canvas-store.js";
 import {
   collectGenerationInputs,
+  collectWorkflowInputs,
   runCanvasGeneration,
   readJySettings,
   fetchJyConfig
 } from "./ai-canvas-generation.js";
 import { requestCanvasAgentPlan } from "../../api/ai-canvas-agent.js";
 import { applyCanvasAgentPlan, buildCanvasSnapshot } from "./ai-canvas-agent.js";
+import { planWorkflowRuns } from "./ai-canvas-workflow.js";
 import "./ai-canvas.css";
 
 const MIN_ZOOM = 0.2;
@@ -243,6 +246,52 @@ export function AiCanvasView() {
     }
   }, [actions]);
 
+  // —— MVP-4：运行整张画布 —— 按拓扑序依次执行生成节点，失败即停 ——
+  const runWorkflow = useCallback(async () => {
+    const project = currentRef.current;
+    if (!project) return;
+    const plan = planWorkflowRuns(project.nodes || [], project.edges || []);
+    if (plan.cycle.length) {
+      actions.failWorkflow(plan.reason || "画布里有循环连线，无法确定执行顺序", null);
+      return;
+    }
+    if (!plan.runnable.length) {
+      actions.failWorkflow(plan.reason || "画布里还没有生成节点", null);
+      return;
+    }
+
+    actions.startWorkflow(plan.runnable);
+    let ran = 0;
+    for (let i = 0; i < plan.runnable.length; i += 1) {
+      const id = plan.runnable[i];
+      const node = (currentRef.current?.nodes || []).find((n) => n.id === id);
+      if (!node || node.type !== "generation") continue;
+      actions.startGeneration(id);
+      try {
+        const settings = readJySettings();
+        const config = await fetchJyConfig();
+        // 走工作流口径：额外把「上游已成功的生成节点」算作输入，支持 gen→gen 链式多轮。
+        const { imageNodes, promptText } = collectWorkflowInputs(currentRef.current, node);
+        const { resultUrl, usedModel } = await runCanvasGeneration({
+          genNode: node,
+          imageNodes,
+          promptText,
+          settings,
+          config
+        });
+        actions.completeGeneration(id, { resultUrl, usedModel, createResultNode: true });
+        ran += 1;
+        actions.stepWorkflow(i + 1, ran);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        actions.failGeneration(id, message);
+        actions.failWorkflow(message, id);
+        return;
+      }
+    }
+    actions.finishWorkflow();
+  }, [actions]);
+
   // —— MVP-3：画布 Agent —— 自然语言指令 → 服务端动作清单 → 前端 fail-closed 应用 ——
   const runAgent = useCallback(async () => {
     const project = currentRef.current;
@@ -339,6 +388,10 @@ export function AiCanvasView() {
 
   const nodeById = useCallback((id) => current?.nodes.find((n) => n.id === id), [current]);
 
+  // MVP-4：整张画布的运行状态（存在当前项目上，不入撤销栈）
+  const workflow = current?.workflow || null;
+  const workflowRunning = workflow?.state === "running";
+
   // —— 渲染 ——
   return (
     <div className="aiCanvasRoot">
@@ -349,6 +402,7 @@ export function AiCanvasView() {
         <Button size="sm" iconOnly title="添加图片节点" onClick={() => fileInputRef.current?.click()}><ImageIcon size={16} /></Button>
         <Button size="sm" iconOnly title="添加提示词节点" onClick={() => addAtCenter("prompt", { text: "" })}><FileText size={16} /></Button>
         <Button size="sm" iconOnly title="添加生成节点" onClick={() => addAtCenter("generation", { model: "", prompt: "", status: "idle" })}><Sparkles size={16} /></Button>
+        <Button size="sm" iconOnly title="运行画布（按连线顺序依次执行生成节点）" onClick={runWorkflow} disabled={workflowRunning}><Zap size={16} /></Button>
         <span className="aiCanvasDivider" />
         <Button size="sm" iconOnly title="撤销 (Ctrl+Z)" onClick={actions.undo} disabled={!canUndo}><Undo2 size={16} /></Button>
         <Button size="sm" iconOnly title="重做 (Ctrl+Y)" onClick={actions.redo} disabled={!canRedo}><Redo2 size={16} /></Button>
@@ -358,6 +412,15 @@ export function AiCanvasView() {
         <Button size="sm" iconOnly title="适应视图" onClick={() => fitView(current, stageSize, actions)}><Maximize size={16} /></Button>
         <span className="aiCanvasSpacer" />
         <span className="aiCanvasHint">滚轮缩放 · 拖空白平移 · 拖端口连线 · 自动保存</span>
+        {workflow?.state === "running" ? (
+          <span className="aiCanvasWorkflowMsg">运行中 {Math.min(workflow.index + 1, workflow.queue.length)}/{workflow.queue.length}</span>
+        ) : null}
+        {workflow?.state === "done" ? (
+          <span className="aiCanvasWorkflowMsg">已跑完 {workflow.ranCount} 个生成节点</span>
+        ) : null}
+        {workflow?.state === "failed" ? (
+          <span className="aiCanvasWorkflowMsg aiCanvasWorkflowMsgErr">运行失败：{workflow.error}</span>
+        ) : null}
         <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={onPickFiles} />
       </div>
 

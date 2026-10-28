@@ -69,6 +69,20 @@ function patchNodeDataNoHistory(state, id, patch, extraNodes) {
   return { ...state, projects };
 }
 
+// 工作流运行状态也是「异步外部结果 + 持久化」，不入撤销栈。
+// 传 null 表示复位到 idle。
+function patchProjectWorkflow(state, workflow) {
+  const idx = state.projects.findIndex((p) => p.id === state.currentId);
+  if (idx < 0) return state;
+  const projects = state.projects.slice();
+  projects[idx] = {
+    ...projects[idx],
+    workflow: workflow || { state: "idle", queue: [], index: 0, ranCount: 0, error: null, failedNodeId: null },
+    updatedAt: Date.now()
+  };
+  return { ...state, projects };
+}
+
 function reducer(state, action) {
   switch (action.type) {
     case "HYDRATE":
@@ -194,6 +208,33 @@ function reducer(state, action) {
     case "GENERATION_FAILED":
       return patchNodeDataNoHistory(state, action.id, { status: "failed", error: action.error });
 
+    // —— MVP-4：工作流运行状态（不入撤销栈）——
+    case "WORKFLOW_START":
+      return patchProjectWorkflow(state, {
+        state: "running",
+        queue: Array.isArray(action.queue) ? action.queue : [],
+        index: 0,
+        ranCount: 0,
+        error: null,
+        failedNodeId: null
+      });
+
+    case "WORKFLOW_STEP":
+      return patchProjectWorkflow(state, { state: "running", index: action.index, ranCount: action.ranCount });
+
+    case "WORKFLOW_DONE":
+      return patchProjectWorkflow(state, { state: "done", error: null, failedNodeId: null });
+
+    case "WORKFLOW_FAIL":
+      return patchProjectWorkflow(state, {
+        state: "failed",
+        error: action.error || "运行失败",
+        failedNodeId: action.nodeId || null
+      });
+
+    case "WORKFLOW_RESET":
+      return patchProjectWorkflow(state, null);
+
     case "UNDO": {
       if (!state.past.length || !state.currentId) return state;
       const past = state.past.slice();
@@ -269,6 +310,12 @@ export function useAiCanvasStore() {
       startGeneration: (id) => dispatch({ type: "GENERATION_STARTED", id }),
       completeGeneration: (id, payload) => dispatch({ type: "GENERATION_SUCCESS", id, ...payload }),
       failGeneration: (id, error) => dispatch({ type: "GENERATION_FAILED", id, error }),
+      // MVP-4：整张画布按拓扑序运行
+      startWorkflow: (queue) => dispatch({ type: "WORKFLOW_START", queue }),
+      stepWorkflow: (index, ranCount) => dispatch({ type: "WORKFLOW_STEP", index, ranCount }),
+      finishWorkflow: () => dispatch({ type: "WORKFLOW_DONE" }),
+      failWorkflow: (error, nodeId) => dispatch({ type: "WORKFLOW_FAIL", error, nodeId }),
+      resetWorkflow: () => dispatch({ type: "WORKFLOW_RESET" }),
       undo: () => dispatch({ type: "UNDO" }),
       redo: () => dispatch({ type: "REDO" })
     }),

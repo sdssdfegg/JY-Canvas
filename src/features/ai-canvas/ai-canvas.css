@@ -360,3 +360,17 @@
   color: var(--faint);
 }
 .aiCanvasAgentListWarn { color: var(--warn); }
+
+/* —— MVP-4：整张画布运行状态条 —— */
+.aiCanvasWorkflowMsg {
+  font-size: 11px;
+  color: var(--accent);
+  margin-left: var(--space-2);
+  white-space: nowrap;
+}
+.aiCanvasWorkflowMsgErr {
+  color: var(--danger, rgba(255, 99, 99, 1));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 340px;
+}
