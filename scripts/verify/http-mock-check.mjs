@@ -218,8 +218,8 @@ for (const [id, label] of [["silent-tt25-line-01", "XT-image2-s"], ["silent-tt25
         && !routingModule.isHiddenChannelId(channel.id)
         && !routingModule.isForbiddenChannelId(channel.id)).length,
     `frontend=${frontendRows.length}`);
-  check("2.0 前端菜单第一条是 laoye（2026-10-11 调整默认线路）",
-    frontendRows[0]?.id === "silent-tt2-line-12" && frontendRows[0]?.label === "laoye",
+  check("2.0 前端菜单第一条是 laoye超分（2026-10-28 起默认线路；旧 laoye line-12 已随上游分组失效下线）",
+    frontendRows[0]?.id === "silent-tt2-line-15" && frontendRows[0]?.label === "laoye超分",
     frontendRows.slice(0, 3).map((channel) => channel.label).join(","));
 
   // 2026-09-26（按用户要求）：香蕉 2 的「云枢」也改成前端隐藏，只在前端隐藏，服务端照旧认。

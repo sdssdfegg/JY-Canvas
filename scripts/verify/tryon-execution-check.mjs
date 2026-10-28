@@ -46,7 +46,7 @@ function check(name, cond, detail) {
 function makeSpec() {
   return normalizeImageRequest({
     model: "tt-image-2",
-    channelId: "silent-tt2-line-12",
+    channelId: "silent-tt2-line-15",
     dispatchMode: "manual",
     prompt: "test-prompt",
     n: 1,

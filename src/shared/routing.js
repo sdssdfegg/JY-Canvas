@@ -312,7 +312,8 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     // 2026-10-28：laoye超分（老夜同上游 GPT特价 KEY，OPEN 协议同 laoye 2.0，前端 ¥0.08/张）。
     // 0.08 最低价 ⇒ 排第一 = 默认线路（routing-check 强制渠道按价格升序）。
     { id: "silent-tt2-line-15", label: "laoye超分", price: 0.08 },
-    { id: "silent-tt2-line-12", label: "laoye", price: 0.1 },
+    // 2026-10-28：旧「laoye」silent-tt2-line-12 摘除（上游 adobe特价 分组被清空，503）；
+    //   恢复条件 = 上游恢复分组 + 154 适配器改回 ACTIVE。与 server/channel-config.js 同源。
     { id: "silent-tt2-line-10", label: "云枢", price: 0.1 },
     { id: "silent-tt2-line-11", label: "Origin", price: 0.1 },
     { id: "silent-tt2-line-03", label: "XT-default", price: 0.1 },

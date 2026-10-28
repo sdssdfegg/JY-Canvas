@@ -103,7 +103,11 @@ const ROUTING_CHANNELS = Object.freeze([
   // 数组顺序 = 前端菜单顺序；第一条同时也是"用户没选过线路时"的默认线路
   // （channelForModel / convergeSettingsForModel 都取 channels[0]）。
   // 2.0 的 Origin 与其它 2.0 线路同价（0.10），所以改默认线路不影响价格口径。
-  { id: "silent-tt2-line-12", label: "laoye", price: 0.10, model: "tt-image-2" },
+  // 2026-10-28：旧「laoye」（silent-tt2-line-12）已下线摘除——其上游 KEY 所在「adobe特价」分组
+  //   被上游清空（/v1/models 返回空、出图 503 "No available channel for model gpt-image-2
+  //   under group adobe特价"），用户提供的替代 KEY 同分组同样无效。154 适配器侧该线路已置
+  //   DISABLED（备份 .bak-laoye-disable-*，恢复=改回 ACTIVE+restart）。同上游、同 OPEN 协议、
+  //   更低价（0.08）的「laoye超分」silent-tt2-line-15 已是默认线路，功能完全覆盖。
   { id: "silent-tt2-line-10", label: "云枢", price: 0.10, model: "tt-image-2" },
   { id: "silent-tt2-line-11", label: "Origin", price: 0.10, model: "tt-image-2" },
   { id: "silent-tt2-line-03", label: "XT-default", price: 0.10, model: "tt-image-2" },
