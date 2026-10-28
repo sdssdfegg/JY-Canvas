@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "seedId": "64bbed01",
-  "syncedAt": "2026-10-22T01:09:26.282Z",
+  "seedId": "d476c4a2",
+  "syncedAt": "2026-10-23T09:49:28.506Z",
   "entries": [
     {
       "id": "main-prompt-presets",
@@ -237,9 +237,10 @@
             "recolorUpperLayer": "single",
             "outfitIntent": {
               "parts": [
-                "upper"
+                "upper",
+                "shoes"
               ],
-              "upperLayer": "single",
+              "upperLayer": "outer",
               "wearing": {
                 "mode": "follow",
                 "values": {
@@ -283,7 +284,7 @@
             },
             "pairingMode": "fixed",
             "randomBackgroundFocus": "default",
-            "prompt": "让图1模特穿着图2的上装。图1的下装保持不变。\n\n穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。\n\n图1是唯一人物身份、人体结构和姿势基准，不改变图1人物的身份、骨骼和姿势。",
+            "prompt": "让图1模特穿着图2的外套和鞋子。图1的下装保持不变。\n\n穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。\n\n图1是唯一人物身份、人体结构和姿势基准，不改变图1人物的身份、骨骼和姿势。",
             "productNote": "",
             "n": 1,
             "quality": "",
@@ -310,7 +311,7 @@
           "name": "改色",
           "deleteLocked": false,
           "settings": {
-            "model": "tt-image-2",
+            "model": "banana-2.1",
             "dispatchMode": "manual",
             "aspectRatio": "3:4",
             "imageSize": "2K",
@@ -701,14 +702,14 @@
             "retouchIntent": {
               "version": 1,
               "symmetry": "off",
-              "hemTreatment": "follow_original",
+              "hemTreatment": "natural_wave",
               "fit": "follow_original",
               "frontback": "off",
               "customPrompt": ""
             },
             "pairingMode": "fixed",
             "randomBackgroundFocus": "default",
-            "prompt": "【服装精修目标】\n生成干净的服装白底精修图。去除明显褶皱，在不改变原服装结构的前提下，修正明显歪扭的门襟、缝线、袋口和边缘，使可拉直的细节横平竖直（只修正明显的拍摄摆放或线条歪扭，不把原本有意的褶裥、弧线、波浪边和不对称设计强行拉直）；保持服装原有款式、颜色、面料、纹理、缝线、扣子、口袋和其他细节不变，不创新、不凭空增加细节、不改变服装设计、不偏色。\n\n【清理与轮廓】\n去掉衣架、夹子、大头针和固定服装的其他物品，只保留干净的服装主体；修正服装外轮廓，使轮廓平滑、连续、自然。\n\n【结构要求】\n保留原图中真实的左右不对称细节，不要强行把服装做成对称。",
+            "prompt": "【服装精修目标】\n生成干净的服装白底精修图。去除明显褶皱，在不改变原服装结构的前提下，修正明显歪扭的门襟、缝线、袋口和边缘，使可拉直的细节横平竖直（只修正明显的拍摄摆放或线条歪扭，不把原本有意的褶裥、弧线、波浪边和不对称设计强行拉直）；保持服装原有款式、颜色、面料、纹理、缝线、扣子、口袋和其他细节不变，不创新、不凭空增加细节、不改变服装设计、不偏色。\n\n【清理与轮廓】\n去掉衣架、夹子、大头针和固定服装的其他物品，只保留干净的服装主体；修正服装外轮廓，使轮廓平滑、连续、自然。\n\n【结构要求】\n保留原图中真实的左右不对称细节，不要强行把服装做成对称。\n衣摆或裙摆保持自然垂落的波浪，不要凭空制造夸张褶皱。",
             "productNote": "",
             "n": 1,
             "quality": "",
@@ -838,9 +839,10 @@
         "recolorUpperLayer": "single",
         "outfitIntent": {
           "parts": [
-            "upper"
+            "upper",
+            "shoes"
           ],
-          "upperLayer": "single",
+          "upperLayer": "outer",
           "wearing": {
             "mode": "follow",
             "values": {
@@ -886,7 +888,7 @@
         "preprocessMode": "original",
         "randomBackgroundFocus": "default",
         "theme": "dark",
-        "prompt": "让图1模特穿着图2的上装。图1的下装保持不变。\n\n穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。\n\n图1是唯一人物身份、人体结构和姿势基准，不改变图1人物的身份、骨骼和姿势。",
+        "prompt": "让图1模特穿着图2的外套和鞋子。图1的下装保持不变。\n\n穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。\n\n图1是唯一人物身份、人体结构和姿势基准，不改变图1人物的身份、骨骼和姿势。",
         "productNote": "",
         "n": 1,
         "quality": "",
