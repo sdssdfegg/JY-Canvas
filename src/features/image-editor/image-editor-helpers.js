@@ -134,6 +134,11 @@ export function createCompositionCanvas({ baseBitmap, overlayBitmap, maskCanvas,
   const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) return canvas;
   drawTransparentGrid(ctx, canvas.width, canvas.height);
+  if (!baseBitmap && overlayBitmap) {
+    // RF-046：仅上层图（未传底图）时按原尺寸铺满画布，便于先预览上层图；不走居中变换。
+    ctx.drawImage(overlayBitmap, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
   if (baseBitmap) {
     ctx.drawImage(baseBitmap, 0, 0, canvas.width, canvas.height);
   }

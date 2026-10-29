@@ -164,7 +164,11 @@ export default function ImageEditorPanel({
   }, []);
 
   function requestDraw() {
-    if (rafRef.current) return;
+    // RF-046：取消尚未执行的旧帧，改用「当前闭包」的尺寸/图层重绘。
+    // 原逻辑用 `if (rafRef.current) return` 跳过重绘，但 RAF 回调读的是调度时刻的闭包快照，
+    // 上传底图时 setCanvasSize 尚未生效就先调度了一帧（尺寸=0→画 1×1 空白），
+    // 随后真正的重绘被跳过 ⇒ 底图/上层图经常不显示。改为取消旧帧、让最新一帧生效。
+    if (rafRef.current) window.cancelAnimationFrame(rafRef.current);
     rafRef.current = window.requestAnimationFrame(() => {
       rafRef.current = 0;
       const canvas = canvasRef.current;
@@ -332,8 +336,15 @@ export default function ImageEditorPanel({
       overlayRef.current?.close?.();
       overlayRef.current = bitmap;
       overlayFileRef.current = file;
-      setOverlayMeta({ width: bitmap.width || bitmap.naturalWidth || 1, height: bitmap.height || bitmap.naturalHeight || 1 });
+      const overlayWidth = bitmap.width || bitmap.naturalWidth || 1;
+      const overlayHeight = bitmap.height || bitmap.naturalHeight || 1;
+      setOverlayMeta({ width: overlayWidth, height: overlayHeight });
       setOverlayFile(file);
+      // RF-046：未传底图时画布尺寸取上层图本身，确保「先传上层图」也能立即在右侧预览，
+      // 不必强制先传底图（原逻辑只有 loadBaseFile 才设画布尺寸，导致仅上层图时画布 0×0、什么都不显示）。
+      if (!baseRef.current) {
+        setCanvasSize({ width: overlayWidth, height: overlayHeight });
+      }
       if (!options.keepMask && canvasSize.width && canvasSize.height) {
         resetMaskCanvas(maskCanvasRef.current, canvasSize.width, canvasSize.height);
       }
@@ -676,6 +687,29 @@ export default function ImageEditorPanel({
     scheduleProjectSave();
   }
 
+  async function clearBase() {
+    // RF-046：仅清底图、保留上层图（原「底图」清除按钮误调 clearProject 把两层一起清）。
+    baseRef.current?.close?.();
+    baseRef.current = null;
+    baseFileRef.current = null;
+    setBaseFile(null);
+    setBaseMeta(null);
+    if (overlayRef.current) {
+      // 底图清掉后画布尺寸退回上层图尺寸，让右侧继续预览上层图。
+      const w = overlayMeta?.width || overlayRef.current.width || overlayRef.current.naturalWidth || 1;
+      const h = overlayMeta?.height || overlayRef.current.height || overlayRef.current.naturalHeight || 1;
+      setCanvasSize({ width: w, height: h });
+      resetMaskCanvas(maskCanvasRef.current, w, h);
+    } else {
+      setCanvasSize({ width: 0, height: 0 });
+      resetMaskCanvas(maskCanvasRef.current, 1, 1);
+    }
+    setTransform(DEFAULT_TRANSFORM);
+    requestDraw();
+    scheduleProjectSave();
+    onAddEvent?.("图片编辑", "底图已清除（保留上层图）");
+  }
+
   async function clearProject() {
     baseRef.current?.close?.();
     overlayRef.current?.close?.();
@@ -769,7 +803,7 @@ export default function ImageEditorPanel({
             meta={baseMeta}
             onPick={(file) => void loadBaseFile(file, { keepOverlay: true })}
             onDropFiles={(file) => void loadBaseFile(file, { keepOverlay: true })}
-            onClear={() => void clearProject()}
+            onClear={() => void clearBase()}
           />
 
           <section className="imageEditorToolGroup">
@@ -911,7 +945,7 @@ export default function ImageEditorPanel({
               />
             )}
           </div>
-          {!baseFile && (
+          {!baseFile && !overlayFile && (
             <div className="imageEditorEmpty">
               <Layers size={36} />
               <span>放入底图和上层图</span>
