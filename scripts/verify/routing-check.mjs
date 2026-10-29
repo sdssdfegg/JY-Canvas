@@ -53,10 +53,20 @@ function pricesAscending(rows) {
   }
   return true;
 }
+function pricesAscendingExceptPinned(rows, pinnedId) {
+  const rest = pinnedId ? rows.filter((row) => row.id !== pinnedId) : rows;
+  for (let i = 1; i < rest.length; i += 1) {
+    const prev = Number(rest[i - 1]?.price ?? -1);
+    const cur = Number(rest[i]?.price ?? -1);
+    if (cur < prev - 1e-9) return false;
+  }
+  return true;
+}
 function assertModelOrdering(model) {
   const rows = routingModule.channelsForModel(model, catalog);
-  check(`${model} 渠道按价格升序（价格低→高，同价任意序）`,
-    pricesAscending(rows),
+  const pinned = routingModule.MODEL_DEFAULT_CHANNEL[model];
+  check(`${model} 渠道：置顶渠道在最前，其余按价格升序（低→高，同价任意序）`,
+    pricesAscendingExceptPinned(rows, pinned),
     JSON.stringify(rows.map((item) => `${item.label}/${item.price}`)));
   const expectedDefault = (routingModule.MODEL_DEFAULT_CHANNEL[model]
       && rows.some((r) => r.id === routingModule.MODEL_DEFAULT_CHANNEL[model]))

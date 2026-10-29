@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-29",
-  "reason": "解耦默认渠道与列表顺序：新增 MODEL_DEFAULT_CHANNEL 覆盖表 + defaultChannelForModel/channelForModel 重写（空/非法 channelId 优先回退覆盖默认 laoye），必要架构代码",
+  "reason": "置顶渠道浮到价格排序最前：channelsForModel 新增 pinned 浮动逻辑(+9)，必要功能代码",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -140,7 +140,7 @@
     "src/shared/release-seed.js": 295,
     "src/shared/result-image.js": 334,
     "src/shared/retouch-intent.js": 284,
-    "src/shared/routing.js": 541,
+    "src/shared/routing.js": 550,
     "src/shared/text-normalize.js": 42,
     "src/shared/ui/AppSidebar.jsx": 39,
     "src/shared/ui/Button.jsx": 53,

@@ -400,19 +400,28 @@ export function channelsForModel(model, catalog = null) {
       .filter(Boolean)
     : [];
   const allowlist = MODEL_CHANNEL_ALLOWLIST[canonical];
+  let rows;
   if (allowlist) {
     const allowed = new Map(allowlist.map((channel) => [channel.id, channel]));
     const source = configured.length ? configured : allowlist;
-    return source
+    rows = source
       .map((channel) => allowed.get(channel.id) || null)
       .filter(Boolean)
       .map((channel) => ({ ...channel, price: Number(channel.price || 0) }))
       .filter((channel) => !isHiddenChannelId(channel.id));
+  } else if (configured.length) {
+    rows = configured.filter((channel) => !isHiddenChannelId(channel.id));
+  } else {
+    rows = (FALLBACK_MODEL_CHANNELS[canonical] || [])
+      .filter((channel) => !isForbiddenChannelId(channel.id) && !isHiddenChannelId(channel.id))
+      .map((channel) => ({ ...channel, currency: "CNY" }));
   }
-  if (configured.length) return configured.filter((channel) => !isHiddenChannelId(channel.id));
-  return (FALLBACK_MODEL_CHANNELS[canonical] || [])
-    .filter((channel) => !isForbiddenChannelId(channel.id) && !isHiddenChannelId(channel.id))
-    .map((channel) => ({ ...channel, currency: "CNY" }));
+  // 置顶：每模型指定的默认渠道浮到最前（其余仍按价格升序），供下拉展示；与 server 端同源同步。
+  const pinned = MODEL_DEFAULT_CHANNEL[canonical];
+  if (pinned && rows.some((row) => row.id === pinned)) {
+    rows = [rows.find((row) => row.id === pinned), ...rows.filter((row) => row.id !== pinned)];
+  }
+  return rows;
 }
 
 export function defaultChannelForModel(model, catalog = null) {

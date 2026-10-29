@@ -15,6 +15,13 @@ export const CHANNEL_POLICY = Object.freeze({
 
 export const CHANNEL_IMAGE_SIZES = Object.freeze(["1K", "2K", "4K"]);
 
+// 每模型「置顶/默认」渠道：与 src/shared/routing.js 的 MODEL_DEFAULT_CHANNEL 同源同步（改一处须两处同步）。
+// 用途：① 下拉浮到价格排序最前（其余仍按价格升序）；② 模型级聚合价(pricing.models)取该渠道单价；
+// ③ channelId 为空/非法时默认选中它。仅作展示/默认用途，不破坏「其余渠道价格升序」规约。
+export const MODEL_DEFAULT_CHANNEL = Object.freeze({
+  "tt-image-2.5": "silent-tt25-line-10"
+});
+
 // 已下线的旧线路：必须从前端目录、服务端目录和服务端校验里同时移除/拒绝。
 // 只隐藏下拉框不够——用户手动构造旧 channelId 时服务端也必须拒绝。
 // 前三个是 3.0 目录里的**展示名**，后三个是同一批线路在 3.0 目录里的真实 publicId。
@@ -313,9 +320,28 @@ export function routingChannelById(channelId) {
 // 前端目录：旧线路不进入任何一条输出，dropdown / DOM 里旧渠道名数量必须是 0。
 // HIDDEN 线路同样不下发（前端菜单不出现，但服务端校验仍接受其 channelId）。
 export function publicRoutingChannels() {
-  return ROUTING_CHANNELS.filter(
+  const list = ROUTING_CHANNELS.filter(
     (channel) => !isForbiddenChannelId(channel.id) && !isHiddenChannelId(channel.id)
   );
+  // 置顶：每模型指定的默认渠道浮到该模型分组最前（其余保持原顺序），供下拉展示；
+  // 不破坏「同模型内其余渠道价格升序」规约。
+  const byModel = new Map();
+  for (const channel of list) {
+    if (!byModel.has(channel.model)) byModel.set(channel.model, []);
+    byModel.get(channel.model).push(channel);
+  }
+  const out = [];
+  for (const [model, group] of byModel) {
+    const pinned = MODEL_DEFAULT_CHANNEL[model];
+    const pinnedChannel = pinned ? group.find((channel) => channel.id === pinned) : null;
+    if (pinnedChannel) {
+      out.push(pinnedChannel);
+      for (const channel of group) if (channel.id !== pinned) out.push(channel);
+    } else {
+      out.push(...group);
+    }
+  }
+  return out;
 }
 
 export function routingModelCapabilities(model) {
@@ -457,7 +483,9 @@ export function publicRoutingCatalog() {
       models: Object.fromEntries(ROUTING_MODELS
         .filter((model) => !isHiddenModelId(model.value))
         .map((model) => {
-          const line = channels.find((channel) => channel.model === model.value);
+          const pinned = MODEL_DEFAULT_CHANNEL[model.value];
+          const line = channels.find((channel) => channel.model === model.value && channel.id === pinned)
+            || channels.find((channel) => channel.model === model.value);
           return [model.value, { price: line?.price || 0, currency: "CNY", unit: "image" }];
         }))
     },
