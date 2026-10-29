@@ -58,9 +58,13 @@ function assertModelOrdering(model) {
   check(`${model} 渠道按价格升序（价格低→高，同价任意序）`,
     pricesAscending(rows),
     JSON.stringify(rows.map((item) => `${item.label}/${item.price}`)));
-  check(`${model} 默认线路 = 列表第一条（动态，不写死具体线路）`,
-    rows.length > 0 && routingModule.defaultChannelForModel(model, catalog) === rows[0].id,
-    `default=${routingModule.defaultChannelForModel(model, catalog)} first=${rows[0]?.id}`);
+  const expectedDefault = (routingModule.MODEL_DEFAULT_CHANNEL[model]
+      && rows.some((r) => r.id === routingModule.MODEL_DEFAULT_CHANNEL[model]))
+    ? routingModule.MODEL_DEFAULT_CHANNEL[model]
+    : rows[0]?.id;
+  check(`${model} 默认线路 = 覆盖指定或列表第一条（动态，不写死具体线路）`,
+    rows.length > 0 && routingModule.defaultChannelForModel(model, catalog) === expectedDefault,
+    `default=${routingModule.defaultChannelForModel(model, catalog)} expected=${expectedDefault}`);
   check(`${model} 每条线路价格为正`,
     rows.length > 0 && rows.every((item) => Number(item.price) > 0),
     JSON.stringify(rows.map((item) => item.price)));
@@ -413,9 +417,9 @@ const TT25_SUBDIRECT_ID = "silent-tt25-line-07";
   check("2.5 目录里显示 Subdirect（¥0.11）",
     Boolean(found) && found.label === "Subdirect" && Number(found.price) === 0.11,
     JSON.stringify(found || null));
-  check("2.5 默认线路是列表第一条（价格升序下最贵的云枢高质量自然排最后），Subdirect 在列",
+  check("2.5 默认线路 = 覆盖指定(laoye满血版 line-10)，价格升序仍在，Subdirect 在列",
     tt25Channels.length > 0
-      && routingModule.defaultChannelForModel("tt-image-2.5", catalog) === tt25Channels[0].id
+      && routingModule.defaultChannelForModel("tt-image-2.5", catalog) === "silent-tt25-line-10"
       && tt25Channels.some((item) => item.id === TT25_SUBDIRECT_ID),
     JSON.stringify(tt25Channels.map((item) => `${item.label}/${item.price}`)));  const tt25Params = channelModule.normalizeImageRequest({
     model: "tt-image-2.5", channelId: TT25_SUBDIRECT_ID, prompt: "x", imageSize: "2K", aspectRatio: "3:4"
@@ -557,9 +561,9 @@ const toTt25 = routingModule.convergeSettingsForModel({
   model: "tt-image-2.5"
 }, fakeCatalog);
 check(
-  "切到 tt-image-2.5：数量收敛到 8 且渠道换到合法线路（2026-10-28 云枢 line-05 前端隐藏后默认=第一条 Origin line-06）",
+  "切到 tt-image-2.5：数量收敛到 8 且渠道收敛到默认线路（laoye满血版 line-10，覆盖优先）",
   toTt25.n === 8
-    && toTt25.channelId === "silent-tt25-line-06"
+    && toTt25.channelId === "silent-tt25-line-10"
     && routingModule.channelsForModel("tt-image-2.5", fakeCatalog).some((item) => item.id === toTt25.channelId),
   JSON.stringify(toTt25)
 );

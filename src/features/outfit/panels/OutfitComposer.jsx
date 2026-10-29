@@ -73,6 +73,7 @@ export default function OutfitComposer({
   deleteOutfitPage,
   models,
   outfitChannels,
+  outfitCapabilities = {},
   ratios,
   outfitSizes,
   globalBulkMode,

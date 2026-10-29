@@ -1375,6 +1375,7 @@ export default function OutfitWorkflow({
           deleteOutfitPage={deleteOutfitPage}
           models={models}
           outfitChannels={outfitChannels}
+          outfitCapabilities={outfitCapabilities}
           ratios={ratios}
           outfitSizes={outfitSizes}
           globalBulkMode={globalBulkMode}

@@ -115,6 +115,15 @@ export const MODEL_CHANNEL_ALLOWLIST = Object.freeze({
   ])
 });
 
+// 每模型「默认渠道」覆盖：channelId 为空（用户未选 / 初次加载）时，defaultChannelForModel
+// 优先返回这里指定的渠道，而不是 channelsForModel 的第一条（价格升序首条=最便宜）。
+// 这样既能把某条较高价渠道设为默认，又不破坏「渠道列表按价格升序」的展示规约。
+// 仅 TT2.5 设了 laoye 满血版；TT2.0 因该 KEY 仅 image2.5全参 分组、无 gpt-image-2，
+// 不存在 laoye 渠道，故不在此映射，2.0 默认仍走列表首条。
+export const MODEL_DEFAULT_CHANNEL = Object.freeze({
+  "tt-image-2.5": "silent-tt25-line-10"
+});
+
 // 目录未加载完成时的本地兜底能力表（与 server/channel-config.js 的 ROUTING_MODELS 对齐）。
 // 只用于「目录还没回来」这一种情况；目录一旦加载完成，一律以目录为准。
 export const FALLBACK_MODEL_CAPABILITIES = Object.freeze({
@@ -334,7 +343,7 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     { id: "silent-tt2-line-13", label: "Subdirect", price: 0.11 }
   ]),
   "tt-image-2.5": Object.freeze([
-    // 2026-10-11（晚）：TT2.5 下拉顺序 = 云枢第一（默认线路），其余按价格低→高，云枢高质量（最贵 ¥0.14）排最后；vakv 质量差，2026-10-20 同价位排最后。
+    // 2026-10-11（晚）：TT2.5 渠道按价格低→高排列；vakv 质量差 2026-10-20 同价位排最后。
     { id: "silent-tt25-line-05", label: "云枢", price: 0.1 },
     { id: "silent-tt25-line-06", label: "Origin", price: 0.1 },
     { id: "silent-tt25-line-01", label: "XT-image2-s", price: 0.1 },
@@ -345,11 +354,11 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     // 上游模型 gpt-image-2.5-flare / gpt-image-2.5-sunburst）。价格 ¥0.11。
     { id: "silent-tt25-line-07", label: "Subdirect", price: 0.11 },
     { id: "silent-tt25-line-04", label: "BR-default特价", price: 0.12 },
-    // 2026-10-29：新增「laoye满血版」——老夜 image2.5全参 分组 KEY（官方 OpenAI images 协议，支持全参 incl MAX quality），
-    //   上游模型 gpt-image-2.5-flare/sunburst；154 适配器 publicId=silent-tt25-line-10。前端 ¥0.12/张。
-    //   该 KEY 分组仅含 2.5（无 gpt-image-2），故只有 TT2.5 满血版；与 server/channel-config.js 同源同步。
-    { id: "silent-tt25-line-10", label: "laoye满血版", price: 0.12 },
-    // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，按价格排最后。
+    // 2026-10-29：laoye满血版（¥0.14，老夜 image2.5全参 分组，官方 OpenAI images 协议，支持全参 incl MAX quality）。
+    //   默认渠道由 MODEL_DEFAULT_CHANNEL 覆盖实现（channelId 为空时 defaultChannelForModel 返回 silent-tt25-line-10），
+    //   列表本身仍严格价格升序。该 KEY 分组仅含 2.5（无 gpt-image-2），故只有 TT2.5 满血版；与 server/channel-config.js 同源同步。
+    { id: "silent-tt25-line-10", label: "laoye满血版", price: 0.14 },
+    // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，与 laoye 同价，排最后。
     { id: "silent-tt25-line-09", label: "云枢高质量", price: 0.14 }
   ]),
   // 香蕉 2 / 香蕉 Pro 用白名单本身兜底，不在这里重复维护。
@@ -407,7 +416,14 @@ export function channelsForModel(model, catalog = null) {
 }
 
 export function defaultChannelForModel(model, catalog = null) {
-  return channelsForModel(model, catalog)[0]?.id || "";
+  const canonical = canonicalModel(model);
+  const channels = channelsForModel(canonical, catalog);
+  const override = MODEL_DEFAULT_CHANNEL[canonical];
+  if (override) {
+    const matched = channels.find((channel) => channel.id === override);
+    if (matched) return matched.id;
+  }
+  return channels[0]?.id || "";
 }
 
 export function channelForModel(model, channelId, catalog = null) {
@@ -417,7 +433,10 @@ export function channelForModel(model, channelId, catalog = null) {
     const matched = channels.find((channel) => channel.id === requested);
     if (matched) return matched;
   }
-  return channels[0] || null;
+  // 未指定渠道（初次 / 未选），或指定了但非法/不在本模型：
+  // 优先用每模型默认覆盖（如 TT2.5 → laoye 满血版），否则取列表首条（最便宜的合法线路）。
+  const fallbackId = defaultChannelForModel(model, catalog);
+  return channels.find((channel) => channel.id === fallbackId) || channels[0] || null;
 }
 
 /**

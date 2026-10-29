@@ -130,7 +130,7 @@ const ROUTING_CHANNELS = Object.freeze([
   // 上游模型 gpt-image-2）。与 2.5 的 silent-tt25-line-07 同源，作为 2.5 挂掉时的替代线；
   // 价格 0.11 = cost 0.05 + markup 0.06，与 MC-TT-cf / XT2 / 速创口径一致。
   { id: "silent-tt2-line-13", label: "Subdirect", price: 0.11, model: "tt-image-2" },
-  // 2026-10-11（晚）：TT2.5 下拉顺序 = 云枢第一（默认线路），其余按价格低→高，云枢高质量（最贵 ¥0.14）排最后；vakv 质量差，2026-10-20 由「同价位第二」改为「同价位排最后」。
+  // 2026-10-11（晚）：TT2.5 渠道按价格低→高排列；vakv 质量差 2026-10-20 同价位排最后。
   { id: "silent-tt25-line-05", label: "云枢", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-06", label: "Origin", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-01", label: "XT-image2-s", price: 0.10, model: "tt-image-2.5" },
@@ -141,12 +141,13 @@ const ROUTING_CHANNELS = Object.freeze([
   // 上游模型 gpt-image-2.5-flare / gpt-image-2.5-sunburst）。价格 ¥0.11。
   { id: "silent-tt25-line-07", label: "Subdirect", price: 0.11, model: "tt-image-2.5" },
   { id: "silent-tt25-line-04", label: "BR-default特价", price: 0.12, model: "tt-image-2.5" },
-  // 2026-10-29：新增「laoye满血版」——老夜 image2.5全参 分组 KEY（官方 OpenAI images 协议，支持全参 incl MAX quality），
-  //   上游模型 gpt-image-2.5-flare/sunburst；154 适配器 publicId=silent-tt25-line-10（provider_families.json 新增 silent-laoye-tt25-manxue），
-  //   KEY 仅存适配器 env（LK888_SILENT_LAOYE_MANXUE_API_KEY），前端与源码零 KEY。前端 ¥0.12/张。
+  // 2026-10-29：TT2.5 默认渠道改为「laoye满血版」（¥0.14，老夜 image2.5全参 分组，官方 OpenAI images 协议，支持全参 incl MAX quality）。
+  //   默认渠道不再靠「列表置顶」实现（否则破坏价格升序规约），改由 routing.js 的 MODEL_DEFAULT_CHANNEL 覆盖：
+  //   channelId 为空时 defaultChannelForModel 返回 silent-tt25-line-10。列表仍严格价格升序。
+  //   上游模型 gpt-image-2.5-flare/sunburst；154 适配器 publicId=silent-tt25-line-10（provider_families.json 新增 silent-laoye-tt25-manxue），KEY 仅存适配器 env（LK888_SILENT_LAOYE_MANXUE_API_KEY），前端与源码零 KEY。
   //   注意：该 KEY 分组仅含 2.5（无 gpt-image-2），故只有 TT2.5 满血版；2.0 满血版需另提供 2.0 KEY。
-  { id: "silent-tt25-line-10", label: "laoye满血版", price: 0.12, model: "tt-image-2.5" },
-  // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，按价格排最后。
+  { id: "silent-tt25-line-10", label: "laoye满血版", price: 0.14, model: "tt-image-2.5" },
+  // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，与 laoye 同价，排最后。
   { id: "silent-tt25-line-09", label: "云枢高质量", price: 0.14, model: "tt-image-2.5" },
   // 香蕉 2：展示用户指定的四条线路（云枢 / Subdirect / Origin / laoye），统一 ¥0.12/张。
   // 2026-10-20：laoye 由「同价位排第一（默认线路）」改为「同价位排最后」，默认线路让给云枢。
