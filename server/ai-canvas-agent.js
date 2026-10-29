@@ -42,6 +42,9 @@ const MAX_EDGES_IN_PROMPT = 120;
 const ACTION_CONTRACT = [
   { type: "add_prompt_node", args: "ref(必填，新节点代号，如 p1), text(提示词文本)" },
   { type: "add_generation_node", args: "ref(必填，如 g1), prompt(可选), model(可选)" },
+  { type: "add_outfit_tryon_node", args: "ref(必填，如 t1), prompt(可选，如 换成图2的连衣裙)" },
+  { type: "add_outfit_recolor_node", args: "ref(必填，如 c1), prompt(可选)" },
+  { type: "add_outfit_retouch_node", args: "ref(必填，如 w1), prompt(可选)" },
   { type: "set_prompt_text", args: "ref(必填，已有节点代号), text" },
   { type: "connect", args: "from(必填，节点代号), to(必填，节点代号)" },
   { type: "rename_node", args: "ref(必填), name" },
@@ -94,6 +97,7 @@ function buildPlannerContent(input) {
         "只能使用 actionContract 里列出的动作，禁止发明其它动作。",
         "引用已有节点必须用 canvas.nodes 里给出的 ref，不要编造不存在的 ref。",
         "新建节点时必须自己给一个 ref（如 p1、g1），同一条回复里后续的 connect 可以直接用这个 ref。",
+        "换装(add_outfit_tryon_node)/改色(add_outfit_recolor_node)/精修(add_outfit_retouch_node) 节点：用对应的 add_outfit_*_node 新增；它们都需图1（人物/主图）输入，换装/改色还要图2（服装/颜色参考）。用 connect 把图片节点连到 outfit 节点（默认落到图1端口），图2 端口由用户手动补连。",
         "不要自动触发生成：生成由用户在生成节点上点「执行生成」，你只负责搭好图和写好提示词。",
         "不确定就少做，宁可只回复一句说明也不要乱改画布。",
         `最多输出 ${MAX_ACTIONS} 个动作。`

@@ -101,7 +101,7 @@ check("运行计划只挑生成节点并按拓扑序（g1 在 g2 之前）",
 // —— 9) 没有生成节点 ——
 const noGen = planWorkflowRuns([node("i1", "image"), node("p1", "prompt")], [edge("i1", "p1")]);
 check("没有生成节点时不执行并给出中文原因",
-  noGen.runnable.length === 0 && /没有生成节点/.test(noGen.reason),
+  noGen.runnable.length === 0 && /没有.{0,6}生成节点/.test(noGen.reason),
   noGen.reason);
 
 // —— 10) 有环时拒绝执行（这是防无限循环的关键闸门）——

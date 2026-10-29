@@ -10,6 +10,7 @@
 import { Button } from "../../shared/ui/Button";
 import { versionSummary } from "./ai-canvas-versions.js";
 import { ASPECT_RATIO_OPTIONS, IMAGE_SIZE_OPTIONS } from "./ai-canvas-params.js";
+import { isOutfitKind, getNodeDef } from "./ai-canvas-nodes.js";
 import {
   AlertCircle,
   Bot,
@@ -171,6 +172,81 @@ export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGenera
               disabled={!versions.hasNext}
               onClick={() => onSelectVersion?.(node.id, versions.index + 1)}
             >›</button>
+          </div>
+        ) : null}
+        {node.data.status === "success" && node.data.resultUrl ? (
+          <img className="aiCanvasGenResult" src={node.data.resultUrl} alt="结果" draggable={false} />
+        ) : null}
+        {node.data.status === "failed" ? (
+          <span className="aiCanvasGenError"><AlertCircle size={13} /> {node.data.error}</span>
+        ) : null}
+        {node.data.status === "success" ? (
+          <span className="aiCanvasGenOk"><CheckCircle2 size={13} /> {node.data.usedModel || ""} · 已生成结果节点</span>
+        ) : null}
+      </div>
+    );
+  }
+  if (isOutfitKind(node.type)) {
+    const def = getNodeDef(node.type);
+    const versions = versionSummary(node.data);
+    return (
+      <div className="aiCanvasGenBody">
+        <textarea
+          className="aiCanvasGenPrompt"
+          placeholder="提示词（也可连一个提示词节点）"
+          value={node.data.prompt || ""}
+          onChange={(e) => onUpdateData(node.id, { prompt: e.target.value })}
+        />
+        {node.type === "outfit-tryon" ? (
+          <div className="aiCanvasGenParams">
+            <label className="aiCanvasCheckRow">
+              <input
+                type="checkbox"
+                checked={Array.isArray(node.data.outfitIntent?.parts) ? node.data.outfitIntent.parts.includes("upper") : true}
+                onChange={(e) => {
+                  const parts = new Set(node.data.outfitIntent?.parts || ["upper", "lower"]);
+                  if (e.target.checked) parts.add("upper"); else parts.delete("upper");
+                  onUpdateData(node.id, { outfitIntent: { ...(node.data.outfitIntent || {}), parts: [...parts] } });
+                }}
+              /> 上装
+            </label>
+            <label className="aiCanvasCheckRow">
+              <input
+                type="checkbox"
+                checked={Array.isArray(node.data.outfitIntent?.parts) ? node.data.outfitIntent.parts.includes("lower") : true}
+                onChange={(e) => {
+                  const parts = new Set(node.data.outfitIntent?.parts || ["upper", "lower"]);
+                  if (e.target.checked) parts.add("lower"); else parts.delete("lower");
+                  onUpdateData(node.id, { outfitIntent: { ...(node.data.outfitIntent || {}), parts: [...parts] } });
+                }}
+              /> 下装
+            </label>
+            <select
+              className="aiCanvasGenSelect"
+              title="掩膜约束（默认关闭）"
+              value={node.data.maskMode || "none"}
+              onChange={(e) => onUpdateData(node.id, { maskMode: e.target.value })}
+            >
+              <option value="none">掩膜·关闭</option>
+              <option value="garment">服装区</option>
+              <option value="body">人体区</option>
+            </select>
+          </div>
+        ) : null}
+        <Button
+          size="sm"
+          tone="primary"
+          disabled={node.data.status === "running"}
+          onClick={() => onRunGeneration(node)}
+        >
+          {node.data.status === "running" ? <Loader2 size={14} className="aiCanvasSpin" /> : <Play size={14} />}
+          <span>{node.data.status === "running" ? "生成中…" : `执行${def?.label || "生成"}`}</span>
+        </Button>
+        {versions.total > 1 ? (
+          <div className="aiCanvasGenVersions">
+            <button type="button" className="aiCanvasGenVersionBtn" title="上一版" disabled={!versions.hasPrev} onClick={() => onSelectVersion?.(node.id, versions.index - 1)}>‹</button>
+            <span className="aiCanvasGenVersionText">第 {versions.index + 1}/{versions.total} 版</span>
+            <button type="button" className="aiCanvasGenVersionBtn" title="下一版" disabled={!versions.hasNext} onClick={() => onSelectVersion?.(node.id, versions.index + 1)}>›</button>
           </div>
         ) : null}
         {node.data.status === "success" && node.data.resultUrl ? (

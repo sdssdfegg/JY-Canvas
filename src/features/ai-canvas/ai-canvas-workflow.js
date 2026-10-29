@@ -5,6 +5,12 @@
 // 网络、存储彻底解耦，才能被无头验收脚本直接 import 断言
 // （见 scripts/verify/ai-canvas-workflow-check.mjs）。
 // 真正发起生成的是视图层；本文件只回答「按什么顺序跑、能不能跑」。
+//
+// V144：可执行节点扩展到 outfit 强类型节点；链式上游泛化为任意出图节点；
+// 新增 validateGraphTypes 做运行前 fail-closed 类型校验。nodes.js / data-bus.js
+// 同为零 import 叶子，本文件整体仍零 import（可进纯 node 断言）。
+import { isRunnableKind, validateConnection } from "./ai-canvas-nodes.js";
+import { nodeOutputImage } from "./ai-canvas-data-bus.js";
 
 // 拓扑排序（Kahn）。
 // 返回：
@@ -48,8 +54,9 @@ export function topoSortNodes(nodes = [], edges = []) {
   return { order, cycle: ids.filter((id) => !placed.has(id)) };
 }
 
-// 链式多轮（连续编辑）的输入解析：**直接上游里已经生成成功的生成节点**，用它的 resultUrl 当输入图。
-// 单节点「执行生成」不走这里（口径不变），只有「运行画布」才认 gen → gen 这条边。
+// 链式多轮（连续编辑）的输入解析：直接上游里**已经出图的任意节点**（生成 / outfit / 结果），
+// 用它的「当前选中版」输出图当输入图。单节点「执行生成」不走这里（口径不变），
+// 只有「运行画布」才认 node → node 这条边。
 export function chainedUpstreamResults(current, genNode) {
   const upstreamIds = (current?.edges || [])
     .filter((edge) => edge.to === genNode?.id)
@@ -58,11 +65,9 @@ export function chainedUpstreamResults(current, genNode) {
     .filter(
       (node) =>
         upstreamIds.includes(node.id) &&
-        node.type === "generation" &&
-        node.data?.status === "success" &&
-        node.data?.resultUrl
+        nodeOutputImage(node) // 选中版输出图存在即为有效上游
     )
-    .map((node) => ({ id: node.id, type: "result", data: { src: node.data.resultUrl } }));
+    .map((node) => ({ id: node.id, type: "result", data: { src: nodeOutputImage(node) } }));
 }
 
 // 把「基础收集结果」（来自 collectGenerationInputs）与链式结果合成工作流输入。
@@ -81,11 +86,26 @@ export function planWorkflowRuns(nodes = [], edges = []) {
     return { order, cycle, runnable: [], reason: `画布里有循环连线（${cycle.length} 个节点），无法确定执行顺序` };
   }
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  const runnable = order.filter((id) => byId.get(id)?.type === "generation");
+  const runnable = order.filter((id) => isRunnableKind(byId.get(id)?.type));
   return {
     order,
     cycle: [],
     runnable,
-    reason: runnable.length ? "" : "画布里还没有生成节点"
+    reason: runnable.length ? "" : "画布里还没有可执行的生成节点"
   };
+}
+
+// V144 运行前 fail-closed 类型校验：任意一条边，上游输出种类必须能被目标端口接受。
+// 返回 { ok, reason }——UI 层已在连线时即时拒绝，这里拦「导入 / 脚本构造」的非法图。
+// 直接复用 nodes.js 的 validateConnection（两者皆零 import 叶子，无循环依赖）。
+export function validateGraphTypes(nodes = [], edges = []) {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  for (const edge of edges) {
+    const from = byId.get(edge.from);
+    const to = byId.get(edge.to);
+    if (!from || !to) continue; // 悬空边交给拓扑排序处理
+    const { ok, reason } = validateConnection(from.type, to.type, edge.toPort);
+    if (!ok) return { ok: false, reason: `${reason}（连线 ${edge.from} → ${edge.to}）` };
+  }
+  return { ok: true, reason: "" };
 }

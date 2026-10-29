@@ -6,6 +6,7 @@ import { useEffect, useMemo, useReducer, useRef } from "react";
 import { readJsonStorage, writeJsonStorageDetailed } from "../../lib/storage/json-storage.js";
 import { appendVersion, selectVersion } from "./ai-canvas-versions.js";
 import { classifyStorageError, messageForFailure } from "./ai-canvas-storage-guard.js";
+import { isOutfitKind, validateConnection } from "./ai-canvas-nodes.js";
 
 const PROJECTS_KEY = "jingyin-ai-canvases-v1";
 const HISTORY_LIMIT = 60;
@@ -28,6 +29,9 @@ export function makeNode(type, x, y, data = {}) {
   } else if (type === "generation") {
     base.w = 280;
     base.h = 224;
+  } else if (isOutfitKind(type)) {
+    base.w = 290;
+    base.h = 230;
   } else {
     base.w = 220;
     base.h = 120;
@@ -161,11 +165,23 @@ function reducer(state, action) {
       }));
 
     case "ADD_EDGE": {
-      const { from, to } = action.edge;
+      const { from, to, toPort, fromPort } = action.edge;
       if (from === to) return state;
+      // V144 fail-closed 兜底：连线种类不匹配（UI 层已即时拒绝，这里再拦一次，
+      // 防止导入/脚本构造的非法图偷偷执行）。
+      const project0 = state.projects.find((p) => p.id === state.currentId);
+      const fromNode = project0?.nodes.find((n) => n.id === from);
+      const toNode = project0?.nodes.find((n) => n.id === to);
+      if (fromNode && toNode) {
+        const check = validateConnection(fromNode.type, toNode.type, toPort);
+        if (!check.ok) return state; // 非法连线：丢弃，不入历史
+      }
+      const edge = { id: uid("e"), from, to };
+      if (toPort) edge.toPort = toPort;
+      if (fromPort) edge.fromPort = fromPort;
       return commit(state, (e) => {
-        if (e.edges.some((ed) => ed.from === from && ed.to === to)) return e;
-        return { ...e, edges: [...e.edges, { id: uid("e"), from, to }] };
+        if (e.edges.some((ed) => ed.from === from && ed.to === to && (ed.toPort || "") === (toPort || ""))) return e;
+        return { ...e, edges: [...e.edges, edge] };
       });
     }
 

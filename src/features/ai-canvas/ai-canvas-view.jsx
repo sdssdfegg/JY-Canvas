@@ -16,7 +16,10 @@ import {
   X,
   Network,
   Sparkles,
-  Zap
+  Zap,
+  Shirt,
+  Palette,
+  Wand2
 } from "lucide-react";
 import { Button } from "../../shared/ui/Button";
 import { makeNode, useAiCanvasStore } from "./ai-canvas-store.js";
@@ -31,6 +34,8 @@ import { planWorkflowRuns } from "./ai-canvas-workflow.js";
 import { runAgentPipeline } from "./ai-canvas-orchestrator.js";
 import { parseProjectFile, serializeProject } from "./ai-canvas-transfer.js";
 import { AgentPanel, NodeBody, ProjectList, WorkflowStatus } from "./ai-canvas-panels.jsx";
+import { getNodeDef, isOutfitKind, isRunnableKind, validateConnection } from "./ai-canvas-nodes.js";
+import { runOutfitNodeGeneration } from "./ai-canvas-node-outfit.js";
 import "./ai-canvas.css";
 
 const MIN_ZOOM = 0.2;
@@ -109,8 +114,18 @@ export function AiCanvasView() {
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const portEl = el?.closest?.("[data-node-input]");
       const toId = portEl?.getAttribute("data-node-input");
+      const toPort = portEl?.getAttribute("data-node-input-port") || "";
       if (toId && toId !== it.from) {
-        actions.addEdge({ from: it.from, to: toId });
+        const fromType = currentRef.current?.nodes.find((n) => n.id === it.from)?.type;
+        const toType = currentRef.current?.nodes.find((n) => n.id === toId)?.type;
+        // fail-closed 即时拒绝：端口种类不匹配时丢弃连线并提示（store 还有兜底）。
+        const check = validateConnection(fromType, toType, toPort);
+        if (check.ok) {
+          actions.addEdge({ from: it.from, to: toId, toPort });
+        } else {
+          setNotice(check.reason || "端口不匹配，连线已忽略");
+          setNoticeIsError(true);
+        }
       }
       setPendingConn(null);
     }
@@ -272,14 +287,19 @@ export function AiCanvasView() {
     try {
       const settings = readJySettings();
       const config = await fetchJyConfig();
-      const { imageNodes, promptText } = collectGenerationInputs(currentRef.current, node);
-      const { resultUrl, usedModel } = await runCanvasGeneration({
-        genNode: node,
-        imageNodes,
-        promptText,
-        settings,
-        config
-      });
+      let resultUrl;
+      let usedModel;
+      if (isOutfitKind(node.type)) {
+        const r = await runOutfitNodeGeneration(node, currentRef.current, { apiKey: settings.apiKey, settings, config });
+        if (!r.ok) throw new Error(r.error);
+        resultUrl = r.src;
+        usedModel = "outfit";
+      } else {
+        const { imageNodes, promptText } = collectGenerationInputs(currentRef.current, node);
+        const canvas = await runCanvasGeneration({ genNode: node, imageNodes, promptText, settings, config });
+        resultUrl = canvas.resultUrl;
+        usedModel = canvas.usedModel;
+      }
       actions.completeGeneration(node.id, { resultUrl, usedModel, createResultNode: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -297,7 +317,7 @@ export function AiCanvasView() {
       return;
     }
     if (!plan.runnable.length) {
-      actions.failWorkflow(plan.reason || "画布里还没有生成节点", null);
+      actions.failWorkflow(plan.reason || "画布里还没有可执行的生成节点", null);
       return;
     }
 
@@ -306,20 +326,25 @@ export function AiCanvasView() {
     for (let i = 0; i < plan.runnable.length; i += 1) {
       const id = plan.runnable[i];
       const node = (currentRef.current?.nodes || []).find((n) => n.id === id);
-      if (!node || node.type !== "generation") continue;
+      if (!node || !isRunnableKind(node.type)) continue;
       actions.startGeneration(id);
       try {
         const settings = readJySettings();
         const config = await fetchJyConfig();
-        // 走工作流口径：额外把「上游已成功的生成节点」算作输入，支持 gen→gen 链式多轮。
-        const { imageNodes, promptText } = collectWorkflowInputs(currentRef.current, node);
-        const { resultUrl, usedModel } = await runCanvasGeneration({
-          genNode: node,
-          imageNodes,
-          promptText,
-          settings,
-          config
-        });
+        let resultUrl;
+        let usedModel;
+        if (isOutfitKind(node.type)) {
+          const r = await runOutfitNodeGeneration(node, currentRef.current, { apiKey: settings.apiKey, settings, config });
+          if (!r.ok) throw new Error(r.error);
+          resultUrl = r.src;
+          usedModel = "outfit";
+        } else {
+          // 走工作流口径：额外把「上游已成功的生成节点」算作输入，支持 gen→gen 链式多轮。
+          const { imageNodes, promptText } = collectWorkflowInputs(currentRef.current, node);
+          const canvas = await runCanvasGeneration({ genNode: node, imageNodes, promptText, settings, config });
+          resultUrl = canvas.resultUrl;
+          usedModel = canvas.usedModel;
+        }
         actions.completeGeneration(id, { resultUrl, usedModel, createResultNode: true });
         ran += 1;
         actions.stepWorkflow(i + 1, ran);
@@ -421,10 +446,15 @@ export function AiCanvasView() {
   }, [actions, stageSize]);
 
   // —— 连线端点（屏幕坐标）——
-  const edgeScreenPoint = useCallback((node, side) => {
+  const edgeScreenPoint = useCallback((node, side, port) => {
     const vp = viewport;
     if (side === "out") return { x: (node.x + node.w) * vp.zoom + vp.x, y: (node.y + node.h / 2) * vp.zoom + vp.y };
-    return { x: node.x * vp.zoom + vp.x, y: (node.y + node.h / 2) * vp.zoom + vp.y };
+    // 多输入端口：按端口在 def.inputs 中的序号纵向均分，让连线落到对应端口。
+    const def = getNodeDef(node.type);
+    const inputs = def?.inputs?.length ? def.inputs : [{ port: "in" }];
+    const idx = Math.max(0, inputs.findIndex((p) => p.port === port));
+    const yRatio = (idx + 1) / (inputs.length + 1);
+    return { x: node.x * vp.zoom + vp.x, y: (node.y + node.h * yRatio) * vp.zoom + vp.y };
   }, [viewport]);
 
   const nodeById = useCallback((id) => current?.nodes.find((n) => n.id === id), [current]);
@@ -445,6 +475,10 @@ export function AiCanvasView() {
         <Button size="sm" iconOnly title="添加图片节点" onClick={() => fileInputRef.current?.click()}><ImageIcon size={16} /></Button>
         <Button size="sm" iconOnly title="添加提示词节点" onClick={() => addAtCenter("prompt", { text: "" })}><FileText size={16} /></Button>
         <Button size="sm" iconOnly title="添加生成节点" onClick={() => addAtCenter("generation", { model: "", prompt: "", status: "idle" })}><Sparkles size={16} /></Button>
+        <span className="aiCanvasDivider" />
+        <Button size="sm" iconOnly title="添加换装节点（图1 人物 + 图2 服装）" onClick={() => addAtCenter("outfit-tryon", { prompt: "", status: "idle", outfitIntent: { parts: ["upper", "lower"] } })}><Shirt size={16} /></Button>
+        <Button size="sm" iconOnly title="添加改色节点（图1 服装 + 图2 颜色参考）" onClick={() => addAtCenter("outfit-recolor", { prompt: "", status: "idle" })}><Palette size={16} /></Button>
+        <Button size="sm" iconOnly title="添加精修节点（图1 主图 → 白底精修）" onClick={() => addAtCenter("outfit-retouch", { prompt: "", status: "idle", retouchIntent: {} })}><Wand2 size={16} /></Button>
         <Button size="sm" iconOnly title="运行画布（按连线顺序依次执行生成节点）" onClick={runWorkflow} disabled={workflowRunning}><Zap size={16} /></Button>
         <span className="aiCanvasDivider" />
         <Button size="sm" iconOnly title="撤销 (Ctrl+Z)" onClick={actions.undo} disabled={!canUndo}><Undo2 size={16} /></Button>
@@ -511,7 +545,7 @@ export function AiCanvasView() {
                   const to = nodeById(edge.to);
                   if (!from || !to) return null;
                   const a = edgeScreenPoint(from, "out");
-                  const b = edgeScreenPoint(to, "in");
+                  const b = edgeScreenPoint(to, "in", edge.toPort);
                   const dx = Math.max(40, Math.abs(b.x - a.x) * 0.5);
                   return (
                     <path
@@ -551,7 +585,7 @@ export function AiCanvasView() {
                     onDoubleClick={() => node.type === "prompt" && setEditingNodeId(node.id)}
                   >
                     <div className="aiCanvasNodeHead">
-                      <span>{node.type === "image" ? "图片" : node.type === "prompt" ? "提示词" : node.type === "generation" ? "生成" : node.type === "result" ? "结果" : "节点"}</span>
+                      <span>{getNodeDef(node.type)?.label || (node.type === "image" ? "图片" : node.type === "prompt" ? "提示词" : node.type === "generation" ? "生成" : node.type === "result" ? "结果" : "节点")}</span>
                       <button
                         type="button"
                         className="aiCanvasNodeDel"
@@ -574,12 +608,21 @@ export function AiCanvasView() {
                       />
                     </div>
 
-                    <div
-                      className="aiCanvasPort aiCanvasPortIn"
-                      data-node-input={node.id}
-                      title="输入（连线终点）"
-                      onPointerDown={(e) => e.stopPropagation()}
-                    />
+                    {(() => {
+                      const def = getNodeDef(node.type);
+                      const inputs = def?.inputs?.length ? def.inputs : [{ port: "in", kind: "image", label: "输入" }];
+                      return inputs.map((input, idx) => (
+                        <div
+                          key={input.port}
+                          className="aiCanvasPort aiCanvasPortIn"
+                          data-node-input={node.id}
+                          data-node-input-port={input.port}
+                          title={`输入：${input.label}（${input.kind}）`}
+                          style={{ top: `${((idx + 1) / (inputs.length + 1)) * 100}%` }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                        />
+                      ));
+                    })()}
                     <div
                       className="aiCanvasPort aiCanvasPortOut"
                       data-node-output={node.id}

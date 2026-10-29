@@ -6,15 +6,28 @@
 //
 // 依赖纪律：本文件是零 import 的纯函数叶子（与 ai-canvas-generation.js 同款），
 // 网络调用放在 src/api/ai-canvas-agent.js，由视图分别引入，避免跨层依赖。
+// V144 仅引入同为零 import 叶子的节点注册表（ai-canvas-nodes.js 不反向依赖本文件，无环），
+// 用于 agent 新建 outfit 节点时复用 defaultData，保持与工具栏入口一致。
+import { getNodeDef } from "./ai-canvas-nodes.js";
 
 export const CANVAS_AGENT_ACTION_TYPES = [
   "add_prompt_node",
   "add_generation_node",
+  "add_outfit_tryon_node",
+  "add_outfit_recolor_node",
+  "add_outfit_retouch_node",
   "set_prompt_text",
   "connect",
   "rename_node",
   "delete_node"
 ];
+
+// V144：outfit 节点动作 → 画布节点 type 的映射（与 server/ai-canvas-agent.js ACTION_CONTRACT 同步）。
+const OUTFIT_ACTION_TO_NODE_TYPE = {
+  add_outfit_tryon_node: "outfit-tryon",
+  add_outfit_recolor_node: "outfit-recolor",
+  add_outfit_retouch_node: "outfit-retouch"
+};
 
 const MAX_APPLY_ACTIONS = 12;
 const MAX_TEXT = 1500;
@@ -100,6 +113,28 @@ export function applyCanvasAgentPlan({ actions = [], nodes = [], createNode, han
       handlers.addNode?.(node);
       if (ref) refToId.set(ref, node.id);
       applied.push(`新增${isPrompt ? "提示词" : "生成"}节点${ref ? ` ${ref}` : ""}`);
+      return;
+    }
+
+    if (OUTFIT_ACTION_TO_NODE_TYPE[type]) {
+      const nodeType = OUTFIT_ACTION_TO_NODE_TYPE[type];
+      const nodeDef = getNodeDef(nodeType);
+      const node = createNode(
+        nodeType,
+        // 复用注册表 defaultData（outfitIntent / retouchIntent 等），与工具栏入口保持一致。
+        { ...(nodeDef?.defaultData || {}), prompt: text || prompt, status: "idle" },
+        slotPosition(nodes, slot)
+      );
+      slot += 1;
+      createdNodes.push(node);
+      handlers.addNode?.(node);
+      if (ref) refToId.set(ref, node.id);
+      const labelMap = {
+        "outfit-tryon": "换装",
+        "outfit-recolor": "改色",
+        "outfit-retouch": "精修"
+      };
+      applied.push(`新增${labelMap[nodeType] || "outfit"}节点${ref ? ` ${ref}` : ""}`);
       return;
     }
 
