@@ -453,6 +453,30 @@ export default function OutfitComposer({
         <select value={settings.imageSize} onChange={(event) => updateSetting("imageSize", event.target.value)}>
           {outfitSizes.map((size) => <option key={size} value={size}>{size}</option>)}
         </select>
+        {outfitCapabilities.quality && outfitCapabilities.quality.length > 0 && (
+          <select value={settings.quality || ""} onChange={(event) => updateSetting("quality", event.target.value)} title="出图质量">
+            <option value="">质量(默认)</option>
+            {outfitCapabilities.quality.map((quality) => (
+              <option key={quality} value={quality}>{quality === "xhigh" ? "超高" : quality === "max" ? "MAX" : quality}</option>
+            ))}
+          </select>
+        )}
+        {outfitCapabilities.versions && outfitCapabilities.versions.length > 0 && (
+          <select value={settings.version || ""} onChange={(event) => updateSetting("version", event.target.value)} title="模型版本">
+            <option value="">版本(默认)</option>
+            {outfitCapabilities.versions.map((version) => (
+              <option key={version} value={version}>{version}</option>
+            ))}
+          </select>
+        )}
+        {outfitCapabilities.backgrounds && outfitCapabilities.backgrounds.length > 0 && (
+          <select value={settings.background || ""} onChange={(event) => updateSetting("background", event.target.value)} title="背景">
+            <option value="">背景(默认)</option>
+            {outfitCapabilities.backgrounds.map((background) => (
+              <option key={background} value={background}>{background === "opaque" ? "不透明" : background === "transparent" ? "透明" : background}</option>
+            ))}
+          </select>
+        )}
         <select className={globalBulkMode === "mixed" ? "mixed" : ""} value={globalBulkMode} onChange={(event) => void applyGlobalPreprocess(event.target.value)}>
           <option value="mixed" disabled>混合状态</option>
           {globalBulkMode === "crop" && <option value="crop" disabled>{preprocessModeLabel("crop")}</option>}

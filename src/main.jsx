@@ -539,6 +539,11 @@ function App() {
   const quickMaxReferenceFiles = Math.max(1, quickCapabilities.maxInputImages || DEFAULT_MAX_REFERENCE_FILES);
   const quickChannels = channelsForModel(settings.model, config.routing || config);
   const quickChannel = quickChannels.find((item) => item.id === settings.channelId) || quickChannels[0] || null;
+  // 2026-10-29：TT2.5 满血版等模型暴露 quality / version / background 能力，前端据此渲染对应选择器。
+  // 仅在能力数组非空时下发，其余模型（无这些能力）不会多出控件，行为不变。
+  const quickQualities = quickCapabilities.quality || [];
+  const quickVersions = quickCapabilities.versions || [];
+  const quickBackgrounds = quickCapabilities.backgrounds || [];
   const billingGatewayEnabled = Boolean(config.billingGatewayPolicy?.enabled);
   // 结果去重：同一次生成的图若被重复写入 results（同 id 或「同图不同 id」），
   // 画廊会出现「两张一模一样」的卡。按「图片内容签名优先、缺图回退 id」去重，
@@ -1135,6 +1140,9 @@ function App() {
             models={models}
             ratios={ratios}
             quickSizes={quickSizes}
+            quickQualities={quickQualities}
+            quickVersions={quickVersions}
+            quickBackgrounds={quickBackgrounds}
             quickMaxReferenceFiles={quickMaxReferenceFiles}
             optimizePrompt={optimizePrompt}
             isQuickPromptOptimizing={isQuickPromptOptimizing}

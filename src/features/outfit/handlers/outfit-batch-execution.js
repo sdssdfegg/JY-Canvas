@@ -331,6 +331,12 @@ export function useOutfitBatchExecution(ctx) {
       ...routingFields(settings.model, settings.channelId, config.routing || config),
       imageSize: settings.imageSize,
       aspectRatio: taskAspectRatio,
+      // 2026-10-29：TT2.5 等模型暴露 quality / version / background 能力，随任务快照冻结进 payload。
+      // 服务端 normalizeImageRequest → appendCapabilityFields 会按模型能力校验并透传到上游；
+      // 仅当用户显式选择（非空）时附带，缺省回落由服务端按模型默认（auto/flare/opaque）处理。
+      quality: settings.quality || undefined,
+      version: settings.version || undefined,
+      background: settings.background || undefined,
       // V138 标注式编辑：任务级指令优先（缺省回落到全局 settings.prompt，行为与改动前完全一致）。
       prompt: task.annotationPrompt || settings.prompt,
       productNote: settings.productNote,

@@ -358,6 +358,11 @@ export function useCanvasGenerationHandlers(ctx) {
     form.set("imageSize", runSettings.imageSize);
     form.set("aspectRatio", runSettings.aspectRatio);
     form.set("n", String(runSettings.n));
+    // 2026-10-29：TT2.5 等模型暴露 quality / version / background 能力，随请求体透传到上游。
+    // 仅在用户显式选择（非空）时附带；服务端 appendCapabilityFields 也只对非空值写入，且按模型能力校验。
+    if (runSettings.quality) form.set("quality", runSettings.quality);
+    if (runSettings.version) form.set("version", runSettings.version);
+    if (runSettings.background) form.set("background", runSettings.background);
     form.set("source", "quickgen");
     if (localEditForRun) form.set("deferAutoSave", "1");
     form.set("referenceMeta", JSON.stringify(runReferenceMeta));

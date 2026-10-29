@@ -85,6 +85,9 @@ export function MainCanvasBoard({
   models,
   ratios,
   quickSizes,
+  quickQualities,
+  quickVersions,
+  quickBackgrounds,
   quickMaxReferenceFiles,
   optimizePrompt,
   isQuickPromptOptimizing,
@@ -390,6 +393,30 @@ export function MainCanvasBoard({
                 <option key={count} value={count}>{count}张</option>
               ))}
             </select>
+            {quickQualities.length > 0 && (
+              <select value={settings.quality || ""} onChange={(event) => updateSetting("quality", event.target.value)} title="出图质量">
+                <option value="">质量(默认)</option>
+                {quickQualities.map((quality) => (
+                  <option key={quality} value={quality}>{quality === "xhigh" ? "超高" : quality === "max" ? "MAX" : quality}</option>
+                ))}
+              </select>
+            )}
+            {quickVersions.length > 0 && (
+              <select value={settings.version || ""} onChange={(event) => updateSetting("version", event.target.value)} title="模型版本">
+                <option value="">版本(默认)</option>
+                {quickVersions.map((version) => (
+                  <option key={version} value={version}>{version}</option>
+                ))}
+              </select>
+            )}
+            {quickBackgrounds.length > 0 && (
+              <select value={settings.background || ""} onChange={(event) => updateSetting("background", event.target.value)} title="背景">
+                <option value="">背景(默认)</option>
+                {quickBackgrounds.map((background) => (
+                  <option key={background} value={background}>{background === "opaque" ? "不透明" : background === "transparent" ? "透明" : background}</option>
+                ))}
+              </select>
+            )}
             <Button size="lg" tone="primary" onClick={() => generate()}>
               {runningQuickTasks.length > 0 ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
               <span>生成</span>
