@@ -1,7 +1,7 @@
 // src/features/ai-canvas/ai-canvas-view.jsx
 // V143（AI 无限画布 MVP-1）：独立画布工作空间视图。
 // 隔离、零侵入：自带工具栏，不触碰现有页面 / 模型调用 / API Key / 提示词。
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import {
   Image as ImageIcon,
   FileText,
@@ -43,7 +43,7 @@ const MAX_ZOOM = 2.5;
 
 export function AiCanvasView() {
   const { state, current, actions, canUndo, canRedo, storageError } = useAiCanvasStore();
-  const viewport = current?.viewport || { x: 0, y: 0, zoom: 1 };
+  const viewport = useMemo(() => current?.viewport || { x: 0, y: 0, zoom: 1 }, [current]);
 
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -214,7 +214,13 @@ export function AiCanvasView() {
     const cx = rect ? rect.width / 2 : 400;
     const cy = rect ? rect.height / 2 : 300;
     const p = getCanvasPoint(rect.left + cx, rect.top + cy);
-    actions.addNode(makeNode(type, p.x - 110, p.y - 60, data));
+    // V144 修复：原实现每次都落在同一中心点，多个节点完全堆叠、且常落到视口外（getBoundingClientRect
+    // 在塌缩布局下高度≈0），导致「完全不能使用」。改为按当前节点数做对角级联偏移，保证新节点彼此
+    // 错开且落在可视区内。
+    const n = currentRef.current.nodes.length || 0;
+    const step = 36;
+    const k = n % 8;
+    actions.addNode(makeNode(type, p.x - 110 + k * step, p.y - 60 + k * step, data));
   }, [actions, getCanvasPoint]);
 
   // —— 图片上传 ——

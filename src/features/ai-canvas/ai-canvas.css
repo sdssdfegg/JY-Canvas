@@ -152,7 +152,10 @@
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* V144 修复：原来 overflow:hidden 会把左右探出的连接端口（right/left:-7px）裁掉，
+     导致端口中心落在节点框外、elementFromPoint 命中不到、连线永远拉不起来。
+     裁剪交给 .aiCanvasNodeBody 的 overflow:hidden，节点本体必须 visible 让端口可点。 */
+  overflow: visible;
   user-select: none;
 }
 .aiCanvasNode.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
@@ -165,6 +168,7 @@
   font-size: 11px;
   color: var(--muted);
   cursor: move;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 .aiCanvasNodeDel {
   border: none;
@@ -184,6 +188,7 @@
   justify-content: center;
   padding: var(--space-2);
   overflow: hidden;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 .aiCanvasNodeBody img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: var(--radius-sm); }
 .aiCanvasNodePlaceholder { color: var(--faint); font-size: var(--text-sm); }

@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-29",
-  "reason": "V144 新增 outfit 换装/改色/精修 三类强类型画布节点：ai-canvas-view/panels/agent/store/workflow 接入 outfit 分支的体量上升属功能必需；新文件 ai-canvas-nodes/data-bus/node-outfit 不计入回归。",
+  "reason": "AI 画布前端 3 个可用性 BUG 修复（布局塌缩/节点堆叠/端口被裁致连线拉不起来）：main.jsx 将 ai-canvas 纳入 embeddedWorkflowArea 单行布局；ai-canvas-view.jsx addAtCenter 改为对角级联偏移防堆叠；ai-canvas.css 端口 overflow:visible 让连线端口可命中。同时清理 2 个存量 lint 警告（删除未使用的 React 导入、viewport 包 useMemo）。体量上升属修复必需。",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -33,7 +33,7 @@
     "src/features/ai-canvas/ai-canvas-store.js": 393,
     "src/features/ai-canvas/ai-canvas-transfer.js": 139,
     "src/features/ai-canvas/ai-canvas-versions.js": 75,
-    "src/features/ai-canvas/ai-canvas-view.jsx": 718,
+    "src/features/ai-canvas/ai-canvas-view.jsx": 724,
     "src/features/ai-canvas/ai-canvas-workflow.js": 111,
     "src/features/auth/api-key.js": 67,
     "src/features/canvas/canvas-generation-handlers.js": 490,
@@ -171,7 +171,7 @@
     "src/features/ai-canvas/ai-canvas-store.js::reducer": 225,
     "src/features/ai-canvas/ai-canvas-store.js::useAiCanvasStore": 74,
     "src/features/ai-canvas/ai-canvas-transfer.js::parseProjectFile": 82,
-    "src/features/ai-canvas/ai-canvas-view.jsx::AiCanvasView": 602,
+    "src/features/ai-canvas/ai-canvas-view.jsx::AiCanvasView": 608,
     "src/features/canvas/canvas-generation-handlers.js::generate": 226,
     "src/features/canvas/canvas-generation-handlers.js::optimizePrompt": 60,
     "src/features/canvas/canvas-generation-handlers.js::useCanvasGenerationHandlers": 397,

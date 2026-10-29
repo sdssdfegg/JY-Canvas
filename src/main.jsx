@@ -953,7 +953,7 @@ function App() {
         />
       </aside>
 
-      <section className={`quickgenArea ${["outfit", "resize"].includes(activeView) ? "embeddedWorkflowArea" : ""}`}>
+      <section className={`quickgenArea ${["outfit", "resize", "ai-canvas"].includes(activeView) ? "embeddedWorkflowArea" : ""}`}>
         {!["outfit", "resize", "ai-canvas"].includes(activeView) && (
           <MainTopBar
             activeView={activeView}
