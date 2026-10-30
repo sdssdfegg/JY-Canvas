@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "seedId": "d476c4a2",
-  "syncedAt": "2026-10-23T09:49:28.506Z",
+  "seedId": "95834fea",
+  "syncedAt": "2026-10-30T06:10:25.873Z",
   "entries": [
     {
       "id": "main-prompt-presets",
@@ -227,7 +227,7 @@
           "settings": {
             "model": "tt-image-2",
             "dispatchMode": "manual",
-            "aspectRatio": "3:4",
+            "aspectRatio": "2:3",
             "imageSize": "2K",
             "concurrency": 5,
             "generationCount": "auto",
@@ -237,10 +237,9 @@
             "recolorUpperLayer": "single",
             "outfitIntent": {
               "parts": [
-                "upper",
-                "shoes"
+                "upper"
               ],
-              "upperLayer": "outer",
+              "upperLayer": "inner-outer",
               "wearing": {
                 "mode": "follow",
                 "values": {
@@ -274,6 +273,7 @@
                 "analyzedAt": 0
               }
             },
+            "maskMode": "none",
             "retouchIntent": {
               "version": 1,
               "symmetry": "off",
@@ -284,10 +284,10 @@
             },
             "pairingMode": "fixed",
             "randomBackgroundFocus": "default",
-            "prompt": "让图1模特穿着图2的外套和鞋子。图1的下装保持不变。\n\n穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。\n\n图1是唯一人物身份、人体结构和姿势基准，不改变图1人物的身份、骨骼和姿势。",
+            "prompt": "让图1模特穿着图2的内搭和连衣裙。图1的鞋子保持不变。\n\n穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。\n\n图1是唯一人物身份、人体结构和姿势基准，不改变图1人物的身份、骨骼和姿势。",
             "productNote": "",
             "n": 1,
-            "quality": "",
+            "quality": "high",
             "background": "",
             "version": ""
           },
@@ -359,6 +359,7 @@
                 "analyzedAt": 0
               }
             },
+            "maskMode": "none",
             "retouchIntent": {
               "version": 1,
               "symmetry": "off",
@@ -444,6 +445,7 @@
                 "analyzedAt": 0
               }
             },
+            "maskMode": "none",
             "retouchIntent": {
               "version": 1,
               "symmetry": "off",
@@ -529,6 +531,7 @@
                 "analyzedAt": 0
               }
             },
+            "maskMode": "none",
             "retouchIntent": {
               "version": 1,
               "symmetry": "off",
@@ -614,6 +617,7 @@
                 "analyzedAt": 0
               }
             },
+            "maskMode": "none",
             "retouchIntent": {
               "version": 1,
               "symmetry": "off",
@@ -699,6 +703,7 @@
                 "analyzedAt": 0
               }
             },
+            "maskMode": "none",
             "retouchIntent": {
               "version": 1,
               "symmetry": "off",
@@ -784,6 +789,7 @@
                 "analyzedAt": 0
               }
             },
+            "maskMode": "none",
             "retouchIntent": {
               "version": 1,
               "symmetry": "off",
@@ -829,7 +835,7 @@
       "value": {
         "model": "tt-image-2",
         "dispatchMode": "manual",
-        "aspectRatio": "3:4",
+        "aspectRatio": "2:3",
         "imageSize": "2K",
         "concurrency": 5,
         "generationCount": "auto",
@@ -839,10 +845,9 @@
         "recolorUpperLayer": "single",
         "outfitIntent": {
           "parts": [
-            "upper",
-            "shoes"
+            "upper"
           ],
-          "upperLayer": "outer",
+          "upperLayer": "inner-outer",
           "wearing": {
             "mode": "follow",
             "values": {
@@ -876,6 +881,7 @@
             "analyzedAt": 0
           }
         },
+        "maskMode": "none",
         "retouchIntent": {
           "version": 1,
           "symmetry": "off",
@@ -888,10 +894,10 @@
         "preprocessMode": "original",
         "randomBackgroundFocus": "default",
         "theme": "dark",
-        "prompt": "让图1模特穿着图2的外套和鞋子。图1的下装保持不变。\n\n穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。\n\n图1是唯一人物身份、人体结构和姿势基准，不改变图1人物的身份、骨骼和姿势。",
+        "prompt": "让图1模特穿着图2的内搭和连衣裙。图1的鞋子保持不变。\n\n穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。\n\n图1是唯一人物身份、人体结构和姿势基准，不改变图1人物的身份、骨骼和姿势。",
         "productNote": "",
         "n": 1,
-        "quality": "",
+        "quality": "high",
         "background": "",
         "version": ""
       }
