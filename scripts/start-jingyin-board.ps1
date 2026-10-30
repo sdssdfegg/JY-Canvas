@@ -31,6 +31,16 @@
 
 $ErrorActionPreference = "Stop"
 
+# ---------------------------------------------------------------------------
+# 控制台中文乱码修复
+# 服务端（Node）把 stdout 以 UTF-8 写入 launcher-server.log，本启动器跟随打印时
+# 用 Get-Content 读取。PowerShell 5.1 默认按系统 ANSI（中文 Windows = GBK）解码，
+# 会把 UTF-8 中文错解成乱码（如「启动恢复：扫描」变成「鎴◇饼鎴…」）。
+# 这里把控制台输出编码设为 UTF-8，并要求 Get-Content 以 UTF-8 读取日志文件，
+# 两端对齐后中文正常显示。控制台本身不会因此受影响（仅改编码，文本不变）。
+# ---------------------------------------------------------------------------
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
+
 $AppDir = Split-Path -Parent $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($AppDir)) {
   $AppDir = (Get-Location).Path
@@ -620,8 +630,8 @@ if ($shouldStart) {
     Write-Diag "[ERROR] Node 进程启动后退出，真实退出码 / real exit code: $exitText" "Red"
     $failureLog = Join-Path $LogDir ("launcher-failure-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
     $tail = @()
-    if (Test-Path -LiteralPath $ServerErrorLog) { $tail = @(Get-Content -LiteralPath $ServerErrorLog -Tail 60 -ErrorAction SilentlyContinue) }
-    if (Test-Path -LiteralPath $ServerLog) { $tail += @(Get-Content -LiteralPath $ServerLog -Tail 60 -ErrorAction SilentlyContinue) }
+    if (Test-Path -LiteralPath $ServerErrorLog) { $tail = @(Get-Content -LiteralPath $ServerErrorLog -Tail 60 -Encoding UTF8 -ErrorAction SilentlyContinue) }
+    if (Test-Path -LiteralPath $ServerLog) { $tail += @(Get-Content -LiteralPath $ServerLog -Tail 60 -Encoding UTF8 -ErrorAction SilentlyContinue) }
     if ($tail.Count -gt 0) {
       Write-Host ""
       Write-Host "--- server output (tail) ---"
@@ -647,12 +657,12 @@ if ($shouldStart) {
     if (Test-Path -LiteralPath $ServerErrorLog) {
       Write-Host ""
       Write-Host "--- launcher-server.err.log (tail) ---"
-      Get-Content -LiteralPath $ServerErrorLog -Tail 40 | ForEach-Object { Write-Host $_ }
+      Get-Content -LiteralPath $ServerErrorLog -Tail 40 -Encoding UTF8 | ForEach-Object { Write-Host $_ }
     }
     if (Test-Path -LiteralPath $ServerLog) {
       Write-Host ""
       Write-Host "--- launcher-server.log (tail) ---"
-      Get-Content -LiteralPath $ServerLog -Tail 40 | ForEach-Object { Write-Host $_ }
+      Get-Content -LiteralPath $ServerLog -Tail 40 -Encoding UTF8 | ForEach-Object { Write-Host $_ }
     }
     Write-Diag "错误日志 / error log: $ServerErrorLog"
     Save-Diagnostic
@@ -727,7 +737,7 @@ if ($KeepOpen) {
   Write-Host ""
   try {
     if (Test-Path -LiteralPath $ServerLog) {
-      Get-Content -LiteralPath $ServerLog -Tail 30 -Wait
+      Get-Content -LiteralPath $ServerLog -Tail 30 -Wait -Encoding UTF8
     } else {
       Write-Host "（日志文件还没有生成：$ServerLog）"
     }
