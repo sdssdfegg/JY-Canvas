@@ -79,7 +79,9 @@ export const HIDDEN_CHANNEL_IDS = Object.freeze([
   // 2026-10-28（经与上游核实）：老夜渠道出问题共 3 条线路死亡，云枢两条随之下线，
   // 前端隐藏（服务端保留，渠道恢复后从本数组移除即可）。与 server/channel-config.js 同源同步。
   "silent-tt2-line-10",   // 云枢（TT2.0）
-  "silent-tt25-line-05"   // 云枢（TT2.5）
+  "silent-tt25-line-05",   // 云枢（TT2.5）
+  // 2026-10-30（用户要求）：TT2.5 的「云枢高质量」隐藏，恢复后从本数组与 server/channel-config.js 同源移除即可。
+  "silent-tt25-line-09"   // 云枢高质量（TT2.5）
 ]);
 
 const HIDDEN_CHANNEL_ID_SET = new Set(
@@ -124,6 +126,17 @@ export const MODEL_DEFAULT_CHANNEL = Object.freeze({
   "tt-image-2.5": "silent-tt25-line-10"
 });
 
+// 官方渠道（人工排序，不按价格）：始终置顶、保持此处顺序；其余渠道在其下方按价格升序。
+// 与 server/channel-config.js 的 OFFICIAL_CHANNELS 同源同步。
+// 官方渠道（人工排序置顶，不参与价格排序）。机制对所有模型通用：
+// 只列出「有官方渠道」的模型；未列出的模型 OFFICIAL_CHANNELS[model] 为空 ⇒ 全部按价格升序、不显示分组虚线。
+// 以后用户指定「某渠道是官方渠道」时，把该渠道 id 追加到对应模型数组即可自动置顶（顺序=人工顺序）。
+export const OFFICIAL_CHANNELS = Object.freeze({
+  // 2026-10-30（用户要求）：LK-1K（silent-tt25-line-11）移入「其他渠道」按价格排序，
+  // 优质渠道组只保留 LY满血版。要放回优质组时，把该 id 追加回本数组即可（顺序=显示顺序）。
+  "tt-image-2.5": ["silent-tt25-line-10"]
+});
+
 // 目录未加载完成时的本地兜底能力表（与 server/channel-config.js 的 ROUTING_MODELS 对齐）。
 // 只用于「目录还没回来」这一种情况；目录一旦加载完成，一律以目录为准。
 export const FALLBACK_MODEL_CAPABILITIES = Object.freeze({
@@ -155,7 +168,7 @@ export const FALLBACK_MODEL_CAPABILITIES = Object.freeze({
     maxPromptLength: 20000,
     ratios: ["auto", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "5:4", "4:5", "2:1", "1:2", "21:9", "9:21"],
     sizes: ["auto", "1K", "2K", "4K"],
-    quality: ["auto", "low", "medium", "high", "xhigh", "max"],
+    quality: ["auto", "low", "medium", "high", "max"],
     backgrounds: ["opaque", "transparent", "auto"],
     versions: ["flare", "sunburst"],
     customSize: true
@@ -314,7 +327,11 @@ function normalizeChannelRow(channel, model, priceOverride) {
     currency: channel.pricing?.[model]?.currency || channel.currency || "CNY",
     // 渠道级尺寸子集（2026-10-28）：服务端目录对自声明 sizes 的渠道（如 HS 火山 flash 仅 1K/2K）
     // 会下发该字段；未声明时保持 undefined，沿用模型级 sizes，行为不变。
-    ...(Array.isArray(channel.sizes) && channel.sizes.length ? { sizes: [...channel.sizes] } : {})
+    ...(Array.isArray(channel.sizes) && channel.sizes.length ? { sizes: [...channel.sizes] } : {}),
+    // 渠道级质量子集（2026-10-30）：与 sizes 对称——服务端目录对自声明 quality 的渠道（如 LK-1K 仅 auto/low/medium）
+    // 会下发该字段；未声明时保持 undefined，沿用模型级 quality，行为不变。
+    // 此前漏拷贝此字段，导致走目录路径的 LK-1K 质量声明丢失、high/max 未置灰（尺寸却生效，不对称）。
+    ...(Array.isArray(channel.quality) && channel.quality.length ? { quality: [...channel.quality] } : {})
   };
 }
 
@@ -357,7 +374,9 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     // 2026-10-29：laoye满血版（¥0.14，老夜 image2.5全参 分组，官方 OpenAI images 协议，支持全参 incl MAX quality）。
     //   默认渠道由 MODEL_DEFAULT_CHANNEL 覆盖实现（channelId 为空时 defaultChannelForModel 返回 silent-tt25-line-10），
     //   列表本身仍严格价格升序。该 KEY 分组仅含 2.5（无 gpt-image-2），故只有 TT2.5 满血版；与 server/channel-config.js 同源同步。
-    { id: "silent-tt25-line-10", label: "laoye满血版", price: 0.14 },
+    { id: "silent-tt25-line-10", label: "LY满血版", price: 0.14, official: true },
+    // 2026-10-30 改名：LK满血版-1K → LK-1K（上游 api.lk888.ai，仅 1K，价格 0.12），优质渠道第二组。
+    { id: "silent-tt25-line-11", label: "LK-1K", price: 0.12, sizes: ["1K"], quality: ["auto", "low", "medium"], official: true },
     // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，与 laoye 同价，排最后。
     { id: "silent-tt25-line-09", label: "云枢高质量", price: 0.14 }
   ]),
@@ -416,10 +435,19 @@ export function channelsForModel(model, catalog = null) {
       .filter((channel) => !isForbiddenChannelId(channel.id) && !isHiddenChannelId(channel.id))
       .map((channel) => ({ ...channel, currency: "CNY" }));
   }
-  // 置顶：每模型指定的默认渠道浮到最前（其余仍按价格升序），供下拉展示；与 server 端同源同步。
-  const pinned = MODEL_DEFAULT_CHANNEL[canonical];
-  if (pinned && rows.some((row) => row.id === pinned)) {
-    rows = [rows.find((row) => row.id === pinned), ...rows.filter((row) => row.id !== pinned)];
+  // 官方渠道优先：OFFICIAL_CHANNELS 人工顺序置顶（不按价格）；其余直接按"配置数组顺序"展示，
+  // 不再按价格升降序（2026-10-30 用户要求：取消价格排序、改用手工顺序，方便后续自由调顺序）。
+  // 官方渠道打 official:true 标记，供前端分组渲染（官方组 / 其他组 + 虚线隔断）。
+  const officialIds = OFFICIAL_CHANNELS[canonical] || [];
+  if (officialIds.length) {
+    const officialSet = new Set(officialIds);
+    const official = officialIds
+      .map((id) => rows.find((row) => row.id === id))
+      .filter(Boolean)
+      .map((row) => ({ ...row, official: true }));
+    // 其余渠道保留配置数组（catalog / FALLBACK）的原顺序，不做价格排序。
+    const others = rows.filter((row) => !officialSet.has(row.id));
+    rows = [...official, ...others];
   }
   return rows;
 }
@@ -427,6 +455,11 @@ export function channelsForModel(model, catalog = null) {
 export function defaultChannelForModel(model, catalog = null) {
   const canonical = canonicalModel(model);
   const channels = channelsForModel(canonical, catalog);
+  // 默认渠道优先取首个官方渠道（保持官方排序第一），回退 MODEL_DEFAULT_CHANNEL，再回退列表首条。
+  const officialList = OFFICIAL_CHANNELS[canonical] || [];
+  for (const id of officialList) {
+    if (channels.some((channel) => channel.id === id)) return id;
+  }
   const override = MODEL_DEFAULT_CHANNEL[canonical];
   if (override) {
     const matched = channels.find((channel) => channel.id === override);
@@ -467,6 +500,21 @@ export function sizesForChannel(model, channelId, catalog = null) {
 }
 
 /**
+ * 渠道级质量：与 sizesForChannel 同模式——渠道声明了 quality 就取「模型 ∩ 渠道」，
+ * 没声明则用模型全量。用于前端把该渠道不支持的质量档（如 LK-1K 的 high/max）置灰而非移除。
+ */
+export function qualitiesForChannel(model, channelId, catalog = null) {
+  const canonical = canonicalModel(model);
+  const caps = modelCapabilities(canonical, catalog);
+  const channel = channelForModel(canonical, channelId, catalog);
+  const channelQualities = Array.isArray(channel?.quality) ? channel.quality : null;
+  if (!channelQualities || !channelQualities.length) return caps.quality || [];
+  const allowed = new Set(channelQualities.map((value) => String(value).trim().toLowerCase()));
+  const intersected = (caps.quality || []).filter((value) => allowed.has(String(value).trim().toLowerCase()));
+  return intersected.length ? intersected : (caps.quality || []);
+}
+
+/**
  * 请求路由字段：model / channelId / dispatchMode。
  * 任何情况下都返回 canonical model，且 channelId 一定落在当前模型的合法线路里。
  */
@@ -481,6 +529,18 @@ export function channelPriceLabel(channel) {
   if (!channel) return "";
   const price = Number(channel.price || 0);
   return price > 0 ? `¥${price.toFixed(2)}/张` : "价格待定";
+}
+
+// 按 official 标记把渠道拆成「官方组 / 其他组」。官方组已按 OFFICIAL_CHANNELS 顺序在前，
+// 其他组按价格升序在后（见 channelsForModel）。供 UI 分组渲染（官方组在上、虚线隔断、其他组在下）。
+export function splitOfficialChannels(channels = []) {
+  const official = [];
+  const others = [];
+  for (const channel of channels) {
+    if (channel?.official) official.push(channel);
+    else others.push(channel);
+  }
+  return { official, others };
 }
 
 /**
@@ -509,6 +569,24 @@ export function convergeSettingsForModel(settings = {}, catalog = null, options 
 
   if (!caps.ratios.includes(next.aspectRatio)) next.aspectRatio = caps.ratios[0];
   if (!channelSizes.includes(next.imageSize)) next.imageSize = channelSizes.includes("2K") ? "2K" : channelSizes[0];
+  // 渠道级质量收敛（2026-10-30）：切到限质量渠道（如 LK-1K 仅 auto/low/medium）时，
+  // 把已选但不支持的档（high/max）落回该渠道首个可用档，避免界面与实际发出参数不一致。
+  const channelQualities = Array.isArray(channel?.quality) && channel.quality.length
+    ? (() => {
+      const allowed = new Set(channel.quality.map((value) => String(value).trim().toLowerCase()));
+      const intersected = (caps.quality || []).filter((value) => allowed.has(String(value).trim().toLowerCase()));
+      return intersected.length ? intersected : (caps.quality || []);
+    })()
+    : (caps.quality || []);
+  if (channelQualities.length && next.quality && !channelQualities.includes(next.quality)) {
+    next.quality = channelQualities[0];
+  }
+  // 版本 / 背景收敛（2026-10-30）：默认参数改为 sunburst + 背景(默认) 后，切到不支持这些参数的
+  // 模型（如 TT2.0 的 versions/backgrounds 均为空）时必须清掉，否则会把非法参数发到上游。
+  const modelVersions = caps.versions || [];
+  if (next.version && !modelVersions.includes(next.version)) next.version = modelVersions[0] || "";
+  const modelBackgrounds = caps.backgrounds || [];
+  if (next.background && !modelBackgrounds.includes(next.background)) next.background = modelBackgrounds[0] || "";
 
   const requestedCount = Number.parseInt(next.n, 10) || 1;
   next.n = Math.max(1, Math.min(requestedCount, caps.maxInputImages));

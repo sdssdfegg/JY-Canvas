@@ -23,7 +23,8 @@ import {
   convergeSettingsForModel,
   isRoutingCatalogReady,
   modelCapabilities,
-  sizesForChannel
+  sizesForChannel,
+  qualitiesForChannel
 } from "./shared/routing.js";
 import { ErrorBoundary } from "./shared/error-boundary.jsx";
 import { QuickCropViewportModal } from "./features/crop/quick-crop-panels.jsx";
@@ -534,6 +535,8 @@ function App() {
   // 尺寸按「模型能力 ∩ 当前渠道自声明 sizes」收敛（2026-10-28）：
   // HS（火山 flash）渠道只支持 1K/2K，选它时 4K 从下拉隐藏；其余渠道沿用模型级 sizes，行为不变。
   const quickSizes = sizesForChannel(settings.model, settings.channelId, config.routing || config);
+  // 全量模型尺寸（用于渠道限尺寸时把未授权尺寸置灰而非移除，如 LK-1K 仅 1K）。
+  const quickSizesAll = quickCapabilities.sizes || [];
   // 上传图片数量随当前模型能力收敛：tt-image-2.5 是 8，其余是 14。
   // DEFAULT_MAX_REFERENCE_FILES 只在目录和能力都拿不到时兜底。
   const quickMaxReferenceFiles = Math.max(1, quickCapabilities.maxInputImages || DEFAULT_MAX_REFERENCE_FILES);
@@ -541,7 +544,11 @@ function App() {
   const quickChannel = quickChannels.find((item) => item.id === settings.channelId) || quickChannels[0] || null;
   // 2026-10-29：TT2.5 满血版等模型暴露 quality / version / background 能力，前端据此渲染对应选择器。
   // 仅在能力数组非空时下发，其余模型（无这些能力）不会多出控件，行为不变。
-  const quickQualities = quickCapabilities.quality || [];
+  // 2026-10-30：质量按「模型能力 ∩ 当前渠道自声明 quality」收敛（与尺寸置灰同模式）。
+  // LK-1K 只开放 auto/low/medium —— high 及以上成本高于进价，故在下拉置灰且服务端也拒绝。
+  const quickQualities = qualitiesForChannel(settings.model, settings.channelId, config.routing || config);
+  // 全量模型质量（用于渠道限质量时把未授权档位置灰而非移除）。
+  const quickQualitiesAll = quickCapabilities.quality || [];
   const quickVersions = quickCapabilities.versions || [];
   const quickBackgrounds = quickCapabilities.backgrounds || [];
   const billingGatewayEnabled = Boolean(config.billingGatewayPolicy?.enabled);
@@ -1140,7 +1147,9 @@ function App() {
             models={models}
             ratios={ratios}
             quickSizes={quickSizes}
+            quickSizesAll={quickSizesAll}
             quickQualities={quickQualities}
+            quickQualitiesAll={quickQualitiesAll}
             quickVersions={quickVersions}
             quickBackgrounds={quickBackgrounds}
             quickMaxReferenceFiles={quickMaxReferenceFiles}

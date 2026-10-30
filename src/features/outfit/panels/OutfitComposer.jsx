@@ -76,6 +76,9 @@ export default function OutfitComposer({
   outfitCapabilities = {},
   ratios,
   outfitSizes,
+  outfitSizesAll,
+  outfitQualities,
+  outfitQualitiesAll,
   globalBulkMode,
   applyGlobalPreprocess,
   preprocessModeLabel,
@@ -120,6 +123,14 @@ export default function OutfitComposer({
   applyGroupPreprocess: _applyGroupPreprocess,
   setImageLightbox
 }) {
+  // 2026-10-30：渠道级质量（与尺寸置灰同模式）——LK-1K 仅 auto/low/medium，high/max 置灰而非移除。
+  // 下发值缺失时回退模型能力，避免质量控件整个消失。
+  const allowedQualities = (outfitQualities && outfitQualities.length)
+    ? outfitQualities
+    : (outfitCapabilities.quality || []);
+  const allQualities = (outfitQualitiesAll && outfitQualitiesAll.length)
+    ? outfitQualitiesAll
+    : (outfitCapabilities.quality || []);
   // V124（用户要求）：上装层级仅当「更换部位=上装」时可编辑；其余部位时整组置灰、不可选。
   const upperLayerDisabled = recolorPart !== "upper";
   return (
@@ -442,23 +453,55 @@ export default function OutfitComposer({
           onChange={(event) => updateSetting("channelId", event.target.value)}
           title="当前模型的可用线路"
         >
-          {outfitChannels.map((channel) => (
-            <option key={channel.id} value={channel.id}>
-              {channel.label}{Number(channel.price || 0) > 0 ? ` ¥${Number(channel.price).toFixed(2)}/张` : ""}
-            </option>
-          ))}
+          {(() => {
+            const official = outfitChannels.filter((channel) => channel.official);
+            const others = outfitChannels.filter((channel) => !channel.official);
+            return (
+              <>
+                {official.length > 0 && (
+                  <optgroup label=" ">
+                    {official.map((channel) => (
+                      // 原生 select 的 option 着色浏览器支持有限（Chrome 生效、部分浏览器忽略），
+                      // 这里尽力给官方渠道上绿色（与 CSS 的官方绿一致，避开默认金色），忽略时降级为默认色。
+                      <option key={channel.id} value={channel.id} style={{ color: "#22c55e" }}>
+                        {channel.label}{Number(channel.price || 0) > 0 ? ` ¥${Number(channel.price).toFixed(2)}/张` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {others.length > 0 && (
+                  <optgroup label=" ">
+                    {others.map((channel) => (
+                      <option key={channel.id} value={channel.id}>
+                        {channel.label}{Number(channel.price || 0) > 0 ? ` ¥${Number(channel.price).toFixed(2)}/张` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </>
+            );
+          })()}
         </select>
         <select value={settings.aspectRatio} onChange={(event) => updateSetting("aspectRatio", event.target.value)}>
           {ratios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
         </select>
-        <select value={settings.imageSize} onChange={(event) => updateSetting("imageSize", event.target.value)}>
-          {outfitSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+        <select value={outfitSizes.includes(settings.imageSize) ? settings.imageSize : (outfitSizes[0] || "")} onChange={(event) => updateSetting("imageSize", event.target.value)}>
+          {(outfitSizesAll && outfitSizesAll.length ? outfitSizesAll : outfitSizes).map((size) => (
+            <option key={size} value={size} disabled={outfitSizes.length > 0 && !outfitSizes.includes(size)}>{size}</option>
+          ))}
         </select>
-        {outfitCapabilities.quality && outfitCapabilities.quality.length > 0 && (
-          <select value={settings.quality || ""} onChange={(event) => updateSetting("quality", event.target.value)} title="出图质量">
+        {allowedQualities.length > 0 && (
+          <select
+            value={allowedQualities.includes(settings.quality) ? settings.quality : (allowedQualities[0] || "")}
+            onChange={(event) => updateSetting("quality", event.target.value)}
+            title="出图质量"
+          >
             <option value="">质量(默认)</option>
-            {outfitCapabilities.quality.map((quality) => (
-              <option key={quality} value={quality}>{quality === "xhigh" ? "超高" : quality === "max" ? "MAX" : quality}</option>
+            {/* 渲染模型全量档位，把当前渠道不支持的档（如 LK-1K 的 high/max）置灰而非移除 */}
+            {allQualities.map((quality) => (
+              <option key={quality} value={quality} disabled={allowedQualities.length > 0 && !allowedQualities.includes(quality)}>
+                {quality === "xhigh" ? "超高" : quality === "max" ? "MAX" : quality}
+              </option>
             ))}
           </select>
         )}

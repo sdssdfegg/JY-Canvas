@@ -42,32 +42,32 @@ const FORBIDDEN_IDS = [
 ];
 
 // ---------------------------------------------------------------- 规则驱动校验辅助
-// 核心不变式（用户定义）：同模型内「价格低→高」排序；同价谁靠前是用户偏好（写在数组顺序里）。
-// 因此校验只断言「规则」，不断言「具体哪条排第几」——以后调顺序/调价零返工。
+// 核心不变式（2026-10-30 更新）：同模型内「官方渠道（OFFICIAL_CHANNELS 人工顺序）置顶」，
+// 其余渠道按 ROUTING_CHANNELS 配置数组顺序展示（取消价格升降序，改手工顺序，方便后续自由调顺序）。
+// 校验只断言「官方置顶 + 其余顺序=配置数组顺序」，不断言具体哪条排第几——以后调顺序/调价零返工。
 const EXPECTED_MODELS = ["tt-image-2", "tt-image-2.5", "banana-2", "banana-2.1", "nano-banana-pro"];
-function pricesAscending(rows) {
-  for (let i = 1; i < rows.length; i += 1) {
-    const prev = Number(rows[i - 1]?.price ?? -1);
-    const cur = Number(rows[i]?.price ?? -1);
-    if (cur < prev - 1e-9) return false;
-  }
-  return true;
-}
-function pricesAscendingExceptPinned(rows, pinnedId) {
-  const rest = pinnedId ? rows.filter((row) => row.id !== pinnedId) : rows;
-  for (let i = 1; i < rest.length; i += 1) {
-    const prev = Number(rest[i - 1]?.price ?? -1);
-    const cur = Number(rest[i]?.price ?? -1);
-    if (cur < prev - 1e-9) return false;
-  }
-  return true;
-}
 function assertModelOrdering(model) {
   const rows = routingModule.channelsForModel(model, catalog);
-  const pinned = routingModule.MODEL_DEFAULT_CHANNEL[model];
-  check(`${model} 渠道：置顶渠道在最前，其余按价格升序（低→高，同价任意序）`,
-    pricesAscendingExceptPinned(rows, pinned),
-    JSON.stringify(rows.map((item) => `${item.label}/${item.price}`)));
+  const officialIds = routingModule.OFFICIAL_CHANNELS[model] || [];
+  // 官方渠道（OFFICIAL_CHANNELS 人工顺序）必须按序置顶。
+  const actualOfficial = rows.filter((row) => row.official).map((row) => row.id);
+  check(`${model} 官方渠道按 OFFICIAL_CHANNELS 顺序置顶`,
+    actualOfficial.length === officialIds.length
+      && officialIds.every((id, i) => actualOfficial[i] === id),
+    JSON.stringify(rows.filter((row) => row.official).map((item) => `${item.label}/${item.price}`)));
+  // 其余（非官方）渠道按"配置数组顺序"展示（2026-10-30 用户要求：取消价格升降序，改手工顺序）。
+  // 断言：非官方渠道的相对顺序 = catalog（= ROUTING_CHANNELS 配置数组）中的相对顺序。
+  // 注：routing.js 与 channel-config.js 的 HIDDEN 名单偶有不同步（前端隐藏、服务端仍下发的旧线路），
+  // 这里只比较"两端都返回"的渠道，避免该历史 desync 误判；顺序规则本身由本断言覆盖。
+  const officialSet = new Set(officialIds);
+  const actualOthers = rows.filter((row) => !officialSet.has(row.id)).map((row) => row.id);
+  const actualOtherSet = new Set(actualOthers);
+  const catalogOthers = (catalog.channels || [])
+    .filter((c) => (c.supportedModels || []).includes(model) && !officialSet.has(c.id) && actualOtherSet.has(c.id))
+    .map((c) => c.id);
+  check(`${model} 其余渠道按配置数组顺序（非价格排序，可调顺序）`,
+    JSON.stringify(actualOthers) === JSON.stringify(catalogOthers),
+    `actual=${actualOthers.join(",")} catalog=${catalogOthers.join(",")}`);
   const expectedDefault = (routingModule.MODEL_DEFAULT_CHANNEL[model]
       && rows.some((r) => r.id === routingModule.MODEL_DEFAULT_CHANNEL[model]))
     ? routingModule.MODEL_DEFAULT_CHANNEL[model]

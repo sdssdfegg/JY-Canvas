@@ -1231,6 +1231,20 @@
   font-size: 11px;
 }
 
+/* 2026-10-30 用户要求：失败信息点一下即复制完整排查信息（提示词+参数+错误+任务ID）。 */
+.outfitWorkflowEmbedded .assetError.clickToCopy {
+  cursor: pointer;
+}
+
+.outfitWorkflowEmbedded .assetError.clickToCopy:hover {
+  text-decoration: underline;
+}
+
+/* 复制成功反馈：短暂变绿，1.6s 后由 JS 复原 */
+.outfitWorkflowEmbedded .assetError.copied {
+  color: var(--success);
+}
+
 .outfitWorkflowEmbedded .modalLayer {
   position: fixed;
   inset: 0;

@@ -26,7 +26,7 @@
 //   className     额外容器类名，由页面决定按钮在参数区里的定位
 
 import { useEffect, useRef, useState } from "react";
-import { channelPriceLabel, channelsForModel } from "../routing.js";
+import { channelPriceLabel, channelsForModel, splitOfficialChannels } from "../routing.js";
 
 export default function ChannelPicker({
   model,
@@ -39,6 +39,7 @@ export default function ChannelPicker({
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const channels = channelsForModel(model, routing);
+  const { official, others } = splitOfficialChannels(channels);
   const current = channels.find((item) => item.id === channelId) || channels[0] || null;
   const triggerTitle = current
     ? `渠道：${current.label} ${channelPriceLabel(current)}`
@@ -85,7 +86,25 @@ export default function ChannelPicker({
       {open && (
         <div className="quickChannelMenu channelPickerMenu" role="menu" aria-label="渠道选择菜单">
           <div className="quickChannelMenuTitle">{modelLabel || model} 可用渠道</div>
-          {channels.map((channel) => (
+          {official.map((channel) => (
+            <button
+              key={channel.id}
+              className={`quickChannelItem official ${current && current.id === channel.id ? "active" : ""}`} // 官方渠道：未选中也用专属色区分
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                if (onChange) onChange(channel.id);
+                setOpen(false);
+              }}
+            >
+              <span>{channel.label}</span>
+              <em>{channelPriceLabel(channel)}</em>
+            </button>
+          ))}
+          {official.length > 0 && others.length > 0 && (
+            <div className="channelGroupDivider" role="separator" aria-hidden="true" />
+          )}
+          {others.map((channel) => (
             <button
               key={channel.id}
               className={`quickChannelItem ${current && current.id === channel.id ? "active" : ""}`}

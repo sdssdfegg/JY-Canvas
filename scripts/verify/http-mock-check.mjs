@@ -124,10 +124,20 @@ check(
 );
 for (const modelId of EXPECTED_MODELS) {
   const rows = routingModule.channelsForModel(modelId, routing);
+  const officialIds = routingModule.OFFICIAL_CHANNELS[modelId] || [];
+  // 官方渠道（OFFICIAL_CHANNELS 人工顺序）置顶，其余按价格升序（低→高）。
+  const actualOfficial = rows.filter((row) => row.official).map((row) => row.id);
   check(
-    `${modelId} 目录渠道按价格升序（价格低→高）`,
-    pricesAscendingRows(rows),
-    rows.map((item) => `${item.label}/${item.price}`).join(",")
+    `${modelId} 官方渠道按 OFFICIAL_CHANNELS 顺序置顶`,
+    actualOfficial.length === officialIds.length
+      && officialIds.every((id, i) => actualOfficial[i] === id),
+    rows.filter((row) => row.official).map((item) => `${item.label}/${item.price}`).join(",")
+  );
+  const rest = rows.filter((row) => !officialIds.includes(row.id));
+  check(
+    `${modelId} 其余渠道按价格升序（价格低→高）`,
+    pricesAscendingRows(rest),
+    rest.map((item) => `${item.label}/${item.price}`).join(",")
   );
   check(
     `${modelId} 默认线路 = 列表第一条（动态）`,

@@ -22,7 +22,7 @@ export const DEFAULT_MODELS = [
     label: "TT Image 2.5",
     ratios: ["auto", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "5:4", "4:5", "2:1", "1:2", "21:9", "9:21"],
     sizes: ["auto", "1K", "2K", "4K"],
-    quality: ["auto", "low", "medium", "high", "xhigh", "max"],
+    quality: ["auto", "low", "medium", "high", "max"],
     maxInputImages: 8,
     maxPromptLength: 20000,
     maxImageBytes: 16 * 1024 * 1024

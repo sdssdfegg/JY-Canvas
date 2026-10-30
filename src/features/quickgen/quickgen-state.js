@@ -67,7 +67,7 @@ export function useQuickGenState() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [status, setStatus] = useState("idle");
   const [quickTasks, setQuickTasks] = useState([]);
-  const [galleryZoom, setGalleryZoom] = useState(0.75);
+  const [galleryZoom, setGalleryZoom] = useState(0.95); // 2026-10-30 用户要求：结果图默认 95%（原 0.75）
   const [downloadFeedbackIds, setDownloadFeedbackIds] = useState(() => new Set());
   const [error, setError] = useState("");
   const [isQuickPromptOptimizing, setIsQuickPromptOptimizing] = useState(false);

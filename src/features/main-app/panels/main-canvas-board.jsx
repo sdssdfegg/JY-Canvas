@@ -4,7 +4,7 @@
 // 全部数据与回调由 App() 以同名 props 下发（COUNT_OPTIONS 经 countOptions 下发，同 DetailView 口径，
 // 避免面板反向 import main.jsx 成环）。
 // 接线完整性由 P6-5 §4 负向对照兜底（scripts/dev/p6-5-propcheck.mjs G 项：props 双向一致）。
-import React, { useMemo, useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   Loader2,
   Trash2,
@@ -20,6 +20,8 @@ import {
 import { Button } from "../../../shared/ui/Button";
 import DebouncedTextarea from "../../../shared/DebouncedTextarea.jsx";
 import { channelPriceLabel } from "../../../shared/routing.js";
+import { copyTextToClipboard } from "../../../shared/dom-actions.js";
+import { buildFailureReport } from "../../../shared/failure-report.js";
 import { fileSize } from "../../../lib/format/index.js";
 import { QuickGalleryCard } from "./quick-gallery-card.jsx";
 
@@ -85,7 +87,9 @@ export function MainCanvasBoard({
   models,
   ratios,
   quickSizes,
+  quickSizesAll,
   quickQualities,
+  quickQualitiesAll,
   quickVersions,
   quickBackgrounds,
   quickMaxReferenceFiles,
@@ -100,6 +104,7 @@ export function MainCanvasBoard({
   setQuickLocalEditTarget,
   setIsPromptAssistantOpen
 }) {
+  const [errorCopied, setErrorCopied] = useState(false); // 2026-10-30 失败信息点击复制后的短暂反馈
   // V5.0-002：下游 QuickGalleryCard 已 React.memo；上游 15 个 handler 来自 App 透传，每次 App 重渲染
   // 都重建闭包（createResultActions/createResultDownload/createQuickResultReplace/useMainHandlers 普通工厂），
   // 若直接透传则 memo 被绕过、全树仍重渲染。此处用「晚期绑定委托」将 15 个 handler 收敛为稳定引用：
@@ -193,7 +198,19 @@ export function MainCanvasBoard({
       {quickResults.length === 0 && runningQuickTasks.length === 0 && (
         <div className="emptyCanvas">
           <ImageIcon size={34} />
-          <span>{status === "failed" ? error : "暂无图片"}</span>
+          <span
+            className={status === "failed" ? (errorCopied ? "clickToCopy copied" : "clickToCopy") : ""}
+            title={status === "failed" ? "点击复制完整失败信息" : ""}
+            onClick={status === "failed"
+              ? async () => {
+                await copyTextToClipboard(buildFailureReport({}, settings, { error }));
+                setErrorCopied(true);
+                setTimeout(() => setErrorCopied(false), 1600);
+              }
+              : undefined}
+          >
+            {status === "failed" ? (errorCopied ? "✓ 已复制完整失败信息" : error) : "暂无图片"}
+          </span>
         </div>
       )}
 
@@ -349,21 +366,34 @@ export function MainCanvasBoard({
                 <div className="quickChannelMenuTitle">
                   {activeModel?.label || settings.model} 可用线路
                 </div>
-                {quickChannels.map((channel) => (
-                  <button
-                    key={channel.id}
-                    className={`quickChannelItem ${quickChannel?.id === channel.id ? "active" : ""}`}
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      updateSetting("channelId", channel.id);
-                      setIsQuickChannelMenuOpen(false);
-                    }}
-                  >
-                    <span>{channel.label}</span>
-                    <em>{channelPriceLabel(channel)}</em>
-                  </button>
-                ))}
+                {(() => {
+                  const official = quickChannels.filter((channel) => channel.official);
+                  const others = quickChannels.filter((channel) => !channel.official);
+                  const renderItem = (channel) => (
+                    <button
+                      key={channel.id}
+                      className={`quickChannelItem${channel.official ? " official" : ""}${quickChannel?.id === channel.id ? " active" : ""}`} // 官方渠道：未选中也用专属色区分
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        updateSetting("channelId", channel.id);
+                        setIsQuickChannelMenuOpen(false);
+                      }}
+                    >
+                      <span>{channel.label}</span>
+                      <em>{channelPriceLabel(channel)}</em>
+                    </button>
+                  );
+                  return (
+                    <>
+                      {official.map(renderItem)}
+                      {official.length > 0 && others.length > 0 && (
+                        <div className="channelGroupDivider" role="separator" aria-hidden="true" />
+                      )}
+                      {others.map(renderItem)}
+                    </>
+                  );
+                })()}
                 {quickChannels.length === 0 && (
                   <p className="quickChannelEmpty">当前模型暂无可用线路，请检查渠道目录</p>
                 )}
@@ -385,8 +415,16 @@ export function MainCanvasBoard({
             <select value={settings.aspectRatio} onChange={(event) => updateSetting("aspectRatio", event.target.value)}>
               {ratios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
             </select>
-            <select value={settings.imageSize} onChange={(event) => updateSetting("imageSize", event.target.value)}>
-              {quickSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+            <select
+              value={quickSizes.includes(settings.imageSize) ? settings.imageSize : (quickSizes[0] || "")}
+              onChange={(event) => updateSetting("imageSize", event.target.value)}
+              title={quickSizes.includes(settings.imageSize) ? "出图尺寸" : "当前渠道仅支持部分尺寸，已自动收敛到可用档位"}
+            >
+              {(quickSizesAll.length ? quickSizesAll : quickSizes).map((size) => (
+                <option key={size} value={size} disabled={quickSizes.length > 0 && !quickSizes.includes(size)}>
+                  {size}
+                </option>
+              ))}
             </select>
             <select value={settings.n} onChange={(event) => updateSetting("n", event.target.value)}>
               {countOptions.filter((count) => count <= quickMaxReferenceFiles).map((count) => (
@@ -394,10 +432,17 @@ export function MainCanvasBoard({
               ))}
             </select>
             {quickQualities.length > 0 && (
-              <select value={settings.quality || ""} onChange={(event) => updateSetting("quality", event.target.value)} title="出图质量">
+              <select
+                value={quickQualities.includes(settings.quality) ? settings.quality : (quickQualities[0] || "")}
+                onChange={(event) => updateSetting("quality", event.target.value)}
+                title="出图质量"
+              >
                 <option value="">质量(默认)</option>
-                {quickQualities.map((quality) => (
-                  <option key={quality} value={quality}>{quality === "xhigh" ? "超高" : quality === "max" ? "MAX" : quality}</option>
+                {/* 渲染模型全量档位，把当前渠道不支持的档（如 LK-1K 的 high/max）置灰而非移除 */}
+                {(quickQualitiesAll.length ? quickQualitiesAll : quickQualities).map((quality) => (
+                  <option key={quality} value={quality} disabled={quickQualities.length > 0 && !quickQualities.includes(quality)}>
+                    {quality === "xhigh" ? "超高" : quality === "max" ? "MAX" : quality}
+                  </option>
                 ))}
               </select>
             )}

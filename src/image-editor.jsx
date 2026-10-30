@@ -710,32 +710,6 @@ export default function ImageEditorPanel({
     onAddEvent?.("图片编辑", "底图已清除（保留上层图）");
   }
 
-  async function clearProject() {
-    baseRef.current?.close?.();
-    overlayRef.current?.close?.();
-    baseRef.current = null;
-    overlayRef.current = null;
-    baseFileRef.current = null;
-    overlayFileRef.current = null;
-    setBaseFile(null);
-    setOverlayFile(null);
-    setBaseMeta(null);
-    setOverlayMeta(null);
-    setCanvasSize({ width: 0, height: 0 });
-    setTransform(DEFAULT_TRANSFORM);
-    setOverlayOpacity(100);
-    setBrush(DEFAULT_BRUSH);
-    setZoom(1);
-    setDifferenceMode(false);
-    resetMaskCanvas(maskCanvasRef.current, 1, 1);
-    undoRef.current = [];
-    redoRef.current = [];
-    updateUndoDepth();
-    await editorDelete(EDITOR_PROJECT_KEY);
-    requestDraw();
-    onAddEvent?.("图片编辑", "工程已清空");
-  }
-
   async function exportMerged() {
     if (!baseRef.current) {
       onAddEvent?.("图片编辑", "请先放入底图");
