@@ -12,7 +12,8 @@ import { GALLERY_CARD_MIN_BASE } from "./shared/gallery-layout.js";
 import {
     channelsForModel,
   modelCapabilities,
-  sizesForChannel
+  sizesForChannel,
+  qualitiesForChannel
 } from "./shared/routing.js";
 import {
   resolveLocalEditBaseFile
@@ -408,6 +409,12 @@ export default function OutfitWorkflow({
   // 尺寸按「模型能力 ∩ 当前渠道自声明 sizes」收敛（2026-10-28）：
   // HS（火山 flash）渠道只支持 1K/2K，选它时 4K 从下拉隐藏；其余渠道沿用模型级 sizes，行为不变。
   const outfitSizes = sizesForChannel(settings.model, settings.channelId, config.routing || config);
+  // 全量尺寸（模型级能力，不按渠道收敛）——用于尺寸下拉「置灰非允许项」而非隐藏（2026-10-29，LK 渠道仅 1K 可灰 2K/4K）。
+  const outfitSizesAll = outfitCapabilities.sizes || [];
+  // 2026-10-30：渠道级质量（与尺寸置灰同模式）——LK-1K 仅 auto/low/medium，
+  // high 及以上在下拉置灰而非移除；模型全量档位另存 outfitQualitiesAll 供置灰渲染。
+  const outfitQualities = qualitiesForChannel(settings.model, settings.channelId, config.routing || config);
+  const outfitQualitiesAll = outfitCapabilities.quality || [];
   // 每个模型的单次请求图片数量上限（tt-image-2.5 = 8，其余 = 14）。
   const outfitMaxImages = Math.max(1, Math.min(MAX_UPLOAD_IMAGES, outfitCapabilities.maxInputImages));
   const outfitChannels = channelsForModel(settings.model, config.routing || config);
@@ -1378,6 +1385,9 @@ export default function OutfitWorkflow({
           outfitCapabilities={outfitCapabilities}
           ratios={ratios}
           outfitSizes={outfitSizes}
+          outfitSizesAll={outfitSizesAll}
+          outfitQualities={outfitQualities}
+          outfitQualitiesAll={outfitQualitiesAll}
           globalBulkMode={globalBulkMode}
           applyGlobalPreprocess={applyGlobalPreprocess}
           preprocessModeLabel={preprocessModeLabel}

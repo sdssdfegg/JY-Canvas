@@ -844,6 +844,21 @@ textarea:focus {
   pointer-events: none;
 }
 
+/* 2026-10-30 失败信息点一下即复制完整排查信息（快捷生成空态处的失败提示）。
+   ⚠️ 父级 .emptyCanvas 是 pointer-events:none，这里必须显式恢复为 auto，否则鼠标点不到。 */
+.emptyCanvas span.clickToCopy {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.emptyCanvas span.clickToCopy:hover {
+  text-decoration: underline;
+}
+
+.emptyCanvas span.copied {
+  color: var(--success);
+}
+
 .referenceThumb {
   position: relative;
   width: 58px;
@@ -1404,6 +1419,20 @@ textarea:focus {
 .quickChannelItem.active {
   background: color-mix(in srgb, #fbbf24 16%, transparent);
   color: #fbbf24;
+}
+
+/* 2026-10-30 用户要求：官方渠道用**绿色**标识（未选中也区分于普通渠道）。
+   改绿的原因：原用金色 #fbbf24，与价格标签 em 的金色、选中态的金色高亮撞色，分不清。
+   选中态同样走绿色系，保持「官方=绿」这一条唯一视觉规则。 */
+.quickChannelItem.official:not(.active) {
+  color: var(--success);
+  box-shadow: inset 2px 0 0 0 color-mix(in srgb, var(--success) 55%, transparent);
+}
+
+/* 官方渠道被选中：绿色底 + 绿色字（覆盖上面 .active 的金色，避免撞色） */
+.quickChannelItem.official.active {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success);
 }
 
 .quickChannelEmpty {

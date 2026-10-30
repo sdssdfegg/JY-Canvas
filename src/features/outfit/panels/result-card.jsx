@@ -11,7 +11,7 @@
 // 派生值（durationMs/references/referenceCount/promptText/src/cardState/brokenReason/hasCropReturn）
 // 全部下沉到卡内计算：父组件 map 里只留 O(1) 的集合查询，卡 bail 时这些开销一并省掉。
 //   ⚠️ props 漏项 = 运行期 undefined（vite build 验不出），由 V5.0-006 §3.4 负向对照兜底。
-import React from "react";
+import React, { useState } from "react";
 import { Check, CheckSquare, Download, ImageOff, Loader2, Pencil, RefreshCw, Sparkles, Square, Trash2 } from "lucide-react";
 import {
   canRerunTask,
@@ -29,6 +29,8 @@ import { CachedImage } from "../../../shared/ui/cached-image.jsx";
 import { ElapsedTimer } from "../../../shared/ui/elapsed-timer.jsx";
 import { ReferenceThumbTray } from "../../../shared/ui/reference-thumb-tray.jsx";
 import { formatWholeSecondMs as formatMs } from "../../../lib/format/index.js";
+import { copyTextToClipboard } from "../../../shared/dom-actions.js";
+import { buildFailureReport } from "../../../shared/failure-report.js";
 
 // ── 非 success 分支：running / failed 状态卡（原 ResultQueue.jsx:74-108）──────────
 export const TaskStatusCard = React.memo(function TaskStatusCard({
@@ -38,6 +40,7 @@ export const TaskStatusCard = React.memo(function TaskStatusCard({
   toggleTaskSelected,
   retryTask
 }) {
+  const [copied, setCopied] = useState(false); // 2026-10-30 失败信息点击复制后的短暂反馈
   const failed = task.status === "failed";
   const runningTask = task.status === "running";
   const canRetry = failed && canRerunTask(task);
@@ -68,7 +71,20 @@ export const TaskStatusCard = React.memo(function TaskStatusCard({
           重试
         </button>
       )}
-      {task.error && <p className="assetError" title={task.errorDetail || task.error}>{task.error}</p>}
+      {task.error && (
+        <p
+          className={`assetError clickToCopy${copied ? " copied" : ""}`}
+          title="点击复制完整失败信息"
+          onClick={async (event) => {
+            event.stopPropagation();
+            await copyTextToClipboard(buildFailureReport(task, settings));
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1600);
+          }}
+        >
+          {copied ? "✓ 已复制完整失败信息" : task.error}
+        </p>
+      )}
     </article>
   );
 });

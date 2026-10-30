@@ -98,7 +98,9 @@ export function useMainHandlers(ctx) {
       if (key === "channelId") {
         const channels = channelsForModel(next.model, config.routing || config);
         next.channelId = channels.some((item) => item.id === value) ? value : (channels[0]?.id || "");
-        return next;
+        // 切换渠道后按新渠道的允许尺寸重新收敛（如 LK满血版-1K 仅 1K，2K/4K 不再合法）；
+        // preserveChannel 保留刚设好的 channelId，只重算 imageSize / quality / 比例等渠道相关字段。
+        return convergeSettingsForModel(next, config.routing || config, { preserveChannel: true });
       }
       if (key === "n") next.n = Math.min(clampCount(value), modelCapabilities(next.model, config.routing || config).maxInputImages);
       return next;

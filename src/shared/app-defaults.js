@@ -28,8 +28,14 @@ export const defaultState = {
   channelId: "",
   dispatchMode: "manual",
   imageSize: "2K",
-  aspectRatio: "3:4",
+  // 2026-10-30（用户要求）：默认出图参数改为 2:3 / 2K / 1张 / MAX / sunburst / 背景(默认)。
+  // 这些是 TT2.5 的默认值；切到不支持的模型（如 TT2.0 无 max/sunburst/背景）或受限渠道
+  // （LK-1K 仅 1K + 最高 medium）时，由 convergeSettingsForModel 自动收敛，不会把非法参数发到上游。
+  aspectRatio: "2:3",
   n: 1,
+  quality: "max",
+  version: "sunburst",
+  background: "auto",
   prompt: "把袖子改长一点点，差不多到手腕的位置",
   theme: "dark"
 };

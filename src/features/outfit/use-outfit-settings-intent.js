@@ -65,10 +65,13 @@ export function useOutfitSettingsIntent(deps) {
     }
     if (key === "channelId") {
       const channels = channelsForModel(settings.model, config.routing || config);
-      setSettings((current) => ({
-        ...current,
-        channelId: channels.some((channel) => channel.id === value) ? value : (channels[0]?.id || "")
-      }));
+      setSettings((current) => {
+        const next = { ...current };
+        next.channelId = channels.some((channel) => channel.id === value) ? value : (channels[0]?.id || "");
+        // preserveChannel 保留刚设好的 channelId，只重算 imageSize / quality / 比例等渠道相关字段。
+        // 2026-10-29：限定尺寸渠道（如 LK满血版-1K 只 1K）切换后必须收敛，否则旧 imageSize 发到 adapter 会被能力校验拒 400。
+        return convergeSettingsForModel(next, config.routing || config, { preserveChannel: true });
+      });
       return;
     }
     const normalizeValue = (_current) => {

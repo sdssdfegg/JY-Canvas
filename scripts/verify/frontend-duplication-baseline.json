@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 152,
+    "fileCount": 153,
     "files": [
       "src/api/ai-canvas-agent.js",
       "src/api/assets.js",
@@ -128,6 +128,7 @@
       "src/shared/dom-actions.js",
       "src/shared/error-boundary.jsx",
       "src/shared/error-report.js",
+      "src/shared/failure-report.js",
       "src/shared/file-name.js",
       "src/shared/gallery-layout.js",
       "src/shared/generation-errors.js",

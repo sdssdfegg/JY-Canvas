@@ -22,6 +22,15 @@ export const MODEL_DEFAULT_CHANNEL = Object.freeze({
   "tt-image-2.5": "silent-tt25-line-10"
 });
 
+// 官方渠道（人工排序，不按价格）：始终置顶、保持此处顺序；其余渠道在其下方按价格升序。
+// 与 src/shared/routing.js 的 OFFICIAL_CHANNELS 同源同步。
+// 用途：① 下拉官方组在上、人为排序（laoye 第一、LK 第二）；② 默认渠道取首个官方渠道。
+export const OFFICIAL_CHANNELS = Object.freeze({
+  // 2026-10-30（用户要求）：LK-1K（silent-tt25-line-11）移入「其他渠道」按价格排序，
+  // 优质渠道组只保留 LY满血版。要放回优质组时，把该 id 追加回本数组即可（顺序=显示顺序）。
+  "tt-image-2.5": ["silent-tt25-line-10"]
+});
+
 // 已下线的旧线路：必须从前端目录、服务端目录和服务端校验里同时移除/拒绝。
 // 只隐藏下拉框不够——用户手动构造旧 channelId 时服务端也必须拒绝。
 // 前三个是 3.0 目录里的**展示名**，后三个是同一批线路在 3.0 目录里的真实 publicId。
@@ -64,7 +73,9 @@ export const HIDDEN_CHANNEL_IDS = Object.freeze([
   // 前端隐藏（服务端保留，渠道恢复后从本数组移除即可）。老夜 0.1（silent-tt2-line-12）
   // 已在同日从目录摘除；laoye超分（silent-tt2-line-15，新特价 KEY）实测正常，保持显示。
   "silent-tt2-line-10",   // 云枢（TT2.0）
-  "silent-tt25-line-05"   // 云枢（TT2.5）
+  "silent-tt25-line-05",   // 云枢（TT2.5）
+  // 2026-10-30（用户要求）：TT2.5 的「云枢高质量」隐藏，恢复后从本数组与 src/shared/routing.js 同源移除即可。
+  "silent-tt25-line-09"   // 云枢高质量（TT2.5）
 ]);
 
 const HIDDEN_CHANNEL_ID_SET = new Set(
@@ -148,12 +159,17 @@ const ROUTING_CHANNELS = Object.freeze([
   // 上游模型 gpt-image-2.5-flare / gpt-image-2.5-sunburst）。价格 ¥0.11。
   { id: "silent-tt25-line-07", label: "Subdirect", price: 0.11, model: "tt-image-2.5" },
   { id: "silent-tt25-line-04", label: "BR-default特价", price: 0.12, model: "tt-image-2.5" },
-  // 2026-10-29：TT2.5 默认渠道改为「laoye满血版」（¥0.14，老夜 image2.5全参 分组，官方 OpenAI images 协议，支持全参 incl MAX quality）。
+  // 2026-10-29：TT2.5 默认渠道改为「laoye满血版」（¥0.14，老夜 image2.5全参 分组，官方 OpenAI images 协议，支持全参 incl MAX quality）。2026-10-30 按用户要求改名 →「LY满血版」。
   //   默认渠道不再靠「列表置顶」实现（否则破坏价格升序规约），改由 routing.js 的 MODEL_DEFAULT_CHANNEL 覆盖：
   //   channelId 为空时 defaultChannelForModel 返回 silent-tt25-line-10。列表仍严格价格升序。
   //   上游模型 gpt-image-2.5-flare/sunburst；154 适配器 publicId=silent-tt25-line-10（provider_families.json 新增 silent-laoye-tt25-manxue），KEY 仅存适配器 env（LK888_SILENT_LAOYE_MANXUE_API_KEY），前端与源码零 KEY。
   //   注意：该 KEY 分组仅含 2.5（无 gpt-image-2），故只有 TT2.5 满血版；2.0 满血版需另提供 2.0 KEY。
-  { id: "silent-tt25-line-10", label: "laoye满血版", price: 0.14, model: "tt-image-2.5" },
+  { id: "silent-tt25-line-10", label: "LY满血版", price: 0.14, model: "tt-image-2.5", official: true },
+  // 2026-10-29：LK 渠道（上游 api.lk888.ai，模型 tt-image-2.5-*-token，仅支持 1K，价格 0.12）。2026-10-30 改名：LK满血版-1K → LK-1K。
+  //   优质渠道（原「官方渠道」叫法）第二组，按用户指定顺序排在 LY 之后；仅 1K 可选，2K/4K 在前端尺寸下拉置灰禁用。
+  //   154 适配器 publicId=silent-tt25-line-11（provider_families.json 新增 silent-lk-tt25-1k），
+  //   KEY 仅存适配器 env（LK888_SILENT_LK_TT25_1K_API_KEY），前端与源码零 KEY。
+  { id: "silent-tt25-line-11", label: "LK-1K", price: 0.12, model: "tt-image-2.5", sizes: ["1K"], quality: ["auto", "low", "medium"], official: true },
   // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，与 laoye 同价，排最后。
   { id: "silent-tt25-line-09", label: "云枢高质量", price: 0.14, model: "tt-image-2.5" },
   // 香蕉 2：展示用户指定的四条线路（云枢 / Subdirect / Origin / laoye），统一 ¥0.12/张。
@@ -224,7 +240,7 @@ export const ROUTING_MODELS = Object.freeze([
     ratios: ["auto", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "5:4", "4:5", "2:1", "1:2", "21:9", "9:21"],
     sizes: ["auto", "1K", "2K", "4K"],
     maxInputImages: 8,
-    quality: ["auto", "low", "medium", "high", "xhigh", "max"],
+    quality: ["auto", "low", "medium", "high", "max"],
     versions: ["flare", "sunburst"],
     backgrounds: ["opaque", "transparent", "auto"],
     customSize: true,
@@ -323,8 +339,9 @@ export function publicRoutingChannels() {
   const list = ROUTING_CHANNELS.filter(
     (channel) => !isForbiddenChannelId(channel.id) && !isHiddenChannelId(channel.id)
   );
-  // 置顶：每模型指定的默认渠道浮到该模型分组最前（其余保持原顺序），供下拉展示；
-  // 不破坏「同模型内其余渠道价格升序」规约。
+  // 官方渠道：按 OFFICIAL_CHANNELS 人工顺序置顶（不按价格排序）；其余渠道按 ROUTING_CHANNELS
+  // 配置数组原顺序（2026-10-30 用户要求：取消价格升降序，改手工顺序，方便后续自由调顺序）。
+  // 官方渠道打 official:true 标记，供前端分组渲染（官方组 / 其他组 + 虚线隔断）。
   const byModel = new Map();
   for (const channel of list) {
     if (!byModel.has(channel.model)) byModel.set(channel.model, []);
@@ -332,14 +349,15 @@ export function publicRoutingChannels() {
   }
   const out = [];
   for (const [model, group] of byModel) {
-    const pinned = MODEL_DEFAULT_CHANNEL[model];
-    const pinnedChannel = pinned ? group.find((channel) => channel.id === pinned) : null;
-    if (pinnedChannel) {
-      out.push(pinnedChannel);
-      for (const channel of group) if (channel.id !== pinned) out.push(channel);
-    } else {
-      out.push(...group);
-    }
+    const officialIds = OFFICIAL_CHANNELS[model] || [];
+    const officialSet = new Set(officialIds);
+    const official = officialIds
+      .map((id) => group.find((channel) => channel.id === id))
+      .filter(Boolean)
+      .map((channel) => ({ ...channel, official: true }));
+    // 其余渠道保留 ROUTING_CHANNELS 配置数组原顺序，不做价格排序。
+    const others = group.filter((channel) => !officialSet.has(channel.id));
+    out.push(...official, ...others);
   }
   return out;
 }
@@ -483,7 +501,8 @@ export function publicRoutingCatalog() {
       models: Object.fromEntries(ROUTING_MODELS
         .filter((model) => !isHiddenModelId(model.value))
         .map((model) => {
-          const pinned = MODEL_DEFAULT_CHANNEL[model.value];
+          const officialList = OFFICIAL_CHANNELS[model.value] || [];
+          const pinned = officialList[0] || MODEL_DEFAULT_CHANNEL[model.value];
           const line = channels.find((channel) => channel.model === model.value && channel.id === pinned)
             || channels.find((channel) => channel.model === model.value);
           return [model.value, { price: line?.price || 0, currency: "CNY", unit: "image" }];
