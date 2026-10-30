@@ -553,25 +553,27 @@ export function buildImageRequestVariants(params, files) {
     return variants;
   }
 
-  // New API's billing expression cannot read channelId from multipart fields.
-  // Keep this narrow: only TT 2.5 on Subdirect uses the JSON image_urls path;
-  // every other TT 2.5 line retains the existing multipart request.
+  // New API's billing expression cannot read channelId from multipart fields:
+  // multipart 提交一律落到兜底价（源码下方 3.0 实测：同一线路 JSON 0.1200 / multipart 0.0978）。
+  //
+  // 2026-10-31：由「仅 Subdirect(line-07)」扩展为 TT 2.5 全部线路，让每条线路的独立
+  // 价格真正生效（LY满血版 0.14 / LK-1K 0.12 / Subdirect 0.11 / BR-default特价 0.12 /
+  // 云枢高质量 0.14 / 其余 0.10）。渠道排序与兜底策略均不变，只是把带图请求改用
+  // JSON + image_urls 提交。参考图优先取前端下发的 data URL，缺失时把上传件读成 data URL。
   if (
     params.model === "tt-image-2.5"
-    && params.channelId === "silent-tt25-line-07"
     && hasImages
-    && referenceDataUrls.length > 0
   ) {
     variants.push({
-      id: "jingyin-tt25-subdirect-json-image-urls",
+      id: "jingyin-tt25-json-image-urls",
       model: params.model,
       requestFormat: "jingyin-generations-json-image-urls",
       path: "/images/generations",
       protocol: "json",
       headers: { "Content-Type": "application/json" },
-      createBody: () => JSON.stringify({
+      createBody: async () => JSON.stringify({
         ...buildTextImageBody(params, "legacy"),
-        image_urls: referenceDataUrls
+        image_urls: await resolveVolcReferenceDataUrls(params, files)
       })
     });
     return variants;
@@ -606,15 +608,28 @@ export function buildImageRequestVariants(params, files) {
     return variants;
   }
 
+  // 2026-10-31：带图请求改走 JSON + image_urls（全部模型，TT 2.5 / TT 2.0 / 香蕉 2 / 香蕉 Pro 等）。
+  // 原因与 TT2.5 特例一致：中转站 New API 的计费表达式只解析 JSON 请求体，multipart 里的
+  // channelId 读不到 → 一律落兜底价，各渠道独立价格失效。实测四条模型 JSON 均正常出图且
+  // 按线路独立价扣费（banana-2 云枢 0.12 / tt-image-2 XT-default 0.10 / PRO laoye 0.14 / TT2.5 LK-1K 0.12）。
+  // volc 与 seedream 走各自原生格式（前面分支已拦截或字段不兼容 image_urls），保持原样不动。
   const addJingyinVariant = (variantParams, suffix, requestFormatSuffix, format) => {
+    const useJsonImages = hasImages && format !== "volc" && format !== "seedream";
     variants.push({
       id: `jingyin-channel${suffix}`,
       model: variantParams.model,
       requestFormat: `jingyin-image-size-aspect-ratio${requestFormatSuffix}`,
-      path: channelImagePath(hasImages),
-      protocol: hasImages ? "multipart" : "json",
-      headers: hasImages ? {} : { "Content-Type": "application/json" },
-      createBody: () => hasImages ? buildEditImageForm(variantParams, files, format) : JSON.stringify(buildTextImageBody(variantParams, format))
+      path: useJsonImages ? "/images/generations" : channelImagePath(hasImages),
+      protocol: useJsonImages || !hasImages ? "json" : "multipart",
+      headers: useJsonImages || !hasImages ? { "Content-Type": "application/json" } : {},
+      createBody: async () => (useJsonImages
+        ? JSON.stringify({
+          ...buildTextImageBody(variantParams, format),
+          image_urls: await resolveVolcReferenceDataUrls(variantParams, files)
+        })
+        : (hasImages
+          ? buildEditImageForm(variantParams, files, format)
+          : JSON.stringify(buildTextImageBody(variantParams, format))))
     });
   };
   const addOpenAiVariant = (variantParams, suffix = "", requestFormatSuffix = "") => {
