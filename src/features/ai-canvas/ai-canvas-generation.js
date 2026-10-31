@@ -8,6 +8,7 @@ import { STORAGE_KEY } from "../../shared/app-defaults.js";
 import { readJsonStorage } from "../../lib/storage/json-storage.js";
 import { workflowInputsWithChain } from "./ai-canvas-workflow.js";
 import { resolveGenerationParams } from "./ai-canvas-params.js";
+import { routingFields } from "../../shared/routing.js";
 
 // 与 server IMAGE_UPLOAD_PARSE_CEILING 对齐：最多 6 张输入图。
 const IMAGE_UPLOAD_CEILING = 6;
@@ -92,7 +93,16 @@ export async function runCanvasGeneration({ genNode, imageNodes, promptText, set
     .slice(0, IMAGE_UPLOAD_CEILING);
   files.forEach((f) => form.append("image", f));
   form.set("prompt", promptText);
-  form.set("model", params.model);
+  // 2026-11-01：渠道可选（节点显式 > 全局设置）。routingFields 保证 channelId
+  // 一定落在当前模型的合法线路里，并一并返回 canonical model 与 dispatchMode。
+  const fields = routingFields(
+    params.model,
+    genNode?.data?.channelId || settings?.channelId || "",
+    config
+  );
+  form.set("model", fields.model);
+  form.set("channelId", fields.channelId);
+  form.set("dispatchMode", fields.dispatchMode);
   form.set("imageSize", params.imageSize);
   form.set("aspectRatio", params.aspectRatio);
   form.set("n", "1");

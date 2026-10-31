@@ -11,7 +11,7 @@ import { Button } from "../../shared/ui/Button";
 import { versionSummary } from "./ai-canvas-versions.js";
 import { ASPECT_RATIO_OPTIONS, IMAGE_SIZE_OPTIONS, resolveGenerationParams } from "./ai-canvas-params.js";
 // 2026-11-01：画布 Agent 的推理（文本）模型清单（含默认值）。
-import { CANVAS_REASONING_MODELS, DEFAULT_CANVAS_REASONING_MODEL } from "../../shared/routing.js";
+import { CANVAS_REASONING_MODELS, DEFAULT_CANVAS_REASONING_MODEL, channelsForModel } from "../../shared/routing.js";
 import { isOutfitKind, getNodeDef } from "./ai-canvas-nodes.js";
 import {
   AlertCircle,
@@ -139,11 +139,13 @@ export function WorkflowStatus({ workflow }) {
 
 // —— 节点体：按类型渲染内容 ——
 // 生成节点带模型 / 提示词 / 执行按钮；图片与结果节点出图；提示词节点可双击编辑。
-export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGeneration, onSelectVersion, models = [], settings = null }) {
+export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGeneration, onSelectVersion, models = [], settings = null, routing = null }) {
   if (node.type === "generation") {
     const versions = versionSummary(node.data);
     // 三级优先级解析（节点 > 设置 > 内置默认）后的实际生效参数。
     const resolved = resolveGenerationParams(node, settings);
+    // 渠道选项随「解析后的模型」变化——模型换了，可跑的渠道也随之变。
+    const channelOptions = channelsForModel(resolved.model, routing);
     return (
       <div className="aiCanvasGenBody">
         {/* 2026-11-01：模型原来是裸 <input>（只能手打模型名，新建时还是空的，
@@ -158,6 +160,21 @@ export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGenera
           <option value="">模型·跟随</option>
           {models.map((model) => (
             <option key={model.id} value={model.id}>{model.label || model.id}</option>
+          ))}
+        </select>
+        {/* 2026-11-01：渠道可选（空=跟随设置）。选项按当前解析出的模型过滤，
+            与快捷生成 / 批量生成 / 一键详情同一个渠道目录，不另建一份。 */}
+        <select
+          className="aiCanvasGenSelect aiCanvasGenChannel"
+          title="出图渠道（空=跟随设置）"
+          value={node.data.channelId || ""}
+          onChange={(e) => onUpdateData(node.id, { channelId: e.target.value })}
+        >
+          <option value="">渠道·跟随</option>
+          {channelOptions.map((channel) => (
+            <option key={channel.id} value={channel.id}>
+              {channel.label}{Number(channel.price || 0) > 0 ? ` ¥${Number(channel.price).toFixed(2)}` : ""}
+            </option>
           ))}
         </select>
         <textarea

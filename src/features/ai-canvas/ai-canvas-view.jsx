@@ -69,6 +69,8 @@ export function AiCanvasView() {
   // 2026-11-01：运行时渠道目录里带模型清单，生成节点的模型下拉直接用它，
   // 与快捷生成 / 批量生成 / 一键详情同一个数据源，不在画布里另建一份模型清单。
   const [canvasModels, setCanvasModels] = useState([]);
+  // 渠道目录：生成节点的渠道下拉按当前模型过滤（与快捷/批量/详情同一份目录）。
+  const [canvasRouting, setCanvasRouting] = useState(null);
   // 推理模型：默认 gpt-5.6-luna，重启回到默认（不持久化）。
   const [agentModel, setAgentModel] = useState(DEFAULT_CANVAS_REASONING_MODEL);
   useEffect(() => {
@@ -77,7 +79,10 @@ export function AiCanvasView() {
       try {
         const config = await fetchJyConfig();
         const routing = config?.routing || config || {};
-        if (alive) setCanvasModels(Array.isArray(routing.models) ? routing.models : []);
+        if (alive) {
+        setCanvasModels(Array.isArray(routing.models) ? routing.models : []);
+        setCanvasRouting(routing);
+      }
       } catch {
         if (alive) setCanvasModels([]);
       }
@@ -641,6 +646,7 @@ export function AiCanvasView() {
                         onSelectVersion={actions.selectVersion}
                         models={canvasModels}
                         settings={genSettings}
+                        routing={canvasRouting}
                       />
                     </div>
 
