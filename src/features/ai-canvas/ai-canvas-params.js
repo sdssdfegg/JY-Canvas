@@ -21,6 +21,31 @@ export function resolveGenerationParams(genNode, settings) {
   };
 }
 
+// V157：生成节点的**只读摘要**构造（供节点卡片摘要 + 属性面板复用）。
+//
+// 为什么放零 import 叶子：节点卡片（NodeBody）与无头验收脚本都要用，且前者不能依赖
+// 任何渲染层；把"已解析参数 + 当前渠道单价"收敛成一个纯函数，两边调用同一份逻辑。
+//
+// 注意：渠道单价依赖运行时的渠道目录（channelsForModel 来自 routing.js，含 React 无关的
+// 纯逻辑但本文件刻意不 import 它，保持零依赖叶子可被 node 直接跑）。调用方先把
+// `channelsForModel(resolved.model, routing)` 算好传进来——本函数只做"摘要聚合"。
+// channelId 为空（节点/设置都没选）时回落到列表首条，与出图时的默认线路一致。
+export function buildGenerationSummary(genNode, settings, channels = []) {
+  const data = genNode?.data || {};
+  const resolved = resolveGenerationParams(genNode, settings);
+  const explicitChannel = firstNonBlank(data.channelId, settings?.channelId, "");
+  const channel =
+    channels.find((c) => c?.id === explicitChannel) || channels[0] || null;
+  return {
+    model: resolved.model,
+    imageSize: resolved.imageSize,
+    aspectRatio: resolved.aspectRatio,
+    channelId: channel?.id || "",
+    channelLabel: channel?.label || "",
+    price: Number(channel?.price || 0)
+  };
+}
+
 function firstNonBlank(...values) {
   for (const value of values) {
     const text = String(value ?? "").trim();

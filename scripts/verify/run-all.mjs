@@ -217,6 +217,11 @@ const ORDER = [
   // 2026-10-16：上条的浏览器实测（起服务 + tabbit 真实浏览器）：v1 禁用 / v2 出现 off 选项 /
   // 选中 off / 保存预设刷新回载仍 off / 切回 v1 仍禁用。不起服务的进不了 --fast，只进全量表。
   "detail-stylepack-off-browser-check",
+  // V157（2026-11-01）：画布生成节点 Inspector 浏览器实测（起服务 + tabbit 真实浏览器）：
+  // 选中节点后属性面板内 模型/渠道/尺寸/比例 四控件均真实可见（几何断言，非"元素存在"），
+  // 切换模型渠道列表变化，且节点卡片 NodeBody 内已无可编辑下拉（旧溢出裁剪缺陷已消除）。
+  // 浏览器类只进全量，不进 --fast。
+  "ai-canvas-inspector-browser-check",
   "lint-ratchet-check",
   "run-all-check",
   "check-launcher"
@@ -312,7 +317,10 @@ const FAST_ORDER = [
   // V143（2026-10-29）：画布导入/导出验收（纯逻辑 <1s），进提交钩子快速子集（--fast 47→48）。
   "ai-canvas-transfer-check",
   // V143（2026-10-29）：生成节点出图参数验收（纯逻辑 <1s），进提交钩子快速子集（--fast 48→49）。
-  "ai-canvas-params-check"
+  "ai-canvas-params-check",
+  // V157（2026-11-01）：画布生成节点「属性面板（Inspector）」无头验收——节点只读摘要 +
+  // 渠道随模型过滤 + 改动经 resolveGenerationParams 闭环写回；钉桩防"又堆回节点里"倒退（<1s）。
+  "ai-canvas-inspector-check"
 ];
 
 /**

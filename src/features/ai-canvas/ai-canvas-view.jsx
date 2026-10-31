@@ -36,6 +36,7 @@ import { runAgentPipeline } from "./ai-canvas-orchestrator.js";
 import { CANVAS_REASONING_MODELS, DEFAULT_CANVAS_REASONING_MODEL } from "../../shared/routing.js";
 import { parseProjectFile, serializeProject } from "./ai-canvas-transfer.js";
 import { AgentPanel, NodeBody, ProjectList, WorkflowStatus } from "./ai-canvas-panels.jsx";
+import { NodeInspector } from "./ai-canvas-inspector.jsx";
 import { getNodeDef, isOutfitKind, isRunnableKind, validateConnection } from "./ai-canvas-nodes.js";
 import { runOutfitNodeGeneration } from "./ai-canvas-node-outfit.js";
 import "./ai-canvas.css";
@@ -495,6 +496,9 @@ export function AiCanvasView() {
   const workflow = current?.workflow || null;
   const workflowRunning = workflow?.state === "running";
 
+  // V157：当前选中的节点（供右侧属性面板 Inspector 编辑）。不存在时不渲染面板。
+  const selectedNode = current?.nodes.find((n) => n.id === state.selectedNodeId) || null;
+
   // —— 渲染 ——
   // 2026-11-01：生成节点要显示「实际生效参数」——下拉留空=跟随设置时，
   // 用户看不出最终会用哪个模型/尺寸/比例，故用三级优先级解析出实际值。
@@ -681,6 +685,20 @@ export function AiCanvasView() {
             </div>
           )}
         </div>
+
+        {/* V157：属性面板（Inspector）—— 选中节点后在右侧编辑全部参数。
+            节点卡片只保留只读摘要，可编辑控件集中在此，彻底规避固定高度节点被 overflow 裁掉的问题。 */}
+        {selectedNode ? (
+          <NodeInspector
+            node={selectedNode}
+            routing={canvasRouting}
+            settings={genSettings}
+            models={canvasModels}
+            onUpdateData={actions.updateNodeData}
+            onRunGeneration={runGeneration}
+            onClose={() => actions.selectNode(null)}
+          />
+        ) : null}
       </div>
     </div>
   );

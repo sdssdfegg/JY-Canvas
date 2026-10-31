@@ -449,3 +449,83 @@
   text-overflow: ellipsis;
   max-width: 340px;
 }
+
+/* —— V157：属性面板（Inspector） —— */
+/* 右侧独立列，选中节点后出现；节点卡片只保留只读摘要，可编辑控件集中在此，
+   彻底规避固定高度节点被 overflow 裁掉导致"看不到模型/渠道"的问题。 */
+.aiCanvasInspector {
+  flex: 0 0 280px;
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+  overflow-y: auto;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.aiCanvasInspectorHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+.aiCanvasInspectorTitle { font-size: var(--text-md); font-weight: 600; color: var(--text); }
+.aiCanvasInspectorClose {
+  border: none;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+}
+.aiCanvasInspectorClose:hover { color: var(--danger); background: var(--danger-bg); }
+.aiCanvasInspectorBody { display: flex; flex-direction: column; gap: var(--space-2); }
+.aiCanvasInspectorField { display: flex; flex-direction: column; gap: var(--space-1); }
+.aiCanvasInspectorRow { display: flex; gap: var(--space-2); }
+.aiCanvasInspectorFieldGrow { flex: 1 1 0; min-width: 0; }
+.aiCanvasInspectorLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+.aiCanvasInspectorControl { width: 100%; }
+.aiCanvasInspectorCheckRow { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.aiCanvasInspectorMaskMode { flex: 1 1 0; min-width: 84px; }
+.aiCanvasInspectorSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--app-bg);
+}
+.aiCanvasInspectorSummary b { color: var(--text); font-weight: 600; }
+.aiCanvasInspectorRun { width: 100%; justify-content: center; }
+.aiCanvasInspectorReadOnly {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* —— V157：节点卡片只读摘要（生成 / outfit） —— */
+/* 只展示当前生效值，不再堆可编辑下拉；高度足够短，不会被 .aiCanvasNodeBody 的 overflow 裁掉。 */
+.aiCanvasGenSummary { gap: var(--space-1); align-items: stretch; justify-content: flex-start; }
+.aiCanvasGenSummaryGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  font-size: 11px;
+  align-items: baseline;
+}
+.aiCanvasGenSummaryKey { color: var(--faint); }
+.aiCanvasGenSummaryVal { color: var(--text); font-weight: 600; text-align: right; }

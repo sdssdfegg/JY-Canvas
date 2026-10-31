@@ -96,11 +96,13 @@ check("钉桩：执行层带 source=infinite-canvas（服务端白名单已预�
 
 // —— 7) 钉桩：面板的选项来自同一常量（不许在 JSX 里另写一份）——
 const panelSrc = readFileSync(new URL("../../src/features/ai-canvas/ai-canvas-panels.jsx", import.meta.url), "utf8");
-check("钉桩：面板选项来自 ai-canvas-params.js 的常量",
-  panelSrc.includes("IMAGE_SIZE_OPTIONS") && panelSrc.includes("ASPECT_RATIO_OPTIONS")
-  && /import[^;]*ai-canvas-params\.js/.test(panelSrc));
-check("钉桩：面板把参数写回节点 data（imageSize / aspectRatio）",
-  panelSrc.includes('imageSize: e.target.value') && panelSrc.includes('aspectRatio: e.target.value'));
+const inspectorSrc = readFileSync(new URL("../../src/features/ai-canvas/ai-canvas-inspector.jsx", import.meta.url), "utf8");
+check("钉桩：属性面板选项来自 ai-canvas-params.js 的常量（不另写一份）",
+  inspectorSrc.includes("IMAGE_SIZE_OPTIONS") && inspectorSrc.includes("ASPECT_RATIO_OPTIONS")
+  && /import[^;]*ai-canvas-params\.js/.test(inspectorSrc));
+// V157：可编辑控件已从节点卡片（panels.jsx）迁到属性面板（inspector.jsx），故写回钉桩改指 inspector。
+check("钉桩：属性面板把参数写回节点 data（imageSize / aspectRatio）",
+  inspectorSrc.includes('imageSize: e.target.value') && inspectorSrc.includes('aspectRatio: e.target.value'));
 
 const failed = results.filter((item) => !item.pass);
 console.log(`AI 画布出图参数验收：失败 ${failed.length} / 共 ${results.length} 项`);

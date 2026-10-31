@@ -9,9 +9,9 @@
 // 这些组件只依赖传入的 props，不共享父组件的可变闭包，因此搬出来语义零变化。
 import { Button } from "../../shared/ui/Button";
 import { versionSummary } from "./ai-canvas-versions.js";
-import { ASPECT_RATIO_OPTIONS, IMAGE_SIZE_OPTIONS, resolveGenerationParams } from "./ai-canvas-params.js";
+import { buildGenerationSummary, resolveGenerationParams } from "./ai-canvas-params.js";
 // 2026-11-01：画布 Agent 的推理（文本）模型清单（含默认值）。
-import { CANVAS_REASONING_MODELS, DEFAULT_CANVAS_REASONING_MODEL, channelsForModel } from "../../shared/routing.js";
+import { channelsForModel } from "../../shared/routing.js";
 import { isOutfitKind, getNodeDef } from "./ai-canvas-nodes.js";
 import {
   AlertCircle,
@@ -139,75 +139,29 @@ export function WorkflowStatus({ workflow }) {
 
 // —— 节点体：按类型渲染内容 ——
 // 生成节点带模型 / 提示词 / 执行按钮；图片与结果节点出图；提示词节点可双击编辑。
-export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGeneration, onSelectVersion, models = [], settings = null, routing = null }) {
+export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGeneration, onSelectVersion, _models = [], settings = null, routing = null }) {
   if (node.type === "generation") {
     const versions = versionSummary(node.data);
-    // 三级优先级解析（节点 > 设置 > 内置默认）后的实际生效参数。
+    // V157：节点卡片改为**只读摘要**。所有可编辑控件（模型/渠道/尺寸/比例/提示词）
+    // 已迁到属性面板（ai-canvas-inspector.jsx），节点只展示当前生效值，
+    // 不再因固定高度 + overflow:hidden 把控件裁掉导致"看不到模型/渠道"。
     const resolved = resolveGenerationParams(node, settings);
-    // 渠道选项随「解析后的模型」变化——模型换了，可跑的渠道也随之变。
     const channelOptions = channelsForModel(resolved.model, routing);
+    const summary = buildGenerationSummary(node, settings, channelOptions);
+    const priceText = summary.price > 0 ? `¥${summary.price.toFixed(2)}/张` : "价格待定";
     return (
-      <div className="aiCanvasGenBody">
-        {/* 2026-11-01：模型原来是裸 <input>（只能手打模型名，新建时还是空的，
-            用户无从选择）。改为下拉，选项来自运行时渠道目录 config.routing.models，
-            与快捷生成 / 批量生成 / 一键详情同一个数据源；保留「跟随设置」= 空值兜底。 */}
-        <select
-          className="aiCanvasGenModel aiCanvasGenSelect"
-          title="出图模型（空=跟随设置默认）"
-          value={node.data.model || ""}
-          onChange={(e) => onUpdateData(node.id, { model: e.target.value })}
-        >
-          <option value="">模型·跟随</option>
-          {models.map((model) => (
-            <option key={model.id} value={model.id}>{model.label || model.id}</option>
-          ))}
-        </select>
-        {/* 2026-11-01：渠道可选（空=跟随设置）。选项按当前解析出的模型过滤，
-            与快捷生成 / 批量生成 / 一键详情同一个渠道目录，不另建一份。 */}
-        <select
-          className="aiCanvasGenSelect aiCanvasGenChannel"
-          title="出图渠道（空=跟随设置）"
-          value={node.data.channelId || ""}
-          onChange={(e) => onUpdateData(node.id, { channelId: e.target.value })}
-        >
-          <option value="">渠道·跟随</option>
-          {channelOptions.map((channel) => (
-            <option key={channel.id} value={channel.id}>
-              {channel.label}{Number(channel.price || 0) > 0 ? ` ¥${Number(channel.price).toFixed(2)}` : ""}
-            </option>
-          ))}
-        </select>
-        <textarea
-          className="aiCanvasGenPrompt"
-          placeholder="提示词（也可连一个提示词节点）"
-          value={node.data.prompt || ""}
-          onChange={(e) => onUpdateData(node.id, { prompt: e.target.value })}
-        />
-        {/* 2026-11-01：显示实际生效参数。下拉选「跟随」时空值看不出会用哪个，
-            这里把解析后的结果直接显示出来；复用节点内已有的小号次要文本样式，
-            不新增任何 CSS 规则。 */}
-        <span className="aiCanvasGenVersionText">
-          实际：{resolved.model} · {resolved.imageSize} · {resolved.aspectRatio}
-        </span>
-        <div className="aiCanvasGenParams">
-          <select
-            className="aiCanvasGenSelect"
-            title="出图尺寸（空=跟随设置）"
-            value={node.data.imageSize || ""}
-            onChange={(e) => onUpdateData(node.id, { imageSize: e.target.value })}
-          >
-            <option value="">尺寸·跟随</option>
-            {IMAGE_SIZE_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
-          <select
-            className="aiCanvasGenSelect"
-            title="出图比例（空=跟随设置）"
-            value={node.data.aspectRatio || ""}
-            onChange={(e) => onUpdateData(node.id, { aspectRatio: e.target.value })}
-          >
-            <option value="">比例·跟随</option>
-            {ASPECT_RATIO_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
+      <div className="aiCanvasGenBody aiCanvasGenSummary">
+        <div className="aiCanvasGenSummaryGrid">
+          <span className="aiCanvasGenSummaryKey">模型</span>
+          <b className="aiCanvasGenSummaryVal">{summary.model}</b>
+          <span className="aiCanvasGenSummaryKey">渠道</span>
+          <b className="aiCanvasGenSummaryVal">{summary.channelLabel || summary.channelId || "跟随"}</b>
+          <span className="aiCanvasGenSummaryKey">尺寸</span>
+          <b className="aiCanvasGenSummaryVal">{summary.imageSize}</b>
+          <span className="aiCanvasGenSummaryKey">比例</span>
+          <b className="aiCanvasGenSummaryVal">{summary.aspectRatio}</b>
+          <span className="aiCanvasGenSummaryKey">单价</span>
+          <b className="aiCanvasGenSummaryVal">{priceText}</b>
         </div>
         <Button
           size="sm"
@@ -218,6 +172,12 @@ export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGenera
           {node.data.status === "running" ? <Loader2 size={14} className="aiCanvasSpin" /> : <Play size={14} />}
           <span>{node.data.status === "running" ? "生成中…" : "执行生成"}</span>
         </Button>
+        {node.data.status === "failed" ? (
+          <span className="aiCanvasGenError"><AlertCircle size={13} /> {node.data.error}</span>
+        ) : null}
+        {node.data.status === "success" ? (
+          <span className="aiCanvasGenOk"><CheckCircle2 size={13} /> {node.data.usedModel || ""} · 已生成结果节点</span>
+        ) : null}
         {versions.total > 1 ? (
           <div className="aiCanvasGenVersions">
             <button
@@ -237,65 +197,23 @@ export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGenera
             >›</button>
           </div>
         ) : null}
-        {node.data.status === "success" && node.data.resultUrl ? (
-          <img className="aiCanvasGenResult" src={node.data.resultUrl} alt="结果" draggable={false} />
-        ) : null}
-        {node.data.status === "failed" ? (
-          <span className="aiCanvasGenError"><AlertCircle size={13} /> {node.data.error}</span>
-        ) : null}
-        {node.data.status === "success" ? (
-          <span className="aiCanvasGenOk"><CheckCircle2 size={13} /> {node.data.usedModel || ""} · 已生成结果节点</span>
-        ) : null}
       </div>
     );
   }
   if (isOutfitKind(node.type)) {
     const def = getNodeDef(node.type);
     const versions = versionSummary(node.data);
+    // V157：outfit 节点同样改为只读摘要，可编辑项（提示词 / 部位 / 掩膜约束）迁到属性面板。
+    const maskLabel = { none: "关闭", garment: "服装区", body: "人体区" }[node.data.maskMode || "none"] || "关闭";
+    const partsLabel = Array.isArray(node.data.outfitIntent?.parts)
+      ? node.data.outfitIntent.parts.map((p) => (p === "upper" ? "上装" : p === "lower" ? "下装" : p)).join("/")
+      : "上装/下装";
     return (
-      <div className="aiCanvasGenBody">
-        <textarea
-          className="aiCanvasGenPrompt"
-          placeholder="提示词（也可连一个提示词节点）"
-          value={node.data.prompt || ""}
-          onChange={(e) => onUpdateData(node.id, { prompt: e.target.value })}
-        />
-        {node.type === "outfit-tryon" ? (
-          <div className="aiCanvasGenParams">
-            <label className="aiCanvasCheckRow">
-              <input
-                type="checkbox"
-                checked={Array.isArray(node.data.outfitIntent?.parts) ? node.data.outfitIntent.parts.includes("upper") : true}
-                onChange={(e) => {
-                  const parts = new Set(node.data.outfitIntent?.parts || ["upper", "lower"]);
-                  if (e.target.checked) parts.add("upper"); else parts.delete("upper");
-                  onUpdateData(node.id, { outfitIntent: { ...(node.data.outfitIntent || {}), parts: [...parts] } });
-                }}
-              /> 上装
-            </label>
-            <label className="aiCanvasCheckRow">
-              <input
-                type="checkbox"
-                checked={Array.isArray(node.data.outfitIntent?.parts) ? node.data.outfitIntent.parts.includes("lower") : true}
-                onChange={(e) => {
-                  const parts = new Set(node.data.outfitIntent?.parts || ["upper", "lower"]);
-                  if (e.target.checked) parts.add("lower"); else parts.delete("lower");
-                  onUpdateData(node.id, { outfitIntent: { ...(node.data.outfitIntent || {}), parts: [...parts] } });
-                }}
-              /> 下装
-            </label>
-            <select
-              className="aiCanvasGenSelect"
-              title="掩膜约束（默认关闭）"
-              value={node.data.maskMode || "none"}
-              onChange={(e) => onUpdateData(node.id, { maskMode: e.target.value })}
-            >
-              <option value="none">掩膜·关闭</option>
-              <option value="garment">服装区</option>
-              <option value="body">人体区</option>
-            </select>
-          </div>
-        ) : null}
+      <div className="aiCanvasGenBody aiCanvasGenSummary">
+        <p className="aiCanvasInspectorReadOnly">{node.data.prompt ? node.data.prompt : "（空提示词）"}</p>
+        <span className="aiCanvasGenVersionText">
+          {def?.label} · 部位 {partsLabel} · 掩膜 {maskLabel}
+        </span>
         <Button
           size="sm"
           tone="primary"
@@ -305,21 +223,18 @@ export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGenera
           {node.data.status === "running" ? <Loader2 size={14} className="aiCanvasSpin" /> : <Play size={14} />}
           <span>{node.data.status === "running" ? "生成中…" : `执行${def?.label || "生成"}`}</span>
         </Button>
+        {node.data.status === "failed" ? (
+          <span className="aiCanvasGenError"><AlertCircle size={13} /> {node.data.error}</span>
+        ) : null}
+        {node.data.status === "success" ? (
+          <span className="aiCanvasGenOk"><CheckCircle2 size={13} /> {node.data.usedModel || ""} · 已生成结果节点</span>
+        ) : null}
         {versions.total > 1 ? (
           <div className="aiCanvasGenVersions">
             <button type="button" className="aiCanvasGenVersionBtn" title="上一版" disabled={!versions.hasPrev} onClick={() => onSelectVersion?.(node.id, versions.index - 1)}>‹</button>
             <span className="aiCanvasGenVersionText">第 {versions.index + 1}/{versions.total} 版</span>
             <button type="button" className="aiCanvasGenVersionBtn" title="下一版" disabled={!versions.hasNext} onClick={() => onSelectVersion?.(node.id, versions.index + 1)}>›</button>
           </div>
-        ) : null}
-        {node.data.status === "success" && node.data.resultUrl ? (
-          <img className="aiCanvasGenResult" src={node.data.resultUrl} alt="结果" draggable={false} />
-        ) : null}
-        {node.data.status === "failed" ? (
-          <span className="aiCanvasGenError"><AlertCircle size={13} /> {node.data.error}</span>
-        ) : null}
-        {node.data.status === "success" ? (
-          <span className="aiCanvasGenOk"><CheckCircle2 size={13} /> {node.data.usedModel || ""} · 已生成结果节点</span>
         ) : null}
       </div>
     );
