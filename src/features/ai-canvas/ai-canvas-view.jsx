@@ -32,6 +32,8 @@ import {
 } from "./ai-canvas-generation.js";
 import { planWorkflowRuns } from "./ai-canvas-workflow.js";
 import { runAgentPipeline } from "./ai-canvas-orchestrator.js";
+// 2026-11-01：画布 Agent 的推理（文本）模型清单与默认值。
+import { CANVAS_REASONING_MODELS, DEFAULT_CANVAS_REASONING_MODEL } from "../../shared/routing.js";
 import { parseProjectFile, serializeProject } from "./ai-canvas-transfer.js";
 import { AgentPanel, NodeBody, ProjectList, WorkflowStatus } from "./ai-canvas-panels.jsx";
 import { getNodeDef, isOutfitKind, isRunnableKind, validateConnection } from "./ai-canvas-nodes.js";
@@ -67,6 +69,8 @@ export function AiCanvasView() {
   // 2026-11-01：运行时渠道目录里带模型清单，生成节点的模型下拉直接用它，
   // 与快捷生成 / 批量生成 / 一键详情同一个数据源，不在画布里另建一份模型清单。
   const [canvasModels, setCanvasModels] = useState([]);
+  // 推理模型：默认 gpt-5.6-luna，重启回到默认（不持久化）。
+  const [agentModel, setAgentModel] = useState(DEFAULT_CANVAS_REASONING_MODEL);
   useEffect(() => {
     let alive = true;
     void (async () => {
@@ -403,7 +407,8 @@ export function AiCanvasView() {
         project,
         createNode: (type, data, position) => makeNode(type, position.x, position.y, data),
         handlers: actions,
-        mode: agentMode
+        mode: agentMode,
+        agentModel
       });
       const applied = [];
       const skipped = [];
@@ -543,6 +548,9 @@ export function AiCanvasView() {
             applied={agentApplied}
             skipped={agentSkipped}
             error={agentError}
+            agentModel={agentModel}
+            onAgentModelChange={setAgentModel}
+            modelOptions={CANVAS_REASONING_MODELS}
           />
         </aside>
 

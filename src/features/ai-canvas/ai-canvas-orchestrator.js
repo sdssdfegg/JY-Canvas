@@ -29,7 +29,8 @@ export async function runAgentPipeline({
   project,
   createNode,
   handlers,
-  mode = PIPELINE_AUTO
+  mode = PIPELINE_AUTO,
+  agentModel = ""
 }) {
   const resolved = resolveMode(mode);
   const baseNodes = project?.nodes || [];
@@ -43,6 +44,7 @@ export async function runAgentPipeline({
       apiKey,
       instruction,
       role: "planner",
+      agentModel,
       nodes: snap.nodes,
       edges: snap.edges
     });
@@ -71,6 +73,7 @@ export async function runAgentPipeline({
       apiKey,
       instruction,
       role: "prompter",
+      agentModel,
       nodes: snap.nodes,
       edges: snap.edges
     });

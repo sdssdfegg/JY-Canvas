@@ -10,6 +10,8 @@
 import { Button } from "../../shared/ui/Button";
 import { versionSummary } from "./ai-canvas-versions.js";
 import { ASPECT_RATIO_OPTIONS, IMAGE_SIZE_OPTIONS } from "./ai-canvas-params.js";
+// 2026-11-01：画布 Agent 的推理（文本）模型清单（含默认值）。
+import { CANVAS_REASONING_MODELS, DEFAULT_CANVAS_REASONING_MODEL } from "../../shared/routing.js";
 import { isOutfitKind, getNodeDef } from "./ai-canvas-nodes.js";
 import {
   AlertCircle,
@@ -53,7 +55,21 @@ export function ProjectList({ projects, currentId, onOpen, onDelete }) {
 }
 
 // —— 左侧栏底部：画布 Agent 指令面板 ——
-export function AgentPanel({ text, onTextChange, busy, mode, onModeChange, onRun, reply, applied, skipped, error }) {
+export function AgentPanel({
+  text,
+  onTextChange,
+  busy,
+  mode,
+  onModeChange,
+  onRun,
+  reply,
+  applied,
+  skipped,
+  error,
+  agentModel = "",
+  onAgentModelChange,
+  modelOptions = []
+}) {
   return (
     <div className="aiCanvasAgent">
       <div className="aiCanvasAgentHead"><Bot size={14} /><span>画布 Agent</span></div>
@@ -67,6 +83,20 @@ export function AgentPanel({ text, onTextChange, busy, mode, onModeChange, onRun
         <option value="auto">自动编排：先搭图，再写提示词</option>
         <option value="plan">只搭图</option>
         <option value="prompt">只写提示词</option>
+      </select>
+      {/* 2026-11-01：推理模型可选。默认 gpt-5.6-luna（与服务端兜底同值）；
+          不持久化，重启回到默认值。 */}
+      <select
+        className="aiCanvasAgentMode aiCanvasAgentModel"
+        value={agentModel || ""}
+        disabled={busy}
+        title="选择画布 Agent 用的推理（文本）模型；留空=跟随服务端默认"
+        onChange={(e) => onAgentModelChange?.(e.target.value)}
+      >
+        <option value="">推理模型·跟随</option>
+        {modelOptions.map((model) => (
+          <option key={model.id} value={model.id}>{model.label || model.id}</option>
+        ))}
       </select>
       <textarea
         className="aiCanvasAgentInput"

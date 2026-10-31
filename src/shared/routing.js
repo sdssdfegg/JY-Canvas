@@ -399,6 +399,23 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
   ])
 });
 
+// 画布 Agent 可用的**推理（文本）模型**清单（2026-11-01 新增）。
+//
+// 为什么不走 channelsForModel()：前端渠道目录只下发**图像**模型
+// （tt-image-2 / 2.5 / banana-2 / 2.1 / pro / SD），
+// 文本推理模型不在目录里，所以这里单独维护一份。
+// 只列上游当前仍在提供的模型——实测上游 /v1/models 返回 21 个模型，
+// 原默认 gpt-5.4-mini 已被下线（故 V153 同步把默认值改为 gpt-5.6-luna）。
+//
+// 默认值与服务端 DEFAULT_CANVAS_AGENT_MODEL（server/ai-canvas-agent.js）保持一致；
+// 选择不持久化，每次重启回到默认，避免客户上次选了失效模型后一直卡住。
+export const CANVAS_REASONING_MODELS = Object.freeze([
+  { id: "gpt-5.6-luna", label: "GPT-5.6 Luna（推荐）" },
+  { id: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
+  { id: "gpt-6-luna", label: "GPT-6 Luna" }
+]);
+export const DEFAULT_CANVAS_REASONING_MODEL = "gpt-5.6-luna";
+
 /**
  * 当前模型的可用线路（含价格）。
  * - 旧线路在任何分支都不会出现。
