@@ -9,7 +9,7 @@
 // 这些组件只依赖传入的 props，不共享父组件的可变闭包，因此搬出来语义零变化。
 import { Button } from "../../shared/ui/Button";
 import { versionSummary } from "./ai-canvas-versions.js";
-import { ASPECT_RATIO_OPTIONS, IMAGE_SIZE_OPTIONS } from "./ai-canvas-params.js";
+import { ASPECT_RATIO_OPTIONS, IMAGE_SIZE_OPTIONS, resolveGenerationParams } from "./ai-canvas-params.js";
 // 2026-11-01：画布 Agent 的推理（文本）模型清单（含默认值）。
 import { CANVAS_REASONING_MODELS, DEFAULT_CANVAS_REASONING_MODEL } from "../../shared/routing.js";
 import { isOutfitKind, getNodeDef } from "./ai-canvas-nodes.js";
@@ -139,9 +139,11 @@ export function WorkflowStatus({ workflow }) {
 
 // —— 节点体：按类型渲染内容 ——
 // 生成节点带模型 / 提示词 / 执行按钮；图片与结果节点出图；提示词节点可双击编辑。
-export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGeneration, onSelectVersion, models = [] }) {
+export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGeneration, onSelectVersion, models = [], settings = null }) {
   if (node.type === "generation") {
     const versions = versionSummary(node.data);
+    // 三级优先级解析（节点 > 设置 > 内置默认）后的实际生效参数。
+    const resolved = resolveGenerationParams(node, settings);
     return (
       <div className="aiCanvasGenBody">
         {/* 2026-11-01：模型原来是裸 <input>（只能手打模型名，新建时还是空的，
@@ -164,6 +166,12 @@ export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGenera
           value={node.data.prompt || ""}
           onChange={(e) => onUpdateData(node.id, { prompt: e.target.value })}
         />
+        {/* 2026-11-01：显示实际生效参数。下拉选「跟随」时空值看不出会用哪个，
+            这里把解析后的结果直接显示出来；复用节点内已有的小号次要文本样式，
+            不新增任何 CSS 规则。 */}
+        <span className="aiCanvasGenVersionText">
+          实际：{resolved.model} · {resolved.imageSize} · {resolved.aspectRatio}
+        </span>
         <div className="aiCanvasGenParams">
           <select
             className="aiCanvasGenSelect"

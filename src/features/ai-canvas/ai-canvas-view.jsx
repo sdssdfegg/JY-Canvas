@@ -491,6 +491,10 @@ export function AiCanvasView() {
   const workflowRunning = workflow?.state === "running";
 
   // —— 渲染 ——
+  // 2026-11-01：生成节点要显示「实际生效参数」——下拉留空=跟随设置时，
+  // 用户看不出最终会用哪个模型/尺寸/比例，故用三级优先级解析出实际值。
+  const genSettings = readJySettings();
+
   return (
     <div className="aiCanvasRoot">
       <div className="aiCanvasToolbar">
@@ -636,6 +640,7 @@ export function AiCanvasView() {
                         onRunGeneration={runGeneration}
                         onSelectVersion={actions.selectVersion}
                         models={canvasModels}
+                        settings={genSettings}
                       />
                     </div>
 
