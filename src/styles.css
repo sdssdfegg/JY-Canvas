@@ -1734,22 +1734,36 @@ textarea:focus {
   text-transform: uppercase;
 }
 
+/* 渠道入口容器：默认「流式」基础形态（2026-10-31 统一视觉改造）。
+   原先这里写死 position:absolute —— 那其实只是给 .detailFormHeader 标题行用的
+   （零高度挂载，所以不改变参数区行高）。但共享组件不该内置某个页面的定位假设：
+   批量生成要把它放进 .rightTools 那一排 select 的文档流里，absolute 会让它
+   脱离文档流、浮到右边缘并与相邻 select 重叠。因此把绝对定位下沉到具体容器
+   作用域（见下方 .detailFormHeader .channelPicker），组件本身恢复可复用的流式形态。 */
 .channelPicker {
-  position: absolute;
-  top: 50%;
-  right: 0;
+  position: relative;
   z-index: 6;
-  display: flex;
+  display: inline-flex;
   flex-direction: row-reverse;
   align-items: center;
   gap: 6px;
+}
+
+/* 一键详情 / 参考生图：仍绝对定位挂在标题行右侧，不改变参数区高度，
+   观感与 2026-09-26 那版完全一致（回归保护）。 */
+.detailFormHeader .channelPicker {
+  position: absolute;
+  top: 50%;
+  right: 0;
   transform: translateY(-50%);
 }
 
 /* 圆钮：颜色 / 边框 / 背景与快捷生成右上角「线路价格」`.quickToolButton.channelPriceButton` 完全一致
    （金色 #fbbf24 = 当前渠道；hover 转白；展开时金色描边 + 金色淡底）。
    尺寸 22px：正好收在参数区标题行里，不改变参数区高度。
-   批量页的渠道入口保持原来的下拉框样式，用的是 outfit-workflow.css 里的 `.channelSelect`，不走这里。 */
+   2026-10-31：批量生成的渠道入口已从原生下拉换成同一个共享 ChannelPicker
+   （原 outfit-workflow.css 的 .channelSelect 随之删除），所以现在快捷生成 /
+   一键详情 / 参考生图 / 批量生成四处共用这一个圆钮 + 同一份浮层观感。 */
 .channelPickerTrigger {
   display: inline-flex;
   align-items: center;

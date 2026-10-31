@@ -10,6 +10,8 @@ import { OutfitIntentPanel } from "./OutfitIntentPanel.jsx";
 import { RetouchIntentPanel } from "./RetouchIntentPanel.jsx";
 import { OutfitPageRow } from "./OutfitPageRow.jsx";
 import { Button } from "../../../shared/ui/Button";
+// 2026-10-31：渠道入口改用共享 ChannelPicker，与快捷生成 / 一键详情 / 参考生图同一套浮层视觉。
+import ChannelPicker from "../../../shared/ui/ChannelPicker.jsx";
 import { MAX_UPLOAD_IMAGES } from "../outfit-image-utils.js";
 import { UploadZone } from "./OutfitUploadZone.jsx";
 import { RECOLOR_PART_OPTIONS } from "../outfit-top.js";
@@ -445,35 +447,21 @@ export default function OutfitComposer({
           {models.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
         </select>
         {/* 线路选择：请求必须带 canonical channelId；旧线路不会出现在这里，服务端也会拒绝。
-            2026-09-26：批量页保持原来的下拉框样式（和旁边模型/比例/尺寸同级），
-            只让"当前选中的渠道"用快捷生成那套金色 #fbbf24 显示，其余样式不变。 */}
-        <select
-          className="channelSelect"
-          value={outfitChannels.some((channel) => channel.id === settings.channelId) ? settings.channelId : (outfitChannels[0]?.id || "")}
-          onChange={(event) => updateSetting("channelId", event.target.value)}
-          title="当前模型的可用线路"
-        >
-          {/* 2026-10-31 修复：原先用 <optgroup label="\xa0"> 把官方/其他分两组，
-              原生 select 的 optgroup 标题行不被 option 选择器覆盖，走系统默认浅/白底，
-              在暗色弹层里渲染成顶部白条（V145 引入、本次复发）。改为扁平 option 列表：
-              官方仍在最前、仍上绿色，其余按原顺序，整列暗底无白条（恢复 V145 前观感）。 */}
-          {(() => {
-            const official = outfitChannels.filter((channel) => channel.official);
-            const others = outfitChannels.filter((channel) => !channel.official);
-            const ordered = [...official, ...others];
-            return ordered.map((channel) => (
-              // 原生 select 的 option 着色浏览器支持有限（Chrome 生效、部分浏览器忽略），
-              // 这里尽力给官方渠道上绿色（与 CSS 的官方绿一致，避开默认金色），忽略时降级为默认色。
-              <option
-                key={channel.id}
-                value={channel.id}
-                style={channel.official ? { color: "#22c55e" } : undefined}
-              >
-                {channel.label}{Number(channel.price || 0) > 0 ? ` ¥${Number(channel.price).toFixed(2)}/张` : ""}
-              </option>
-            ));
-          })()}
-        </select>
+            2026-10-31（统一视觉）：这里原先是原生 <select className="channelSelect">——
+            它跟快捷生成的浮层渠道菜单不是同一套观感，且 option 的分组/着色一直踩系统默认底色
+            的坑（V145 顶部白条、本次又复发）。现改为共享 ChannelPicker：浮层复用
+            .quickChannelMenu / .quickChannelItem，与快捷生成 / 一键详情 / 参考生图完全一致；
+            官方渠道依旧专属色且排在最前。
+            渠道列表直接复用父层算好的 outfitChannels（同一份 channelsForModel 结果），
+            不在本组件内重算，避免两处口径漂移。 */}
+        <ChannelPicker
+          className="outfitChannelPicker"
+          model={settings.model}
+          modelLabel={(models.find((item) => item.value === settings.model) || {}).label || settings.model}
+          channelId={settings.channelId}
+          channels={outfitChannels}
+          onChange={(nextChannelId) => updateSetting("channelId", nextChannelId)}
+        />
         <select value={settings.aspectRatio} onChange={(event) => updateSetting("aspectRatio", event.target.value)}>
           {ratios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
         </select>
