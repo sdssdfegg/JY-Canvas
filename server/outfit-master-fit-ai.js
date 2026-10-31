@@ -9,7 +9,7 @@ import {
 } from "../src/shared/outfit-intent.js";
 import { asText, compactPreserveNewlines, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
-const DEFAULT_OUTFIT_MASTER_FIT_MODEL = "gpt-5.4-mini";
+const DEFAULT_OUTFIT_MASTER_FIT_MODEL = "gpt-5.6-luna"; // 2026-11-01 上游已下线 gpt-5.4-mini
 const MASTER_FIT_MODEL_SPEC = { fields: ["outfitMasterFitModel", "outfitPoseModel", "detailAnalysisModel", "textModel"], fallback: DEFAULT_OUTFIT_MASTER_FIT_MODEL };
 const OUTFIT_MASTER_FIT_TIMEOUT_MS = 60000;
 

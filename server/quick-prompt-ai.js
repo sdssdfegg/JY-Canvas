@@ -1,7 +1,7 @@
 import { createAbortSignal } from "./core/http-client.js";
 import { asText, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
-const DEFAULT_QUICK_PROMPT_MODEL = "gpt-5.4-mini";
+const DEFAULT_QUICK_PROMPT_MODEL = "gpt-5.6-luna"; // 2026-11-01 上游已下线 gpt-5.4-mini
 const QUICK_MODEL_SPEC = { fields: ["detailAnalysisModel", "quickPromptModel", "textModel"], fallback: DEFAULT_QUICK_PROMPT_MODEL };
 const QUICK_PROMPT_TIMEOUT_MS = 90000;
 const MAX_QUICK_PROMPT_IMAGE_COUNT = 6;

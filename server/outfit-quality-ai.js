@@ -1,7 +1,7 @@
 import { createAbortSignal } from "./core/http-client.js";
 import { asText, compactPreserveNewlines, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
-const DEFAULT_OUTFIT_QUALITY_MODEL = "gpt-5.4-mini";
+const DEFAULT_OUTFIT_QUALITY_MODEL = "gpt-5.6-luna"; // 2026-11-01 上游已下线 gpt-5.4-mini
 const QUALITY_MODEL_SPEC = { fields: ["outfitQualityModel", "outfitMasterFitModel", "outfitPoseModel", "detailAnalysisModel", "textModel"], fallback: DEFAULT_OUTFIT_QUALITY_MODEL };
 const OUTFIT_QUALITY_TIMEOUT_MS = 75000;
 

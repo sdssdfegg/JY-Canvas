@@ -125,7 +125,7 @@ const DEFAULT_MAX_REFERENCE_FILES = 5;
 // 局部回贴可选比例。2026-09-25：补上 2:3 —— 局部回贴选框必须能锁定到用户选的比例，
 // 而 2:3 是竖版服装图最常用的比例之一，之前不在列表里会被回落到 1:1。
 const QUICK_LOCAL_EDIT_RATIOS = ["1:1", "2:3", "3:4", "4:3", "16:9", "9:16"];
-const DETAIL_ANALYSIS_MODEL = "gpt-5.4-mini";
+const DETAIL_ANALYSIS_MODEL = "gpt-5.6-luna"; // 2026-11-01 上游已下线 gpt-5.4-mini
 
 
 

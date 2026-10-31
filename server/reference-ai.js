@@ -2,7 +2,7 @@ import { createAbortSignal } from "./core/http-client.js";
 import { renderReferencePolicy, NO_REFERENCE_NOTE } from "../src/shared/reference-policy.js";
 import { asText, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 
-const DEFAULT_REFERENCE_TEXT_MODEL = "gpt-5.4-mini";
+const DEFAULT_REFERENCE_TEXT_MODEL = "gpt-5.6-luna"; // 2026-11-01 上游已下线 gpt-5.4-mini
 const REFERENCE_MODEL_SPEC = { fields: ["detailAnalysisModel", "referenceTextModel", "textModel"], fallback: DEFAULT_REFERENCE_TEXT_MODEL };
 const REFERENCE_REWRITE_TIMEOUT_MS = 90000;
 const MAX_REFERENCE_AI_IMAGE_COUNT = 8;

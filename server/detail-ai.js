@@ -10,7 +10,7 @@ import {
 import { clamp, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 import { buildSkillPackV2, resolveDetailSkillVersion } from "./detail-skills-v2.js";
 
-const DEFAULT_DETAIL_ANALYSIS_MODEL = "gpt-5.4-mini";
+const DEFAULT_DETAIL_ANALYSIS_MODEL = "gpt-5.6-luna"; // 2026-11-01 上游已下线 gpt-5.4-mini
 const DETAIL_MODEL_SPEC = { fields: ["detailAnalysisModel", "textModel"], fallback: DEFAULT_DETAIL_ANALYSIS_MODEL };
 const DETAIL_ANALYSIS_TIMEOUT_MS = 120000;
 const MAX_AI_IMAGE_COUNT = 10;

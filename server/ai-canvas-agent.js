@@ -26,7 +26,7 @@ import {
   shouldRetryWithoutJsonFormat
 } from "./core/ai-chat-shared.js";
 
-const DEFAULT_CANVAS_AGENT_MODEL = "gpt-5.4-mini";
+const DEFAULT_CANVAS_AGENT_MODEL = "gpt-5.6-luna"; // 2026-11-01 上游已下线 gpt-5.4-mini
 const CANVAS_AGENT_MODEL_SPEC = { fields: ["agentModel"], fallback: DEFAULT_CANVAS_AGENT_MODEL };
 const CANVAS_AGENT_TIMEOUT_MS = 45000;
 const MAX_ACTIONS = 12;
