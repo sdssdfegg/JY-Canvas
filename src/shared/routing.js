@@ -377,6 +377,8 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     { id: "silent-tt25-line-10", label: "LY满血版", price: 0.14, official: true },
     // 2026-10-30 改名：LK满血版-1K → LK-1K（上游 api.lk888.ai，仅 1K，价格 0.12），优质渠道第二组。
     { id: "silent-tt25-line-11", label: "LK-1K", price: 0.12, sizes: ["1K"], quality: ["auto", "low", "medium"], official: true },
+    // 2026-10-31：TT2.5 laoye（silent-tt25-line-12，¥0.08，老夜 TT25 特价 KEY；与 server/channel-config.js 同源同步）。
+    { id: "silent-tt25-line-12", label: "laoye", price: 0.08 },
     // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，与 laoye 同价，排最后。
     { id: "silent-tt25-line-09", label: "云枢高质量", price: 0.14 }
   ]),

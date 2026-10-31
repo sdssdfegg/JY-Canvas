@@ -42,3 +42,28 @@ if (offset < 0) {
 
 console.log(`图标指纹命中，exe 内偏移：${offset}`);
 console.log("PASS 图标已注入");
+
+// ---- 子系统检查：必须是 GUI(2)，不能是 CONSOLE(3) ----
+// 背景：本发布包是 Node SEA 单文件 exe（基于 node.exe 复制，默认控制台子系统），
+// 若是控制台子系统，运行后任务栏/窗口会显示黑色控制台框图标并弹出黑色控制台窗口。
+// secure-win-release.mjs 在 Windows 构建时会把子系统从 3 改成 2；这里兜底校验，防止回归。
+function readPeSubsystem(exeBuf) {
+  if (exeBuf.length < 0x68 || exeBuf.readUInt16LE(0) !== 0x5A4D) return null; // 非 MZ 头（非 PE）
+  const peOff = exeBuf.readUInt32LE(0x3C);
+  const optOff = peOff + 4 + 20;
+  if (exeBuf.length < optOff + 0x48) return null;
+  if (exeBuf.toString("ascii", peOff, peOff + 4) !== "PE\0\0") return null;
+  const magic = exeBuf.readUInt16LE(optOff);
+  if (magic !== 0x10b && magic !== 0x20b) return null;
+  return exeBuf.readUInt16LE(optOff + 0x44);
+}
+
+const subsystem = readPeSubsystem(exeBytes);
+if (subsystem === null) {
+  console.log("SKIP 子系统检查：当前 exe 不是可识别的 PE 文件（可能非 Windows 平台产物），跳过");
+} else if (subsystem === 2) {
+  console.log("PASS 子系统 = GUI(2)：任务栏/窗口显示软件图标，无黑色控制台框");
+} else {
+  fail(`子系统 = ${subsystem}（非 GUI）。期望 GUI(2)。运行后任务栏会显示黑色控制台框；请确认 secure-win-release.mjs 的 patchPeSubsystemToGui 步骤已执行。`);
+}
+

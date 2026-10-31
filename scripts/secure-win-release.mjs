@@ -1,6 +1,6 @@
 import JavaScriptObfuscator from "javascript-obfuscator";
 import { build as esbuild } from "esbuild";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -84,6 +84,52 @@ function run(command, args, options = {}) {
       else reject(new Error(`${command} ${args.join(" ")} exited with ${code}`));
     });
   });
+}
+
+/**
+ * 把 Windows PE32/PE32+ 可执行文件的「子系统」从控制台(CUI=3)改为图形界面(GUI=2)。
+ *
+ * 为什么必须做这一步（2026-10-31）：本发布包是 Node SEA 单文件 exe —— 由 node.exe 复制而来，
+ * 默认是控制台子系统。运行时 Windows 会在任务栏/窗口显示黑色控制台框图标，并弹出黑色控制台窗口。
+ * rcedit 只改了「文件图标资源」和版本信息，改不了子系统；只有把子系统改成 GUI，任务栏才会采用
+ * exe 内嵌的 app-avatar.ico（软件图标），且不再弹黑色控制台框。
+ *
+ * 仅 Windows 构建执行（process.platform==="win32"）；其它平台产物不碰。
+ * 偏移：DOS 头 0x3C → PE 签名 → +4(COFF 头, 20B) → 可选头；Subsystem 字段在可选头 +0x44
+ * （PE32 与 PE32+ 偏移相同）。
+ */
+function patchPeSubsystemToGui(filePath) {
+  const buf = readFileSync(filePath);
+  if (buf.length < 0x68 || buf.readUInt16LE(0) !== 0x5A4D) {
+    throw new Error(`不是合法的 PE 文件（缺少 MZ 头）：${filePath}`);
+  }
+  const peOffset = buf.readUInt32LE(0x3C);
+  const optHeaderOffset = peOffset + 4 + 20;
+  if (buf.length < optHeaderOffset + 0x48) {
+    throw new Error(`PE 文件结构异常（可选头越界）：${filePath}`);
+  }
+  const signature = buf.toString("ascii", peOffset, peOffset + 4);
+  if (signature !== "PE\0\0") {
+    throw new Error(`PE 签名缺失：${filePath}`);
+  }
+  const magic = buf.readUInt16LE(optHeaderOffset);
+  if (magic !== 0x10b && magic !== 0x20b) {
+    throw new Error(`未知可选头 Magic 0x${magic.toString(16)}：${filePath}`);
+  }
+  const subsystemOffset = optHeaderOffset + 0x44;
+  const current = buf.readUInt16LE(subsystemOffset);
+  const GUI = 2;
+  const CUI = 3;
+  if (current === GUI) {
+    console.log("  exe 已是 GUI 子系统，无需修改");
+    return;
+  }
+  if (current !== CUI) {
+    throw new Error(`当前子系统值 ${current} 非预期（期望 2 或 3），中止以免破坏 exe`);
+  }
+  buf.writeUInt16LE(GUI, subsystemOffset);
+  writeFileSync(filePath, buf);
+  console.log("  已将 exe 子系统由 控制台(3) 改为 GUI(2)：任务栏/窗口将显示软件图标，不再弹黑色控制台框");
 }
 
 async function walkFiles(dir) {
@@ -369,6 +415,13 @@ if (existsSync(postjectCli)) {
   await run(localBin("postject"), postjectArgs);
 }
 
+console.log("7.9/8 把 exe 从控制台子系统改为 GUI 子系统（消除任务栏黑色控制台框）");
+if (process.platform === "win32") {
+  patchPeSubsystemToGui(releaseExe);
+} else {
+  console.log("  非 Windows 平台，跳过（不影响其它平台产物）");
+}
+
 console.log("8/8 Write release notes and checksum");
 const exeInfo = await stat(releaseExe);
 const hash = await sha256(releaseExe);
@@ -561,7 +614,7 @@ await writeFile(path.join(releaseDir, "使用说明.txt"), `\uFEFF${[
   `大小：${(exeInfo.size / 1024 / 1024).toFixed(2)} MB`,
   "",
   "使用方法：",
-  `1. 双击 ${exeName} 启动软件；弹出的黑色运行框可以最小化，但不要关闭。`,
+  `1. 双击 ${exeName} 启动软件；启动后任务栏显示软件图标（不会有黑色控制台窗口）。`,
   "2. 打开 https://api.jingyin.online/ 注册账号。",
   "3. 联系管理员兑换算力：15871470202（手机微信同号）。",
   "4. 回到软件前端服务器页面，填写自己的 KEY 后即可使用。",

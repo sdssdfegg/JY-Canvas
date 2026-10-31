@@ -172,6 +172,13 @@ const ROUTING_CHANNELS = Object.freeze([
   { id: "silent-tt25-line-11", label: "LK-1K", price: 0.12, model: "tt-image-2.5", sizes: ["1K"], quality: ["auto", "low", "medium"], official: true },
   // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，与 laoye 同价，排最后。
   { id: "silent-tt25-line-09", label: "云枢高质量", price: 0.14, model: "tt-image-2.5" },
+  // 2026-10-31：TT2.5 新增「laoye」——老夜同上游（api.luckfill.com）的 TT25 特价 KEY 专跑低价，
+  //   上游模型 gpt-image-2.5-flare/sunburst；154 适配器 publicId=silent-tt25-line-12
+  //   （见 /opt/jingyin-silent-gpt-image-adapter/provider_families.json 的 silent-tt25-laoye-2），
+  //   KEY 仅存适配器 env（LK888_SILENT_LAOYE_TT25_API_KEY），前端与源码零 KEY。
+  //   前端 ¥0.08/张（最便宜的 TT2.5；非官方、不抢默认线路，默认仍 LY满血版 line-10）。
+  //   注：luckfill「image2.5全参」分组当前对三把钥匙全 503，待上游恢复即生效，前端先就位。
+  { id: "silent-tt25-line-12", label: "laoye", price: 0.08, model: "tt-image-2.5" },
   // 香蕉 2：展示用户指定的四条线路（云枢 / Subdirect / Origin / laoye），统一 ¥0.12/张。
   // 2026-10-20：laoye 由「同价位排第一（默认线路）」改为「同价位排最后」，默认线路让给云枢。
   // 数组顺序就是前端菜单顺序（channelsForModel 按白名单顺序输出），不要重排。
