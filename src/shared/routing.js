@@ -356,8 +356,8 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     { id: "silent-tt2-line-01", label: "MC-TT-cf", price: 0.11 },
     { id: "silent-tt2-line-02", label: "XT2", price: 0.11 },
     { id: "silent-tt2-line-09", label: "速创", price: 0.11 },
-    // 2026-10-09：2.0 模型新增 Subdirect 渠道（与 server/channel-config.js 的 ROUTING_CHANNELS 保持一致）。
-    { id: "silent-tt2-line-13", label: "Subdirect", price: 0.11 }
+    // 2026-10-31：2.0 的 Subdirect（silent-tt2-line-13，原 127.0.0.1:3019 子代理未起→死）按用户“留一个”已删除；
+    // 2.5 的 Subdirect 修复为真实上游（见下方 silent-tt25-line-07 / sub）。
   ]),
   "tt-image-2.5": Object.freeze([
     // 2026-10-11（晚）：TT2.5 渠道按价格低→高排列；vakv 质量差 2026-10-20 同价位排最后。
@@ -367,9 +367,9 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     { id: "silent-tt25-line-02", label: "XT-特殊分组", price: 0.1 },
     { id: "silent-tt25-line-03", label: "XT-default", price: 0.1 },
     { id: "silent-tt25-line-08", label: "vakv", price: 0.1 },
-    // 2026-09-28：新增 Subdirect（上游 subdirect.aicodexvip.top，OpenAI-images 协议，
-    // 上游模型 gpt-image-2.5-flare / gpt-image-2.5-sunburst）。价格 ¥0.11。
-    { id: "silent-tt25-line-07", label: "Subdirect", price: 0.11 },
+    // 2026-10-31：Subdirect 改名 sub、价格 ¥0.12（真实上游 subdirect.aicodexvip.top；原 127.0.0.1:3019 子代理未起→死已修；
+    // 2.0 的 silent-tt2-line-13 按用户“留一个”已删除，与 server/channel-config.js 的 ROUTING_CHANNELS 同源同步）。
+    { id: "silent-tt25-line-07", label: "sub", price: 0.12 },
     { id: "silent-tt25-line-04", label: "BR-default特价", price: 0.12 },
     // 2026-10-29：laoye满血版（¥0.14，老夜 image2.5全参 分组，官方 OpenAI images 协议，支持全参 incl MAX quality）。
     //   默认渠道由 MODEL_DEFAULT_CHANNEL 覆盖实现（channelId 为空时 defaultChannelForModel 返回 silent-tt25-line-10），
