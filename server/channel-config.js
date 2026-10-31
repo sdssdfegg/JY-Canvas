@@ -144,8 +144,9 @@ const ROUTING_CHANNELS = Object.freeze([
   { id: "silent-tt2-line-01", label: "MC-TT-cf", price: 0.11, model: "tt-image-2" },
   { id: "silent-tt2-line-02", label: "XT2", price: 0.11, model: "tt-image-2" },
   { id: "silent-tt2-line-09", label: "速创", price: 0.11, model: "tt-image-2" },
-  // 2026-10-31：2.0 的 Subdirect（silent-tt2-line-13，原 127.0.0.1:3019 子代理未起→死）按用户“留一个”已删除；
-  // 2.5 的 Subdirect 修复为真实上游（见下方 silent-tt25-line-07 / sub）。
+  // 2026-10-31：2.0 的 Subdirect 复活（silent-tt2-line-13）→ 复用 2.5 sub 同一上游 subdirect.aicodexvip.top + 同一把 KEY；
+  //   上游模型 gpt-image-2（/v1/models 已确认支持），对客 ¥0.12。2.5 的 Subdirect 改名 sub、价格 ¥0.13（见下方 silent-tt25-line-07）。
+  { id: "silent-tt2-line-13", label: "sub", price: 0.12, model: "tt-image-2" },
 
   // 2026-10-11（晚）：TT2.5 渠道按价格低→高排列；vakv 质量差 2026-10-20 同价位排最后。
   { id: "silent-tt25-line-05", label: "云枢", price: 0.10, model: "tt-image-2.5" },
@@ -154,9 +155,9 @@ const ROUTING_CHANNELS = Object.freeze([
   { id: "silent-tt25-line-02", label: "XT-特殊分组", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-03", label: "XT-default", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-08", label: "vakv", price: 0.1, model: "tt-image-2.5" },
-  // 2026-10-31：Subdirect 改名 sub、价格 ¥0.12（真实上游 subdirect.aicodexvip.top；原 127.0.0.1:3019 子代理未起→死已修；
-  // 2.0 的 silent-tt2-line-13 按用户“留一个”已删除，与服务器 provider_families.json 的 silent-tt25-line-07 同源同步）。
-  { id: "silent-tt25-line-07", label: "sub", price: 0.12, model: "tt-image-2.5" },
+  // 2026-10-31：Subdirect 改名 sub、价格 ¥0.13（真实上游 subdirect.aicodexvip.top；原 127.0.0.1:3019 子代理未起→死已修；
+  // 2.0 的 silent-tt2-line-13 复活为 sub 2.0 ¥0.12，与服务器 provider_families.json 同源同步）。
+  { id: "silent-tt25-line-07", label: "sub", price: 0.13, model: "tt-image-2.5" },
   { id: "silent-tt25-line-04", label: "BR-default特价", price: 0.12, model: "tt-image-2.5" },
   // 2026-10-29：TT2.5 默认渠道改为「laoye满血版」（¥0.14，老夜 image2.5全参 分组，官方 OpenAI images 协议，支持全参 incl MAX quality）。2026-10-30 按用户要求改名 →「LY满血版」。
   //   默认渠道不再靠「列表置顶」实现（否则破坏价格升序规约），改由 routing.js 的 MODEL_DEFAULT_CHANNEL 覆盖：

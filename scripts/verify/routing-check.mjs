@@ -420,13 +420,13 @@ for (const [id, label] of [["silent-tt25-line-01", "XT-image2-s"], ["silent-tt25
   check(`2.5 的 ${label} 通过服务端路由校验`, result2.ok === true, result2.code);
 }
 
-// 2026-10-31 修复：TT Image 2.5 Subdirect 改名 sub（¥0.12，真实上游 subdirect.aicodexvip.top；
-//   原 baseUrl=127.0.0.1:3019 子代理未起→死已修；2.0 的 silent-tt2-line-13 按用户“留一个”已删除）
+// 2026-10-31 修复：TT Image 2.5 Subdirect 改名 sub（¥0.13，真实上游 subdirect.aicodexvip.top；
+//   原 baseUrl=127.0.0.1:3019 子代理未起→死已修；2.0 的 silent-tt2-line-13 复活为 sub 2.0 ¥0.12）
 const TT25_SUBDIRECT_ID = "silent-tt25-line-07";
 {
   const found = tt25Channels.find((item) => item.id === TT25_SUBDIRECT_ID);
-  check("2.5 目录里显示 sub（¥0.12）",
-    Boolean(found) && found.label === "sub" && Number(found.price) === 0.12,
+  check("2.5 目录里显示 sub（¥0.13）",
+    Boolean(found) && found.label === "sub" && Number(found.price) === 0.13,
     JSON.stringify(found || null));
   check("2.5 默认线路 = 覆盖指定(laoye满血版 line-10)，价格升序仍在，sub 在列",
     tt25Channels.length > 0
@@ -450,6 +450,36 @@ const TT25_SUBDIRECT_ID = "silent-tt25-line-07";
     });
     const crossResult = channelModule.validateImageRouting(cross);
     check(`${other} 带上 2.5 sub 的 channelId 被服务端拒绝`,
+      crossResult.ok === false,
+      crossResult.code);
+  }
+}
+
+// 2026-10-31：TT Image 2.0 sub（¥0.12，真实上游 subdirect.aicodexvip.top，复用 2.5 sub 同一把 KEY，上游模型 gpt-image-2）
+const TT2_SUBDIRECT_ID = "silent-tt2-line-13";
+{
+  const found = tt2Channels.find((item) => item.id === TT2_SUBDIRECT_ID);
+  check("2.0 目录里显示 sub（¥0.12）",
+    Boolean(found) && found.label === "sub" && Number(found.price) === 0.12,
+    JSON.stringify(found || null));
+  const params = channelModule.normalizeImageRequest({
+    model: "tt-image-2", channelId: TT2_SUBDIRECT_ID, prompt: "x", imageSize: "2K", aspectRatio: "3:4"
+  });
+  const result = channelModule.validateImageRouting(params);
+  check("2.0 的 sub 通过服务端路由校验", result.ok === true, result.code);
+  check("2.0 的 sub 请求带 dispatchMode=manual + 正确 model",
+    params.channelId === TT2_SUBDIRECT_ID && params.model === "tt-image-2" && params.dispatchMode === "manual",
+    JSON.stringify({ model: params.model, channelId: params.channelId, dispatchMode: params.dispatchMode }));
+  for (const other of ["banana-2", "nano-banana-pro", "tt-image-2.5"]) {
+    const rows = routingModule.channelsForModel(other, catalog);
+    check(`2.0 的 sub 不出现在 ${other} 菜单里`,
+      !rows.some((item) => item.id === TT2_SUBDIRECT_ID),
+      JSON.stringify(rows.map((item) => item.id)));
+    const cross = channelModule.normalizeImageRequest({
+      model: other, channelId: TT2_SUBDIRECT_ID, prompt: "x", imageSize: "2K", aspectRatio: "3:4"
+    });
+    const crossResult = channelModule.validateImageRouting(cross);
+    check(`${other} 带上 2.0 sub 的 channelId 被服务端拒绝`,
       crossResult.ok === false,
       crossResult.code);
   }
