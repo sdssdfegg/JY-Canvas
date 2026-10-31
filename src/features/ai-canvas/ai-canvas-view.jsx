@@ -64,6 +64,22 @@ export function AiCanvasView() {
   // 导入 / 导出的结果提示（成功与失败都要让用户看见）
   const [notice, setNotice] = useState("");
   const [noticeIsError, setNoticeIsError] = useState(false);
+  // 2026-11-01：运行时渠道目录里带模型清单，生成节点的模型下拉直接用它，
+  // 与快捷生成 / 批量生成 / 一键详情同一个数据源，不在画布里另建一份模型清单。
+  const [canvasModels, setCanvasModels] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const config = await fetchJyConfig();
+        const routing = config?.routing || config || {};
+        if (alive) setCanvasModels(Array.isArray(routing.models) ? routing.models : []);
+      } catch {
+        if (alive) setCanvasModels([]);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
 
   // 用 ref 持有最新视口 / 当前项目，供 window 级监听器读取（避免监听器身份随渲染变化导致泄漏）。
   const viewportRef = useRef(viewport);
@@ -611,6 +627,7 @@ export function AiCanvasView() {
                         onUpdateData={actions.updateNodeData}
                         onRunGeneration={runGeneration}
                         onSelectVersion={actions.selectVersion}
+                        models={canvasModels}
                       />
                     </div>
 

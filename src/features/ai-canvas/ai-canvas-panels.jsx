@@ -109,17 +109,25 @@ export function WorkflowStatus({ workflow }) {
 
 // —— 节点体：按类型渲染内容 ——
 // 生成节点带模型 / 提示词 / 执行按钮；图片与结果节点出图；提示词节点可双击编辑。
-export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGeneration, onSelectVersion }) {
+export function NodeBody({ node, isEditing, onEndEdit, onUpdateData, onRunGeneration, onSelectVersion, models = [] }) {
   if (node.type === "generation") {
     const versions = versionSummary(node.data);
     return (
       <div className="aiCanvasGenBody">
-        <input
-          className="aiCanvasGenModel"
-          placeholder="模型(空=用设置默认)"
+        {/* 2026-11-01：模型原来是裸 <input>（只能手打模型名，新建时还是空的，
+            用户无从选择）。改为下拉，选项来自运行时渠道目录 config.routing.models，
+            与快捷生成 / 批量生成 / 一键详情同一个数据源；保留「跟随设置」= 空值兜底。 */}
+        <select
+          className="aiCanvasGenModel aiCanvasGenSelect"
+          title="出图模型（空=跟随设置默认）"
           value={node.data.model || ""}
           onChange={(e) => onUpdateData(node.id, { model: e.target.value })}
-        />
+        >
+          <option value="">模型·跟随</option>
+          {models.map((model) => (
+            <option key={model.id} value={model.id}>{model.label || model.id}</option>
+          ))}
+        </select>
         <textarea
           className="aiCanvasGenPrompt"
           placeholder="提示词（也可连一个提示词节点）"
