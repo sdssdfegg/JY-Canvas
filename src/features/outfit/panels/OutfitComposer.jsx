@@ -453,33 +453,25 @@ export default function OutfitComposer({
           onChange={(event) => updateSetting("channelId", event.target.value)}
           title="当前模型的可用线路"
         >
+          {/* 2026-10-31 修复：原先用 <optgroup label="\xa0"> 把官方/其他分两组，
+              原生 select 的 optgroup 标题行不被 option 选择器覆盖，走系统默认浅/白底，
+              在暗色弹层里渲染成顶部白条（V145 引入、本次复发）。改为扁平 option 列表：
+              官方仍在最前、仍上绿色，其余按原顺序，整列暗底无白条（恢复 V145 前观感）。 */}
           {(() => {
             const official = outfitChannels.filter((channel) => channel.official);
             const others = outfitChannels.filter((channel) => !channel.official);
-            return (
-              <>
-                {official.length > 0 && (
-                  <optgroup label=" ">
-                    {official.map((channel) => (
-                      // 原生 select 的 option 着色浏览器支持有限（Chrome 生效、部分浏览器忽略），
-                      // 这里尽力给官方渠道上绿色（与 CSS 的官方绿一致，避开默认金色），忽略时降级为默认色。
-                      <option key={channel.id} value={channel.id} style={{ color: "#22c55e" }}>
-                        {channel.label}{Number(channel.price || 0) > 0 ? ` ¥${Number(channel.price).toFixed(2)}/张` : ""}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {others.length > 0 && (
-                  <optgroup label=" ">
-                    {others.map((channel) => (
-                      <option key={channel.id} value={channel.id}>
-                        {channel.label}{Number(channel.price || 0) > 0 ? ` ¥${Number(channel.price).toFixed(2)}/张` : ""}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </>
-            );
+            const ordered = [...official, ...others];
+            return ordered.map((channel) => (
+              // 原生 select 的 option 着色浏览器支持有限（Chrome 生效、部分浏览器忽略），
+              // 这里尽力给官方渠道上绿色（与 CSS 的官方绿一致，避开默认金色），忽略时降级为默认色。
+              <option
+                key={channel.id}
+                value={channel.id}
+                style={channel.official ? { color: "#22c55e" } : undefined}
+              >
+                {channel.label}{Number(channel.price || 0) > 0 ? ` ¥${Number(channel.price).toFixed(2)}/张` : ""}
+              </option>
+            ));
           })()}
         </select>
         <select value={settings.aspectRatio} onChange={(event) => updateSetting("aspectRatio", event.target.value)}>
