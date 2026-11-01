@@ -170,6 +170,9 @@ const ORDER = [
   // 逐字段独立回退、脏值当未设置，外加钉桩：选项须与服务端 CHANNEL_IMAGE_SIZES / 模型
   // ratios 一致（服务端对不支持取值是静默降级而非报错，只能在这一侧钉死）。纯逻辑 <1s。
   "ai-canvas-params-check",
+  // V157 后续修复（2026-11-01）：画布生成「结果地址提取」无头验收——钉 images[0] 走 imageSourceFromResult，
+  // 不再误读 first.url（扁平字段恒为 undefined → 抛"图片地址为空"）。纯逻辑 <1s。
+  "ai-canvas-generation-result-check",
   "resize-long-edge-check",
   "generation-error-check",
   "reference-gate-check",
@@ -320,7 +323,9 @@ const FAST_ORDER = [
   "ai-canvas-params-check",
   // V157（2026-11-01）：画布生成节点「属性面板（Inspector）」无头验收——节点只读摘要 +
   // 渠道随模型过滤 + 改动经 resolveGenerationParams 闭环写回；钉桩防"又堆回节点里"倒退（<1s）。
-  "ai-canvas-inspector-check"
+  "ai-canvas-inspector-check",
+  // V157 后续修复（2026-11-01）：画布生成结果地址提取验收（<1s），进 --fast 子集。
+  "ai-canvas-generation-result-check"
 ];
 
 /**

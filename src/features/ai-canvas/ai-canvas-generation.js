@@ -9,6 +9,9 @@ import { readJsonStorage } from "../../lib/storage/json-storage.js";
 import { workflowInputsWithChain } from "./ai-canvas-workflow.js";
 import { resolveGenerationParams } from "./ai-canvas-params.js";
 import { routingFields } from "../../shared/routing.js";
+// 服务端 /api/images 返回的 images 是「图像对象」数组（{type:"url",value} / {type:"b64_json",value}），
+// 不是扁平的 {url} 结构。统一用全 App 共用的 imageSourceFromResult 取真实地址，避免取到 undefined。
+import { imageSourceFromResult } from "../../shared/models.js";
 
 // 与 server IMAGE_UPLOAD_PARSE_CEILING 对齐：最多 6 张输入图。
 const IMAGE_UPLOAD_CEILING = 6;
@@ -117,7 +120,9 @@ export async function runCanvasGeneration({ genNode, imageNodes, promptText, set
     throw new Error("生成完成，但上游未返回图片。");
   }
   const first = images[0] || {};
-  const resultUrl = first.url || (typeof first === "string" ? first : "");
+  // 关键修正（2026-11-01）：服务端返回的是图像对象，必须用 imageSourceFromResult 取地址；
+  // 此前误读 first.url（扁平字段，恒为 undefined）→ 抛"图片地址为空"。保留字符串/兜底以免回归。
+  const resultUrl = imageSourceFromResult(first) || (typeof first === "string" ? first : "") || "";
   if (!resultUrl) {
     throw new Error("生成完成，但图片地址为空。");
   }
