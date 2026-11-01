@@ -2198,12 +2198,14 @@
      （V138 起 workspace 不滚动，滚动只交给内部 outfitScrollArea，而 footer 不在其中）。
      改为 0 1 auto（可收缩）+ min-height:0 + 自身滚动：
      空间足够 → 自然高度铺开、不出现滚动条（保持 V138/2026-09-26 的观感）；
-     空间不足 → 收缩并内部滚动，底部始终可达。 */
+     空间不足 → 收缩，并由内部 .composerBody 承担滚动（见下方规则），
+     底部「生成控制条」随之常驻可见。 */
   flex: 0 1 auto;
   min-height: 0;
   position: relative;
   z-index: 8;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   /* 2026-09-26（按用户反馈）：这一块是"冻结区"，永远贴在底部、不跟着内容滚。
      原来给了 max-height + overflow:auto + scrollbar-gutter:stable，于是右侧同时出现
@@ -2213,12 +2215,26 @@
   margin-top: 10px;
   margin-bottom: 0;
   padding: 10px;
-  overflow-y: auto;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel-bg);
   box-shadow: 0 -14px 28px rgba(0, 0, 0, 0.22);
   scrollbar-gutter: auto;
+}
+
+.outfitWorkflowEmbedded .composerPanel > .assetGrid {
+  flex: 0 0 auto;
+}
+
+/* 2026-11-01（浏览器实测）：空间不足时**只让这一块内部滚动**，
+   从而把底部的 composerStickyControls（换装意图条 + 「生成」按钮 + 状态栏）
+   完整留在视口内。此前是整块 composerPanel 一起滚，用户察觉不到那条内层滚动条，
+   表现为「页面固定、看不到下面」。空间足够时高度为自然高、不出现滚动条。 */
+.outfitWorkflowEmbedded .composerBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .outfitWorkflowEmbedded .outfitViewPanel.active {
@@ -2230,7 +2246,9 @@
 .outfitWorkflowEmbedded .outfitScrollArea {
   order: 2;
   flex: 1 1 auto;
-  min-height: 200px;
+  /* 2026-11-01：200 -> 150。这是**下限**，宽视口下该区仍按 flex:1 1 auto 增长，
+     观感不变；只在视口变矮（浏览器 100% 缩放）时让出 50px 给下方生成控制区。 */
+  min-height: 150px;
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
@@ -2241,6 +2259,7 @@
 
 .outfitWorkflowEmbedded .composerStickyControls {
   display: grid;
+  flex: 0 0 auto;
   gap: 8px;
   margin: 2px -2px -2px;
   padding: 8px 2px 2px;
