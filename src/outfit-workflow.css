@@ -2514,6 +2514,17 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   align-items: stretch;
+  /* 2026-11-01：底部生成控制条常驻可见。
+     背景：布局用 height:100vh（跟随视口），而内容高度按 CSS px 固定——
+     浏览器 100% 缩放时视口变矮（约 900 CSS px），内容超出后底部控制条被推出视野，
+     客户既看不到也点不到「生成」（缩放到 75% 时视口变高才看得到）。
+     改为 sticky 常驻底部：任何视口高度下「生成」都可见可操作，内容区照常滚动。
+     不用 transform:scale 整体缩放——那会让文字模糊、点击坐标错位、可访问性变差。 */
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  background: var(--app-bg);
+  padding: 10px 0 14px;
 }
 
 .outfitWorkflowEmbedded .composerHeader {
