@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-11-01",
-  "reason": "V161（2026-11-01 渠道浮层彻底根治出屏/裁切）：shared/ui/ChannelPicker.jsx 改为 createPortal 渲染到 document.body + position:fixed 精确定位。根因：浮层原挂在 .channelPicker 内，被祖先 .detailPanelScroll(overflow-y:auto)/.detailWorkbench(overflow:hidden) 裁掉，表现为「点开向下展开却看不到内容」（上一版 transform 翻转仍受同一祖先裁切，未根治）。现脱离祖先，由 place() 按视口可用空间算 top/left/maxHeight，下方不够则翻上方，resize/滚动重算。文件 129→约 188（portal + 定位逻辑必要增量）。批量生成页仍用原生下拉，不受影响；本浮层服务一键详情/参考生图。",
+  "reason": "V162 批量页底部参数区统一为视口底固定 dock：outfit-workflow.jsx 增加 switchView 时结果区(.outfitScrollArea)滚动复位逻辑(+11 行)，纯必要布局配套；overBudget 5 项为既有大函数不改",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -112,7 +112,7 @@
     "src/local-edit-mask.js": 1,
     "src/main.jsx": 1575,
     "src/models.js": 1,
-    "src/outfit-workflow.jsx": 1621,
+    "src/outfit-workflow.jsx": 1632,
     "src/shared/annotation-geometry.js": 192,
     "src/shared/app-defaults.js": 154,
     "src/shared/canvas-blob.js": 27,
@@ -266,7 +266,7 @@
     "src/image-editor.jsx::ImageEditorPanel": 835,
     "src/image-editor.jsx::ImageEditorSlot": 54,
     "src/main.jsx::App": 1274,
-    "src/outfit-workflow.jsx::OutfitWorkflow": 1355,
+    "src/outfit-workflow.jsx::OutfitWorkflow": 1366,
     "src/shared/annotation-geometry.js::drawAnnotationOnContext": 63,
     "src/shared/DebouncedTextarea.jsx::DebouncedTextarea": 84,
     "src/shared/generation-errors.js::classifyGenerationError": 52,

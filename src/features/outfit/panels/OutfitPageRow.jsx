@@ -31,7 +31,7 @@ export function OutfitPageRow({
     <div className="composerPageRow">
       {showPromptButton && (
         <div className="leftTools">
-          <Button size="sm" type="button" onClick={() => setIsPromptAssistantOpen(true)}>
+          <Button size="md" type="button" onClick={() => setIsPromptAssistantOpen(true)}>
             <BookOpen size={16} />
             <span>词</span>
           </Button>

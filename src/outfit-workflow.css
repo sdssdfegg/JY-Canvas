@@ -2201,47 +2201,50 @@
 
 .outfitWorkflowEmbedded .composerPanel {
   order: 3;
-  /* 2026-11-01：换装 / 精修改为整页滚动（与其他页面一致）后，底部生成面板
-     不再需要被钉在视口底，回到按内容自然高度铺开（flex:0 0 auto）。 */
+  /* 2026-11-01（用户要求·统一底边）：几个批量页切换时结果区高度可不同，
+     但「下方功能参数区」（上传 + 设置 + 提示词 + 底部按钮）必须始终贴底、等高、布局一致。
+     做法：整块作底部 dock —— flex 列铺满视口底，自身上限 60vh、超出则内部滚动、
+     底部按钮（.composerStickyControls）吸底常驻；上方结果区 flex:1 自滚。 */
   flex: 0 0 auto;
   position: relative;
   z-index: 8;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  gap: 8px;
-  /* 2026-09-26（按用户反馈）：这一块是"冻结区"，永远贴在底部、不跟着内容滚。
-     原来给了 max-height + overflow:auto + scrollbar-gutter:stable，于是右侧同时出现
-     两条滚动条（实测自然高 353px、上限 336px，只差 17px 也照样常驻一条滚动槽）。
-     现在改为按内容自然高度铺开、不产生自己的滚动条 —— 整页只保留主内容区那一条。 */
-  max-height: none;
+  max-height: 60vh;
+  min-height: 0;
   margin-top: 10px;
   margin-bottom: 0;
   padding: 10px;
-  overflow: visible;
+  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel-bg);
   box-shadow: 0 -14px 28px rgba(0, 0, 0, 0.22);
-  scrollbar-gutter: auto;
+  scrollbar-gutter: stable;
 }
 
 
 .outfitWorkflowEmbedded .outfitViewPanel.active {
-  /* 整页滚动：高度随内容，不再锁 100% 并裁切（否则 workspace 滚动条不生效）。 */
-  height: auto;
-  min-height: 100%;
-  overflow: visible;
+  /* 2026-11-01（用户要求·统一底边）：整块 = flex 列铺满视口——
+     结果区 flex:1 自滚、生成面板作底部固定高 dock，保证底部按钮始终贴底、等高、布局一致。 */
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .outfitWorkflowEmbedded .outfitScrollArea {
   order: 2;
-  flex: 0 0 auto;
+  /* 2026-11-01（用户要求·统一底边）：结果区 = 可收缩的自滚区（flex:1），
+     高度随窗口、内容多则内部滚动，不把底部 dock 顶下去。 */
+  flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: visible;
+  overflow-y: auto;
   padding-right: 4px;
-  scrollbar-gutter: auto;
+  scrollbar-gutter: stable;
 }
 
 
@@ -2587,9 +2590,12 @@
 
 /* V77（§3.7）：参数条统一单行不换行——各板块控件数不同（换装 8 / 随机背景 9 …），
    换行行数随板块变化导致窄窗口切换板块时冻结区上下跳动。
-   改为 nowrap + 横向滚动（实现方式：nowrap + overflow-x:auto），冻结区高度与板块无关。 */
+   改为 nowrap + 横向滚动（实现方式：nowrap + overflow-x:auto），冻结区高度与板块无关。
+   2026-11-01（用户要求·统一底边高度）：参数行改用 flex-end 底边对齐，使 44px 的「生成」
+   主按钮与 36px 的下拉 / 切换钮共享同一条底边线，整条工具栏视觉统一。 */
 .outfitWorkflowEmbedded .rightTools {
   flex-wrap: nowrap;
+  align-items: flex-end;
   overflow-x: auto;
   overflow-y: hidden;
 }
@@ -2636,7 +2642,7 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  min-height: var(--control-h-sm);
+  min-height: var(--control-h-md, 36px);
   max-width: 160px;
   padding: 0 11px;
   border-radius: 7px;
@@ -2707,8 +2713,8 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
+  width: var(--control-h-md, 36px);
+  height: var(--control-h-md, 36px);
   padding: 0;
   border-radius: 7px;
 }
@@ -2749,8 +2755,12 @@
   border-color: var(--danger);
 }
 
+/* 2026-11-01（用户要求·统一底边高度）：底部参数下拉与页面 tab / 加锁删除钮统一到
+   --control-h-md(36px) 一档，消除原先 28/32/44 三档混排造成的「不在同一底边高度」。
+   注意：生成主按钮仍用 lg(44px) 作视觉主操作，靠 .rightTools 的 flex-end 底边对齐，
+   与其它 36px 控件共享同一条底边线。 */
 .outfitWorkflowEmbedded .rightTools select {
-  height: 32px;
+  height: var(--control-h-md, 36px);
   min-width: 92px;
   padding: 0 9px;
   border: 1px solid var(--border);
@@ -2986,6 +2996,12 @@
 .outfitWorkflowEmbedded .smartInterventionSwitch.on i b,
 .outfitWorkflowEmbedded .qualityCheckSwitch.on i b {
   transform: translateX(20px);
+}
+
+/* 2026-11-01（用户要求·统一底边）：换装页才有的「本次替换/保持/穿法」摘要行，其余页为空。
+   给它固定最小高，保证底部按钮行在所有批量页处于同一垂直位置（等高一致）。 */
+.outfitWorkflowEmbedded .outfitIntentBar {
+  min-height: 22px;
 }
 
 .outfitWorkflowEmbedded .composerStatus {

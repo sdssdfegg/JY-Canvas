@@ -1179,7 +1179,18 @@ export default function OutfitWorkflow({
       }
     }
     window.requestAnimationFrame(() => {
-      workspaceRef.current?.scrollTo({ top: 0, behavior: "auto" });
+      const root = workspaceRef.current;
+      if (!root) return;
+      // 2026-11-01：换装页结果区改为 .outfitScrollArea 自滚（底部 dock 固定），
+      // 切到换装时把滚动复位到结果区顶部；其它栏目仍复位外层 workspace。
+      if (view === "outfit") {
+        const area = root.querySelector(".outfitScrollArea");
+        if (area) {
+          area.scrollTop = 0;
+          return;
+        }
+      }
+      root.scrollTo({ top: 0, behavior: "auto" });
     });
   }
 
