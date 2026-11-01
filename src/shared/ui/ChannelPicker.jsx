@@ -38,6 +38,13 @@ export default function ChannelPicker({
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
+  const triggerRef = useRef(null);
+  // 2026-11-01：菜单默认向下展开（.quickChannelMenu 的 top:36px），按钮靠近视口底部时
+  // 会展开到屏幕外（实测一键详情：菜单底部 972 > 视口 950）。这里在打开时量一次可用空间：
+  // 下方不够就翻到按钮上方（--up 用 transform 上移自身高度，不需要预知高度），
+  // 并把最大高度夹进可用空间，表现与其它下拉菜单一致。
+  const [flipUp, setFlipUp] = useState(false);
+  const [menuMaxHeight, setMenuMaxHeight] = useState(0);
   const channels = channelsForModel(model, routing);
   const { official, others } = splitOfficialChannels(channels);
   const current = channels.find((item) => item.id === channelId) || channels[0] || null;
@@ -66,9 +73,34 @@ export default function ChannelPicker({
     };
   }, [open]);
 
+  // 展开方向：打开时算一次，视口变化 / 滚动时重算，保证菜单始终完整落在视口里。
+  useEffect(() => {
+    if (!open) return undefined;
+    const GAP = 14; // 菜单与按钮之间的距离
+    const EDGE = 8; // 距视口上下边缘的保留
+    const place = () => {
+      const el = triggerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const below = window.innerHeight - rect.bottom - GAP - EDGE;
+      const above = rect.top - GAP - EDGE;
+      const up = below < 200 && above > below;
+      setFlipUp(up);
+      setMenuMaxHeight(Math.round(Math.max(140, Math.min(320, up ? above : below))));
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
   return (
     <div className={`channelPicker ${className}`.trim()} ref={rootRef}>
       <button
+        ref={triggerRef}
         className={`channelPickerTrigger ${open ? "active" : ""}`}
         type="button"
         title={triggerTitle}
@@ -84,7 +116,8 @@ export default function ChannelPicker({
       </span>
 
       {open && (
-        <div className="quickChannelMenu channelPickerMenu" role="menu" aria-label="渠道选择菜单">
+        <div className={`quickChannelMenu channelPickerMenu ${flipUp ? "channelPickerMenu--up" : ""}`.trim()} role="menu" aria-label="渠道选择菜单"
+        style={menuMaxHeight ? { maxHeight: menuMaxHeight } : undefined}>
           <div className="quickChannelMenuTitle">{modelLabel || model} 可用渠道</div>
           {official.map((channel) => (
             <button

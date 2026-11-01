@@ -1381,6 +1381,14 @@ textarea:focus {
   box-shadow: var(--shadow);
 }
 
+/* 2026-11-01：渠道浮层默认向下展开；按钮靠近视口底部时翻到按钮上方。
+   用 translateY(-100% - 50px) 上移「自身高度 + 36px(原 top) + 14px(间距)」，
+   不需要预知菜单高度 —— 直接写 bottom:36px 会被 22px 高的容器算出错误高度。
+   方向由 ChannelPicker 的 place() 量完可用空间后加这个类。 */
+.quickChannelMenu.channelPickerMenu--up {
+  transform: translateY(calc(-100% - 50px));
+}
+
 .quickChannelMenuTitle {
   padding: 4px 8px 6px;
   color: var(--muted);
