@@ -30,7 +30,10 @@ export async function runAgentPipeline({
   createNode,
   handlers,
   mode = PIPELINE_AUTO,
-  agentModel = ""
+  agentModel = "",
+  // 2026-11-01：Agent 新建生成节点时默认套用的生图模型 + 渠道（透传给 applyCanvasAgentPlan）。
+  genModel = "",
+  channel = ""
 }) {
   const resolved = resolveMode(mode);
   const baseNodes = project?.nodes || [];
@@ -52,7 +55,9 @@ export async function runAgentPipeline({
       actions: plan?.actions || [],
       nodes: baseNodes,
       createNode,
-      handlers
+      handlers,
+      genModel,
+      channel
     });
     createdNodes = outcome.createdNodes || [];
     stages.push({

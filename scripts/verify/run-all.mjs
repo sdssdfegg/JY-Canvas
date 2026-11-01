@@ -173,6 +173,9 @@ const ORDER = [
   // V157 后续修复（2026-11-01）：画布生成「结果地址提取」无头验收——钉 images[0] 走 imageSourceFromResult，
   // 不再误读 first.url（扁平字段恒为 undefined → 抛"图片地址为空"）。纯逻辑 <1s。
   "ai-canvas-generation-result-check",
+  // 2026-11-01：画布 Agent 面板新增「生图模型 + 渠道」下拉，并套用到新建生成节点——验收 applyCanvasAgentPlan
+  // 写入 model/channelId + orchestrator 透传（<1s）。
+  "ai-canvas-agent-genmodel-check",
   "resize-long-edge-check",
   "generation-error-check",
   "reference-gate-check",
@@ -325,7 +328,9 @@ const FAST_ORDER = [
   // 渠道随模型过滤 + 改动经 resolveGenerationParams 闭环写回；钉桩防"又堆回节点里"倒退（<1s）。
   "ai-canvas-inspector-check",
   // V157 后续修复（2026-11-01）：画布生成结果地址提取验收（<1s），进 --fast 子集。
-  "ai-canvas-generation-result-check"
+  "ai-canvas-generation-result-check",
+  // 2026-11-01：画布 Agent 面板「生图模型 + 渠道」下拉套用验收（<1s），进 --fast 子集。
+  "ai-canvas-agent-genmodel-check"
 ];
 
 /**

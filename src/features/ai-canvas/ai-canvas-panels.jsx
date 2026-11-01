@@ -68,8 +68,18 @@ export function AgentPanel({
   error,
   agentModel = "",
   onAgentModelChange,
-  modelOptions = []
+  modelOptions = [],
+  // 2026-11-01：生图模型 + 渠道下拉（与生成节点 Inspector 同源），
+  // 让 Agent 新建的生成节点直接带上所选模型 / 渠道。
+  genModels = [],
+  genModel = "",
+  onGenModelChange,
+  routing = null,
+  channel = "",
+  onChannelChange
 }) {
+  // 渠道随生图模型过滤（与 Inspector 同一份 channelsForModel）。
+  const agentChannelOptions = channelsForModel(genModel, routing);
   return (
     <div className="aiCanvasAgent">
       <div className="aiCanvasAgentHead"><Bot size={14} /><span>画布 Agent</span></div>
@@ -96,6 +106,35 @@ export function AgentPanel({
         <option value="">推理模型·跟随</option>
         {modelOptions.map((model) => (
           <option key={model.id} value={model.id}>{model.label || model.id}</option>
+        ))}
+      </select>
+      {/* 生图模型：Agent 新建生成节点的默认出图模型；留空=跟随设置默认。
+          切换模型时清空渠道，避免渠道与模型不匹配。 */}
+      <select
+        className="aiCanvasAgentMode aiCanvasAgentGenModel"
+        value={genModel || ""}
+        disabled={busy}
+        title="Agent 新建生成节点的默认出图模型；留空=跟随设置默认"
+        onChange={(e) => { onGenModelChange?.(e.target.value); onChannelChange?.(""); }}
+      >
+        <option value="">生图模型·跟随</option>
+        {genModels.map((model) => (
+          <option key={model.id} value={model.id}>{model.label || model.id}</option>
+        ))}
+      </select>
+      {/* 渠道：按所选生图模型过滤（与 Inspector 同款）。无明确模型时禁用，强制跟随。 */}
+      <select
+        className="aiCanvasAgentMode aiCanvasAgentChannel"
+        value={channel || ""}
+        disabled={busy || !genModel}
+        title="Agent 新建生成节点的出图渠道（按所选模型过滤）；留空=跟随设置"
+        onChange={(e) => onChannelChange?.(e.target.value)}
+      >
+        <option value="">渠道·跟随</option>
+        {agentChannelOptions.map((ch) => (
+          <option key={ch.id} value={ch.id}>
+            {ch.label}{Number(ch.price || 0) > 0 ? ` ¥${Number(ch.price).toFixed(2)}` : ""}
+          </option>
         ))}
       </select>
       <textarea

@@ -74,6 +74,10 @@ export function AiCanvasView() {
   const [canvasRouting, setCanvasRouting] = useState(null);
   // 推理模型：默认 gpt-5.6-luna，重启回到默认（不持久化）。
   const [agentModel, setAgentModel] = useState(DEFAULT_CANVAS_REASONING_MODEL);
+  // 2026-11-01：Agent 新建生成节点的默认生图模型 + 渠道（与生成节点 Inspector 同源）。
+  // 留空=跟随设置默认；切换模型时由面板回调清空渠道，避免渠道与模型不匹配。
+  const [agentGenModel, setAgentGenModel] = useState("");
+  const [agentChannel, setAgentChannel] = useState("");
   useEffect(() => {
     let alive = true;
     void (async () => {
@@ -414,7 +418,9 @@ export function AiCanvasView() {
         createNode: (type, data, position) => makeNode(type, position.x, position.y, data),
         handlers: actions,
         mode: agentMode,
-        agentModel
+        agentModel,
+        genModel: agentGenModel,
+        channel: agentChannel
       });
       const applied = [];
       const skipped = [];
@@ -431,7 +437,7 @@ export function AiCanvasView() {
     } finally {
       setAgentBusy(false);
     }
-  }, [agentText, agentMode, actions]);
+  }, [agentText, agentMode, agentModel, agentGenModel, agentChannel, actions]);
 
   // —— 工具栏以画布中心为锚缩放（带空画布守卫）——
   const zoomCenter = useCallback((factor) => {
@@ -564,6 +570,12 @@ export function AiCanvasView() {
             agentModel={agentModel}
             onAgentModelChange={setAgentModel}
             modelOptions={CANVAS_REASONING_MODELS}
+            genModels={canvasModels}
+            genModel={agentGenModel}
+            onGenModelChange={setAgentGenModel}
+            routing={canvasRouting}
+            channel={agentChannel}
+            onChannelChange={setAgentChannel}
           />
         </aside>
 

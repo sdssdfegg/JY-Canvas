@@ -75,7 +75,7 @@ function slotPosition(nodes, slot) {
 
 // 中文注释：按白名单把动作应用到画布；createNode 由视图提供（走 store 的 makeNode 生成 id），
 // handlers 是 store 动作集合。返回可读的「已应用 / 已跳过」清单供面板展示。
-export function applyCanvasAgentPlan({ actions = [], nodes = [], createNode, handlers = {} }) {
+export function applyCanvasAgentPlan({ actions = [], nodes = [], createNode, handlers = {}, genModel = "", channel = "" }) {
   const refToId = new Map();
   nodes.forEach((node, index) => refToId.set(`n${index + 1}`, node.id));
 
@@ -105,7 +105,11 @@ export function applyCanvasAgentPlan({ actions = [], nodes = [], createNode, han
       const isPrompt = type === "add_prompt_node";
       const node = createNode(
         isPrompt ? "prompt" : "generation",
-        isPrompt ? { text } : { prompt, model: String(action?.model || ""), status: "idle" },
+        isPrompt
+          ? { text }
+          // 2026-11-01：生成节点带上面板所选的生图模型 + 渠道（面板留空=跟随，
+          // 此处的 genModel/channel 已是从面板透传下来的最终值，不再二次判空留白）。
+          : { prompt, model: genModel || String(action?.model || ""), channelId: channel || "", status: "idle" },
         slotPosition(nodes, slot)
       );
       slot += 1;
