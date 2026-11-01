@@ -22,9 +22,6 @@
 //   modelLabel    浮层标题里显示的模型名（缺省时回落到 model id）
 //   channelId     当前选中的渠道 id（不在当前模型目录里时显示该模型的第一条合法渠道）
 //   routing       目录数据（`config.routing || config`）
-//   channels      外部已算好的渠道列表（可选）。传了就直接用，不再自行 channelsForModel
-//                 ——批量生成用它复用父层 outfitChannels（同一份 channelsForModel 结果），
-//                   免得"页面各算一遍"将来走偏；不传则回落到 model + routing 计算。
 //   onChange      选中渠道后回调，参数是 channel.id
 //   className     额外容器类名，由页面决定按钮在参数区里的定位
 
@@ -36,14 +33,12 @@ export default function ChannelPicker({
   modelLabel = "",
   channelId = "",
   routing = null,
-  channels: channelsProp = null,
   onChange,
   className = ""
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
-  // 外部算好就用外部的（批量生成），否则自己按 model + routing 过滤（详情 / 参考改图）。
-  const channels = Array.isArray(channelsProp) ? channelsProp : channelsForModel(model, routing);
+  const channels = channelsForModel(model, routing);
   const { official, others } = splitOfficialChannels(channels);
   const current = channels.find((item) => item.id === channelId) || channels[0] || null;
   const triggerTitle = current

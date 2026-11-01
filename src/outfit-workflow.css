@@ -2247,6 +2247,14 @@
 
 .outfitWorkflowEmbedded .composerStickyControls {
   display: grid;
+  /* 2026-11-01（用户反馈）：换装 / 精修的底部操作条原来随内容走，
+     切模式或上下滚动时它跟着上下移，和其他页面（参考生图 / 一键详情的
+     操作条固定在视口底）不在同一水平线，观感像跳页。改为吸底常驻：
+     滚动时它停在同一水平线，滚到底则自然落位。 */
+  position: sticky;
+  bottom: 0;
+  z-index: 9;
+  background: var(--panel-bg);
   flex: 0 0 auto;
   gap: 8px;
   margin: 2px -2px -2px;
@@ -2755,14 +2763,18 @@
   border-color: color-mix(in srgb, var(--text-soft) 42%, transparent);
 }
 
-/* 线路入口（2026-10-31 统一视觉）：原生下拉 select.channelSelect 已下线——
-   它与快捷生成的浮层渠道菜单不是同一套观感，且 option 的分组/着色长期踩系统默认底色的坑
-   （V145 顶部白条、本次又复发）。现在批量页与快捷生成 / 一键详情 / 参考生图共用同一个
-   src/shared/ui/ChannelPicker.jsx，浮层走共享的 .quickChannelMenu / .quickChannelItem。
-   这里只补一条布局规则：让入口参与 .rightTools 那一排控件的文档流，高度与同级 select
-   对齐（32px，见 .rightTools select），圆钮垂直居中，不新增第二套渠道样式。 */
-.outfitWorkflowEmbedded .rightTools .outfitChannelPicker {
-  height: 32px;
+/* 线路下拉框：保持原来的方框样式（和旁边的模型/比例/尺寸同级），
+   只把"当前选中的渠道"用快捷生成那套金色标出来（#fbbf24 = 快捷生成圆钮 / 菜单选中项的颜色）。
+   下拉列表里的选项沿用 .outfitWorkflowEmbedded select option 的深色底 + 常规文字色，
+   不把白色文字带到系统弹层里，避免白底白字。 */
+.outfitWorkflowEmbedded .rightTools select.channelSelect {
+  color: #fbbf24;
+  font-weight: 650;
+}
+
+.outfitWorkflowEmbedded .rightTools select.channelSelect option {
+  color: var(--text);
+  background: var(--option-bg);
 }
 
 

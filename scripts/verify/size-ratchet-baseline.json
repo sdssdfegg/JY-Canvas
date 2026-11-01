@@ -1,6 +1,8 @@
 {
   "generatedAt": "2026-11-01",
   "reason": "2026-11-01 V157后续：画布 Agent 面板新增「生图模型+渠道」两个下拉（与生成节点 Inspector 同源，渠道随模型过滤），并把选择透传 view→orchestrator→applyCanvasAgentPlan 套用到 Agent 新建生成节点。必要增量：AgentPanel 两个 select 块 +39 行、view 状态/接线 +12、applyCanvasAgentPlan/orchestrator 透传 +4~5；均为功能必需，非规模膨胀。",
+  "generatedAt": "2026-10-31",
+  "reason": "V150：在 FALLBACK_MODEL_CHANNELS 的 tt-image-2 段复活 sub 渠道（silent-tt2-line-13，上游 gpt-image-2，¥0.12，复用 2.5 sub 同一把 KEY），与 server/channel-config.js 及服务器 provider_families.json 同源同步，属真实渠道数据必要增量；文件级基线 630→631。",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -73,7 +75,7 @@
     "src/features/outfit/panels/BatchResizePanel.jsx": 569,
     "src/features/outfit/panels/ImageFactsPanel.jsx": 88,
     "src/features/outfit/panels/LegacyModulePanel.jsx": 17,
-    "src/features/outfit/panels/OutfitComposer.jsx": 584,
+    "src/features/outfit/panels/OutfitComposer.jsx": 596,
     "src/features/outfit/panels/OutfitCropModal.jsx": 213,
     "src/features/outfit/panels/OutfitDiagnosticsPanels.jsx": 88,
     "src/features/outfit/panels/OutfitIntentPanel.jsx": 181,
@@ -147,7 +149,7 @@
     "src/shared/ui/AppSidebar.jsx": 39,
     "src/shared/ui/Button.jsx": 53,
     "src/shared/ui/cached-image.jsx": 223,
-    "src/shared/ui/ChannelPicker.jsx": 134,
+    "src/shared/ui/ChannelPicker.jsx": 129,
     "src/shared/ui/detail-upload-zone.jsx": 82,
     "src/shared/ui/elapsed-timer.jsx": 20,
     "src/shared/ui/Field.jsx": 21,
@@ -220,7 +222,7 @@
     "src/features/outfit/outfit-top.js::themeToVars": 77,
     "src/features/outfit/panels/BatchResizePanel.jsx::BatchResizePanel": 522,
     "src/features/outfit/panels/ImageFactsPanel.jsx::ImageFactsPanel": 76,
-    "src/features/outfit/panels/OutfitComposer.jsx::OutfitComposer": 565,
+    "src/features/outfit/panels/OutfitComposer.jsx::OutfitComposer": 579,
     "src/features/outfit/panels/OutfitCropModal.jsx::CropModal": 202,
     "src/features/outfit/panels/OutfitIntentPanel.jsx::OutfitIntentPanel": 157,
     "src/features/outfit/panels/OutfitPageRow.jsx::OutfitPageRow": 87,
@@ -279,7 +281,7 @@
     "src/shared/release-seed.js::buildReleaseSeed": 90,
     "src/shared/routing.js::convergeSettingsForModel": 65,
     "src/shared/ui/cached-image.jsx::CachedImage": 120,
-    "src/shared/ui/ChannelPicker.jsx::ChannelPicker": 101,
+    "src/shared/ui/ChannelPicker.jsx::ChannelPicker": 99,
     "src/shared/ui/detail-upload-zone.jsx::DetailUploadZone": 77,
     "src/shared/ui/reference-thumb-tray.jsx::ReferenceThumbTray": 72
   }
