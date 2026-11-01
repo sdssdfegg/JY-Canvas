@@ -2193,7 +2193,14 @@
 
 .outfitWorkflowEmbedded .composerPanel {
   order: 3;
-  flex: 0 0 auto;
+  /* 2026-11-01：原 flex:0 0 auto（不收缩）。浏览器 100% 缩放时视口约 900 CSS px，
+     总高超出后底部「生成控制条」被 workspace 的 overflow:hidden 裁掉且无法滚动
+     （V138 起 workspace 不滚动，滚动只交给内部 outfitScrollArea，而 footer 不在其中）。
+     改为 0 1 auto（可收缩）+ min-height:0 + 自身滚动：
+     空间足够 → 自然高度铺开、不出现滚动条（保持 V138/2026-09-26 的观感）；
+     空间不足 → 收缩并内部滚动，底部始终可达。 */
+  flex: 0 1 auto;
+  min-height: 0;
   position: relative;
   z-index: 8;
   display: grid;
@@ -2206,7 +2213,7 @@
   margin-top: 10px;
   margin-bottom: 0;
   padding: 10px;
-  overflow: visible;
+  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel-bg);
@@ -2514,17 +2521,11 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   align-items: stretch;
-  /* 2026-11-01：底部生成控制条常驻可见。
-     背景：布局用 height:100vh（跟随视口），而内容高度按 CSS px 固定——
-     浏览器 100% 缩放时视口变矮（约 900 CSS px），内容超出后底部控制条被推出视野，
-     客户既看不到也点不到「生成」（缩放到 75% 时视口变高才看得到）。
-     改为 sticky 常驻底部：任何视口高度下「生成」都可见可操作，内容区照常滚动。
-     不用 transform:scale 整体缩放——那会让文字模糊、点击坐标错位、可访问性变差。 */
-  position: sticky;
-  bottom: 0;
-  z-index: 6;
-  background: var(--app-bg);
-  padding: 10px 0 14px;
+  /* 2026-11-01：不在这里做 sticky —— 实测 sticky 的粘性范围被父元素
+     composerStickyControls（高 211px）限制，粘不到 composerPanel 底部（footer bottom
+     仍 938 > 视口 900）。底部可达性改由 composerPanel 的「可收缩 + 自身滚动」保证
+     （见 .composerPanel 的 flex:0 1 auto 说明）。 */
+  padding: 10px 0 18px;
 }
 
 .outfitWorkflowEmbedded .composerHeader {
