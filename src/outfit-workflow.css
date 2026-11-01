@@ -2215,7 +2215,9 @@
   margin-top: 10px;
   margin-bottom: 0;
   padding: 10px;
-  overflow: hidden;
+  /* 兜底：正常视口下内容能装下、不出现滚动条；只有矮到连 160px 下限
+     都塞不下时（约 <760 CSS px）才由本面板内部滚动，确保底栏可达。 */
+  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel-bg);
@@ -2232,8 +2234,13 @@
    完整留在视口内。此前是整块 composerPanel 一起滚，用户察觉不到那条内层滚动条，
    表现为「页面固定、看不到下面」。空间足够时高度为自然高、不出现滚动条。 */
 .outfitWorkflowEmbedded .composerBody {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 1 auto;
+  /* 下限 160px：视口变矮时这块会被压缩，但不能压到 0 ——
+     否则「换装设置 / 提示词」整块消失（实测视口 650px 时高度归 0）。
+     只收缩（0 1 auto）：空间富余时不拉伸出空白。
+     下限取 160 而非更高：再矮就交给 .composerPanel 兜底滚动，
+     保证底栏永远**可达**（不被 overflow 裁掉且滚得到）。 */
+  min-height: 160px;
   overflow-y: auto;
 }
 
@@ -2255,6 +2262,15 @@
   overflow-y: auto;
   padding-right: 4px;
   scrollbar-gutter: stable;
+}
+
+/* 2026-11-01：视口偏矮（浏览器 100% 缩放的 1080p 屏约 950 CSS px）时，
+   再把结果区下限从 150 压到 120，优先保证「换装设置 + 生成控制条」完整可见。
+   这只是下限，空间富余时结果区仍按 flex:1 1 auto 增长。 */
+@media (max-height: 960px) {
+  .outfitWorkflowEmbedded .outfitScrollArea {
+    min-height: 120px;
+  }
 }
 
 .outfitWorkflowEmbedded .composerStickyControls {
