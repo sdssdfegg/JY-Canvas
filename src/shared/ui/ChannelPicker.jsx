@@ -26,6 +26,7 @@
 //   className     额外容器类名，由页面决定按钮在参数区里的定位
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { channelPriceLabel, channelsForModel, splitOfficialChannels } from "../routing.js";
 
 export default function ChannelPicker({
@@ -39,12 +40,17 @@ export default function ChannelPicker({
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
+  const menuRef = useRef(null);
   // 2026-11-01：菜单默认向下展开（.quickChannelMenu 的 top:36px），按钮靠近视口底部时
   // 会展开到屏幕外（实测一键详情：菜单底部 972 > 视口 950）。这里在打开时量一次可用空间：
   // 下方不够就翻到按钮上方（--up 用 transform 上移自身高度，不需要预知高度），
   // 并把最大高度夹进可用空间，表现与其它下拉菜单一致。
-  const [flipUp, setFlipUp] = useState(false);
-  const [menuMaxHeight, setMenuMaxHeight] = useState(0);
+  // 2026-11-01：菜单改成 portal 渲染到 document.body + fixed 定位。
+  // 原因（实测）：它原来挂在 .channelPicker 里，而祖先 .detailPanelScroll 是
+  // overflow-y:auto、.detailWorkbench 是 overflow:hidden —— 菜单向下展开会被裁掉，
+  // 表现为「点开后看不到内容」。挂到 body 后脱离所有祖先的裁切与 transform，
+  // 再由 place() 按视口可用空间精确定位（下方不够就翻到按钮上方）。
+  const [menuPos, setMenuPos] = useState(null);
   const channels = channelsForModel(model, routing);
   const { official, others } = splitOfficialChannels(channels);
   const current = channels.find((item) => item.id === channelId) || channels[0] || null;
@@ -57,9 +63,14 @@ export default function ChannelPicker({
   // 事件在捕获阶段就被消费掉，不会落到下面的按钮上，同时也没有 preventDefault，
   // 所以键盘/鼠标对已有参数不产生任何副作用。
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open) {
+      setMenuPos(null);
+      return undefined;
+    }
     const onPointerDown = (event) => {
       if (rootRef.current && rootRef.current.contains(event.target)) return;
+      // 菜单挂在 body 上（portal），不在 rootRef 里，点它不算「点外面」
+      if (menuRef.current && menuRef.current.contains(event.target)) return;
       setOpen(false);
     };
     const onKeyDown = (event) => {
@@ -76,6 +87,7 @@ export default function ChannelPicker({
   // 展开方向：打开时算一次，视口变化 / 滚动时重算，保证菜单始终完整落在视口里。
   useEffect(() => {
     if (!open) return undefined;
+    const MENU_W = 232; // 与 .quickChannelMenu 的 width 一致
     const GAP = 14; // 菜单与按钮之间的距离
     const EDGE = 8; // 距视口上下边缘的保留
     const place = () => {
@@ -84,9 +96,16 @@ export default function ChannelPicker({
       const rect = el.getBoundingClientRect();
       const below = window.innerHeight - rect.bottom - GAP - EDGE;
       const above = rect.top - GAP - EDGE;
-      const up = below < 200 && above > below;
-      setFlipUp(up);
-      setMenuMaxHeight(Math.round(Math.max(140, Math.min(320, up ? above : below))));
+      const flipUp = below < 200 && above > below;
+      const maxHeight = Math.max(140, Math.min(320, flipUp ? above : below));
+      const top = flipUp
+        ? Math.max(EDGE, rect.top - GAP - maxHeight)
+        : Math.max(EDGE, Math.min(rect.bottom + GAP, window.innerHeight - EDGE - maxHeight));
+      const left = Math.min(
+        Math.max(EDGE, rect.right - MENU_W),
+        Math.max(EDGE, window.innerWidth - EDGE - MENU_W)
+      );
+      setMenuPos({ top: Math.round(top), left: Math.round(left), maxHeight: Math.round(maxHeight) });
     };
     place();
     window.addEventListener("resize", place);
@@ -115,9 +134,13 @@ export default function ChannelPicker({
         {current ? current.label : "无可用渠道"}
       </span>
 
-      {open && (
-        <div className={`quickChannelMenu channelPickerMenu ${flipUp ? "channelPickerMenu--up" : ""}`.trim()} role="menu" aria-label="渠道选择菜单"
-        style={menuMaxHeight ? { maxHeight: menuMaxHeight } : undefined}>
+      {open &&
+        createPortal(
+        <div
+          ref={menuRef}
+          className="quickChannelMenu channelPickerMenu channelPickerMenu--float"
+          role="menu" aria-label="渠道选择菜单"
+          style={menuPos ? { top: menuPos.top, left: menuPos.left, maxHeight: menuPos.maxHeight } : { visibility: "hidden" }}>
           <div className="quickChannelMenuTitle">{modelLabel || model} 可用渠道</div>
           {official.map((channel) => (
             <button
@@ -155,7 +178,8 @@ export default function ChannelPicker({
           {channels.length === 0 && (
             <p className="quickChannelEmpty">当前模型暂无可用线路，请检查渠道目录</p>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

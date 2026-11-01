@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-11-01",
-  "reason": "V160（2026-11-01 渠道浮层不再展开到屏幕外）：shared/ui/ChannelPicker.jsx 新增打开时的可用空间测量（place()）—— 下方空间不足则翻到按钮上方（transform:translateY(-100% - 50px)，不需要预知菜单高度），并把最大高度夹进可用空间；视口 resize / 滚动时重算。修复实测缺陷：一键详情页菜单底部 972 > 视口 950，展开到屏幕外。文件 129→约 164（功能必要增量）。批量生成页已按要求还原为原生下拉，不使用本浮层；本浮层仍服务一键详情 / 参考生图。",
+  "reason": "V161（2026-11-01 渠道浮层彻底根治出屏/裁切）：shared/ui/ChannelPicker.jsx 改为 createPortal 渲染到 document.body + position:fixed 精确定位。根因：浮层原挂在 .channelPicker 内，被祖先 .detailPanelScroll(overflow-y:auto)/.detailWorkbench(overflow:hidden) 裁掉，表现为「点开向下展开却看不到内容」（上一版 transform 翻转仍受同一祖先裁切，未根治）。现脱离祖先，由 place() 按视口可用空间算 top/left/maxHeight，下方不够则翻上方，resize/滚动重算。文件 129→约 188（portal + 定位逻辑必要增量）。批量生成页仍用原生下拉，不受影响；本浮层服务一键详情/参考生图。",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -147,7 +147,7 @@
     "src/shared/ui/AppSidebar.jsx": 39,
     "src/shared/ui/Button.jsx": 53,
     "src/shared/ui/cached-image.jsx": 223,
-    "src/shared/ui/ChannelPicker.jsx": 162,
+    "src/shared/ui/ChannelPicker.jsx": 186,
     "src/shared/ui/detail-upload-zone.jsx": 82,
     "src/shared/ui/elapsed-timer.jsx": 20,
     "src/shared/ui/Field.jsx": 21,
@@ -279,7 +279,7 @@
     "src/shared/release-seed.js::buildReleaseSeed": 90,
     "src/shared/routing.js::convergeSettingsForModel": 65,
     "src/shared/ui/cached-image.jsx::CachedImage": 120,
-    "src/shared/ui/ChannelPicker.jsx::ChannelPicker": 132,
+    "src/shared/ui/ChannelPicker.jsx::ChannelPicker": 155,
     "src/shared/ui/detail-upload-zone.jsx::DetailUploadZone": 77,
     "src/shared/ui/reference-thumb-tray.jsx::ReferenceThumbTray": 72
   }

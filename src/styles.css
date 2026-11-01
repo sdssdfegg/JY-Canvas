@@ -1381,12 +1381,15 @@ textarea:focus {
   box-shadow: var(--shadow);
 }
 
-/* 2026-11-01：渠道浮层默认向下展开；按钮靠近视口底部时翻到按钮上方。
-   用 translateY(-100% - 50px) 上移「自身高度 + 36px(原 top) + 14px(间距)」，
-   不需要预知菜单高度 —— 直接写 bottom:36px 会被 22px 高的容器算出错误高度。
-   方向由 ChannelPicker 的 place() 量完可用空间后加这个类。 */
-.quickChannelMenu.channelPickerMenu--up {
-  transform: translateY(calc(-100% - 50px));
+/* 2026-11-01：渠道浮层用 portal 挂到 document.body（见 ChannelPicker），所以这里必须是
+   fixed —— 它已脱离祖先，不会被 .detailPanelScroll(overflow-y:auto) /
+   .detailWorkbench(overflow:hidden) 裁掉，也不会受祖先 transform 影响。
+   top / left / max-height 由 place() 按视口可用空间算好后内联写入。 */
+.quickChannelMenu.channelPickerMenu--float {
+  position: fixed;
+  top: auto;
+  right: auto;
+  z-index: 1200;
 }
 
 .quickChannelMenuTitle {
