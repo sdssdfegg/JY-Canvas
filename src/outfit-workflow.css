@@ -178,12 +178,20 @@
      （快捷 canvasBoard 是 overflow:hidden，滚动在 galleryStrip 且带 scrollbar-gutter:stable）。
      这里对齐：workspace 不再滚动，滚动交给内部 outfitScrollArea。 */
   padding: 14px 16px;
-  overflow: hidden;
+  /* 2026-11-01（用户要求）：换装 / 精修与其他页面观感一致 ——
+     V138 五轮把 workspace 设成 overflow:hidden、滚动只交给内部 outfitScrollArea，
+     导致底部生成面板被钉死在视口底：视口一矮就看不到下面，切页时内容贴底像跳页。
+     现改回 workspace 作为**唯一滚动容器**（与其他页面一致）。
+     保住 V138 的成果：滚动条位由 workspace 用 scrollbar-gutter:stable 预留，
+     同时结果区不再自带 gutter，净宽仍与快捷画廊一致（不会少一列）。 */
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 .outfitWorkflowEmbedded.embedded .outfitScrollArea {
   padding-right: 8px;
-  /* 与快捷 galleryStrip 对齐：提前预留滚动条位，避免内容溢出时滚动条吃掉 15px 致少一列。 */
-  scrollbar-gutter: stable;
+  /* 滚动条位已上移到 .workspace（scrollbar-gutter:stable），此处不再重复预留，
+     否则会吃掉两份 15px、结果网格反而少一列。 */
+  scrollbar-gutter: auto;
 }
 
 .outfitWorkflowEmbedded .viewPanel {
@@ -2193,19 +2201,13 @@
 
 .outfitWorkflowEmbedded .composerPanel {
   order: 3;
-  /* 2026-11-01：原 flex:0 0 auto（不收缩）。浏览器 100% 缩放时视口约 900 CSS px，
-     总高超出后底部「生成控制条」被 workspace 的 overflow:hidden 裁掉且无法滚动
-     （V138 起 workspace 不滚动，滚动只交给内部 outfitScrollArea，而 footer 不在其中）。
-     改为 0 1 auto（可收缩）+ min-height:0 + 自身滚动：
-     空间足够 → 自然高度铺开、不出现滚动条（保持 V138/2026-09-26 的观感）；
-     空间不足 → 收缩，并由内部 .composerBody 承担滚动（见下方规则），
-     底部「生成控制条」随之常驻可见。 */
-  flex: 0 1 auto;
-  min-height: 0;
+  /* 2026-11-01：换装 / 精修改为整页滚动（与其他页面一致）后，底部生成面板
+     不再需要被钉在视口底，回到按内容自然高度铺开（flex:0 0 auto）。 */
+  flex: 0 0 auto;
   position: relative;
   z-index: 8;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  gap: 8px;
   gap: 8px;
   /* 2026-09-26（按用户反馈）：这一块是"冻结区"，永远贴在底部、不跟着内容滚。
      原来给了 max-height + overflow:auto + scrollbar-gutter:stable，于是右侧同时出现
@@ -2215,9 +2217,7 @@
   margin-top: 10px;
   margin-bottom: 0;
   padding: 10px;
-  /* 兜底：正常视口下内容能装下、不出现滚动条；只有矮到连 160px 下限
-     都塞不下时（约 <760 CSS px）才由本面板内部滚动，确保底栏可达。 */
-  overflow-y: auto;
+  overflow: visible;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel-bg);
@@ -2225,53 +2225,25 @@
   scrollbar-gutter: auto;
 }
 
-.outfitWorkflowEmbedded .composerPanel > .assetGrid {
-  flex: 0 0 auto;
-}
-
-/* 2026-11-01（浏览器实测）：空间不足时**只让这一块内部滚动**，
-   从而把底部的 composerStickyControls（换装意图条 + 「生成」按钮 + 状态栏）
-   完整留在视口内。此前是整块 composerPanel 一起滚，用户察觉不到那条内层滚动条，
-   表现为「页面固定、看不到下面」。空间足够时高度为自然高、不出现滚动条。 */
-.outfitWorkflowEmbedded .composerBody {
-  flex: 0 1 auto;
-  /* 下限 160px：视口变矮时这块会被压缩，但不能压到 0 ——
-     否则「换装设置 / 提示词」整块消失（实测视口 650px 时高度归 0）。
-     只收缩（0 1 auto）：空间富余时不拉伸出空白。
-     下限取 160 而非更高：再矮就交给 .composerPanel 兜底滚动，
-     保证底栏永远**可达**（不被 overflow 裁掉且滚得到）。 */
-  min-height: 160px;
-  overflow-y: auto;
-}
 
 .outfitWorkflowEmbedded .outfitViewPanel.active {
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
+  /* 整页滚动：高度随内容，不再锁 100% 并裁切（否则 workspace 滚动条不生效）。 */
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
 }
 
 .outfitWorkflowEmbedded .outfitScrollArea {
   order: 2;
-  flex: 1 1 auto;
-  /* 2026-11-01：200 -> 150。这是**下限**，宽视口下该区仍按 flex:1 1 auto 增长，
-     观感不变；只在视口变矮（浏览器 100% 缩放）时让出 50px 给下方生成控制区。 */
-  min-height: 150px;
+  flex: 0 0 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: visible;
   padding-right: 4px;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
 }
 
-/* 2026-11-01：视口偏矮（浏览器 100% 缩放的 1080p 屏约 950 CSS px）时，
-   再把结果区下限从 150 压到 120，优先保证「换装设置 + 生成控制条」完整可见。
-   这只是下限，空间富余时结果区仍按 flex:1 1 auto 增长。 */
-@media (max-height: 960px) {
-  .outfitWorkflowEmbedded .outfitScrollArea {
-    min-height: 120px;
-  }
-}
 
 .outfitWorkflowEmbedded .composerStickyControls {
   display: grid;
