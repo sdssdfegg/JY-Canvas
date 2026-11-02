@@ -28,7 +28,9 @@ export const MODEL_DEFAULT_CHANNEL = Object.freeze({
 export const OFFICIAL_CHANNELS = Object.freeze({
   // 2026-10-30（用户要求）：LK-1K（silent-tt25-line-11）移入「其他渠道」按价格排序，
   // 优质渠道组只保留 LY满血版。要放回优质组时，把该 id 追加回本数组即可（顺序=显示顺序）。
-  "tt-image-2.5": ["silent-tt25-line-10"]
+  // 2026-11-02：TT满血版（silent-tt25-tt-manxue，¥0.26，老夜 image2.5全参 满血 KEY，上游/协议/全参能力与 LY 同源、仅 KEY 与价格不同）
+  //   排在 LY 后面，追加到本数组 LY 之后即可（顺序=显示顺序，紧跟 LY）。与 src/shared/routing.js 同源同步。
+  "tt-image-2.5": ["silent-tt25-line-10", "silent-tt25-tt-manxue"]
 });
 
 // 已下线的旧线路：必须从前端目录、服务端目录和服务端校验里同时移除/拒绝。
@@ -165,6 +167,11 @@ const ROUTING_CHANNELS = Object.freeze([
   //   上游模型 gpt-image-2.5-flare/sunburst；154 适配器 publicId=silent-tt25-line-10（provider_families.json 新增 silent-laoye-tt25-manxue），KEY 仅存适配器 env（LK888_SILENT_LAOYE_MANXUE_API_KEY），前端与源码零 KEY。
   //   注意：该 KEY 分组仅含 2.5（无 gpt-image-2），故只有 TT2.5 满血版；2.0 满血版需另提供 2.0 KEY。
   { id: "silent-tt25-line-10", label: "LY满血版", price: 0.14, model: "tt-image-2.5", official: true },
+  // 2026-11-02：TT满血版（silent-tt25-tt-manxue，¥0.26，老夜 image2.5全参 满血 KEY，与 LY满血版 同源上游/协议/全参能力，仅 KEY 与价格不同）；
+  //   排 LY 后面（官方组由 OFFICIAL_CHANNELS 置顶）。154 适配器 publicId=silent-tt25-tt-manxue
+  //   （见 /opt/jingyin-silent-gpt-image-adapter/provider_families.json），KEY 仅存适配器 env（LK888_SILENT_TT_MANXUE_API_KEY），前端与源码零 KEY。
+  //   与 src/shared/routing.js 同源同步。
+  { id: "silent-tt25-tt-manxue", label: "TT满血版", price: 0.26, model: "tt-image-2.5", official: true },
   // 2026-10-29：LK 渠道（上游 api.lk888.ai，模型 tt-image-2.5-*-token，仅支持 1K，价格 0.12）。2026-10-30 改名：LK满血版-1K → LK-1K。
   //   优质渠道（原「官方渠道」叫法）第二组，按用户指定顺序排在 LY 之后；仅 1K 可选，2K/4K 在前端尺寸下拉置灰禁用。
   //   154 适配器 publicId=silent-tt25-line-11（provider_families.json 新增 silent-lk-tt25-1k），

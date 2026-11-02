@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-01",
-  "reason": "V162 批量页底部参数区统一为视口底固定 dock：outfit-workflow.jsx 增加 switchView 时结果区(.outfitScrollArea)滚动复位逻辑(+11 行)，纯必要布局配套；overBudget 5 项为既有大函数不改",
+  "generatedAt": "2026-11-02",
+  "reason": "V164 前端+服务端登记 TT满血版渠道（routing.js / server/channel-config.js 各增官方组条目与路由渠道条目，纯必要登记）",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -142,7 +142,7 @@
     "src/shared/release-seed.js": 295,
     "src/shared/result-image.js": 334,
     "src/shared/retouch-intent.js": 284,
-    "src/shared/routing.js": 648,
+    "src/shared/routing.js": 653,
     "src/shared/text-normalize.js": 42,
     "src/shared/ui/AppSidebar.jsx": 39,
     "src/shared/ui/Button.jsx": 53,

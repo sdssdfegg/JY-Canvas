@@ -134,7 +134,9 @@ export const MODEL_DEFAULT_CHANNEL = Object.freeze({
 export const OFFICIAL_CHANNELS = Object.freeze({
   // 2026-10-30（用户要求）：LK-1K（silent-tt25-line-11）移入「其他渠道」按价格排序，
   // 优质渠道组只保留 LY满血版。要放回优质组时，把该 id 追加回本数组即可（顺序=显示顺序）。
-  "tt-image-2.5": ["silent-tt25-line-10"]
+  // 2026-11-02：TT满血版（silent-tt25-tt-manxue，¥0.26，老夜 image2.5全参 满血 KEY，上游/协议/全参能力与 LY 同源、仅 KEY 与价格不同）
+  //   排在 LY 后面，追加到本数组 LY 之后即可（顺序=显示顺序，紧跟 LY）。与 server/provider_families.json 同源同步。
+  "tt-image-2.5": ["silent-tt25-line-10", "silent-tt25-tt-manxue"]
 });
 
 // 目录未加载完成时的本地兜底能力表（与 server/channel-config.js 的 ROUTING_MODELS 对齐）。
@@ -381,7 +383,10 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     // 2026-10-31：TT2.5 laoye（silent-tt25-line-12，¥0.08，老夜 TT25 特价 KEY；与 server/channel-config.js 同源同步）。
     { id: "silent-tt25-line-12", label: "laoye", price: 0.08 },
     // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，与 laoye 同价，排最后。
-    { id: "silent-tt25-line-09", label: "云枢高质量", price: 0.14 }
+    { id: "silent-tt25-line-09", label: "云枢高质量", price: 0.14 },
+    // 2026-11-02：TT满血版（silent-tt25-tt-manxue，¥0.26，老夜 image2.5全参 满血 KEY，与 LY满血版 同源上游/协议/全参能力，仅 KEY 与价格不同）；
+    //   排 LY 后面。官方组置顶由 OFFICIAL_CHANNELS 实现；与 server/provider_families.json 同源同步。
+    { id: "silent-tt25-tt-manxue", label: "TT满血版", price: 0.26, official: true }
   ]),
   // 香蕉 2 / 香蕉 Pro 用白名单本身兜底，不在这里重复维护。
   "banana-2": MODEL_CHANNEL_ALLOWLIST["banana-2"],
