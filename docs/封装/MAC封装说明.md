@@ -1,16 +1,18 @@
 # 静音AI画板 · macOS 封装说明
 
-> 配套脚本：`scripts/secure-mac-release.mjs`（镜像 `secure-win-release.mjs` 的流水线，产物为 Mach-O + `.app` + 签名 + 公证 + `.dmg`）。
-> 配套授权：`build/entitlements.mac.plist`（Node/V8 JIT 必需）。
-> npm 入口：`npm run release:mac`。
+> 配套脚本（两个，互为补充）：
+> - `scripts/secure-mac-release.mjs`：**Mac 原生**流水线（产物 `.app` + 签名 + 公证 + `.dmg`），需要 macOS（`codesign` / `hdiutil` / `xcrun notarytool`）。
+> - `scripts/build-mac-cross.mjs`：**跨平台**流水线——在 **Windows / Linux 上也能产出 `.app` + `.zip`**（用「下载的 macOS Node 二进制 + postject + rcodesign + zip」）。**包文件本身不要求 Mac 机器**。
+> 配套授权：`scripts/entitlements.mac.plist`（Node/V8 JIT 必需）。
+> npm 入口：`npm run release:mac`（走原生流水线）；跨平台用 `node scripts/build-mac-cross.mjs`。
 
 ---
 
 ## 0. 一句话结论
 
-Mac 版封装**复用 Windows 版的 Node SEA 单文件思路**，但产物形态不同：Windows 是「PE exe + rcedit 改图标 + 改子系统」，Mac 是「复制 node 二进制 → postject 注入 SEA blob（Mach-O 段）→ 装进 `.app` 包 → codesign 签名 → hdiutil 打成 `.dmg` → 公证 + 钉票」。
+Mac 版封装**复用 Windows 版的 Node SEA 单文件思路**，但产物形态不同：Windows 是「PE exe + rcedit 改图标 + 改子系统」，Mac 是「node 二进制 → postject 注入 SEA blob（Mach-O 段）→ 装进 `.app` 包 → 签名 → 公证 → .dmg/.zip」。
 
-**本脚本必须在 macOS 上运行**（需要 `codesign` / `hdiutil` / `xcrun notarytool`，且 SEA 注入用 Mach-O 段）。在 Windows/Linux 上会直接退出并提示。
+**关于"必须 Mac"的纠正（重要）**：`.app` 这个**文件**可以在**任意操作系统**造出来——`build-mac-cross.mjs` 已在 Windows 上实跑产出过 118MB 的 `JingyinAIBoard.zip`（含合法 Mach-O + 注入后的 SEA blob）。真正要求 Mac（或至少 Mac 原生工具）的只有最后一步 **Developer ID 签名 + 公证 + .dmg**；而这一步也**能跨平台完成**——用纯 Rust 的 `rcodesign`（Windows/Linux 都可跑）+ 你的 Apple 证书即可，无需 Mac。唯一必须真机的环节是"双击启动验证"（Mach-O 无法在 Windows 执行），那一步交给你的 Mac 或客户。
 
 ---
 
@@ -74,7 +76,7 @@ export APPLE_TEAM_ID="TEAMIDXXXX"
 npm run release:mac
 ```
 
-产物在仓库**同级**的 `静音AI画板（v5.0）Mac版/` 目录：
+产物在仓库**同级**的 `静音AI画板 Mac版/` 目录：
 - `JingyinAIBoard.app`（已签名）
 - `JingyinAIBoard.dmg`（已签名，公证模式下已钉票）
 - `version.json` / `使用说明.txt` / `校验和.txt` / `导出诊断日志.command`
@@ -89,12 +91,45 @@ xcrun stapler validate JingyinAIBoard.app
 
 ---
 
+## 3b. 跨平台构建（Windows / Linux，无需 Mac 机器）
+
+`.app` **文件**可在非 Mac 上产出。已验证：在 Windows（Node v22.22.2）上跑 `node scripts/build-mac-cross.mjs`，得到 `release-mac/JingyinAIBoard.zip`（118MB，含合法 Mach-O + 注入后的 SEA blob，解压后二进制保留可执行位）。
+
+```bash
+# 1) 准备 macOS Node 二进制（与本地 node 主版本一致，本次 v22.22.2，arm64）
+#    脚本默认找 .secure-build-mac/node-v22.22.2-darwin-arm64/bin/node；
+#    缺失则自己下：https://nodejs.org/dist/v22.22.2/node-v22.22.2-darwin-arm64.tar.gz 并解压到该路径。
+#    （Intel Mac 用户需改用 node-v22.22.2-darwin-x64，并做 universal 合并，见 §6）
+
+# 2) （可选）放跨平台签名工具 rcodesign 到 .secure-build-mac/rcodesign.exe
+#    https://github.com/indygreg/apple-platform-rs/releases （x86_64-pc-windows-msvc.zip）
+#    有它在，本脚本能直接做 ad-hoc / Developer ID 签名；没有则只产未签名 .app，留待 Mac 上 codesign 收尾。
+
+# 3) 跑构建
+node scripts/build-mac-cross.mjs
+
+# 4) 产物在 release-mac/：JingyinAIBoard.zip（= 完整 .app，Mac 上解压即用）
+```
+
+**跨平台产出的 .app 在分发前仍需签名 + 公证**（否则客户 Mac 报"已损坏"）。两种方式任选：
+- **方式 A（跨平台，推荐无 Mac 时）**：把 Apple 证书的 p12 给脚本 → `JINGYIN_MAC_P12_FILE` / `JINGYIN_MAC_P12_PASSWORD` + `JINGYIN_MAC_SIGN_IDENTITY` + `JINGYIN_MAC_NOTARIZE=1` + `APPLE_*`，由 rcodesign 在本机（Windows/Linux）完成签名 + 公证。
+- **方式 B（有 Mac 时）**：把 `JingyinAIBoard.zip` 拷到 Mac 解压，一行收尾：
+  ```bash
+  codesign --force --sign "Developer ID Application: 你的身份" --options runtime \
+    --entitlements scripts/entitlements.mac.plist JingyinAIBoard.app
+  # 再公证：xcrun notarytool submit ...  /  stapler staple
+  ```
+
+> 说明：跨平台脚本默认打 **.zip** 而非 .dmg。`.zip` 在 Mac 上解压即为可用 `.app`，是合法分发形态；若一定要 .dmg，在 Mac 上 `hdiutil create -volname JingyinAIBoard -srcfolder JingyinAIBoard.app -ov -format UDZO JingyinAIBoard.dmg` 即可（或对未签名包先签名）。
+
+---
+
 ## 4. 本次对代码的改动
 
 | 文件 | 改动 | 原因 |
 |---|---|---|
 | `scripts/secure-mac-release.mjs`（新增） | Mac 封装流水线 | 镜像 Windows 版，产物改为 Mach-O + `.app` + 签名 + 公证 + `.dmg`；开头路径合规检查。 |
-| `build/entitlements.mac.plist`（新增） | JIT 授权 | Node/V8 在 Hardened Runtime 下必需，否则 Apple Silicon 启动即 SIGKILL。 |
+| `scripts/entitlements.mac.plist`（新增） | JIT 授权 | Node/V8 在 Hardened Runtime 下必需，否则 Apple Silicon 启动即 SIGKILL。 |
 | `server/core/app-paths.js` | Mac 数据目录改到 `~/Library/Application Support/JingyinAIBoard`（原「`.app` 同级」） | 修真 bug：拖进 `/Applications` 后数据目录不可写、首次写入失败；同时 ASCII 名更安全。 |
 | `package.json` | 加 `release:mac` 脚本 | 入口。 |
 
@@ -105,7 +140,7 @@ xcrun stapler validate JingyinAIBoard.app
 ## 5. 发布前检查清单
 
 - [ ] 构建机用户名为纯英文、项目路径无空格/中文（脚本会自动拦）。
-- [ ] `node -v` ≥ 24（SEA blob 与 `target: node24` 要求）。
+- [ ] `node -v` 需与打包进去的 macOS Node 主版本一致（本次用 **v22.22.2**；SEA blob 与打包二进制必须同版本，否则 blob 无法加载）。
 - [ ] 已放图标（`public/app-avatar.icns` 或 `app-avatar.png`）。
 - [ ] 已配 `JINGYIN_MAC_SIGN_IDENTITY`（Developer ID Application）。
 - [ ] 已开 `JINGYIN_MAC_NOTARIZE=1` 且 `APPLE_*` 三件套齐全。
@@ -118,4 +153,4 @@ xcrun stapler validate JingyinAIBoard.app
 - **Universal 二进制**（同时支持 Intel + Apple Silicon）未内置：需另下 `node-darwin-x64` 二进制、`lipo` 合并两个 Mach-O 再注入。当前默认只产构建机架构（多为 arm64）。
 - **自动更新**未做（无 Sparkle / electron-updater）。如需，后续加 `.zip` 差分 + 更新服务。
 - **`.pkg` 安装包**未做（仅 `.dmg` 拖放式）。若要走企业 MDM 或装 LaunchAgent/守护进程，再补 `productbuild` + Developer ID Installer 证书。
-- 本脚本无法在 Windows/Linux 实跑签名/公证步骤；跨平台能跑的只是前端构建/混淆/server 打包那几步。
+- 跨平台构建（`build-mac-cross.mjs`）已能在 Windows/Linux 产出完整 `.app` + `.zip`；签名/公证若用 `rcodesign`（跨平台）也能在 Windows/Linux 完成，只有 `codesign`/`hdiutil`/`xcrun` 这类苹果原生工具才要求 Mac。`.app` 文件本身不要求 Mac 机器。

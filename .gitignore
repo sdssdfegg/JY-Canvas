@@ -18,6 +18,8 @@ out/
 
 # ---- 临时构建 / 发布中间目录 ----
 .secure-build/
+.secure-build-mac/
+release-mac/
 .release-temp/
 .codex-artifacts/
 

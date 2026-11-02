@@ -1,8 +1,11 @@
 // Mac 封装脚本（镜像 secure-win-release.mjs 的流水线，但产物为 Mach-O + .app 包 + 签名 + 公证 + .dmg）。
 //
-// ⚠️ 本脚本**必须在 macOS 上运行**（需要 codesign / hdiutil / xcrun notarytool，且 SEA 注入用 Mach-O 段）。
-//    在 Windows / Linux 上直接退出并给出说明。前端构建、混淆、server 打包这几步本身跨平台，
-//    但 node 二进制复制、postject(macho)、.app 组装、签名、公证、dmg 只能在 Mac 完成。
+// 这是「Mac 原生」流水线：依赖 codesign / hdiutil / xcrun notarytool（仅 macOS 有），且 SEA 注入用 Mach-O 段。
+// 如果你**没有 Mac**，用 `scripts/build-mac-cross.mjs`——它能在 Windows / Linux 上产出完整的 `.app` + `.zip`
+// （下载 macOS Node 二进制 + 跨平台 postject + 跨平台 rcodesign 签名 + zip），包文件本身不要求 Mac 机器。
+// 详见 docs/封装/MAC封装说明.md §3b。
+//
+// ⚠️ 本脚本（原生版）**必须在 macOS 上运行**。在 Windows / Linux 上直接退出并给出说明。
 //
 // Mac 专属注意事项（详见 docs/封装/MAC封装说明.md）：
 //   1. 构建机用户名 / 项目路径必须是纯 ASCII 且无空格（node-gyp / codesign / postject / 部分 CLI 对中文或空格路径脆弱）。
