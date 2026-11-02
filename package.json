@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "lint:json": "eslint . --format json",
     "lint:baseline": "node scripts/verify/lint-ratchet-check.mjs --update",
-    "release:win": "node scripts/secure-win-release.mjs"
+    "release:win": "node scripts/secure-win-release.mjs",
+    "release:mac": "node scripts/secure-mac-release.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.4",

@@ -10,7 +10,7 @@
 //
 // 打包形态识别顺序（改这里等于改部署行为，务必谨慎）：
 //   1. JINGYIN_RELEASE_ROOT 环境变量（最高优先级，用于测试与定制部署）
-//   2. macOS .app 包         → <App 同级>/静音AI绘画数据
+//   2. macOS .app 包         → ~/Library/Application Support/JingyinAIBoard（ASCII、永远可写）
 //   3. Windows 打包 exe      → %LOCALAPPDATA%/静音AI绘画数据
 //   4. 可执行目录自带 dist/  → 该目录本身
 //   5. 源码开发模式          → 仓库根目录
@@ -18,6 +18,7 @@
 
 import { existsSync } from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 
 const runtimeFile = typeof require !== "undefined" && typeof __filename !== "undefined"
@@ -34,8 +35,14 @@ const executableRootDir = process.execPath ? path.dirname(process.execPath) : ""
 const executableName = path.basename(process.execPath || "").toLowerCase();
 const isMacAppBundleExecutable = process.platform === "darwin"
   && executableRootDir.replace(/\\/g, "/").endsWith(".app/Contents/MacOS");
-const macAppDir = isMacAppBundleExecutable ? path.resolve(executableRootDir, "../..") : "";
-const macAppDataRoot = macAppDir ? path.join(path.dirname(macAppDir), "静音AI绘画数据") : "";
+// V-MAC：Mac 数据目录改到 ~/Library/Application Support/JingyinAIBoard，而非「.app 同级」。
+// 原因：用户通常把 .app 拖进 /Applications（系统目录、普通用户不可写），若数据目录放在 .app 同级，
+// 会落到 /Applications/静音AI绘画数据，首次写入即失败；且中文目录名在 codesign/notarize/诊断脚本里需额外转义。
+// Library/Application Support 始终用户可写、符合 Mac 惯例、随 App 更新保留、名称 ASCII 安全。
+// 仍可用 JINGYIN_RELEASE_ROOT 覆盖（便携 / 定制部署）。
+const macAppDataRoot = isMacAppBundleExecutable
+  ? path.join(os.homedir(), "Library", "Application Support", "JingyinAIBoard")
+  : "";
 const looksLikePackagedExecutable = Boolean(executableRootDir)
   && !["node", "node.exe"].includes(executableName);
 const windowsPackagedDataRoot = process.platform === "win32" && looksLikePackagedExecutable
