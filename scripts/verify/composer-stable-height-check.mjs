@@ -1,9 +1,11 @@
-// 批量生成底栏高度一致性验收（执行单 F）。
+// 批量生成底栏高度一致性验收（P1-001）。
 //
 // 两路验证：
 //   A. 源码级（不打浏览器）：切换成功提示已删、拦截提示保留、三个布局固定点已落地（min-height + 占位）。
-//   B. 浏览器级（真实页面）：依次切换 5 个生图板块 + 新建临时需求页，
-//      逐页量 .rightTools 顶部位，断言极差 ≤ 2px；切换过程不再出现「已切换到」提示。
+//   B. 浏览器级（真实页面）：5 档窗口尺寸 × 动态枚举的所有功能页，
+//      逐页量 .composerPanel 高度/顶/底、.composerStickyControls 的 top/bottom、.rightTools 顶、
+//      .generateBtn 可见性；断言切页不跳动（各量档内极差 ≤ 2px）、生成按钮不被遮挡/隐藏、
+//      真实滚动容器数 ≤ 2、无整页滚动。
 //
 // 服务与浏览器走独立端口（8822）/ 独立 origin，不影响用户 8787 实例，也不写 history.json。
 // 用法：node scripts/verify/composer-stable-height-check.mjs
@@ -39,8 +41,6 @@ check("源码：composerStatus 改为常驻渲染（不再用 {inlineMessage && 
 check("源码：outfitIntentBar 改为常驻渲染（不再用 {isOutfitWorkflow && …} 整段）",
   !/\{isOutfitWorkflow\s*&&\s*\(?\s*\n?\s*<div className="outfitIntentBar"/.test(composerSrc)
     && composerSrc.includes('<div className={`outfitIntentBar'), "常驻");
-// V77（§4.5 预授权 --update）：V76 已把 .rightTools 的 72px 两行预留归为单阶 var(--control-h-md)，
-// V77 进一步落地 nowrap 单行策略（参数条高度与板块无关，切换不跳动）。原 72px 断言已陈旧，按新口径更新。
 check("CSS：.rightTools 单阶 min-height: var(--control-h-md)（V76 归阶后口径）",
   /\.outfitWorkflowEmbedded \.rightTools\s*\{[^}]*min-height:\s*var\(--control-h-md\)/.test(workflowCssSrc), "var(--control-h-md)");
 check("CSS：.rightTools nowrap 单行策略（V77 参数条高度与板块无关）",
@@ -51,10 +51,19 @@ check("CSS：.composerStatus min-height 且含 --placeholder 不可见占位",
 check("CSS：.outfitIntentBar min-height 且含 --placeholder 不可见占位",
   /\.outfitWorkflowEmbedded \.outfitIntentBar\s*\{[^}]*min-height:\s*32px/.test(intentCssSrc)
     && intentCssSrc.includes(".outfitIntentBar--placeholder"), "32px+占位");
+// P1-001 A′-1：dock 是否取得确定高度预算（替代"只有 max-height"），操作条是否 margin-top:auto
+check("CSS：.composerPanel 取得确定高度（height: clamp(...)）",
+  /\.outfitWorkflowEmbedded \.composerPanel\s*\{[^}]*height:\s*clamp\(/.test(workflowCssSrc), "clamp 高度");
+check("CSS：.composerStickyControls 加 margin-top: auto（内容不足时推底，置于 margin 简写之后）",
+  /\.outfitWorkflowEmbedded \.composerStickyControls\s*\{[^}]*margin-top:\s*auto/.test(workflowCssSrc), "margin-top:auto");
 
 // ---------------------------------------------------------------- B. 浏览器级
+// P1-001 §8.2：4 档强制 + 1024×768 观察档（观察档不纳入强制失败，仅记录溢出/按钮可见性）
+const FORCED_SIZES = [[1920, 1080], [1600, 900], [1366, 768], [1280, 720]];
+const OBSERVE_SIZES = [[1024, 768]];
+
 let child = null;
-let facts = null;
+let facts = null;          // { "1920x1080": {...}, ... }
 let browserReason = "";
 try {
   child = spawn(NODE, [path.join("server", "index.js")], {
@@ -85,38 +94,57 @@ try {
   if (!existsSync(CLI)) {
     browserReason = "tabbit-cli 不存在，跳过浏览器部分";
   } else {
-    const program = `
+    // P1-001：逐档尺寸分别发起一次 CLI 调用。每档独立进程、独立 playwright 实例，
+    // 各自冷加载（dev 首次 Vite 编译 + React 挂载 + 标签页渲染），确保 tab 枚举完整。
+    // 单档回执体量小（run() 已压缩为紧凑对象）可被 tabbit-cli 内联返回，解析稳定。
+    // 注意：5 档合并进同一次 CLI 调用会触发 180s 硬超时被杀（EVALUATION_TIMEOUT）。
+    const allSizes = [...FORCED_SIZES, ...OBSERVE_SIZES];
+    const runSingle = async ([w, h]) => {
+      const program = `
 page.setDefaultNavigationTimeout(150000);
-await page.goto("http://127.0.0.1:${APP_PORT}/", {waitUntil: "domcontentloaded"});
-await page.waitForTimeout(2600);
+await page.goto("http://127.0.0.1:${APP_PORT}/", { waitUntil: "domcontentloaded" });
+await page.waitForTimeout(5000);
+await page.setViewportSize({ width: ${w}, height: ${h} });
+await page.goto("http://127.0.0.1:${APP_PORT}/", { waitUntil: "domcontentloaded" });
+await page.waitForTimeout(6000);
 return await page.evaluate(async () => {
   const mod = await import("/scripts/verify/composer-stable-height-page.jsx?v=" + Date.now());
   return await mod.run();
 });
 `;
-    const stdout = await new Promise((resolve) => {
-      const cli = spawn(CLI, [
-        "nodejs",
-        "--task", "V11 composer stable height check",
-        "--request-id", `composerheight-${process.pid}`,
-        "--timeout-ms", "180000"
-      ], { windowsHide: true });
-      let buffer = "";
-      cli.stdout.on("data", (chunk) => { buffer += String(chunk); });
-      cli.stderr.on("data", (chunk) => { buffer += String(chunk); });
-      cli.on("error", () => resolve(""));
-      cli.on("close", () => resolve(buffer));
-      try { cli.stdin.write(program); cli.stdin.end(); } catch { /* ignore */ }
-    });
-    const start = stdout.indexOf("{\"result\"");
-    if (start >= 0) {
+      const stdout = await new Promise((resolve) => {
+        const cli = spawn(CLI, [
+          "nodejs",
+          "--task", `V11 composer height ${w}x${h}`,
+          "--request-id", `composerheight-${process.pid}-${w}x${h}`,
+          "--timeout-ms", "180000"
+        ], { windowsHide: true });
+        let buffer = "";
+        cli.stdout.on("data", (c) => { buffer += String(c); });
+        cli.stderr.on("data", (c) => { buffer += String(c); });
+        cli.on("error", () => resolve(""));
+        cli.on("close", () => resolve(buffer));
+        try { cli.stdin.write(program); cli.stdin.end(); } catch { resolve(""); }
+      });
+      const start = stdout.indexOf("{\"result\"");
+      if (start < 0) return { sizeKey: `${w}x${h}`, raw: stdout.slice(0, 200) };
       const tail = stdout.slice(start);
-      for (let cut = tail.lastIndexOf("}"); cut > 0 && !facts; cut -= 1) {
+      for (let cut = tail.lastIndexOf("}"); cut > 0; cut -= 1) {
         if (tail[cut] !== "}") continue;
-        try { facts = JSON.parse(tail.slice(0, cut + 1))?.result?.value || null; } catch { /* 继续往前找 */ }
+        try {
+          const v = JSON.parse(tail.slice(0, cut + 1))?.result?.value;
+          return { sizeKey: `${w}x${h}`, value: v };
+        } catch { /* 继续往前找 */ }
       }
+      return { sizeKey: `${w}x${h}`, raw: stdout.slice(0, 200) };
+    };
+    const sizeFacts = {};
+    for (const size of allSizes) {
+      const r = await runSingle(size);
+      if (r.value && typeof r.value === "object") sizeFacts[r.sizeKey] = r.value;
+      else browserReason = `浏览器回执无法解析（${r.sizeKey}，${(r.raw || "空").trim()}）`;
     }
-    if (!facts) browserReason = `浏览器回执无法解析（长度 ${stdout.length}）`;
+    facts = sizeFacts;
   }
 } catch (error) {
   browserReason = error instanceof Error ? error.message : String(error);
@@ -124,33 +152,43 @@ return await page.evaluate(async () => {
   await stopChild(child);
 }
 
+function assertSize(sizeKey, f, forced) {
+  const tag = forced ? `[${sizeKey}-强制]` : `[${sizeKey}-观察]`;
+  if (!f || typeof f !== "object") { check(`浏览器${tag}：探针未返回`, false, "无数据"); return; }
+  const {
+    foundEmbed, tabCount, panelSpread, stickyTopSpread, stickyBottomSpread,
+    rightToolsSpread, scrollContainerCount, pageScroll, btnBad
+  } = f;
+
+  check(`浏览器${tag}：进入批量生成并找到 .outfitWorkflowEmbedded`, foundEmbed === true, `foundEmbed=${foundEmbed}`);
+  check(`浏览器${tag}：动态枚举到功能页（共 ${tabCount} 页）`, tabCount > 0, `tabCount=${tabCount}`);
+
+  check(`浏览器${tag}：切页 dock 高度恒定（.composerPanel.height 极差 ≤ 2px）`,
+    panelSpread !== null && panelSpread <= 2, `spread=${panelSpread}`);
+  check(`浏览器${tag}：切页操作条顶边恒定（.composerStickyControls.top 极差 ≤ 2px）`,
+    stickyTopSpread !== null && stickyTopSpread <= 2, `spread=${stickyTopSpread}`);
+  check(`浏览器${tag}：切页操作条底边恒定（.composerStickyControls.bottom 极差 ≤ 2px）`,
+    stickyBottomSpread !== null && stickyBottomSpread <= 2, `spread=${stickyBottomSpread}`);
+  check(`浏览器${tag}：切页 .rightTools 顶边恒定（极差 ≤ 2px）`,
+    rightToolsSpread !== null && rightToolsSpread <= 2, `spread=${rightToolsSpread}`);
+
+  check(`浏览器${tag}：各页 .generateBtn 在视口内、不被遮挡、未隐藏`,
+    btnBad === 0, `btnBad=${btnBad}`);
+
+  check(`浏览器${tag}：真实滚动容器数 ≤ 2（结果区 + 配置区）`,
+    scrollContainerCount <= 2, `count=${scrollContainerCount}`);
+  if (forced) {
+    check(`浏览器${tag}：无整页滚动`, pageScroll === false, `pageScroll=${pageScroll}`);
+  } else {
+    // 观察档：横向溢出/双滚动条属预期，仅记录不判红；仅当生成按钮真正被隐藏/遮挡才算回归
+    check(`浏览器${tag}：生成按钮仍可见（观察档允许横向溢出）`,
+      btnBad === 0, `scrollContainerCount=${scrollContainerCount} pageScroll=${pageScroll} btnBad=${btnBad}`);
+  }
+}
+
 if (facts) {
-  check("浏览器：进入批量生成并找到 .outfitWorkflowEmbedded", facts.foundEmbed === true, `foundEmbed=${facts.foundEmbed}`);
-  check("浏览器：切换各板块时不再出现「已切换到」提示",
-    facts.switchToastSeen === false, `switchToastSeen=${facts.switchToastSeen}`);
-  const pageLabels = Object.keys(facts.pages || {});
-  const foundLabels = pageLabels.filter((l) => facts.pages[l]?.tabFound);
-  // 本版 ensureWorkflowPages 默认不播种 outpaint（批量扩图）板块（源码 ensureWorkflowPages 过滤 outpaint），
-  // 故仅要求 4 个真实默认的生图板块 tab 均存在；批量扩图的 composer 结构与其它板块完全一致，修复同源生效。
-  const EXPECTED_DEFAULT = ["换装", "固定背景", "随机背景", "精修"];
-  const missingDefault = EXPECTED_DEFAULT.filter((l) => !foundLabels.includes(l));
-  check("浏览器：4 个默认生图板块 tab 均存在（批量扩图本版不默认播种）",
-    missingDefault.length === 0, `found=${foundLabels.join(",")} missingDefault=${missingDefault.join(",")}`);
-  const outpaintFound = foundLabels.includes("批量扩图");
-  // 各页 rightTools 顶部位极差（仅统计量到值的页 + 临时需求页）
-  const tops = (facts.rightToolsTops || []).filter((n) => typeof n === "number");
-  const spread = tops.length ? Math.max(...tops) - Math.min(...tops) : null;
-  check("浏览器：各板块 .rightTools 顶部位极差 ≤ 2px", spread !== null && spread <= 2,
-    `tops=[${tops.join(",")}] spread=${spread} outpaintTab=${outpaintFound}`);
-  check("浏览器：新建临时需求页成功且量到顶部位",
-    facts.addBtnFound === true && facts.tempPage && typeof facts.tempPage.rightToolsTop === "number",
-    `label=${facts.tempPageLabel} top=${facts.tempPage?.rightToolsTop}`);
-  // 各页 intentBar 占位状态应为布尔（已常驻渲染）；换装页不占位（可见），其余占位（不可见）
-  const intentPlaceholders = pageLabels
-    .map((l) => facts.pages[l]?.measure?.intentPlaceholder)
-    .filter((v) => typeof v === "boolean");
-  check("浏览器：各页 intentBar 占位状态均为布尔（已常驻渲染）",
-    intentPlaceholders.length >= 4, `count=${intentPlaceholders.length}`);
+  for (const [w, h] of FORCED_SIZES) assertSize(`${w}x${h}`, facts[`${w}x${h}`], true);
+  for (const [w, h] of OBSERVE_SIZES) assertSize(`${w}x${h}`, facts[`${w}x${h}`], false);
 } else {
   check("浏览器探针未执行", false, browserReason || "未知原因");
 }

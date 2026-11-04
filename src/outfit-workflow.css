@@ -2211,6 +2211,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* P1-001 A′-1：给 dock 一个确定高度预算，切页时外框恒定，
+     内容差异由内部滚动吸收（flex:1 结果区 + 本容器 overflow-y:auto）。
+     三个值须按 5 档窗口实测后定值（详见交付报告 §7.2 / §9），非凭截图拍板。 */
+  height: clamp(280px, 42vh, 60vh);
   max-height: 60vh;
   min-height: 0;
   margin-top: 10px;
@@ -2261,6 +2265,10 @@
   flex: 0 0 auto;
   gap: 8px;
   margin: 2px -2px -2px;
+  /* P1-001 A′-1：内容不足以撑满 dock 时，用 margin-top:auto 把操作条推到 dock 底部，
+     与上方 position:sticky;bottom:0（内容超出时吸底）形成双保险，切页不再跳动。
+     必须放在 margin 简写之后，否则会被简写复位成 2px 而失效。 */
+  margin-top: auto;
   padding: 8px 2px 2px;
   border-top: 1px solid var(--border);
 }
