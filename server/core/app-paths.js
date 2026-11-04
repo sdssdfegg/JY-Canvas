@@ -66,3 +66,7 @@ export const appSettingsFile = path.join(dataDir, "app-settings.json");
 // P1-1 换装任务存储目录（仅路径出口，无副作用；task-store.js 消费）。
 // 落点对齐 contracts/tryon-task.md §3：data/ai-tryon/tasks/<task_id>.json + index.json。
 export const aiTryonTasksDir = path.join(dataDir, "ai-tryon", "tasks");
+// P2-1 服装档案存储目录（仅路径出口，无副作用；garment-profile-store.js 消费）。
+// 落点对齐 contracts/garment-profile.md §2：data/ai-tryon/garments/<id>/profile-v<n>.json + index.json。
+// 🔴 用户资产红线：本目录属用户有意资产，绝不加入任何清理白名单（storage.routes / storage-usage / result-cache）。
+export const aiTryonGarmentsDir = path.join(dataDir, "ai-tryon", "garments");
