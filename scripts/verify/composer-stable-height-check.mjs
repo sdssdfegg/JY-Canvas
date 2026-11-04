@@ -5,7 +5,10 @@
 //   B. 浏览器级（真实页面）：5 档窗口尺寸 × 动态枚举的所有功能页，
 //      逐页量 .composerPanel 高度/顶/底、.composerStickyControls 的 top/bottom、.rightTools 顶、
 //      .generateBtn 可见性；断言切页不跳动（各量档内极差 ≤ 2px）、生成按钮不被遮挡/隐藏、
-//      真实滚动容器数 ≤ 2、无整页滚动。
+//      真实滚动容器数 ≤ 4、无整页滚动、dock 整块贴底可见。
+//      2026-11-04（用户明确要求「100% 缩放」）：tabbit 浏览器 dpr=0.8，setViewportSize 需按
+//      目标CSS尺寸×dpr 反算，并用探针回传的 vw/vh 硬断言校准（±2px）。否则名义 1024 实为
+//      1280 CSS 像素，窄屏从未被测到 —— 这类「全绿但没测到真状态」是最危险的假绿。
 //
 // 服务与浏览器走独立端口（8822）/ 独立 origin，不影响用户 8787 实例，也不写 history.json。
 // 用法：node scripts/verify/composer-stable-height-check.mjs
@@ -51,11 +54,36 @@ check("CSS：.composerStatus min-height 且含 --placeholder 不可见占位",
 check("CSS：.outfitIntentBar min-height 且含 --placeholder 不可见占位",
   /\.outfitWorkflowEmbedded \.outfitIntentBar\s*\{[^}]*min-height:\s*32px/.test(intentCssSrc)
     && intentCssSrc.includes(".outfitIntentBar--placeholder"), "32px+占位");
-// P1-001 A′-1：dock 是否取得确定高度预算（替代"只有 max-height"），操作条是否 margin-top:auto
-check("CSS：.composerPanel 取得确定高度（height: clamp(...)）",
-  /\.outfitWorkflowEmbedded \.composerPanel\s*\{[^}]*height:\s*clamp\(/.test(workflowCssSrc), "clamp 高度");
+// 2026-11-04：dock 改为 flex:1 填满剩余空间（填空白），不再给固定 clamp 高度；
+// 真正的反跳动保证是「底边恒定贴视口底」（浏览器级断言）。此处只校验关键 CSS 已落地。
+check("CSS：.composerPanel 改为 flex:1 1 auto 填满剩余空间（无固定 clamp 高度）",
+  /\.outfitWorkflowEmbedded \.composerPanel\s*\{[^}]*flex:\s*1 1 auto/.test(workflowCssSrc)
+    && !/height:\s*clamp\(/.test(workflowCssSrc.match(/\.outfitWorkflowEmbedded \.composerPanel\s*\{[^}]*\}/)?.[0] || ""), "flex:1 填满");
+check("CSS：.outfitScrollArea 改为 flex:0 1 auto（结果区不再撑满、留白交给 dock）",
+  /\.outfitWorkflowEmbedded \.outfitScrollArea\s*\{[^}]*flex:\s*0 1 auto/.test(workflowCssSrc), "flex:0 1 auto");
 check("CSS：.composerStickyControls 加 margin-top: auto（内容不足时推底，置于 margin 简写之后）",
   /\.outfitWorkflowEmbedded \.composerStickyControls\s*\{[^}]*margin-top:\s*auto/.test(workflowCssSrc), "margin-top:auto");
+check("CSS：.composerStickyControls 单列约束 grid-template-columns: minmax(0,1fr)（防窄屏按钮溢出）",
+  /\.outfitWorkflowEmbedded \.composerStickyControls\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/.test(workflowCssSrc), "minmax(0,1fr)");
+// 2026-11-04（追加修复）：生成按钮原来是 .rightTools（nowrap+overflow-x:auto）的最后一个子元素，
+// 窄屏参数行内部横滚时按钮被顶出视口右侧裁切（「下方模块显示不全」）。现用 .footerTools 把
+// 参数行与按钮拆成两列：参数行 flex:1 内部自滚、按钮 flex:0 0 auto 常驻右侧，永不被裁。
+const ftOpen = composerSrc.indexOf('<div className="footerTools">');
+const rtOpen = composerSrc.indexOf('<div className="rightTools">');
+const btnAt = composerSrc.indexOf('<Button className="generateBtn"');
+check("源码：OutfitComposer 用 .footerTools 把参数行与生成按钮分成两列",
+  ftOpen > -1 && rtOpen > ftOpen && btnAt > rtOpen, "footerTools 包裹层存在且顺序正确");
+check("源码：.generateBtn 已移出 .rightTools（参数行闭合 </div> 在按钮之前、行内不含生成按钮）",
+  rtOpen > -1 && btnAt > rtOpen
+    && !composerSrc.slice(rtOpen, btnAt).includes("generateBtn")
+    && composerSrc.slice(rtOpen, btnAt).includes("</div>"), "按钮在参数行外");
+check("CSS：.composerFooter .footerTools flex 分列、.generateBtn 独立成列 flex:0 0 auto",
+  /\.outfitWorkflowEmbedded \.composerFooter \.footerTools\s*\{[^}]*display:\s*flex/.test(workflowCssSrc)
+    && /\.outfitWorkflowEmbedded \.composerFooter \.generateBtn\s*\{[^}]*flex:\s*0 0 auto/.test(workflowCssSrc), "分列+按钮 flex:0 0 auto");
+check("CSS：.rightTools 隐藏横滚条但保留 overflow-x:auto（参数行高度恒定、切页不跳）",
+  /\.outfitWorkflowEmbedded \.composerFooter \.rightTools\s*\{[^}]*scrollbar-width:\s*none/.test(workflowCssSrc)
+    && /\.outfitWorkflowEmbedded \.composerFooter \.rightTools::-webkit-scrollbar\s*\{[^}]*display:\s*none/.test(workflowCssSrc)
+    && /\.outfitWorkflowEmbedded \.rightTools\s*\{[^}]*overflow-x:\s*auto/.test(workflowCssSrc), "scrollbar-width:none + overflow-x:auto");
 
 // ---------------------------------------------------------------- B. 浏览器级
 // P1-001 §8.2：4 档强制 + 1024×768 观察档（观察档不纳入强制失败，仅记录溢出/按钮可见性）
@@ -104,7 +132,12 @@ try {
 page.setDefaultNavigationTimeout(150000);
 await page.goto("http://127.0.0.1:${APP_PORT}/", { waitUntil: "domcontentloaded" });
 await page.waitForTimeout(5000);
-await page.setViewportSize({ width: ${w}, height: ${h} });
+// 2026-11-04（消除假绿）：tabbit 浏览器 devicePixelRatio=0.8，setViewportSize 传的是设备像素，
+// 直接传 (${w},${h}) 会得到 ${w}/0.8 × ${h}/0.8 CSS 像素（窄屏档被放大 25%，从未真正测到窄屏）。
+// 先读 dpr，按 目标CSS尺寸 × dpr 反算设备像素，再用探针回传的 vw/vh 硬断言校准结果，
+// 确保「100% 缩放」是真实被测状态，而不是名义尺寸。
+const dpr = await page.evaluate(() => window.devicePixelRatio || 1);
+await page.setViewportSize({ width: Math.round(${w} * dpr), height: Math.round(${h} * dpr) });
 await page.goto("http://127.0.0.1:${APP_PORT}/", { waitUntil: "domcontentloaded" });
 await page.waitForTimeout(6000);
 return await page.evaluate(async () => {
@@ -152,31 +185,39 @@ return await page.evaluate(async () => {
   await stopChild(child);
 }
 
-function assertSize(sizeKey, f, forced) {
+function assertSize(sizeKey, f, forced, wantW, wantH) {
   const tag = forced ? `[${sizeKey}-强制]` : `[${sizeKey}-观察]`;
   if (!f || typeof f !== "object") { check(`浏览器${tag}：探针未返回`, false, "无数据"); return; }
   const {
-    foundEmbed, tabCount, panelSpread, stickyTopSpread, stickyBottomSpread,
-    rightToolsSpread, scrollContainerCount, pageScroll, btnBad
+    foundEmbed, tabCount, stickyTopSpread, stickyBottomSpread,
+    rightToolsSpread, scrollContainerCount, pageScroll, btnBad, composerVisible, vw, vh, dpr
   } = f;
 
+  // 2026-11-04：先证明这一档真的在「100% 缩放的目标 CSS 视口」上跑，否则后面全绿也是假绿。
+  check(`浏览器${tag}：真实 CSS 视口已校准到 100% 缩放 ${wantW}×${wantH}（±2px）`,
+    typeof vw === "number" && typeof vh === "number"
+      && Math.abs(vw - wantW) <= 2 && Math.abs(vh - wantH) <= 2,
+    `vw=${vw} vh=${vh} dpr=${dpr} 目标=${wantW}×${wantH}`);
   check(`浏览器${tag}：进入批量生成并找到 .outfitWorkflowEmbedded`, foundEmbed === true, `foundEmbed=${foundEmbed}`);
   check(`浏览器${tag}：动态枚举到功能页（共 ${tabCount} 页）`, tabCount > 0, `tabCount=${tabCount}`);
 
-  check(`浏览器${tag}：切页 dock 高度恒定（.composerPanel.height 极差 ≤ 2px）`,
-    panelSpread !== null && panelSpread <= 2, `spread=${panelSpread}`);
+  // 2026-11-04：dock 改为 flex:1 填满剩余空间，高度本就应随结果区内容伸缩（填空白）。
+  // 反跳动的真正保证是「底边恒定贴视口底」，故此处断言底边极差 ≤ 2px，不再断言高度恒定。
+  check(`浏览器${tag}：切页操作条底边恒定贴视口底（.composerStickyControls.bottom 极差 ≤ 2px）`,
+    stickyBottomSpread !== null && stickyBottomSpread <= 2, `spread=${stickyBottomSpread}`);
   check(`浏览器${tag}：切页操作条顶边恒定（.composerStickyControls.top 极差 ≤ 2px）`,
     stickyTopSpread !== null && stickyTopSpread <= 2, `spread=${stickyTopSpread}`);
-  check(`浏览器${tag}：切页操作条底边恒定（.composerStickyControls.bottom 极差 ≤ 2px）`,
-    stickyBottomSpread !== null && stickyBottomSpread <= 2, `spread=${stickyBottomSpread}`);
   check(`浏览器${tag}：切页 .rightTools 顶边恒定（极差 ≤ 2px）`,
     rightToolsSpread !== null && rightToolsSpread <= 2, `spread=${rightToolsSpread}`);
+  // 用户核心诉求：100% 缩放下 dock 整块贴底、生成按钮无需滚动条即可见。
+  check(`浏览器${tag}：dock 整块可见、无需滚动（底边 ≤ 视口高 vh=${vh}）`,
+    composerVisible === true, `composerVisible=${composerVisible}`);
 
   check(`浏览器${tag}：各页 .generateBtn 在视口内、不被遮挡、未隐藏`,
     btnBad === 0, `btnBad=${btnBad}`);
 
-  check(`浏览器${tag}：真实滚动容器数 ≤ 2（结果区 + 配置区）`,
-    scrollContainerCount <= 2, `count=${scrollContainerCount}`);
+  check(`浏览器${tag}：内部滚动容器数 ≤ 4（结果区 + 配置区 + 嵌套文本域，dock 填满后自滚属正常）`,
+    scrollContainerCount <= 4, `count=${scrollContainerCount}`);
   if (forced) {
     check(`浏览器${tag}：无整页滚动`, pageScroll === false, `pageScroll=${pageScroll}`);
   } else {
@@ -187,8 +228,8 @@ function assertSize(sizeKey, f, forced) {
 }
 
 if (facts) {
-  for (const [w, h] of FORCED_SIZES) assertSize(`${w}x${h}`, facts[`${w}x${h}`], true);
-  for (const [w, h] of OBSERVE_SIZES) assertSize(`${w}x${h}`, facts[`${w}x${h}`], false);
+  for (const [w, h] of FORCED_SIZES) assertSize(`${w}x${h}`, facts[`${w}x${h}`], true, w, h);
+  for (const [w, h] of OBSERVE_SIZES) assertSize(`${w}x${h}`, facts[`${w}x${h}`], false, w, h);
 } else {
   check("浏览器探针未执行", false, browserReason || "未知原因");
 }

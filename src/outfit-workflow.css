@@ -2202,21 +2202,20 @@
 .outfitWorkflowEmbedded .composerPanel {
   order: 3;
   /* 2026-11-01（用户要求·统一底边）：几个批量页切换时结果区高度可不同，
-     但「下方功能参数区」（上传 + 设置 + 提示词 + 底部按钮）必须始终贴底、等高、布局一致。
-     做法：整块作底部 dock —— flex 列铺满视口底，自身上限 60vh、超出则内部滚动、
-     底部按钮（.composerStickyControls）吸底常驻；上方结果区 flex:1 自滚。 */
-  flex: 0 0 auto;
+     但「下方功能参数区」（上传 + 设置 + 提示词 + 底部按钮）必须始终贴底、布局一致。
+     做法：整块作底部 dock —— flex 列铺满视口底，超出则内部滚动、
+     底部按钮（.composerStickyControls）吸底常驻；上方结果区自滚。 */
+  /* 2026-11-04（用户反馈·填空白）：改为 flex:1 1 auto 填满结果区下方剩余空间，
+     不再给固定 clamp 高度。结果区内容少时不会在下方留大块空白、dock 自动顶高填满，
+     100% 缩放下整块贴底、生成按钮恒可见、无整页滚动；底边始终贴视口底、切页不跳
+     （底部操作条 sticky:bottom:0 仍锁在 dock 底 = 视口底）。min-height 兜底防极端压扁。 */
+  flex: 1 1 auto;
   position: relative;
   z-index: 8;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  /* P1-001 A′-1：给 dock 一个确定高度预算，切页时外框恒定，
-     内容差异由内部滚动吸收（flex:1 结果区 + 本容器 overflow-y:auto）。
-     三个值须按 5 档窗口实测后定值（详见交付报告 §7.2 / §9），非凭截图拍板。 */
-  height: clamp(280px, 42vh, 60vh);
-  max-height: 60vh;
-  min-height: 0;
+  min-height: 280px;
   margin-top: 10px;
   margin-bottom: 0;
   padding: 10px;
@@ -2240,9 +2239,10 @@
 
 .outfitWorkflowEmbedded .outfitScrollArea {
   order: 2;
-  /* 2026-11-01（用户要求·统一底边）：结果区 = 可收缩的自滚区（flex:1），
-     高度随窗口、内容多则内部滚动，不把底部 dock 顶下去。 */
-  flex: 1 1 auto;
+  /* 2026-11-04（用户反馈·填空白）：结果区改为 flex:0 1 auto（不增长），
+     只在自身内容不足时收缩、内容多则内部滚动；不再 flex:1 撑满剩余空间，
+     从而避免内容少时在下方留大块空白、把底部 dock 压在低处。空白交给下方 dock 填满。 */
+  flex: 0 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -2254,6 +2254,10 @@
 
 .outfitWorkflowEmbedded .composerStickyControls {
   display: grid;
+  /* 2026-11-04（修窄屏溢出）：显式约束单列宽度为容器宽（minmax(0,1fr)），
+     避免 auto 列被「参数行 nowrap 内容」撑宽、把生成按钮顶出视口右侧被裁切。
+     子项内容过宽改为各自内部 overflow-x 滚动。 */
+  grid-template-columns: minmax(0, 1fr);
   /* 2026-11-01（用户反馈）：换装 / 精修的底部操作条原来随内容走，
      切模式或上下滚动时它跟着上下移，和其他页面（参考生图 / 一键详情的
      操作条固定在视口底）不在同一水平线，观感像跳页。改为吸底常驻：
@@ -2543,8 +2547,8 @@
 }
 
 .outfitWorkflowEmbedded .composerFooter {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   align-items: stretch;
   /* 2026-11-01：不在这里做 sticky —— 实测 sticky 的粘性范围被父元素
@@ -2552,6 +2556,38 @@
      仍 938 > 视口 900）。底部可达性改由 composerPanel 的「可收缩 + 自身滚动」保证
      （见 .composerPanel 的 flex:0 1 auto 说明）。 */
   padding: 10px 0 18px;
+}
+
+/* P1-001（2026-11-04）：生成按钮移出横向滚动的参数行，
+   单独成列常驻右侧（V77「生成钮独立右侧」的真实落地）。
+   窄屏参数行内部横向滚动时，按钮不再被裁切（修「下方模块显示不全」）。 */
+.outfitWorkflowEmbedded .composerFooter .footerTools {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.outfitWorkflowEmbedded .composerFooter .rightTools {
+  flex: 1 1 auto;
+  width: auto;
+  margin-left: 0;
+  min-width: 0;
+  /* 2026-11-04（修切页跳动·V77 真正落地）：横滚条出现/消失会吃掉约 11px 高度，
+     使参数行在 44↔55px 间跳、带动整条冻结操作条顶边上下移（实测 1280 CSS px 下
+     114 页里仅 2 页因多 2 个 select 触发横滚 ⇒ stickyTop 极差 11px）。
+     隐藏滚动条但保留 overflow-x:auto：仍可滚轮/触控板横滚，参数行高度恒为单阶，
+     彻底兑现 V77「冻结区高度与板块无关」；生成按钮已独立成列，不需靠滚动条找。 */
+  scrollbar-width: none;
+}
+
+.outfitWorkflowEmbedded .composerFooter .rightTools::-webkit-scrollbar {
+  display: none;
+}
+
+.outfitWorkflowEmbedded .composerFooter .generateBtn {
+  flex: 0 0 auto;
+  margin-left: 0;
 }
 
 .outfitWorkflowEmbedded .composerHeader {
@@ -2606,6 +2642,7 @@
   align-items: flex-end;
   overflow-x: auto;
   overflow-y: hidden;
+  min-width: 0;
 }
 
 .outfitWorkflowEmbedded .composerPageRow {

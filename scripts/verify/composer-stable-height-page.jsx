@@ -34,7 +34,7 @@ function measure() {
   const panel = document.querySelector(".outfitWorkflowEmbedded .composerPanel");
   const sc = document.querySelector(".composerStickyControls");
   const rt = document.querySelector(".composerStickyControls .rightTools");
-  const gb = document.querySelector(".generateBtn");
+  const gb = document.querySelector(".composerStickyControls .generateBtn");
   const pr = panel ? panel.getBoundingClientRect() : null;
   const sr = sc ? sc.getBoundingClientRect() : null;
   let btn = null;
@@ -112,16 +112,26 @@ export async function run() {
   });
   const se = document.scrollingElement;
   const pageScroll = se ? se.scrollHeight > se.clientHeight + 1 : false;
+  const vh = window.innerHeight;
+  const vw = window.innerWidth;
+  const dpr = window.devicePixelRatio;
+  // 2026-11-04（用户核心诉求）：dock 整块必须贴底可见、不靠滚动条查看。
+  // 以 .composerStickyControls.bottom（锁在 dock 底 = 视口底）是否 ≤ 视口高判定。
+  const composerVisible = stickyBottoms.filter((b) => typeof b === "number").every((b) => b <= vh + 1);
 
   return {
     foundEmbed,
     tabCount: labels.length,
+    vw,
+    vh,
+    dpr,
     panelSpread: spread(panelHeights),
     stickyTopSpread: spread(stickyTops),
     stickyBottomSpread: spread(stickyBottoms),
     rightToolsSpread: spread(rightToolsTops),
     scrollContainerCount: overflowEls.length,
     pageScroll,
+    composerVisible,
     btnBad
   };
 }

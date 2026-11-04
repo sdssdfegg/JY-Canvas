@@ -440,149 +440,151 @@ export default function OutfitComposer({
         deleteOutfitPage={deleteOutfitPage}
       />
 
-      <div className="rightTools">
-        <select value={settings.model} onChange={(event) => updateSetting("model", event.target.value)}>
-          {models.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
-        </select>
-        {/* 线路选择：请求必须带 canonical channelId；旧线路不会出现在这里，服务端也会拒绝。
-            2026-09-26：批量页保持原来的下拉框样式（和旁边模型/比例/尺寸同级），
-            只让"当前选中的渠道"用快捷生成那套金色 #fbbf24 显示，其余样式不变。 */}
-        <select
-          className="channelSelect"
-          value={outfitChannels.some((channel) => channel.id === settings.channelId) ? settings.channelId : (outfitChannels[0]?.id || "")}
-          onChange={(event) => updateSetting("channelId", event.target.value)}
-          title="当前模型的可用线路"
-        >
-          {/* 2026-10-31 修复：原先用 <optgroup label="\xa0"> 把官方/其他分两组，
-              原生 select 的 optgroup 标题行不被 option 选择器覆盖，走系统默认浅/白底，
-              在暗色弹层里渲染成顶部白条（V145 引入、本次复发）。改为扁平 option 列表：
-              官方仍在最前、仍上绿色，其余按原顺序，整列暗底无白条（恢复 V145 前观感）。 */}
-          {(() => {
-            const official = outfitChannels.filter((channel) => channel.official);
-            const others = outfitChannels.filter((channel) => !channel.official);
-            const ordered = [...official, ...others];
-            return ordered.map((channel) => (
-              // 原生 select 的 option 着色浏览器支持有限（Chrome 生效、部分浏览器忽略），
-              // 这里尽力给官方渠道上绿色（与 CSS 的官方绿一致，避开默认金色），忽略时降级为默认色。
-              <option
-                key={channel.id}
-                value={channel.id}
-                style={channel.official ? { color: "#22c55e" } : undefined}
-              >
-                {channel.label}{Number(channel.price || 0) > 0 ? ` ¥${Number(channel.price).toFixed(2)}/张` : ""}
-              </option>
-            ));
-          })()}
-        </select>
-        <select value={settings.aspectRatio} onChange={(event) => updateSetting("aspectRatio", event.target.value)}>
-          {ratios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
-        </select>
-        <select value={outfitSizes.includes(settings.imageSize) ? settings.imageSize : (outfitSizes[0] || "")} onChange={(event) => updateSetting("imageSize", event.target.value)}>
-          {(outfitSizesAll && outfitSizesAll.length ? outfitSizesAll : outfitSizes).map((size) => (
-            <option key={size} value={size} disabled={outfitSizes.length > 0 && !outfitSizes.includes(size)}>{size}</option>
-          ))}
-        </select>
-        {allowedQualities.length > 0 && (
+      <div className="footerTools">
+        <div className="rightTools">
+          <select value={settings.model} onChange={(event) => updateSetting("model", event.target.value)}>
+            {models.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
+          </select>
+          {/* 线路选择：请求必须带 canonical channelId；旧线路不会出现在这里，服务端也会拒绝。
+              2026-09-26：批量页保持原来的下拉框样式（和旁边模型/比例/尺寸同级），
+              只让"当前选中的渠道"用快捷生成那套金色 #fbbf24 显示，其余样式不变。 */}
           <select
-            value={allowedQualities.includes(settings.quality) ? settings.quality : (allowedQualities[0] || "")}
-            onChange={(event) => updateSetting("quality", event.target.value)}
-            title="出图质量"
+            className="channelSelect"
+            value={outfitChannels.some((channel) => channel.id === settings.channelId) ? settings.channelId : (outfitChannels[0]?.id || "")}
+            onChange={(event) => updateSetting("channelId", event.target.value)}
+            title="当前模型的可用线路"
           >
-            <option value="">质量(默认)</option>
-            {/* 渲染模型全量档位，把当前渠道不支持的档（如 LK-1K 的 high/max）置灰而非移除 */}
-            {allQualities.map((quality) => (
-              <option key={quality} value={quality} disabled={allowedQualities.length > 0 && !allowedQualities.includes(quality)}>
-                {quality === "xhigh" ? "超高" : quality === "max" ? "MAX" : quality}
-              </option>
+            {/* 2026-10-31 修复：原先用 <optgroup label="\xa0"> 把官方/其他分两组，
+                原生 select 的 optgroup 标题行不被 option 选择器覆盖，走系统默认浅/白底，
+                在暗色弹层里渲染成顶部白条（V145 引入、本次复发）。改为扁平 option 列表：
+                官方仍在最前、仍上绿色，其余按原顺序，整列暗底无白条（恢复 V145 前观感）。 */}
+            {(() => {
+              const official = outfitChannels.filter((channel) => channel.official);
+              const others = outfitChannels.filter((channel) => !channel.official);
+              const ordered = [...official, ...others];
+              return ordered.map((channel) => (
+                // 原生 select 的 option 着色浏览器支持有限（Chrome 生效、部分浏览器忽略），
+                // 这里尽力给官方渠道上绿色（与 CSS 的官方绿一致，避开默认金色），忽略时降级为默认色。
+                <option
+                  key={channel.id}
+                  value={channel.id}
+                  style={channel.official ? { color: "#22c55e" } : undefined}
+                >
+                  {channel.label}{Number(channel.price || 0) > 0 ? ` ¥${Number(channel.price).toFixed(2)}/张` : ""}
+                </option>
+              ));
+            })()}
+          </select>
+          <select value={settings.aspectRatio} onChange={(event) => updateSetting("aspectRatio", event.target.value)}>
+            {ratios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
+          </select>
+          <select value={outfitSizes.includes(settings.imageSize) ? settings.imageSize : (outfitSizes[0] || "")} onChange={(event) => updateSetting("imageSize", event.target.value)}>
+            {(outfitSizesAll && outfitSizesAll.length ? outfitSizesAll : outfitSizes).map((size) => (
+              <option key={size} value={size} disabled={outfitSizes.length > 0 && !outfitSizes.includes(size)}>{size}</option>
             ))}
           </select>
-        )}
-        {outfitCapabilities.versions && outfitCapabilities.versions.length > 0 && (
-          <select value={settings.version || ""} onChange={(event) => updateSetting("version", event.target.value)} title="模型版本">
-            <option value="">版本(默认)</option>
-            {outfitCapabilities.versions.map((version) => (
-              <option key={version} value={version}>{version}</option>
-            ))}
-          </select>
-        )}
-        {outfitCapabilities.backgrounds && outfitCapabilities.backgrounds.length > 0 && (
-          <select value={settings.background || ""} onChange={(event) => updateSetting("background", event.target.value)} title="背景">
-            <option value="">背景(默认)</option>
-            {outfitCapabilities.backgrounds.map((background) => (
-              <option key={background} value={background}>{background === "opaque" ? "不透明" : background === "transparent" ? "透明" : background}</option>
-            ))}
-          </select>
-        )}
-        <select className={globalBulkMode === "mixed" ? "mixed" : ""} value={globalBulkMode} onChange={(event) => void applyGlobalPreprocess(event.target.value)}>
-          <option value="mixed" disabled>混合状态</option>
-          {globalBulkMode === "crop" && <option value="crop" disabled>{preprocessModeLabel("crop")}</option>}
-          {PREPROCESS_OPTIONS.filter((option) => option.value !== "crop").map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-        {isOutpaintWorkflow || isRandomBackgroundWorkflow ? (
-          <select value="fixed" disabled>
-            <option value="fixed">{isRandomBackgroundWorkflow ? "按场景补充生成" : "图1向下扩图"}</option>
-          </select>
-        ) : (
-          <select value={settings.pairingMode} onChange={(event) => updateSetting("pairingMode", event.target.value)}>
-            <option value="fixed">{isPoseRemixWorkflow ? "固定母版" : isFaceSwapWorkflow ? "固定人脸" : isBackgroundChangeWorkflow ? "固定场景" : "固定服装"}</option>
-            <option value="sequence">{isPoseRemixWorkflow ? "母版一一对应" : isFaceSwapWorkflow ? "人脸一一对应" : isBackgroundChangeWorkflow ? "人物场景一一对应" : "按顺序一一对应"}</option>
-            <option value="cycle">{isPoseRemixWorkflow ? "母版循环配对" : isFaceSwapWorkflow ? "人脸循环配对" : isBackgroundChangeWorkflow ? "场景循环配对" : "服装循环配对"}</option>
-          </select>
-        )}
-        {isRandomBackgroundWorkflow && (
-          <select
-            value={normalizeRandomBackgroundFocus(settings.randomBackgroundFocus)}
-            onChange={(event) => updateSetting("randomBackgroundFocus", event.target.value)}
-            title="随机背景视觉重点"
-          >
-            {RANDOM_BACKGROUND_FOCUS_OPTIONS.map((option) => (
+          {allowedQualities.length > 0 && (
+            <select
+              value={allowedQualities.includes(settings.quality) ? settings.quality : (allowedQualities[0] || "")}
+              onChange={(event) => updateSetting("quality", event.target.value)}
+              title="出图质量"
+            >
+              <option value="">质量(默认)</option>
+              {/* 渲染模型全量档位，把当前渠道不支持的档（如 LK-1K 的 high/max）置灰而非移除 */}
+              {allQualities.map((quality) => (
+                <option key={quality} value={quality} disabled={allowedQualities.length > 0 && !allowedQualities.includes(quality)}>
+                  {quality === "xhigh" ? "超高" : quality === "max" ? "MAX" : quality}
+                </option>
+              ))}
+            </select>
+          )}
+          {outfitCapabilities.versions && outfitCapabilities.versions.length > 0 && (
+            <select value={settings.version || ""} onChange={(event) => updateSetting("version", event.target.value)} title="模型版本">
+              <option value="">版本(默认)</option>
+              {outfitCapabilities.versions.map((version) => (
+                <option key={version} value={version}>{version}</option>
+              ))}
+            </select>
+          )}
+          {outfitCapabilities.backgrounds && outfitCapabilities.backgrounds.length > 0 && (
+            <select value={settings.background || ""} onChange={(event) => updateSetting("background", event.target.value)} title="背景">
+              <option value="">背景(默认)</option>
+              {outfitCapabilities.backgrounds.map((background) => (
+                <option key={background} value={background}>{background === "opaque" ? "不透明" : background === "transparent" ? "透明" : background}</option>
+              ))}
+            </select>
+          )}
+          <select className={globalBulkMode === "mixed" ? "mixed" : ""} value={globalBulkMode} onChange={(event) => void applyGlobalPreprocess(event.target.value)}>
+            <option value="mixed" disabled>混合状态</option>
+            {globalBulkMode === "crop" && <option value="crop" disabled>{preprocessModeLabel("crop")}</option>}
+            {PREPROCESS_OPTIONS.filter((option) => option.value !== "crop").map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
-        )}
-        <select value={generationCount} onChange={(event) => updateSetting("generationCount", event.target.value)}>
-          {GENERATION_COUNT_OPTIONS.map((count) => (
-            <option key={count} value={count}>{count === "auto" ? `数量(${plannedGenerationCount})` : `数量 ${count}`}</option>
-          ))}
-        </select>
-        {/* V77（用户要求·停用）：「常规文本/智能文本」开关与「AI质检」开关停止渲染（Park 纪律：
-            smartIntervention/qualityCheck state 与持久化不动、仍可被其他逻辑读取，恢复 = 去掉本注释）。 */}
-        {/* <button
-          className={`smartInterventionSwitch ${!isPoseRemixWorkflow && !isOutpaintWorkflow && !isRandomBackgroundWorkflow && settings.smartIntervention ? "on" : ""}`}
-          type="button"
-          onClick={() => {
-            if (isPoseRemixWorkflow) {
-              addEvent("批量姿态", "该页按图1姿态和图2母版直接生成，暂不启用锁图1人物的智能文本");
-              return;
-            }
-            if (isOutpaintWorkflow) {
-              addEvent("批量扩图", "该页使用前端扩图画布和独立扩图 SKILL，不启用额外智能文本");
-              return;
-            }
-            if (isRandomBackgroundWorkflow) {
-              addEvent("随机背景", "该页按场景补充和随机背景 SKILL 直接生成，暂不启用额外智能文本");
-              return;
-            }
-            updateSetting("smartIntervention", !settings.smartIntervention);
-          }}
-          aria-pressed={!isPoseRemixWorkflow && !isOutpaintWorkflow && !isRandomBackgroundWorkflow && settings.smartIntervention}
-          title={isPoseRemixWorkflow ? "批量姿态页暂不启用锁图1人物的智能文本" : isOutpaintWorkflow ? "批量扩图页使用固定扩图文本" : isRandomBackgroundWorkflow ? "随机背景页使用场景补充和固定 SKILL" : "切换文本模型介入"}
-        >
-          <span>{isPoseRemixWorkflow || isOutpaintWorkflow || isRandomBackgroundWorkflow ? "常规文本" : settings.smartIntervention ? "智能文本" : "常规文本"}</span>
-          <i aria-hidden="true"><b /></i>
-        </button>
-        <button
-          className={`qualityCheckSwitch ${settings.qualityCheck ? "on" : ""}`}
-          type="button"
-          onClick={() => updateSetting("qualityCheck", !settings.qualityCheck)}
-          aria-pressed={settings.qualityCheck}
-          title="生成完成后调用 AI质检员标记合格/不合格"
-        >
-          <span>AI质检</span>
-          <i aria-hidden="true"><b /></i>
-        </button> */}
+          {isOutpaintWorkflow || isRandomBackgroundWorkflow ? (
+            <select value="fixed" disabled>
+              <option value="fixed">{isRandomBackgroundWorkflow ? "按场景补充生成" : "图1向下扩图"}</option>
+            </select>
+          ) : (
+            <select value={settings.pairingMode} onChange={(event) => updateSetting("pairingMode", event.target.value)}>
+              <option value="fixed">{isPoseRemixWorkflow ? "固定母版" : isFaceSwapWorkflow ? "固定人脸" : isBackgroundChangeWorkflow ? "固定场景" : "固定服装"}</option>
+              <option value="sequence">{isPoseRemixWorkflow ? "母版一一对应" : isFaceSwapWorkflow ? "人脸一一对应" : isBackgroundChangeWorkflow ? "人物场景一一对应" : "按顺序一一对应"}</option>
+              <option value="cycle">{isPoseRemixWorkflow ? "母版循环配对" : isFaceSwapWorkflow ? "人脸循环配对" : isBackgroundChangeWorkflow ? "场景循环配对" : "服装循环配对"}</option>
+            </select>
+          )}
+          {isRandomBackgroundWorkflow && (
+            <select
+              value={normalizeRandomBackgroundFocus(settings.randomBackgroundFocus)}
+              onChange={(event) => updateSetting("randomBackgroundFocus", event.target.value)}
+              title="随机背景视觉重点"
+            >
+              {RANDOM_BACKGROUND_FOCUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          )}
+          <select value={generationCount} onChange={(event) => updateSetting("generationCount", event.target.value)}>
+            {GENERATION_COUNT_OPTIONS.map((count) => (
+              <option key={count} value={count}>{count === "auto" ? `数量(${plannedGenerationCount})` : `数量 ${count}`}</option>
+            ))}
+          </select>
+          {/* V77（用户要求·停用）：「常规文本/智能文本」开关与「AI质检」开关停止渲染（Park 纪律：
+              smartIntervention/qualityCheck state 与持久化不动、仍可被其他逻辑读取，恢复 = 去掉本注释）。 */}
+          {/* <button
+            className={`smartInterventionSwitch ${!isPoseRemixWorkflow && !isOutpaintWorkflow && !isRandomBackgroundWorkflow && settings.smartIntervention ? "on" : ""}`}
+            type="button"
+            onClick={() => {
+              if (isPoseRemixWorkflow) {
+                addEvent("批量姿态", "该页按图1姿态和图2母版直接生成，暂不启用锁图1人物的智能文本");
+                return;
+              }
+              if (isOutpaintWorkflow) {
+                addEvent("批量扩图", "该页使用前端扩图画布和独立扩图 SKILL，不启用额外智能文本");
+                return;
+              }
+              if (isRandomBackgroundWorkflow) {
+                addEvent("随机背景", "该页按场景补充和随机背景 SKILL 直接生成，暂不启用额外智能文本");
+                return;
+              }
+              updateSetting("smartIntervention", !settings.smartIntervention);
+            }}
+            aria-pressed={!isPoseRemixWorkflow && !isOutpaintWorkflow && !isRandomBackgroundWorkflow && settings.smartIntervention}
+            title={isPoseRemixWorkflow ? "批量姿态页暂不启用锁图1人物的智能文本" : isOutpaintWorkflow ? "批量扩图页使用固定扩图文本" : isRandomBackgroundWorkflow ? "随机背景页使用场景补充和固定 SKILL" : "切换文本模型介入"}
+          >
+            <span>{isPoseRemixWorkflow || isOutpaintWorkflow || isRandomBackgroundWorkflow ? "常规文本" : settings.smartIntervention ? "智能文本" : "常规文本"}</span>
+            <i aria-hidden="true"><b /></i>
+          </button>
+          <button
+            className={`qualityCheckSwitch ${settings.qualityCheck ? "on" : ""}`}
+            type="button"
+            onClick={() => updateSetting("qualityCheck", !settings.qualityCheck)}
+            aria-pressed={settings.qualityCheck}
+            title="生成完成后调用 AI质检员标记合格/不合格"
+          >
+            <span>AI质检</span>
+            <i aria-hidden="true"><b /></i>
+          </button> */}
+        </div>
         <Button className="generateBtn" size="lg" tone="primary" type="button" onClick={() => void startBatch()} disabled={running && !canAppendWhileRunning}>
           {running ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
           <span>生成</span>

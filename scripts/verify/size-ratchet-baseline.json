@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-02",
-  "reason": "V164 前端+服务端登记 TT满血版渠道（routing.js / server/channel-config.js 各增官方组条目与路由渠道条目，纯必要登记）",
+  "generatedAt": "2026-11-04",
+  "reason": "P1-001 追加修复：批量底栏生成按钮移出横向滚动的参数行，新增 footerTools 包裹层（open+close 共 +2 行），使窄屏参数行内部横滚时按钮常驻右侧不被裁切，根治『下方模块显示不全』。结构必要，非噪声。",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -73,7 +73,7 @@
     "src/features/outfit/panels/BatchResizePanel.jsx": 569,
     "src/features/outfit/panels/ImageFactsPanel.jsx": 88,
     "src/features/outfit/panels/LegacyModulePanel.jsx": 17,
-    "src/features/outfit/panels/OutfitComposer.jsx": 596,
+    "src/features/outfit/panels/OutfitComposer.jsx": 598,
     "src/features/outfit/panels/OutfitCropModal.jsx": 213,
     "src/features/outfit/panels/OutfitDiagnosticsPanels.jsx": 88,
     "src/features/outfit/panels/OutfitIntentPanel.jsx": 181,
@@ -220,7 +220,7 @@
     "src/features/outfit/outfit-top.js::themeToVars": 77,
     "src/features/outfit/panels/BatchResizePanel.jsx::BatchResizePanel": 522,
     "src/features/outfit/panels/ImageFactsPanel.jsx::ImageFactsPanel": 76,
-    "src/features/outfit/panels/OutfitComposer.jsx::OutfitComposer": 579,
+    "src/features/outfit/panels/OutfitComposer.jsx::OutfitComposer": 581,
     "src/features/outfit/panels/OutfitCropModal.jsx::CropModal": 202,
     "src/features/outfit/panels/OutfitIntentPanel.jsx::OutfitIntentPanel": 157,
     "src/features/outfit/panels/OutfitPageRow.jsx::OutfitPageRow": 87,
