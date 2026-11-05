@@ -23,8 +23,30 @@ import {
   uploadGarmentAsset
 } from "../../../api/garment-profile.js";
 
-const STATUS_OPTIONS = ["draft", "confirmed", "archived"];
-const FIT_OPTIONS = ["unknown", "fitted", "regular", "loose", "oversized"];
+// value 保持英文契约值（与 VALID_STATUS / CREATABLE_FIELDS 对齐），label 仅用于界面显示。
+const STATUS_OPTIONS = [["draft", "草稿"], ["confirmed", "已确认"], ["archived", "已归档"]];
+const FIT_OPTIONS = [["unknown", "未知"], ["fitted", "修身"], ["regular", "常规"], ["loose", "宽松"], ["oversized", "廓形"]];
+
+function garmentOptionLabel(options, value) { // 未知枚举兜底显示原值，避免空白
+  const hit = options.find(([v]) => v === value);
+  return hit ? hit[1] : value;
+}
+
+// 服务端英文 Error 原样保留（4xx 判定依赖英文子串），仅在展示层本地映射；未知错误保留原文便于排查。
+function zhGarmentError(message) {
+  if (!message) return "";
+  const pairs = [
+    ["path traversal not allowed", "参考图 ID 含非法字符"],
+    ["profile already exists", "该档案 ID 已存在，请换一个"],
+    ["profile not found", "服装档案不存在"],
+    ["invalid garment_profile_id", "档案 ID 不合法"],
+    ["invalid asset_id", "参考图 ID 不合法"],
+    ["requires a non-empty assetId", "请填写基准资产 ID"],
+    ["缺少 assetId", "请填写基准资产 ID"]
+  ];
+  const hit = pairs.find(([needle]) => message.includes(needle));
+  return hit ? hit[1] : message;
+}
 
 // 仅当 L/a/b 三项都填了才构造 solid color_profile，否则留空（由数据层默认）。
 function buildColor(form) {
@@ -71,7 +93,7 @@ export function GarmentProfileModal({ isOpen, onClose, addEvent }) {
       const data = await listGarmentProfiles();
       setProfiles(Array.isArray(data.profiles) ? data.profiles : []);
     } catch (err) {
-      const msg = err && err.message ? err.message : "读取列表失败";
+      const msg = err && err.message ? zhGarmentError(err.message) : "读取列表失败";
       setError(msg);
       if (typeof addEvent === "function") addEvent("服装档案", msg);
     } finally {
@@ -108,7 +130,7 @@ export function GarmentProfileModal({ isOpen, onClose, addEvent }) {
       setForm(emptyForm());
       await refresh();
     } catch (err) {
-      const msg = err && err.message ? err.message : "创建失败";
+      const msg = err && err.message ? zhGarmentError(err.message) : "创建失败";
       setError(msg);
       notify("服装档案创建失败", msg);
     } finally {
@@ -133,7 +155,7 @@ export function GarmentProfileModal({ isOpen, onClose, addEvent }) {
       setEditing(null);
       await refresh();
     } catch (err) {
-      const msg = err && err.message ? err.message : "改版失败";
+      const msg = err && err.message ? zhGarmentError(err.message) : "改版失败";
       setError(msg);
       notify("服装档案改版失败", msg);
     } finally {
@@ -147,7 +169,7 @@ export function GarmentProfileModal({ isOpen, onClose, addEvent }) {
       const data = await getGarmentProfile(id, version);
       setSnapshot(data.profile);
     } catch (err) {
-      const msg = err && err.message ? err.message : "读取快照失败";
+      const msg = err && err.message ? zhGarmentError(err.message) : "读取快照失败";
       setError(msg);
       notify("服装档案读取失败", msg);
     }
@@ -162,7 +184,7 @@ export function GarmentProfileModal({ isOpen, onClose, addEvent }) {
       setBaselineTarget(null);
       await refresh();
     } catch (err) {
-      const msg = err && err.message ? err.message : "设置基准失败";
+      const msg = err && err.message ? zhGarmentError(err.message) : "设置基准失败";
       setError(msg);
       notify("基准设置失败", msg);
     }
@@ -178,7 +200,7 @@ export function GarmentProfileModal({ isOpen, onClose, addEvent }) {
       setUploadFile(null);
       await refresh();
     } catch (err) {
-      const msg = err && err.message ? err.message : "上传失败";
+      const msg = err && err.message ? zhGarmentError(err.message) : "上传失败";
       setError(msg);
       notify("参考图上传失败", msg);
     } finally {
@@ -223,12 +245,12 @@ export function GarmentProfileModal({ isOpen, onClose, addEvent }) {
               <input
                 value={form.garment_profile_id}
                 onChange={(e) => setForm((f) => ({ ...f, garment_profile_id: e.target.value }))}
-                placeholder="如 sku-tee-001"
+                placeholder="如 夏季T恤-001"
               />
             </Field>
             <Field label="状态">
               <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
-                {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                {STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </Field>
             <Field label="备注">
@@ -247,7 +269,7 @@ export function GarmentProfileModal({ isOpen, onClose, addEvent }) {
             </Field>
             <Field label="版型">
               <select value={form.fitType} onChange={(e) => setForm((f) => ({ ...f, fitType: e.target.value }))}>
-                {FIT_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                {FIT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </Field>
             <div className="garmentProfileFormActions">
@@ -275,7 +297,7 @@ export function GarmentProfileModal({ isOpen, onClose, addEvent }) {
               <li key={p.id} className={`garmentProfileItem${linked && linked.id === p.id ? " isLinked" : ""}`}>
                 <div className="garmentProfileItemMain">
                   <strong>{p.id}</strong>
-                  <span className="garmentProfileMeta">v{p.version} · {p.status}</span>
+                  <span className="garmentProfileMeta">v{p.version} · {garmentOptionLabel(STATUS_OPTIONS, p.status)}</span>
                   {p.approved_baseline_asset_id && (
                     <span className="garmentProfileBaseline">基准 {p.approved_baseline_asset_id}</span>
                   )}
@@ -331,7 +353,7 @@ export function GarmentProfileModal({ isOpen, onClose, addEvent }) {
               </Field>
               <Field label="版型">
                 <select value={editing.form.fitType} onChange={(e) => setEditing((s) => ({ ...s, form: { ...s.form, fitType: e.target.value } }))}>
-                  {FIT_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  {FIT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </Field>
               <div className="garmentProfileFormActions">
@@ -350,7 +372,7 @@ export function GarmentProfileModal({ isOpen, onClose, addEvent }) {
               <input
                 value={baselineTarget.assetId}
                 onChange={(e) => setBaselineTarget((s) => ({ ...s, assetId: e.target.value }))}
-                placeholder="如 ref-standard-001"
+                placeholder="如 标准参考图-001"
               />
             </Field>
             <div className="garmentProfileFormActions">

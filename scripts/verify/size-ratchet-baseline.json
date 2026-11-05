@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-11-05",
-  "reason": "V168 P2-2：新增服装档案 API 路由壳 + 独立管理模态；OutfitComposer/OutfitPageRow 透传 setIsGarmentProfileOpen 各 +2/+5 行，outfit-workflow 增加 state/挂载/透传 +9 行。均为必要结构（+14 行内），新建 GarmentProfileModal.jsx 不记账。",
+  "reason": "V169 UI-1：服装档案模态状态/版型下拉与列表状态枚举显示中文化（value 不变）+ 前端本地错误映射纯函数 + 示例 ID 中文，新增 22 行（377→399），属必要文案层结构；未新增前端文件、未改契约与服务端。",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -72,7 +72,7 @@
     "src/features/outfit/outfit-task.js": 1058,
     "src/features/outfit/outfit-top.js": 765,
     "src/features/outfit/panels/BatchResizePanel.jsx": 569,
-    "src/features/outfit/panels/GarmentProfileModal.jsx": 377,
+    "src/features/outfit/panels/GarmentProfileModal.jsx": 399,
     "src/features/outfit/panels/ImageFactsPanel.jsx": 88,
     "src/features/outfit/panels/LegacyModulePanel.jsx": 17,
     "src/features/outfit/panels/OutfitComposer.jsx": 600,
