@@ -6,10 +6,32 @@
 // 数据隔离（纪律，照 garment-profile-check / ai-canvas-agent-route-check）：
 //   路由会写 data/ai-tryon/garments，必须在 import 之前把 JINGYIN_RELEASE_ROOT 指到临时沙盒，
 //   结束后 rmSync 沙盒，并断言真实 data 未被创建。
-import { mkdtempSync, rmSync, existsSync, readdirSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, readdirSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
+
+// 真实用户 data/ai-tryon/garments 可能已由产品正常运行创建（例如首次访问档案列表生成空索引）。
+// 断言口径 = 本次验收运行前后真实目录内容逐字一致，而不是「必须不存在」：
+// 后者在产品被正常使用后会永久判红，导致任何提交都被 pre-commit 拦住。
+const realRoot = path.resolve(process.cwd(), "data", "ai-tryon", "garments");
+function snapshotReal() {
+  if (!existsSync(realRoot)) return null;
+  const files = new Map();
+  const walk = (dir) => {
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, ent.name);
+      if (ent.isDirectory()) { walk(p); continue; }
+      if (!ent.isFile()) continue;
+      const bytes = readFileSync(p);
+      files.set(path.relative(realRoot, p), createHash("sha256").update(bytes).digest("hex"));
+    }
+  };
+  walk(realRoot);
+  return files;
+}
+const realBefore = snapshotReal();
 
 const sandbox = mkdtempSync(path.join(tmpdir(), "garment-profile-api-"));
 process.env.JINGYIN_RELEASE_ROOT = sandbox;
@@ -151,10 +173,17 @@ try {
 
 server.close();
 
-// 清理：双保险删除沙盒，并断言真实 data/ai-tryon/garments 未被创建。
+// 清理：双保险删除沙盒，并断言真实 data/ai-tryon/garments 未被本次验收改动。
 rmSync(sandbox, { recursive: true, force: true });
-const realRoot = path.resolve(process.cwd(), "data", "ai-tryon", "garments");
-check("真实 data/ai-tryon/garments 未被创建/改动", !existsSync(realRoot), `意外存在：${realRoot}`);
+const realAfter = snapshotReal();
+const unchanged = realBefore === null
+  ? realAfter === null
+  : realAfter !== null && realBefore.size === realAfter.size
+    && [...realBefore].every(([rel, hash]) => realAfter.get(rel) === hash);
+const detail = realBefore === null
+  ? (unchanged ? "原本不存在，运行后仍不存在" : `验收脚本创建了真实目录：${realRoot}`)
+  : (unchanged ? `原本存在 ${realBefore.size} 个文件，内容逐字未变（用户数据未触碰）` : "真实目录内容被本次验收改动");
+check("真实 data/ai-tryon/garments 未被创建/改动", unchanged, detail);
 
 const failed = results.filter((item) => !item.pass);
 console.log(`\n[garment-profile-api-check] ${failed.length === 0 ? "全部通过" : `${failed.length} 项失败`}`);
