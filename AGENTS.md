@@ -80,32 +80,70 @@
   - 注：本文件顶部写的"本工作区"指的就是这个目录；AI 若在别的 working dir 启动，也以这条绝对路径为准，不要去读 `D:\静音AI绘画V11（源码）`（那是 `upstream` 对照源）。
 - 远程 `origin`：`https://github.com/sdssdfegg/JY-Canvas.git`，分支 `main`（已设为默认分支）。
 - 远程 `upstream`：本地路径 `D:\源码开发\静音AI绘画（源码）`（V11 上游对照），**只作对照，绝不 push**。
-- 认证：GitHub 不支持账号密码做 git 操作，必须用品目访问令牌（PAT）。当前用 **fine-grained PAT**，需包含 Repository permissions → `Contents: Read and write`（推送必需）与 `Administration: Read and write`（删仓库 / 改设置用）。令牌由用户从 https://github.com/settings/tokens?type=beta 提供，默认 2026-10-29 过期；缺失写权限会报 `403 Permission ... denied to sdssdfegg`。
+- 认证：GitHub 不支持账号密码做 git 操作，必须用个人访问令牌（PAT）。当前用 **fine-grained PAT**，需包含 Repository permissions → `Contents: Read and write`（推送必需）与 `Administration: Read and write`（删仓库 / 改设置用）。令牌由用户从 https://github.com/settings/tokens?type=beta 提供；**2026-10-29 到期的那张已过期，推送前须重新签发**；缺失写权限会报 `403 Permission ... denied to sdssdfegg`。
 
 ### ⚠️ 最大坑：agent 的 Bash 环境推不上去
 - WorkBuddy 的 Bash 沙箱**只能访问 `api.github.com`，连不上 `github.com` 本体**（git 推送主机）。在此环境跑 `git push` / `git clone` / `git fetch` 必报 `Empty reply from server` 或 `Failed to connect to github.com:443`。
 - 结论：**所有 git 网络操作那一步，必须让用户在自己电脑的终端（cmd / PowerShell / Git Bash，有正常外网）执行**；agent 只负责在本地准备（改代码、`commit`、配 `remote`）并给出"逐字可复制"的命令，不要反复在沙箱里试 push。
 
-### 标准更新步骤（AI 准备 + 用户执行）
-1. 在 `D:\源码开发\静音AI画板v4.0源码` 改代码，按上文"基线 / 文档漂移门禁"跑 `npm run check` 全绿（pre-commit 钩子也会拦，勿 `--no-verify` 绕过，除非明确要跳过且后果自担）。
+### 标准更新步骤（每次本地验收通过后 · AI 准备 + 用户执行）
+
+> 目标：**远端 `main` == 本机已验收的最新代码**，这样在任何一台电脑上 `clone` 拿到的都是同一份。
+> 角色：AI 只做本地准备（改码、提交、核对指针）并给出逐字命令；**所有 git 网络操作由用户在自己终端执行**（见上文沙箱限制）。
+
+1. 改代码 → 按上文"基线 / 文档漂移门禁"跑 `npm run check` 全绿（pre-commit 钩子也会拦，勿 `--no-verify` 绕过，除非明确要跳过且后果自担）。
 2. 本地提交（按项目纪律只提交本次相关文件；全量同步可用 `git add -A`）：
    ```bat
    cd /d "D:\源码开发\静音AI画板v4.0源码"
    git add -A
    git commit -m "V4.0-更新说明"
    ```
-3. 把下面这条交给用户，让其在**自己电脑**的终端执行（agent 在沙箱里跑会失败）：
+   - 验收 `git status --short`：有输出就说明还有未提交 / 未跟踪内容，**push 不会带上去**。
+   - 未跟踪备份文件与 `stash` 本来就不进仓库（这是对的，尤其备份可能含凭据），不要为"看起来全"把它们 add 进去。
+3. 🔴 **同步本地 `main` 指针（每次必做，否则推的是旧代码）**：
    ```bat
-   cd /d "D:\源码开发\静音AI画板v4.0源码" && git push --force origin main
+   git branch --show-current
+   git branch -f main HEAD
    ```
-   - 用 **force**：线上仓库旧内容以本地为准全量覆盖（用户既定策略；不是增量同步）。
+   - 日常施工都在特性分支上，本地 `main` 会越落越远（2026-11-05 实测落后 **71** 个提交、停在 `3ccc9fb`）。`git push --force origin main` 推的是**本地 `main` 这个指针**，不是当前工作分支 ⇒ 不同步就会把远端覆盖成旧代码。
+   - `git branch -f main HEAD` 只是把指针快进到已验收的 `HEAD`（实测 `main` 是 `HEAD` 的祖先），**不是 merge**、不改工作树、不产生新提交；执行方「不越权 merge」纪律不受影响。
+   - 若当前正好 checkout 在 `main` 上（该命令会报 `Cannot force update the current branch`），改用一步式 `git push --force origin HEAD:main`，跳过第 3 步。
+4. 在**自己电脑**的终端探通 + 强推：
+   ```bat
+   git ls-remote origin HEAD
+   git push --force origin main
+   ```
+   - 用 **force**：线上旧内容以本地为准全量覆盖（既定策略；不是增量同步）。
+   - 先用只读的 `ls-remote` 确认网络通，别直接 push。
    - 若弹"凭据助手选择器"，选 `wincred`（或 Git Credential Manager），勾"始终使用"；随后走浏览器 GitHub 登录，或在终端贴入 PAT（Username 任意填、Password 粘贴 `github_pat_` 开头的令牌）。
    - 看到 `main -> main (forced update)` 即成功。
-4. 若 AI 曾在 remote URL 里临时嵌入令牌（如 `https://x-access-token:<PAT>@github.com/...`）用于本地推送，推送后立即还原，避免令牌留在 `.git/config`：
+5. **在别的电脑取回 / 继续改**：
    ```bat
-   git remote set-url origin https://github.com/sdssdfegg/JY-Canvas.git
+   git clone https://github.com/sdssdfegg/JY-Canvas.git
    ```
+   已有本地副本则：
+   ```bat
+   git fetch origin
+   git reset --hard origin/main
+   ```
+   ⚠️ **强推是单向覆盖**：若你在别的电脑改过并 push 过，回本机再跑 `--force` 会把那边的提交抹掉。多机来回切换时，每次开工前先 `git fetch origin` 看一眼远端；或改成 `git pull --ff-only origin main` + 普通 `git push origin main`（不用 force）。
+
+### 连不上 / 403 时怎么判
+
+- `Recv failure: Connection was reset`、`Connection timed out after 300001 ms`、`Failed to connect to github.com:443` ⇒ **网络传输层**，不是账号 / 分支问题（凭据错是 `403/401/Authentication failed`，分支冲突是 `non-fast-forward/rejected`）。
+- git/libcurl **不自动读 Windows 系统代理**：确认代理软件正在运行后，显式配置一次（端口换成代理软件实际的本地端口）：
+  ```bat
+  git config --global http.proxy  http://127.0.0.1:<端口>
+  git config --global https.proxy http://127.0.0.1:<端口>
+  git ls-remote origin HEAD
+  ```
+  代理关闭或换网络后还原：`git config --global --unset http.proxy` / `git config --global --unset https.proxy`。
+- `403 Permission ... denied` ⇒ PAT 过期或缺 `Contents: Read and write`：重新签发 fine-grained PAT，**只在终端 / 凭据助手里贴，绝不写进任何文件**。
+- 若曾在 remote URL 里临时嵌入令牌，推送后立即还原，避免令牌留在 `.git/config`：
+  ```bat
+  git remote set-url origin https://github.com/sdssdfegg/JY-Canvas.git
+  ```
 
 ### 安全提醒
-- 用户的 GitHub 登录密码曾在对话中明文出现，建议去 https://github.com/settings/security 改掉；PAT 过期或不再需要时到 tokens 页 revoke。
-- 令牌、密码**绝不写入仓库任何文件**，也别提交进 git。
+- 远程登录方式、账号、口令、私钥、API KEY、PAT **绝不写入仓库任何文件、执行单、日志、记忆或脚本**，也别提交进 git；只在会话临时提供、用完即弃。
+- PAT 过期或不再需要时到 tokens 页 revoke。
