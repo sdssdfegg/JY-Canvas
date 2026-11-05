@@ -61,4 +61,36 @@
   "error": null,
   "user_accepted": false
 }
+
+## 5. 生成出口与资产固化（P2-4 · V171-R 落地）
+
+> 本 § 在 V170 数据层之上补充「真实轮次写入」与「资产固化」实现口径，字段口径与 §1/§2 一致。
+
+### 5.1 写入入口（server/ai-tryon/image-version-bridge.js）
+- 在 `outfit.routes.js` 三个生成出口（`settleTryOnTaskInBackground` 成功出口 / 两个失败出口）之后，**后台**调用 `recordOutfitImageVersionInBackground`，不占响应时间、不阻断响应、失败全吞；
+- 版本记录只增不改不删；`parent_version_id` 恒为 `null`（本单只写根版本，跨轮次父子关联另立单）；
+- 字段口径：
+  - `task_id` = `tryonTask.task_id`；**无 task_id 则不写**（版本必须绑定真实任务）；
+  - `status` = `succeeded`（成功出口）/ `failed`（失败出口，避免「只有成功才有历史」的隐性缺口）；
+  - `user_instruction` = 用户本轮指令（`payload.prompt`，纯文本，截断 2000）；
+  - `model_and_versions` = `{ model, channel }`；
+  - `execution_params` = 仅非敏感字段（`workflowMode / imageSize / aspectRatio`），**绝不传入 apiKey**；敏感键即便误传也被 store 的 `stripSensitiveKeys` 强制剥离；
+  - `input_asset_refs` = 上传文件名字/大小（不落 buffer）；
+  - `result_asset_ref` = 固化资产文件名（见 5.2），失败出口为 `null`。
+
+### 5.2 资产固化结论（脱离 TTL 缓存）
+- 现状：`result-cache.js` 仅按 TTL 清理 `resultDir`（`data/results`）；`storage.routes.js` 的 `/api/storage/clean` 只删 `STORAGE_TARGETS` 白名单内的目录；
+- 方案：新增永久目录 `data/ai-tryon/image-version-assets/`（路径出口 `app-paths.js: aiTryonImageVersionAssetsDir`）；成功出口把**已落盘**的本地结果图**复制**进该目录（UUID 命名），`result_asset_ref` 写永久副本文件名；
+- 🔴 红线：该目录**故意不加入任何清理白名单**（`storage-usage` / `result-cache` / `storage.routes`）——既不会被 TTL 清理，也不会被用户「清理存储」误删；既有 `data/results/*` **不删不迁**；
+- 服务化读取：`GET /api/image-version/asset/:versionId` 从永久目录按 version 解析文件名后流式返回（路径穿越拒绝）；引用可能因极端情况失效时返回 404（前端「当前编辑对象」降级为无图）。
+
+### 5.3 只读 API（server/routes/image-version.routes.js）
+- `GET /api/image-version/list?taskId=`：列表（可选按 task_id 过滤；服务端按序号倒序）；**无 DELETE / 无写接口**；
+- `GET /api/image-version/asset/:versionId`：固化资产只读流动；
+- 前端一律经 `src/api/image-version.js`（client.js 准入层），禁裸 fetch；最小展示组件 `ImageVersionList.jsx` 纯只读、复用 Panel/ModuleHeader/Button、不新增弹窗组件（Modal）。
+
+### 5.4 本单边界（不得宣称 P2 闭环）
+- 只交付战略 §九 P2 第 2（新生成结果保存为独立版本）、3（保留原图与之前版本）、8（界面展示当前编辑对象与版本）最小切片；
+- 不交付第 5/6/7 项（连续多轮父子树 / 前后版本比较 / 回退）；父子链 `parent_version_id` 本单恒为 `null`；
+- 不碰 P0 生命线 payload、不改提示词、不碰用户态、不新增持久化键。
 ```

@@ -55,3 +55,17 @@ export function signedRouteCredential(route = {}) {
     || ""
   );
 }
+
+// 只读路由共用的错误提取 / 中性文案工具（P2-4 抽出，消除 garment-profile / image-version
+// 路由间的同名重复）。纯函数、无副作用，任何 routes 文件可安全 import。
+
+/** 从 Error（或任意带 message 的对象）取出 message 字符串。 */
+export function errorMessage(error) {
+  return error && error.message ? error.message : "";
+}
+
+/** 不泄漏堆栈与绝对路径；缺信息给中性文案。 */
+export function safeMessage(error) {
+  const msg = errorMessage(error);
+  return msg || "服务器内部错误";
+}

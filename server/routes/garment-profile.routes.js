@@ -10,6 +10,7 @@
 //   - id / asset_id 路径穿越**拒绝**（不只中和），防越界写。
 //   - 错误统一 try/catch，不泄漏堆栈与绝对路径到前端。
 import multer from "multer";
+import { errorMessage, safeMessage } from "../core/route-helpers.js";
 import {
   listGarmentProfiles,
   readGarmentProfile,
@@ -62,16 +63,6 @@ function whitelist(body, allowed) {
     if (allowed.has(key)) out[key] = body[key];
   }
   return out;
-}
-
-function errorMessage(error) {
-  return error && error.message ? error.message : "";
-}
-
-// 不泄漏堆栈与绝对路径；缺信息给中性文案。
-function safeMessage(error) {
-  const msg = errorMessage(error);
-  return msg || "服务器内部错误";
 }
 
 export function registerGarmentProfileRoutes(app) {

@@ -134,6 +134,7 @@ import { outfitUploadFileGroups } from "../core/outfit-upload-groups.js";
 
 // P1-6：换装任务内嵌写入（只嵌两侧——入口建任务 / 出口落结果；不改生成路径、不新增路由、不动并发槽）。
 import { beginTryOnTask, settleTryOnTaskInBackground } from "../ai-tryon/route-inlay.js";
+import { recordOutfitImageVersionInBackground } from "../ai-tryon/image-version-bridge.js";
 
 export function registerOutfitRoutes(app) {
   app.post("/api/generate-outfit", wrapOutfitUpload(imageForwardUpload.fields([
@@ -713,6 +714,19 @@ export function registerOutfitRoutes(app) {
               channel: params.channelId || null,
               images
             });
+            // P2-4 出口侧：后台写一条图片版本记录（成功），不占响应时间、不阻断响应。
+            recordOutfitImageVersionInBackground({
+              taskId: tryonTask?.task_id || null,
+              requestId,
+              ok: true,
+              model: variant.model || params.model,
+              channel: params.channelId || null,
+              displayImage,
+              files,
+              userInstruction: typeof payload?.prompt === "string" ? payload.prompt : null,
+              modelAndVersions: { model: variant.model || params.model, channel: params.channelId || null },
+              executionParams: { workflowMode: payload.workflowMode || null, imageSize: params.imageSize || null, aspectRatio: params.aspectRatio || null }
+            });
             return res.json({
               ok: true,
               taskId: requestId,
@@ -770,6 +784,16 @@ export function registerOutfitRoutes(app) {
               status: publicPayload.status,
               error: errorMessage
             });
+            // P2-4 出口侧：后台写一条图片版本记录（失败），避免「只有成功才有历史」。
+            recordOutfitImageVersionInBackground({
+              taskId: tryonTask?.task_id || null,
+              requestId,
+              ok: false,
+              model: variant.model || params.model,
+              channel: params.channelId || null,
+              error: errorMessage,
+              status: publicPayload.status
+            });
             return res.status(publicPayload.status).json({
               ...publicPayload,
               errors: [publicPayload.message],
@@ -808,6 +832,16 @@ export function registerOutfitRoutes(app) {
         channel: params.channelId || null,
         status: publicPayload.status,
         error: upstreamMessage
+      });
+      // P2-4 出口侧：后台写一条图片版本记录（失败），避免「只有成功才有历史」。
+      recordOutfitImageVersionInBackground({
+        taskId: tryonTask?.task_id || null,
+        requestId,
+        ok: false,
+        model: params.model,
+        channel: params.channelId || null,
+        error: upstreamMessage,
+        status: publicPayload.status
       });
       res.status(publicPayload.status).json({
         ...publicPayload,

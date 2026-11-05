@@ -75,3 +75,10 @@ export const aiTryonGarmentsDir = path.join(dataDir, "ai-tryon", "garments");
 // 🔴 用户资产红线：本目录属用户有意资产（每条对应一次真实出图/编辑轮次），
 //   绝不加入任何清理白名单（storage.routes / storage-usage / result-cache），本模块不提供任何删除接口。
 export const aiTryonImageVersionsDir = path.join(dataDir, "ai-tryon", "image-versions");
+// P2-4 图片版本固化资产目录（仅路径出口，无副作用；image-version-bridge.js 消费）。
+// 落点对齐 contracts/image-version.md §5：data/ai-tryon/image-version-assets/<asset>。
+// 🔴 用户资产红线：本目录属用户有意资产（每次出图成功落盘的永久副本），
+//   故意**不**加入任何清理白名单（storage.routes / storage-usage / result-cache）——
+//   result-cache 只扫 resultDir，故本目录永不被 TTL 清理；若加入 STORAGE_TARGETS，
+//   `/api/storage/clean` 会按用户选择误删固化资产，违反红线。既有 results/ 文件不删不迁。
+export const aiTryonImageVersionAssetsDir = path.join(dataDir, "ai-tryon", "image-version-assets");

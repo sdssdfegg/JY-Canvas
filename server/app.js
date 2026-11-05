@@ -46,6 +46,7 @@ import { registerImagesRoutes } from "./routes/images.routes.js";
 import { registerOutfitRoutes } from "./routes/outfit.routes.js";
 import { registerSeedRoutes } from "./routes/seed.routes.js";
 import { registerGarmentProfileRoutes } from "./routes/garment-profile.routes.js";
+import { registerImageVersionRoutes } from "./routes/image-version.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -103,6 +104,7 @@ registerSeedRoutes(app);
 
 // P2-2：服装档案 API（薄封装数据层；不触生成链路 / 提示词 / dock 布局）。
 registerGarmentProfileRoutes(app);
+registerImageVersionRoutes(app);
 
 registerImageProxyRoutes(app);
 

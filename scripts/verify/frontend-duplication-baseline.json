@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 156,
+    "fileCount": 158,
     "files": [
       "src/api/ai-canvas-agent.js",
       "src/api/assets.js",
@@ -24,6 +24,7 @@
       "src/api/debug.js",
       "src/api/garment-profile.js",
       "src/api/history.js",
+      "src/api/image-version.js",
       "src/api/images.js",
       "src/api/outfit.js",
       "src/api/prompts.js",
@@ -83,6 +84,7 @@
       "src/features/outfit/panels/BatchResizePanel.jsx",
       "src/features/outfit/panels/GarmentProfileModal.jsx",
       "src/features/outfit/panels/ImageFactsPanel.jsx",
+      "src/features/outfit/panels/ImageVersionList.jsx",
       "src/features/outfit/panels/LegacyModulePanel.jsx",
       "src/features/outfit/panels/OutfitComposer.jsx",
       "src/features/outfit/panels/OutfitCropModal.jsx",
