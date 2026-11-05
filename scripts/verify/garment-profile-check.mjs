@@ -222,33 +222,57 @@ let created;
   check("新目录未进入清理白名单（storage/usage/cache）", clean, `命中：${offenders.join(", ")}`);
 }
 
-// ── 9. 启动边界：server/index.js / app.js / routes/** 未 import 新模块（§3.2）─
+// ── 9. 启动边界：仅 garment-profile.routes.js 允许 import 数据层（§3.2 / §4.2）─
 {
+  // 9a：server/index.js 与 server/app.js 不得直接 import 数据层（只能经注册壳）。
   const entryPoints = [
     "server/index.js",
     "server/app.js"
   ];
-  let noImportInEntries = true;
-  const offendersEntries = [];
+  let entriesClean = true;
+  const entryOffenders = [];
   for (const rel of entryPoints) {
     const p = path.join(repoRoot, rel);
     if (!existsSync(p)) continue;
     const s = readFileSync(p, "utf8");
-    if (/garment-profile-store/.test(s)) { noImportInEntries = false; offendersEntries.push(rel); }
+    if (/garment-profile-store/.test(s)) { entriesClean = false; entryOffenders.push(rel); }
   }
-  check("入口文件未 import 新模块", noImportInEntries, `命中：${offendersEntries.join(", ")}`);
+  check("入口文件未直接 import 数据层", entriesClean, `命中：${entryOffenders.join(", ")}`);
 
-  let noImportInRoutes = true;
-  const routeOffenders = [];
+  // 9b：app.js 必须 import 并注册服装档案路由壳（证明本单确实接了路由）。
+  const appSrc = existsSync(path.join(repoRoot, "server/app.js"))
+    ? readFileSync(path.join(repoRoot, "server/app.js"), "utf8")
+    : "";
+  check("app.js 已注册服装档案路由壳",
+    /registerGarmentProfileRoutes/.test(appSrc), "缺少 registerGarmentProfileRoutes 调用/import");
+
+  // 9c：garment-profile.routes.js 是唯一允许 import 数据层的 routes 文件。
+  const routeFile = "server/routes/garment-profile.routes.js";
+  const routePath = path.join(repoRoot, routeFile);
+  const routeSrc = existsSync(routePath) ? readFileSync(routePath, "utf8") : "";
+  check("garment-profile.routes.js 存在且 import 数据层（唯一入口）",
+    existsSync(routePath) && /garment-profile-store/.test(routeSrc), routeFile);
+
+  // 9d：其余 server/routes/** 仍不得 import 数据层。
+  let othersClean = true;
+  const otherOffenders = [];
   const routesDir = path.join(repoRoot, "server/routes");
   if (existsSync(routesDir)) {
     for (const f of readdirSync(routesDir)) {
-      if (!f.endsWith(".js")) continue;
+      if (!f.endsWith(".js") || f === "garment-profile.routes.js") continue;
       const s = readFileSync(path.join(routesDir, f), "utf8");
-      if (/garment-profile-store/.test(s)) { noImportInRoutes = false; routeOffenders.push(f); }
+      if (/garment-profile-store/.test(s)) { othersClean = false; otherOffenders.push(f); }
     }
   }
-  check("server/routes/** 未 import 新模块", noImportInRoutes, `命中：${routeOffenders.join(", ")}`);
+  check("其余 server/routes/** 未 import 数据层", othersClean, `命中：${otherOffenders.join(", ")}`);
+
+  // 9e：新路由文件不提供删除/清理能力（用户资产红线；§4.2 硬门禁）。
+  check("路由文件不含删除/清理语义（DELETE/unlink/rmSync）",
+    routeSrc.length > 0
+      && !/DELETE/.test(routeSrc)
+      && !/unlink/.test(routeSrc)
+      && !/rmSync/.test(routeSrc),
+    routeFile);
 }
 
 // ── 清理：双保险删除沙盒，并断言真实 data 未被创建 ────────────────────────

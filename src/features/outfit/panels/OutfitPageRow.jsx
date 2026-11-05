@@ -5,7 +5,7 @@
 // 模式：纯展示+交互壳，零生成逻辑。原函数内引用的 state/handler 全部改为 props（名字与搬出前一致，
 //   保证 JSX 一行不动）；调用方 outfit-workflow.jsx 每次 render 重建传参，与搬出前行为一致。
 //   ⚠️ props 漏项 = 运行期 undefined（vite build 验不出），由 V65 §3.2 负向对照兜底。
-import { BookOpen, Lock, Move, Plus, Trash2, Unlock } from "lucide-react";
+import { BookOpen, Lock, Move, Plus, Shirt, Trash2, Unlock } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
 
 export function OutfitPageRow({
@@ -15,6 +15,7 @@ export function OutfitPageRow({
   draggedPageId,
   pageDropTarget,
   setIsPromptAssistantOpen,
+  setIsGarmentProfileOpen,
   switchOutfitPage,
   renameOutfitPage,
   updateOutfitPageDropTarget,
@@ -34,6 +35,10 @@ export function OutfitPageRow({
           <Button size="md" type="button" onClick={() => setIsPromptAssistantOpen(true)}>
             <BookOpen size={16} />
             <span>词</span>
+          </Button>
+          <Button size="md" type="button" onClick={() => setIsGarmentProfileOpen(true)} title="服装档案">
+            <Shirt size={16} />
+            <span>档案</span>
           </Button>
         </div>
       )}
