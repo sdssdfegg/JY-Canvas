@@ -231,7 +231,9 @@ const ORDER = [
   "ai-canvas-inspector-browser-check",
   "lint-ratchet-check",
   "run-all-check",
-  "check-launcher"
+  "check-launcher",
+  // P2-3（2026-11-05）：图片版本数据层验收（临时沙盒，不污染用户 data/；纯逻辑 <1s）。
+  "image-version-check"
 ];
 
 /**
@@ -282,6 +284,8 @@ const FAST_ORDER = [
   "tryon-prompt-template-v3-check",
   // P2-1（2026-11-05）：服装档案数据层与版本快照验收（临时沙盒，不污染用户 data/；纯逻辑 <1s）。
   "garment-profile-check",
+  // P2-3（2026-11-05）：图片版本数据层验收（临时沙盒，不污染用户 data/；纯逻辑 <1s），进 --fast 子集。
+  "image-version-check",
   // P2-2（2026-11-05）：服装档案 API 路由级验收（起最小 express 实例 + 真实 HTTP +
   //   临时沙盒，不污染用户 data/；验 6 端点 + 穿越拒绝 + 非法字段 + 快照 + 基准 + 无 DELETE）。
   //   起服务、写沙盒 data，故只进全量 ORDER，不进 --fast。
