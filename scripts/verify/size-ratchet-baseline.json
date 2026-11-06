@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-04",
-  "reason": "P1-001 追加修复：批量底栏生成按钮移出横向滚动的参数行，新增 footerTools 包裹层（open+close 共 +2 行），使窄屏参数行内部横滚时按钮常驻右侧不被裁切，根治『下方模块显示不全』。结构必要，非噪声。",
+  "generatedAt": "2026-11-06",
+  "reason": "V173 侧栏折叠：main.jsx 的 App() 新增折叠态 state/handler 与 LOGO 按钮 JSX（纯外壳视觉，必要增量）；styles.css 仅加折叠态 CSS 规则",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -110,7 +110,7 @@
     "src/lib/format/index.js": 22,
     "src/lib/storage/json-storage.js": 38,
     "src/local-edit-mask.js": 1,
-    "src/main.jsx": 1575,
+    "src/main.jsx": 1588,
     "src/models.js": 1,
     "src/outfit-workflow.jsx": 1632,
     "src/shared/annotation-geometry.js": 192,
@@ -265,7 +265,7 @@
     "src/image-editor.jsx::hydrateProject": 53,
     "src/image-editor.jsx::ImageEditorPanel": 835,
     "src/image-editor.jsx::ImageEditorSlot": 54,
-    "src/main.jsx::App": 1274,
+    "src/main.jsx::App": 1287,
     "src/outfit-workflow.jsx::OutfitWorkflow": 1366,
     "src/shared/annotation-geometry.js::drawAnnotationOnContext": 63,
     "src/shared/DebouncedTextarea.jsx::DebouncedTextarea": 84,

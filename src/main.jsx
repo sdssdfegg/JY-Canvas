@@ -292,6 +292,13 @@ function App() {
   const [promptPresets, setPromptPresets] = useState(loadPromptPresets);
   const [promptCategories, setPromptCategories] = useState(loadPromptCategories);
   const [activeView, setActiveView] = useState(loadActiveView);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // V173（UI-A1）：侧栏折叠开关 —— 唯一触发器是左上角 LOGO 按钮；仅外壳视觉，
+  // 不持久化（不新建任何键）、不碰业务逻辑。≤760px 横向导航下禁用折叠。
+  const toggleSidebar = () => {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches) return;
+    setSidebarCollapsed((v) => !v);
+  };
   const [referenceProductFiles, setReferenceProductFiles] = useState([]);
   const [referenceStyleFiles, setReferenceStyleFiles] = useState([]);
   const [saveDirectory, setSaveDirectory] = useState("");
@@ -943,12 +950,18 @@ function App() {
   return (
     // 最外层兜底：任何一个视图在渲染期抛错，都不会变成整页白屏。
     <ErrorBoundary label="应用主界面">
-      <main className="appShell">
-      <aside className="sidebar">
+      <main className={`appShell${sidebarCollapsed ? " is-sidebar-collapsed" : ""}`}>
+      <aside className="sidebar" data-collapsed={sidebarCollapsed}>
         <div className="brand">
-          <div className="avatar">
+          <button
+            type="button"
+            className="avatar"
+            onClick={toggleSidebar}
+            aria-expanded={!sidebarCollapsed}
+            aria-label={sidebarCollapsed ? "展开侧栏菜单" : "收起侧栏菜单"}
+          >
             <img src="/app-avatar.webp" alt="" />
-          </div>
+          </button>
           <div>
             <h1>静音AI绘画</h1>
             <span>静音相伴 从容设计</span>
