@@ -61,6 +61,35 @@
   --input: color-mix(in srgb, var(--panel-strong) 86%, transparent);
   --control-bg: color-mix(in srgb, var(--panel-strong) 86%, transparent);
   --accent-on: #061515;
+
+  /* 布局 / 层叠 / 动效 / 断点令牌（V174 补齐 · 纯增量、零视觉变化）
+   * 值全部沿用现状实证常量，未改变任何既有行为：
+   *  --sidebar-w            承接 V173 的 .appShell 局部值上收；
+   *  --z-dock / --z-sticky  与 outfit-workflow.css 现状 8 / 9 同值；
+   *  --dur-fast / --ease-standard 与 V173 折叠动效 160ms / ease 同值；
+   *  --bp-*                 纯契约常量（见文件末尾注释），严禁用于 @media 条件。 */
+  --sidebar-w: 166px;
+
+  /* 层叠层级令牌（六档；除 dock / sticky 外本单为契约先行、暂无消费点） */
+  --z-base: 0;
+  --z-dock: 8;
+  --z-sticky: 9;
+  --z-dropdown: 20;
+  --z-modal: 40;
+  --z-toast: 60;
+
+  /* 动效时长令牌（fast 沿用 V173 已验收的 160ms；base / slow 为后续 T2 预留） */
+  --dur-fast: 160ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+
+  /* 缓动令牌（沿用 V173 已验收的 ease） */
+  --ease-standard: ease;
+
+  /* 响应式断点令牌（纯契约常量，单位省略；与现有 @media 字面量一一对应，详见末尾注释） */
+  --bp-compact: 760;
+  --bp-medium: 1180;
+  --bp-wide: 1280;
 }
 
 :root[data-theme="jade"] {
@@ -127,4 +156,27 @@
   --input: color-mix(in srgb, var(--panel-strong) 86%, transparent);
   --control-bg: color-mix(in srgb, var(--panel-strong) 86%, transparent);
   --accent-on: #ffffff;
+}
+
+/*
+ * 断点契约常量（V174 登记 · 上位规范规划稿 §5.1 出处）
+ * ------------------------------------------------------------------
+ * 现有 5 处 @media 字面量断点与下列令牌一一对应（仅供查询 / 组件内部阈值消费，
+ * 严禁把断点令牌写进 @media 条件 —— CSS 规范不支持在媒体查询条件中引用自定义
+ * 属性，此类规则会被浏览器整体丢弃、静默失效）：
+ *   --bp-compact  760  ↔  styles.css          @media (max-width: 760px)   （≤760 横向导航态）
+ *   --bp-compact  760  ↔  styles.css          @media (min-width: 761px)   （= compact + 1，折叠启用阈值）
+ *   --bp-medium  1180  ↔  styles.css          @media (max-width: 1180px)
+ *   --bp-wide    1280  ↔  outfit-workflow.css @media (max-width: 1280px)
+ * 断点常量供后续 T2 跨应用契约与组件内部阈值消费；本单不改写任何现有 @media 数字。
+ */
+
+/* 动效降级（V174）：尊重系统「减少动态效果」偏好，把三档动效令牌归零。
+ * 与 V173 在 styles.css 已有的 `.appShell / .avatar { transition: none }` 叠加不冲突。 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
 }

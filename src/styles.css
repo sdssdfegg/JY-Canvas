@@ -49,13 +49,12 @@ textarea:focus {
 
 .appShell {
   display: grid;
-  --sidebar-w: 166px;
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
   background: var(--app-bg);
-  transition: grid-template-columns 160ms ease;
+  transition: grid-template-columns var(--dur-fast) var(--ease-standard);
 }
 
 .appShell.is-sidebar-collapsed {
@@ -96,7 +95,7 @@ textarea:focus {
   appearance: none;
   font: inherit;
   color: inherit;
-  transition: border-radius 160ms ease;
+  transition: border-radius var(--dur-fast) var(--ease-standard);
 }
 
 .avatar:focus-visible {

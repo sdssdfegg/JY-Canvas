@@ -2211,7 +2211,7 @@
      （底部操作条 sticky:bottom:0 仍锁在 dock 底 = 视口底）。min-height 兜底防极端压扁。 */
   flex: 1 1 auto;
   position: relative;
-  z-index: 8;
+  z-index: var(--z-dock);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -2264,7 +2264,7 @@
      滚动时它停在同一水平线，滚到底则自然落位。 */
   position: sticky;
   bottom: 0;
-  z-index: 9;
+  z-index: var(--z-sticky);
   background: var(--panel-bg);
   flex: 0 0 auto;
   gap: 8px;
