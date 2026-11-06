@@ -68,6 +68,7 @@ export function useOutfitSaveHandlers(ctx) {
     const source = image?.cachedFile instanceof File ? image.cachedFile : imageSource(image);
     if (!source) {
       setSplitNote("裁切失败：结果图地址不可用");
+      addEvent("精修裁切失败", "结果图地址不可用（本地无缓存文件、服务端地址也无法读取）");
       return;
     }
     setSplitNote("正在从中线裁切…");

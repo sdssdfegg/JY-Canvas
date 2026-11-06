@@ -23,6 +23,14 @@ export function RetouchIntentPanel({
   const splitTitle = frontbackOn
     ? "把生成的结果从中线竖切成左右两张，分别保存；当前已开启，可手动关闭"
     : "先开启「正反」才会启用：把生成的结果从中线竖切成左右两张，分别保存";
+  // V175：把「裁剪」实际开 / 关状态用文字显式标出，破解 V78 单向门陷阱 ——
+  // 正反开 + 裁剪实际关时，按钮只是「启用但 OFF（灰、滑块左）」，与 ON（绿、滑块右）
+  // 仅靠微妙差异区分，用户极易误以为开着 ⇒ 生成后不裁切却无提示。文字状态让 OFF 不可混。
+  const splitStateText = !frontbackOn
+    ? "（先开启「正反」后可用）"
+    : splitHalves
+      ? "（已开启 · 生成后自动另存左右两张到保存目录）"
+      : "（已关闭 · 结果将保存为整张）";
   const chipGroup = (options, current, onPick) => options.map((option) => {
     const active = current === option.value;
     return (
@@ -85,7 +93,11 @@ export function RetouchIntentPanel({
           <span>裁剪</span>
           <i><b /></i>
         </button>
+        <span className="whiteRefineSplitState" data-on={splitHalves ? "1" : "0"}>{splitStateText}</span>
       </div>
+      {splitNote ? (
+        <div className="whiteRefineSplitNote" role="status">{splitNote}</div>
+      ) : null}
     </section>
   );
 }
