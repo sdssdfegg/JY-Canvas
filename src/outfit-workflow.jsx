@@ -87,7 +87,6 @@ import OutfitWorkbench from "./features/outfit/panels/OutfitWorkbench.jsx";
 import OutfitComposer from "./features/outfit/panels/OutfitComposer.jsx";
 import ResultPreviewModal from "./features/outfit/panels/ResultPreviewModal.jsx";
 import PromptEditorModal from "./features/outfit/panels/PromptEditorModal.jsx";
-import { GarmentProfileModal } from "./features/outfit/panels/GarmentProfileModal.jsx";
 
 
 // V5.0-008：documentBoot 一次性标志已随 effect 簇迁至 features/outfit/handlers/outfit-effects.js。
@@ -330,7 +329,6 @@ export default function OutfitWorkflow({
   const [connectionStatus, setConnectionStatus] = useState("");
   const [connectionState, setConnectionState] = useState("idle");
   const [isPromptAssistantOpen, setIsPromptAssistantOpen] = useState(false);
-  const [isGarmentProfileOpen, setIsGarmentProfileOpen] = useState(false);
   const [promptPresets, setPromptPresets] = useState(loadOutfitPromptPresets);
   const [promptCategories, setPromptCategories] = useState(loadOutfitPromptCategories);
   const [editingPrompt, setEditingPrompt] = useState(null);
@@ -1383,7 +1381,6 @@ export default function OutfitWorkflow({
           pageDropTarget={pageDropTarget}
           activePageDeleteLocked={activePageDeleteLocked}
           setIsPromptAssistantOpen={setIsPromptAssistantOpen}
-          setIsGarmentProfileOpen={setIsGarmentProfileOpen}
           switchOutfitPage={switchOutfitPage}
           renameOutfitPage={renameOutfitPage}
           updateOutfitPageDropTarget={updateOutfitPageDropTarget}
@@ -1557,12 +1554,6 @@ export default function OutfitWorkflow({
           clearIconName="RefreshCw"
         />
       )}
-
-      <GarmentProfileModal
-        isOpen={isGarmentProfileOpen}
-        onClose={() => setIsGarmentProfileOpen(false)}
-        addEvent={addEvent}
-      />
 
       {referenceContextMenu?.reference && (
         <div

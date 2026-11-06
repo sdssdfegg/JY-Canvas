@@ -18,7 +18,6 @@
 import { useMemo, useRef } from "react";
 import { Sparkles } from "lucide-react";
 import { ResultCard, TaskStatusCard } from "./result-card.jsx";
-import { ImageVersionList } from "./ImageVersionList.jsx";
 
 export function ResultQueue({
   visibleTasks,
@@ -165,7 +164,6 @@ export function ResultQueue({
           </div>
         )}
       </div>
-      <ImageVersionList />
     </section>
   );
 }

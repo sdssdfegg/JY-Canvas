@@ -61,7 +61,6 @@ export default function OutfitComposer({
   pageDropTarget,
   activePageDeleteLocked,
   setIsPromptAssistantOpen,
-  setIsGarmentProfileOpen,
   switchOutfitPage,
   renameOutfitPage,
   updateOutfitPageDropTarget,
@@ -429,7 +428,6 @@ export default function OutfitComposer({
         pageDropTarget={pageDropTarget}
         activePageDeleteLocked={activePageDeleteLocked}
         setIsPromptAssistantOpen={setIsPromptAssistantOpen}
-        setIsGarmentProfileOpen={setIsGarmentProfileOpen}
         switchOutfitPage={switchOutfitPage}
         renameOutfitPage={renameOutfitPage}
         updateOutfitPageDropTarget={updateOutfitPageDropTarget}

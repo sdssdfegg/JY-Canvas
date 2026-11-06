@@ -231,11 +231,7 @@ const ORDER = [
   "ai-canvas-inspector-browser-check",
   "lint-ratchet-check",
   "run-all-check",
-  "check-launcher",
-  // P2-3（2026-11-05）：图片版本数据层验收（临时沙盒，不污染用户 data/；纯逻辑 <1s）。
-  "image-version-check",
-  // P2-4（2026-11-05）：图片版本「生成出口 + 固化 + 只读 API」集成验收（临时沙盒，不污染用户 data/；纯进程内 <1s）。
-  "image-version-integration-check"
+  "check-launcher"
 ];
 
 /**
@@ -284,16 +280,6 @@ const FAST_ORDER = [
   "tryon-prompt-template-check",
   // P1-8（2026-10-27）：结构化提示词 v3（部位化保持不变 + 掩膜区域约束）验收，纯进程内（--fast 40→41）。
   "tryon-prompt-template-v3-check",
-  // P2-1（2026-11-05）：服装档案数据层与版本快照验收（临时沙盒，不污染用户 data/；纯逻辑 <1s）。
-  "garment-profile-check",
-  // P2-3（2026-11-05）：图片版本数据层验收（临时沙盒，不污染用户 data/；纯逻辑 <1s），进 --fast 子集。
-  "image-version-check",
-  // P2-4（2026-11-05）：图片版本「生成出口 + 固化 + 只读 API」集成验收（临时沙盒，不污染用户 data/；纯进程内 <1s），进 --fast 子集。
-  "image-version-integration-check",
-  // P2-2（2026-11-05）：服装档案 API 路由级验收（起最小 express 实例 + 真实 HTTP +
-  //   临时沙盒，不污染用户 data/；验 6 端点 + 穿越拒绝 + 非法字段 + 快照 + 基准 + 无 DELETE）。
-  //   起服务、写沙盒 data，故只进全量 ORDER，不进 --fast。
-  "garment-profile-api-check",
   "import-path-check",
   "docs-path-check",
   // V121（2026-10-19）：封装种子机制静态门禁，纯源码静态断言 <1s，进提交钩子快速子集（--fast 32→33）。
@@ -345,9 +331,7 @@ const FAST_ORDER = [
   // V157 后续修复（2026-11-01）：画布生成结果地址提取验收（<1s），进 --fast 子集。
   "ai-canvas-generation-result-check",
   // 2026-11-01：画布 Agent 面板「生图模型 + 渠道」下拉套用验收（<1s），进 --fast 子集。
-  "ai-canvas-agent-genmodel-check",
-  // P2-1（2026-11-05）：服装档案数据层与版本快照验收（临时沙盒，不污染用户 data/；纯逻辑 <1s），进提交钩子快速子集。
-  "garment-profile-check"
+  "ai-canvas-agent-genmodel-check"
 ];
 
 /**

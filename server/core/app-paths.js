@@ -66,19 +66,3 @@ export const appSettingsFile = path.join(dataDir, "app-settings.json");
 // P1-1 换装任务存储目录（仅路径出口，无副作用；task-store.js 消费）。
 // 落点对齐 contracts/tryon-task.md §3：data/ai-tryon/tasks/<task_id>.json + index.json。
 export const aiTryonTasksDir = path.join(dataDir, "ai-tryon", "tasks");
-// P2-1 服装档案存储目录（仅路径出口，无副作用；garment-profile-store.js 消费）。
-// 落点对齐 contracts/garment-profile.md §2：data/ai-tryon/garments/<id>/profile-v<n>.json + index.json。
-// 🔴 用户资产红线：本目录属用户有意资产，绝不加入任何清理白名单（storage.routes / storage-usage / result-cache）。
-export const aiTryonGarmentsDir = path.join(dataDir, "ai-tryon", "garments");
-// P2-3 图片版本数据目录（仅路径出口，无副作用；image-version-store.js 消费）。
-// 落点对齐 contracts/image-version.md §2：data/ai-tryon/image-versions/<version_id>.json + index.json。
-// 🔴 用户资产红线：本目录属用户有意资产（每条对应一次真实出图/编辑轮次），
-//   绝不加入任何清理白名单（storage.routes / storage-usage / result-cache），本模块不提供任何删除接口。
-export const aiTryonImageVersionsDir = path.join(dataDir, "ai-tryon", "image-versions");
-// P2-4 图片版本固化资产目录（仅路径出口，无副作用；image-version-bridge.js 消费）。
-// 落点对齐 contracts/image-version.md §5：data/ai-tryon/image-version-assets/<asset>。
-// 🔴 用户资产红线：本目录属用户有意资产（每次出图成功落盘的永久副本），
-//   故意**不**加入任何清理白名单（storage.routes / storage-usage / result-cache）——
-//   result-cache 只扫 resultDir，故本目录永不被 TTL 清理；若加入 STORAGE_TARGETS，
-//   `/api/storage/clean` 会按用户选择误删固化资产，违反红线。既有 results/ 文件不删不迁。
-export const aiTryonImageVersionAssetsDir = path.join(dataDir, "ai-tryon", "image-version-assets");

@@ -45,8 +45,6 @@ import { registerImageProxyRoutes } from "./routes/image-proxy.routes.js";
 import { registerImagesRoutes } from "./routes/images.routes.js";
 import { registerOutfitRoutes } from "./routes/outfit.routes.js";
 import { registerSeedRoutes } from "./routes/seed.routes.js";
-import { registerGarmentProfileRoutes } from "./routes/garment-profile.routes.js";
-import { registerImageVersionRoutes } from "./routes/image-version.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -101,10 +99,6 @@ registerAiCanvasAgentRoutes(app);
 // V123：封装配置同步路由（仅 internal/开发模式；public 打包经 esbuild define(NODE_ENV=production)
 // 在 registerSeedRoutes 内部死代码消除，客户版无此出口）。
 registerSeedRoutes(app);
-
-// P2-2：服装档案 API（薄封装数据层；不触生成链路 / 提示词 / dock 布局）。
-registerGarmentProfileRoutes(app);
-registerImageVersionRoutes(app);
 
 registerImageProxyRoutes(app);
 
