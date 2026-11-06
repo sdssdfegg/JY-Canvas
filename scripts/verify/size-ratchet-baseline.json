@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-11-06",
-  "reason": "V175 精修裁剪开关状态可见化：RetouchIntentPanel.jsx 增约12行（裁剪开关开/关文字状态+实时反馈div）、outfit-save-handlers.js 增1行（!source分支补addEvent）；零新增文件、零新增函数、纯可见性增强，不改裁切算法/落盘语义/门控",
+  "reason": "V176 新增 TT Image 2.6 模型 + laoye/Origin 两条渠道（纯配置增项）：src/shared/models.js 84->94(+10，DEFAULT_MODELS 增 2.6 全参条目)、src/shared/routing.js 653->673(+20，LEGACY_MODEL_ALIASES 与 FALLBACK_MODEL_CAPABILITIES/FALLBACK_MODEL_CHANNELS 各增 2.6 两条)。零新增文件、零新增函数、不改转发/落盘语义；server/channel-config.js 与 server/channel.js 不在 154 前端基线跟踪范围故未计入。",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -132,7 +132,7 @@
     "src/shared/list-order.js": 29,
     "src/shared/local-edit-geometry.js": 530,
     "src/shared/local-edit-mask.js": 568,
-    "src/shared/models.js": 84,
+    "src/shared/models.js": 94,
     "src/shared/numeric.js": 27,
     "src/shared/outfit-intent.js": 580,
     "src/shared/prompt-library.js": 370,
@@ -142,7 +142,7 @@
     "src/shared/release-seed.js": 295,
     "src/shared/result-image.js": 334,
     "src/shared/retouch-intent.js": 284,
-    "src/shared/routing.js": 653,
+    "src/shared/routing.js": 673,
     "src/shared/text-normalize.js": 42,
     "src/shared/ui/AppSidebar.jsx": 39,
     "src/shared/ui/Button.jsx": 53,

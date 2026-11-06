@@ -2,7 +2,7 @@
 //
 // 唯一来源约定：
 //   1. 模型 ID 一律使用 3.0 routing catalog 的 canonical ID（banana-2 / nano-banana-pro /
-//      tt-image-2 / tt-image-2.5）。旧存档里的 nano-banana2 等旧 ID 只在读取时映射一次。
+//      tt-image-2 / tt-image-2.5 / tt-image-2.6）。旧存档里的 nano-banana2 等旧 ID 只在读取时映射一次。
 //   2. 线路白名单和「已下线线路」名单与服务端 server/channel-config.js 保持一致。
 //   3. 能力限制（可传图片数量、单张大小、提示词长度、比例、尺寸、质量、背景）
 //      一律从 `/api/config` 的 routing catalog capabilities 读取；目录未加载完成前
@@ -21,6 +21,9 @@ export const LEGACY_MODEL_ALIASES = Object.freeze({
   "tt-image-2": "tt-image-2",
   "tt-image-2.5": "tt-image-2.5",
   "tt-image-2-5": "tt-image-2.5",
+  // 2026-11-06：V176 新增 TT Image 2.6；canonical ID 即自身，附 "tt-image-2-6" 容错别名。
+  "tt-image-2.6": "tt-image-2.6",
+  "tt-image-2-6": "tt-image-2.6",
   "banana-2.1": "banana-2.1",
   "nano-banana-2.1": "banana-2.1",
   // 2026-10-24：名创AI 接入的豆包生图模型，canonical ID 即自身（TokenGo 上游模型名）。
@@ -165,6 +168,18 @@ export const FALLBACK_MODEL_CAPABILITIES = Object.freeze({
     customSize: false
   }),
   "tt-image-2.5": Object.freeze({
+    maxInputImages: 8,
+    maxImageBytes: 16 * 1024 * 1024,
+    maxPromptLength: 20000,
+    ratios: ["auto", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "5:4", "4:5", "2:1", "1:2", "21:9", "9:21"],
+    sizes: ["auto", "1K", "2K", "4K"],
+    quality: ["auto", "low", "medium", "high", "max"],
+    backgrounds: ["opaque", "transparent", "auto"],
+    versions: ["flare", "sunburst"],
+    customSize: true
+  }),
+  // 2026-11-06：V176 新增 TT Image 2.6 离线兜底能力（全参，整份对齐 server/channel-config.js 的 ROUTING_MODELS 2.6 条目）。
+  "tt-image-2.6": Object.freeze({
     maxInputImages: 8,
     maxImageBytes: 16 * 1024 * 1024,
     maxPromptLength: 20000,
@@ -387,6 +402,11 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     // 2026-11-02：TT满血版（silent-tt25-tt-manxue，¥0.26，老夜 image2.5全参 满血 KEY，与 LY满血版 同源上游/协议/全参能力，仅 KEY 与价格不同）；
     //   排 LY 后面。官方组置顶由 OFFICIAL_CHANNELS 实现；与 server/provider_families.json 同源同步。
     { id: "silent-tt25-tt-manxue", label: "TT满血版", price: 0.26, official: true }
+  ]),
+  // 2026-11-06：V176 新增 TT Image 2.6 离线兜底渠道（laoye ¥0.08 默认 / Origin ¥0.09）；与 server/channel-config.js 同源同步。
+  "tt-image-2.6": Object.freeze([
+    { id: "silent-tt26-line-01", label: "laoye", price: 0.08 },
+    { id: "silent-tt26-line-02", label: "Origin", price: 0.09 }
   ]),
   // 香蕉 2 / 香蕉 Pro 用白名单本身兜底，不在这里重复维护。
   "banana-2": MODEL_CHANNEL_ALLOWLIST["banana-2"],

@@ -101,7 +101,7 @@ const config = await json("/api/config");
 check("GET /api/config 200", config.status === 200, String(config.status));
 
 const routing = config.payload?.routing || {};
-const EXPECTED_MODELS = ["tt-image-2", "tt-image-2.5", "banana-2", "banana-2.1", "nano-banana-pro", "doubao-seedream-5-0"];
+const EXPECTED_MODELS = ["tt-image-2", "tt-image-2.5", "tt-image-2.6", "banana-2", "banana-2.1", "nano-banana-pro", "doubao-seedream-5-0"];
 function pricesAscendingRows(rows) {
   for (let i = 1; i < rows.length; i += 1) {
     const prev = Number(rows[i - 1]?.price ?? -1);
@@ -113,12 +113,12 @@ function pricesAscendingRows(rows) {
 
 const modelIds = (routing.models || []).map((model) => model.id);
 check(
-  "routing catalog 6 个 canonical 模型齐全（含香蕉2.1 与 SD，SD Pro 已隐藏）",
+  "routing catalog 7 个 canonical 模型齐全（含 TT2.6 / 香蕉2.1 与 SD，SD Pro 已隐藏）",
   EXPECTED_MODELS.every((id) => modelIds.includes(id)),
   modelIds.join(",")
 );
 check(
-  "routing catalog 的模型顺序 = 2.0 → 2.5 → 香蕉 2 → 香蕉2.1 → 香蕉 Pro → SD",
+  "routing catalog 的模型顺序 = 2.0 → 2.5 → 2.6 → 香蕉 2 → 香蕉2.1 → 香蕉 Pro → SD",
   JSON.stringify(modelIds) === JSON.stringify(EXPECTED_MODELS),
   modelIds.join(",")
 );

@@ -186,6 +186,12 @@ const ROUTING_CHANNELS = Object.freeze([
   //   前端 ¥0.08/张（最便宜的 TT2.5；非官方、不抢默认线路，默认仍 LY满血版 line-10）。
   //   注：luckfill「image2.5全参」分组当前对三把钥匙全 503，待上游恢复即生效，前端先就位。
   { id: "silent-tt25-line-12", label: "laoye", price: 0.08, model: "tt-image-2.5" },
+  // 2026-11-06：V176 新增 TT Image 2.6 两条渠道（上游为 GPT Image 2.6，与 TT2.0/2.5 同族）。
+  // laoye ¥0.08 排第一 = 默认线路（省钱，与 TT2.0 laoye超分 口径一致）；Origin ¥0.09 其后。
+  // 154 适配器 publicId=silent-tt26-line-01 / silent-tt26-line-02（见 /opt/jingyin-silent-gpt-image-adapter/
+  //   provider_families.json），KEY 仅存适配器 env，前端与源码零 KEY。服务器侧 2.6 能力表/定价扩表由 Owner 完成。
+  { id: "silent-tt26-line-01", label: "laoye", price: 0.08, model: "tt-image-2.6" },
+  { id: "silent-tt26-line-02", label: "Origin", price: 0.09, model: "tt-image-2.6" },
   // 香蕉 2：展示用户指定的四条线路（云枢 / Subdirect / Origin / laoye），统一 ¥0.12/张。
   // 2026-10-20：laoye 由「同价位排第一（默认线路）」改为「同价位排最后」，默认线路让给云枢。
   // 数组顺序就是前端菜单顺序（channelsForModel 按白名单顺序输出），不要重排。
@@ -251,6 +257,22 @@ export const ROUTING_MODELS = Object.freeze([
   {
     value: "tt-image-2.5",
     label: "TT Image 2.5",
+    ratios: ["auto", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "5:4", "4:5", "2:1", "1:2", "21:9", "9:21"],
+    sizes: ["auto", "1K", "2K", "4K"],
+    maxInputImages: 8,
+    quality: ["auto", "low", "medium", "high", "max"],
+    versions: ["flare", "sunburst"],
+    backgrounds: ["opaque", "transparent", "auto"],
+    customSize: true,
+    maxPromptLength: DEFAULT_MAX_PROMPT_LENGTH,
+    maxImageBytes: DEFAULT_MAX_IMAGE_BYTES
+  },
+  // 2026-11-06：V176 新增 TT Image 2.6（TT 系列第 3 代，上游对应中转站 GPT Image 2.6，支持全参）。
+  // 全参档位整份照抄 tt-image-2.5（versions/backgrounds/customSize/quality 含 max/sizes 含 auto/ratios 含 auto）。
+  // flare/sunburst 沿用 2.5 版本概念；若上游 2.6 无版本之分，去掉 versions 后 extendedParamModel 仍因 backgrounds 非空为 true。
+  {
+    value: "tt-image-2.6",
+    label: "TT Image 2.6",
     ratios: ["auto", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "5:4", "4:5", "2:1", "1:2", "21:9", "9:21"],
     sizes: ["auto", "1K", "2K", "4K"],
     maxInputImages: 8,

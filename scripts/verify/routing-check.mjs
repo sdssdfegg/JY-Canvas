@@ -45,7 +45,7 @@ const FORBIDDEN_IDS = [
 // 核心不变式（2026-10-30 更新）：同模型内「官方渠道（OFFICIAL_CHANNELS 人工顺序）置顶」，
 // 其余渠道按 ROUTING_CHANNELS 配置数组顺序展示（取消价格升降序，改手工顺序，方便后续自由调顺序）。
 // 校验只断言「官方置顶 + 其余顺序=配置数组顺序」，不断言具体哪条排第几——以后调顺序/调价零返工。
-const EXPECTED_MODELS = ["tt-image-2", "tt-image-2.5", "banana-2", "banana-2.1", "nano-banana-pro"];
+const EXPECTED_MODELS = ["tt-image-2", "tt-image-2.5", "tt-image-2.6", "banana-2", "banana-2.1", "nano-banana-pro"];
 function assertModelOrdering(model) {
   const rows = routingModule.channelsForModel(model, catalog);
   const officialIds = routingModule.OFFICIAL_CHANNELS[model] || [];

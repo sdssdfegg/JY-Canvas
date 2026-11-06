@@ -33,7 +33,10 @@ export const LEGACY_MODEL_ALIASES = Object.freeze({
   "gpt-image-2": "tt-image-2",
   "tt-image-2": "tt-image-2",
   "tt-image-2.5": "tt-image-2.5",
-  "tt-image-2-5": "tt-image-2.5"
+  "tt-image-2-5": "tt-image-2.5",
+  // 2026-11-06：V176 新增 TT Image 2.6；canonical ID 即自身，附 "tt-image-2-6" 容错别名。
+  "tt-image-2.6": "tt-image-2.6",
+  "tt-image-2-6": "tt-image-2.6"
 });
 
 export function canonicalChannelModel(value) {
