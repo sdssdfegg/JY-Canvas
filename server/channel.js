@@ -667,9 +667,12 @@ export function buildImageRequestVariants(params, files) {
   const forceCompatFormats = isBananaModel(params.model) && params.workflowMode === "random-background";
   const activeFormats = ENABLE_IMAGE_COMPAT_VARIANTS || forceCompatFormats ? orderedFormats : orderedFormats.slice(0, 1);
   for (const item of activeFormats) {
-    // volc 线路的实际上游模型名(flash 版)与 UI 模型名不同，需覆盖 body.model / manualModel 为上游真实模型，
-    // 中转站才能按 model 选中 154 new-api 渠道 30。
-    const variantParams = item.format === "volc" && channel?.upstreamModel
+    // 上游改名层：凡渠道声明了 upstreamModel 且不同于 UI 模型名，就用上游真实模型名覆盖
+    // body.model / manualModel（中转站按 model 名路由选线）。原只放开给 volc(HS 种子 flash 版)，
+    // 现扩展到常规模型——TT Image 2.6 经 api.jingyin.online 中转站必须发上游名（GPT2.6 / gpt-image-2.6），
+    // 否则中转站报「No available channel」被 image-error-policy 包成 504。
+    // seedream 的改名已在 buildVolcEditBody 单独处理，这里排除 format==="seedream" 避免动到 TokenGo 直连路径。
+    const variantParams = channel?.upstreamModel && channel.upstreamModel !== params.model && item.format !== "seedream"
       ? { ...params, model: channel.upstreamModel, manualModel: channel.upstreamModel }
       : params;
     addJingyinVariant(variantParams, item.suffix, item.requestFormatSuffix, item.format);

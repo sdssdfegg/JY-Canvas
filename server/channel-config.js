@@ -190,8 +190,13 @@ const ROUTING_CHANNELS = Object.freeze([
   // laoye ¥0.08 排第一 = 默认线路（省钱，与 TT2.0 laoye超分 口径一致）；Origin ¥0.09 其后。
   // 154 适配器 publicId=silent-tt26-line-01 / silent-tt26-line-02（见 /opt/jingyin-silent-gpt-image-adapter/
   //   provider_families.json），KEY 仅存适配器 env，前端与源码零 KEY。服务器侧 2.6 能力表/定价扩表由 Owner 完成。
-  { id: "silent-tt26-line-01", label: "laoye", price: 0.08, model: "tt-image-2.6" },
-  { id: "silent-tt26-line-02", label: "Origin", price: 0.09, model: "tt-image-2.6" },
+  // ⚠️ 上游改名层（2026-11-07 修正 504 根因）：中转站 api.jingyin.online 只认 4 个上游模型名
+  //   （大小写敏感）—— GPT2.6 / gpt-image-2.6 / gpt-image-2.6-flare / gpt-image-2.6-sunburst，
+  //   不认目录里的 canonical ID「tt-image-2.6」。故按渠道用 upstreamModel 改写发往中转站的 model：
+  //   laoye(line-01) → "GPT2.6"（中转站 luckfill 31）；Origin(line-02) → "gpt-image-2.6"（origingateway 32）。
+  //   channel.js 的 buildImageRequestVariants 已对「声明 upstreamModel 的非 seedream 路径」做覆盖。
+  { id: "silent-tt26-line-01", label: "laoye", price: 0.08, model: "tt-image-2.6", upstreamModel: "GPT2.6" },
+  { id: "silent-tt26-line-02", label: "Origin", price: 0.09, model: "tt-image-2.6", upstreamModel: "gpt-image-2.6" },
   // 香蕉 2：展示用户指定的四条线路（云枢 / Subdirect / Origin / laoye），统一 ¥0.12/张。
   // 2026-10-20：laoye 由「同价位排第一（默认线路）」改为「同价位排最后」，默认线路让给云枢。
   // 数组顺序就是前端菜单顺序（channelsForModel 按白名单顺序输出），不要重排。
