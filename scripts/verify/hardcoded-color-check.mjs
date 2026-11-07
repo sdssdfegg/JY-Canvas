@@ -6,7 +6,8 @@
 // 棘轮语义（与 shared-ui / frontend / size-ratchet 同款）：
 //   - 某 .css 文件 hex 数 > 基线 → 判红（新增）。
 //   - < 基线 → improved 只报告不拦（存量被顺手清掉是好事）。
-//   - 基线记了某文件、但该文件已无 hex（或文件没了）→ stale 判红，逼 --update。
+//   - 基线记了正数 hex、但当前文件已无 hex（或文件没了）→ stale 判红，逼 --update。
+//   - 基线本就记 0、当前也 0（已归零且刷新过基线）→ 不判 stale（V180 修复「归零后 --update 永久红灯」死锁）。
 //   - 新出现的 .css 文件带 hex → 视为新增，判红（只拦新增）。
 //
 // 边界（必须写清，否则等于又一次失明）：
@@ -63,8 +64,8 @@ for (const file of files) {
 
 const payload = {
   note:
-    "硬编码 hex 颜色存量基线（V74 落地）。仅记账、只拦新增：某 .css 文件 hex 数 > 基线即判红（新增）；" +
-    "< 基线只报 improved（存量被顺手清掉是好事）；基线记了某文件、但该文件已无 hex（或文件没了）→ stale 判红逼 --update。" +
+    "硬编码 hex 颜色存量基线（V74 落地，V180 修正 stale 判定）。仅记账、只拦新增：某 .css 文件 hex 数 > 基线即判红（新增）；" +
+    "< 基线只报 improved（存量被顺手清掉是好事）；基线记了正数 hex、但当前文件已无 hex（或文件没了）→ stale 判红逼 --update；基线本就记 0、当前也 0（已归零且刷新过基线）→ 不判 stale（V180 修「归零后 --update 永久红灯」死锁）。" +
     "清理存量由各接入单（V76+）顺手清零，全量清零单独开单。不扫 .jsx 内联 style（动态色合法）。" +
     "rgba()/hsla() 等函数色暂不记账。",
   generatedAt: new Date().toISOString().slice(0, 10),
@@ -119,8 +120,8 @@ for (const [rel, v] of Object.entries(current)) {
 for (const [rel, before] of Object.entries(baseFiles)) {
   if (!(rel in current)) {
     stale.push({ file: rel, before, hint: "基线记录的文件已不在代码中，请 --update 刷新基线" });
-  } else if (current[rel].hex === 0) {
-    stale.push({ file: rel, before, now: 0, hint: "基线记录有 hex，但当前文件已无 hex，请 --update 刷新基线" });
+  } else if (before > 0 && current[rel].hex === 0) {
+    stale.push({ file: rel, before, now: 0, hint: "基线记录正数 hex，但当前文件已无 hex，请 --update 刷新基线" });
   }
 }
 

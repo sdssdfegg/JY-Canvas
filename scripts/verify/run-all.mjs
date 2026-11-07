@@ -72,6 +72,10 @@ const ORDER = [
   // src/styles/tokens.css，断言 :root 默认暗色与 jade/graphite/mist 三套浅色主题的颜色语义
   // 令牌键集合逐字一致（缺/多一键即判红）。纯文本解析 <1s，不进浏览器，进提交钩子快速子集。
   "theme-token-parity-check",
+  // V180（2026-11-07）：硬编码颜色棘轮自测护栏 —— 在 mkdtemp 临时目录构造 6 个场景，复制修复后的
+  // 真实 hardcoded-color-check.mjs 后用 spawnSync 跑它，断言 exit code 与 JSON report 字段，结束
+  // rmSync 清理。纯进程内 + 6 次快子进程（<1s），不碰真实 src/ 与基线数字，进提交钩子快速子集。
+  "hardcoded-color-ratchet-selftest",
   // V11-RF-019 交付物：前端跨文件同名**顶层函数**棘轮（camelCase 函数，与上面组件的
   //   PascalCase 判据互补；两者允许重叠，如 ReferenceThumbTray 两边都命中，重叠不代表冲突）。
   //   提取逻辑收在 lib/frontend-sources.mjs，与审计脚本共用一份，避免两套正则各自漂移。
@@ -298,6 +302,8 @@ const FAST_ORDER = [
   "hardcoded-color-check",
   // V178（2026-11-07）：四主题语义令牌覆盖护栏，纯源码静态断言 <1s，进提交钩子快速子集。
   "theme-token-parity-check",
+  // V180（2026-11-07）：硬编码颜色棘轮自测护栏，纯进程内 + 6 次快子进程（<1s），进提交钩子快速子集。
+  "hardcoded-color-ratchet-selftest",
   "reference-gate-check",
   "reference-policy-verify",
   "tt25-subdirect-wire-check",
