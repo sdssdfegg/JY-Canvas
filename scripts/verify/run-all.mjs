@@ -68,6 +68,10 @@ const ORDER = [
   // 存量记账、只拦新增（某文件 hex 数 > 基线即判红；< 基线只报 improved；基线陈旧判 stale）；
   // 不扫 .jsx 内联 style（动态色合法）。纯源码扫描，跑得飞快（<1s），排在这批纯扫描里。
   "hardcoded-color-check",
+  // V178（2026-11-07）：四主题语义令牌覆盖护栏 —— 静态、零依赖叶子，只读
+  // src/styles/tokens.css，断言 :root 默认暗色与 jade/graphite/mist 三套浅色主题的颜色语义
+  // 令牌键集合逐字一致（缺/多一键即判红）。纯文本解析 <1s，不进浏览器，进提交钩子快速子集。
+  "theme-token-parity-check",
   // V11-RF-019 交付物：前端跨文件同名**顶层函数**棘轮（camelCase 函数，与上面组件的
   //   PascalCase 判据互补；两者允许重叠，如 ReferenceThumbTray 两边都命中，重叠不代表冲突）。
   //   提取逻辑收在 lib/frontend-sources.mjs，与审计脚本共用一份，避免两套正则各自漂移。
@@ -292,6 +296,8 @@ const FAST_ORDER = [
   "legacy-button-ratchet-check",
   // V74（2026-10-17）：硬编码 hex 颜色棘轮门禁，纯 CSS 扫描 <1s，正合提交钩子。
   "hardcoded-color-check",
+  // V178（2026-11-07）：四主题语义令牌覆盖护栏，纯源码静态断言 <1s，进提交钩子快速子集。
+  "theme-token-parity-check",
   "reference-gate-check",
   "reference-policy-verify",
   "tt25-subdirect-wire-check",
