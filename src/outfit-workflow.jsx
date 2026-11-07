@@ -63,7 +63,7 @@ import { CropModal } from "./features/outfit/panels/OutfitCropModal.jsx";
 import { MAX_UPLOAD_IMAGES, PREPROCESS_OPTIONS, preprocessModeLabel } from "./features/outfit/outfit-image-utils.js";
 import { PromptPresetGrid } from "./features/outfit/panels/PromptPresetGrid.jsx";
 import { WorkflowQuickVideoPanel } from "./features/outfit/panels/WorkflowQuickVideoPanel.jsx";
-import { DEFAULT_OUTFIT_PAGE_NAME, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeRecolorPart, normalizeRecolorUpperLayer, normalizeGenerationCount, normalizeTheme, readSettings, themeToVars } from "./features/outfit/outfit-top.js";
+import { DEFAULT_OUTFIT_PAGE_NAME, loadOutfitPromptCategories, loadOutfitPromptPresets, normalizeRecolorPart, normalizeRecolorUpperLayer, normalizeGenerationCount, normalizeTheme, readSettings } from "./features/outfit/outfit-top.js";
 import { inferOutfitWorkflowMode, mergeOutfitPageSettings, normalizeUploadLabels, pickInitialOutfitPage, readOutfitPages, stripOutfitPageGlobalSettings } from "./features/outfit/outfit-page-actions.js";
 import {  createAsyncLimiter, defaultLocalEditCrop, groupPreprocessValue, processImageFileWithMeta } from "./features/outfit/outfit-image-pipeline.js";
 import { useOutfitSettingsIntent } from "./features/outfit/use-outfit-settings-intent.js";
@@ -581,25 +581,6 @@ export default function OutfitWorkflow({
   const effectiveTheme = normalizeTheme(hostTheme || settings.theme);
   const effectiveApiKey = normalizeApiKeyInput(hostApiKey || settings.apiKey);
   const embeddedMode = typeof onOpenHostSettings === "function";
-  const themePalette = useMemo(() => themeToVars(effectiveTheme), [effectiveTheme]);
-  const themeStyle = useMemo(() => ({
-    "--app-bg": themePalette.appBg,
-    "--shell-bg": themePalette.shellBg,
-    "--sidebar-bg": themePalette.sidebarBg,
-    "--topbar-bg": themePalette.topbarBg,
-    "--panel-bg": themePalette.panelBg,
-    "--panel-strong-bg": themePalette.panelStrongBg,
-    "--input-bg": themePalette.inputBg,
-    "--button-bg": themePalette.buttonBg,
-    "--border": themePalette.border,
-    "--text": themePalette.text,
-    "--text-soft": themePalette.textSoft,
-    "--accent": themePalette.accent,
-    "--accent-text": themePalette.accentText,
-    "--accent-border": themePalette.accentBorder,
-    "--danger": themePalette.danger,
-    "--option-bg": themePalette.optionBg
-  }), [themePalette]);
   const filteredPromptPresets = useMemo(() => {
     const keyword = promptSearch.trim().toLowerCase();
     return promptPresets.filter((preset) => {
@@ -1195,7 +1176,7 @@ export default function OutfitWorkflow({
   }
 
   return (
-    <main className={`appShell outfitWorkflowEmbedded${embeddedMode ? " embedded" : ""}`} style={themeStyle}>
+    <main className={`appShell outfitWorkflowEmbedded${embeddedMode ? " embedded" : ""}`}>
       <WorkbenchSidebar
         activeView={activeView}
         onSwitchView={switchView}
