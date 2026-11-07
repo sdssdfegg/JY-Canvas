@@ -326,7 +326,7 @@ export function WorkflowQuickVideoPanel({
               <button className="assetDownloadButton" type="button" onClick={() => downloadVideo(item)} title="下载视频" aria-label="下载视频">
                 <Download size={16} />
               </button>
-              {item.generationMs && <div className="assetTimeBadge">用时 {formatMs(item.generationMs)}</div>}
+              {item.generationMs && <div className="assetTimeBadge">{formatMs(item.generationMs)}</div>}
               <video src={item.url} controls preload="metadata" />
               <button className="assetPrompt" type="button" title={item.prompt} onClick={() => void navigator.clipboard?.writeText(item.prompt || "")}>
                 {item.prompt}

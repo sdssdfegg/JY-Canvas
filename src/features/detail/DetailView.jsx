@@ -459,7 +459,7 @@ export function DetailView({
                           </div>
                           {(prompt.generationMs || prompt.status === "failed") && (
                             <div className="detailPromptStatus">
-                              {prompt.generationMs && <span>用时 {formatMs(prompt.generationMs)}</span>}
+                              {prompt.generationMs && <span>{formatMs(prompt.generationMs)}</span>}
                               {prompt.error && <strong>{prompt.error}</strong>}
                             </div>
                           )}

@@ -72,7 +72,7 @@ export function VideoView({
             >
               <Download size={16} />
             </button>
-            {item.generationMs && <div className="assetTimeBadge">用时 {formatMs(item.generationMs)}</div>}
+            {item.generationMs && <div className="assetTimeBadge">{formatMs(item.generationMs)}</div>}
             <video src={item.url} controls preload="metadata" />
             {item.prompt && (
               <button

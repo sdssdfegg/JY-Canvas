@@ -242,7 +242,7 @@ export function ReferenceRemixView({
                 >
                   {downloadFeedbackIds.has(item.id) ? <Check size={16} /> : <Download size={16} />}
                 </button>
-                {item.generationMs && <div className="assetTimeBadge">用时 {formatMs(item.generationMs)}</div>}
+                {item.generationMs && <div className="assetTimeBadge">{formatMs(item.generationMs)}</div>}
                 <CachedImage src={src} alt={`参考生图 ${index + 1}`} draggable onDragStart={(event) => beginResultImageDrag(event, item, index)} diagnostic={{ requestId: item.requestId || item.id, endpoint: "/api/images", module: "参考生图", placement: "reference-card" }} />
                 <ReferenceThumbTray references={item.references} count={item.referenceCount} className="assetReferenceTray" onOpen={openReferencePreview} onContextMenu={openReferenceContextMenu} onImageDragStart={beginReferenceImageDrag} />
                 {promptText && (

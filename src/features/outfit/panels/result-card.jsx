@@ -205,7 +205,7 @@ export const ResultCard = React.memo(function ResultCard({
       </button>
       {task.rerunCandidate && <div className="assetRerunBadge">重刷候选</div>}
       {hasCropReturn && <div className="assetCropReturnBadge">裁剪回流</div>}
-      {Number.isFinite(durationMs) && durationMs > 0 && <div className="assetTimeBadge">用时 {formatMs(durationMs)}</div>}
+      {Number.isFinite(durationMs) && durationMs > 0 && <div className="assetTimeBadge">{formatMs(durationMs)}</div>}
       {task.qualityCheck && (
         <div
           className={`qualityBadge ${qualityStatusClass(task.qualityCheck)}`}

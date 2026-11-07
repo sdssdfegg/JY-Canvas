@@ -143,7 +143,7 @@ export const QuickGalleryCard = React.memo(function QuickGalleryCard({
       >
         <Trash2 size={15} />
       </button>
-      {item.generationMs && <div className="assetTimeBadge">用时 {formatMs(item.generationMs)}</div>}
+      {item.generationMs && <div className="assetTimeBadge">{formatMs(item.generationMs)}</div>}
       {brokenReason ? (
         <div className="assetImageFallback" title={brokenReason}>
           <ImageOff size={26} />

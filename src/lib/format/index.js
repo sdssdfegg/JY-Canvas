@@ -5,14 +5,14 @@ export function formatMs(ms) {
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
-  return rest ? `${minutes}分${rest}秒` : `${minutes}分`;
+  return rest ? `${minutes}分${rest}` : `${minutes}分`;
 }
 
 export function formatWholeSecondMs(ms) {
   if (!Number.isFinite(ms)) return "--";
   const seconds = Math.max(ms > 0 ? 1 : 0, Math.ceil(ms / 1000));
   if (seconds < 60) return `${seconds}s`;
-  return `${Math.floor(seconds / 60)}分${seconds % 60}秒`;
+  return `${Math.floor(seconds / 60)}分${seconds % 60 || ""}`;
 }
 
 export function fileSize(bytes) {
