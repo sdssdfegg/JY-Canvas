@@ -4,11 +4,11 @@
   "files": {
     "src/features/ai-canvas/ai-canvas.css": 0,
     "src/features/outfit/outfit-intent.css": 0,
-    "src/features/outfit/retouch-intent.css": 4,
-    "src/features/outfit/white-refine-split.css": 6,
-    "src/outfit-workflow.css": 65,
+    "src/features/outfit/retouch-intent.css": 3,
+    "src/features/outfit/white-refine-split.css": 4,
+    "src/outfit-workflow.css": 59,
     "src/shared/ui/ui.css": 33,
-    "src/styles.css": 51,
-    "src/styles/tokens.css": 68
+    "src/styles.css": 50,
+    "src/styles/tokens.css": 72
   }
 }

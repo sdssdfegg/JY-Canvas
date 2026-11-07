@@ -1887,7 +1887,7 @@
 }
 
 .outfitWorkflowEmbedded .previewQualityPanel.pass {
-  border-color: color-mix(in srgb, #49c85b 44%, var(--border));
+  border-color: color-mix(in srgb, var(--on-green) 44%, var(--border));
 }
 
 .outfitWorkflowEmbedded .previewQualityPanel.fail {
@@ -2898,8 +2898,8 @@
 }
 
 .outfitWorkflowEmbedded .masterFitSwitch.on {
-  border-color: color-mix(in srgb, #49c85b 58%, var(--border));
-  background: #49c85b;
+  border-color: color-mix(in srgb, var(--on-green) 58%, var(--border));
+  background: var(--on-green);
 }
 
 .outfitWorkflowEmbedded .masterFitSwitch.on i {
@@ -3029,12 +3029,12 @@
 
 .outfitWorkflowEmbedded .smartInterventionSwitch.on,
 .outfitWorkflowEmbedded .qualityCheckSwitch.on {
-  border-color: color-mix(in srgb, #49c85b 48%, var(--border));
+  border-color: color-mix(in srgb, var(--on-green) 48%, var(--border));
 }
 
 .outfitWorkflowEmbedded .smartInterventionSwitch.on i,
 .outfitWorkflowEmbedded .qualityCheckSwitch.on i {
-  background: #49c85b;
+  background: var(--on-green);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, #ffffff 20%, transparent);
 }
 
@@ -3919,7 +3919,7 @@
 }
 
 .outfitWorkflowEmbedded .connectionHint.ok {
-  color: #49c85b;
+  color: var(--on-green);
 }
 
 .outfitWorkflowEmbedded .connectionHint.error {

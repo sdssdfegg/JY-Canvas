@@ -2740,7 +2740,7 @@ textarea:focus {
 }
 
 .connectionHint.ok {
-  color: #49c85b;
+  color: var(--on-green);
 }
 
 .connectionHint.error {
