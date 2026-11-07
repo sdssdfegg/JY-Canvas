@@ -78,8 +78,8 @@
 }
 
 .outfitWorkflowEmbedded .outfitIntentCount.warn {
-  color: #fbbf24 !important;
-  border-color: color-mix(in srgb, #fbbf24 45%, transparent);
+  color: var(--gold) !important;
+  border-color: color-mix(in srgb, var(--gold) 45%, transparent);
 }
 
 .outfitWorkflowEmbedded .outfitIntentRow {
@@ -117,13 +117,13 @@
 }
 
 .outfitWorkflowEmbedded .outfitIntentChips button:hover {
-  border-color: color-mix(in srgb, #fbbf24 45%, transparent);
+  border-color: color-mix(in srgb, var(--gold) 45%, transparent);
 }
 
 .outfitWorkflowEmbedded .outfitIntentChips button.active {
-  color: #fbbf24;
-  border-color: color-mix(in srgb, #fbbf24 60%, transparent);
-  background: color-mix(in srgb, #fbbf24 14%, transparent);
+  color: var(--gold);
+  border-color: color-mix(in srgb, var(--gold) 60%, transparent);
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
 }
 
 /* V124（用户要求）：更换部位非「上装」时，上装层级整组置灰、不可选（标题 + chips 容器 + 按钮三层）。 */
@@ -158,7 +158,7 @@
 }
 
 .outfitWorkflowEmbedded .outfitIntentWarn {
-  color: #fbbf24 !important;
+  color: var(--gold) !important;
 }
 
 .outfitWorkflowEmbedded .outfitIntentInline {
@@ -181,7 +181,7 @@
 .outfitWorkflowEmbedded .outfitIntentWarnings {
   margin: 0;
   padding-left: 18px;
-  color: #fbbf24;
+  color: var(--gold);
   font-size: 11px;
   line-height: 1.6;
 }
@@ -258,7 +258,7 @@
 }
 
 .outfitWorkflowEmbedded .imageFactToggle:hover {
-  color: #fbbf24;
+  color: var(--gold);
 }
 
 .outfitWorkflowEmbedded .imageFactSummary {
@@ -298,7 +298,7 @@
 }
 
 .outfitWorkflowEmbedded .outfitIntentBarText b {
-  color: #fbbf24;
+  color: var(--gold);
   font-weight: 700;
 }
 
@@ -317,7 +317,7 @@
 /* 「通用换装提示词」框本身直接显示实时编译结果（只读），不再另开一个"实际提示词"框。 */
 .outfitWorkflowEmbedded .composerField > span .composerFieldHint {
   margin-left: 8px;
-  color: #fbbf24;
+  color: var(--gold);
   font-size: 11px;
   font-style: normal;
   font-weight: 500;
@@ -332,13 +332,13 @@
   max-height: 480px;
   overflow-y: auto;
   field-sizing: content;
-  border-color: color-mix(in srgb, #fbbf24 30%, transparent);
+  border-color: color-mix(in srgb, var(--gold) 30%, transparent);
   background: color-mix(in srgb, var(--panel-strong) 40%, transparent);
   resize: vertical;
 }
 
 .outfitWorkflowEmbedded .composerField textarea.outfitPromptLive:focus {
-  border-color: color-mix(in srgb, #fbbf24 55%, transparent);
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
 }
 
 .outfitWorkflowEmbedded .outfitPromptMeta {
@@ -365,6 +365,6 @@
 }
 
 .outfitWorkflowEmbedded .outfitPromptClear:hover {
-  color: #fbbf24;
-  border-color: color-mix(in srgb, #fbbf24 45%, transparent);
+  color: var(--gold);
+  border-color: color-mix(in srgb, var(--gold) 45%, transparent);
 }

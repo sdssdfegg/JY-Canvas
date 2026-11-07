@@ -60,13 +60,13 @@
 }
 
 .outfitWorkflowEmbedded .retouchIntentChips button:hover {
-  border-color: color-mix(in srgb, #fbbf24 45%, transparent);
+  border-color: color-mix(in srgb, var(--gold) 45%, transparent);
 }
 
 .outfitWorkflowEmbedded .retouchIntentChips button.active {
-  color: #fbbf24;
-  border-color: color-mix(in srgb, #fbbf24 60%, transparent);
-  background: color-mix(in srgb, #fbbf24 14%, transparent);
+  color: var(--gold);
+  border-color: color-mix(in srgb, var(--gold) 60%, transparent);
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
 }
 
 /* 排成一条之后每组的说明文字没地方放，也不再需要：右边提示词框里就是结果。
@@ -78,7 +78,7 @@
 }
 
 .outfitWorkflowEmbedded .retouchIntentWarn {
-  color: #fbbf24 !important;
+  color: var(--gold) !important;
 }
 
 /* 正反开关：单 toggle（滑块样式，照 whiteRefineSplitSwitch 视觉口径，缩到与 chip 同高）。
@@ -127,9 +127,9 @@
 }
 
 .outfitWorkflowEmbedded .retouchFrontbackSwitch.on {
-  color: #fbbf24;
-  border-color: color-mix(in srgb, #fbbf24 60%, transparent);
-  background: color-mix(in srgb, #fbbf24 14%, transparent);
+  color: var(--gold);
+  border-color: color-mix(in srgb, var(--gold) 60%, transparent);
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
 }
 
 .outfitWorkflowEmbedded .retouchFrontbackSwitch.on > i {
@@ -158,13 +158,13 @@
   max-height: 168px;
   overflow-y: auto;
   field-sizing: fixed;
-  border-color: color-mix(in srgb, #fbbf24 30%, transparent);
+  border-color: color-mix(in srgb, var(--gold) 30%, transparent);
   background: color-mix(in srgb, var(--panel-strong) 40%, transparent);
   resize: none;
 }
 
 .outfitWorkflowEmbedded .composerField textarea.retouchPromptLive:focus {
-  border-color: color-mix(in srgb, #fbbf24 55%, transparent);
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
 }
 
 /* 用户补充框跟提示词框等高，看起来是一条。 */

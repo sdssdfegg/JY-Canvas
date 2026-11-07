@@ -1438,13 +1438,13 @@ textarea:focus {
 }
 
 .quickToolButton.channelPriceButton {
-  color: #fbbf24;
+  color: var(--gold);
   font-weight: 800;
 }
 
 .quickToolButton.channelPriceButton.active {
-  border-color: color-mix(in srgb, #fbbf24 65%, transparent);
-  background: color-mix(in srgb, #fbbf24 16%, transparent);
+  border-color: color-mix(in srgb, var(--gold) 65%, transparent);
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
 }
 
 .quickToolGlyph {
@@ -1504,7 +1504,7 @@ textarea:focus {
 }
 
 .quickChannelItem em {
-  color: #fbbf24;
+  color: var(--gold);
   font-size: 11px;
   font-style: normal;
   font-weight: 700;
@@ -1515,8 +1515,8 @@ textarea:focus {
 }
 
 .quickChannelItem.active {
-  background: color-mix(in srgb, #fbbf24 16%, transparent);
-  color: #fbbf24;
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+  color: var(--gold);
 }
 
 /* 2026-10-30 用户要求：官方渠道用**绿色**标识（未选中也区分于普通渠道）。
@@ -1857,7 +1857,7 @@ textarea:focus {
   min-width: 22px;
   padding: 0;
   border-radius: 50%;
-  color: #fbbf24;
+  color: var(--gold);
   font-weight: 800;
   background: color-mix(in srgb, var(--panel) 88%, transparent);
   border: 1px solid var(--soft-border);
@@ -1866,12 +1866,12 @@ textarea:focus {
 
 .channelPickerTrigger:hover {
   color: var(--text);
-  border-color: color-mix(in srgb, #fbbf24 55%, transparent);
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
 }
 
 .channelPickerTrigger.active {
-  border-color: color-mix(in srgb, #fbbf24 65%, transparent);
-  background: color-mix(in srgb, #fbbf24 16%, transparent);
+  border-color: color-mix(in srgb, var(--gold) 65%, transparent);
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
 }
 
 .channelPickerTrigger .quickToolGlyph {
