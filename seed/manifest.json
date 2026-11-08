@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "seedId": "3111a6e2",
-  "syncedAt": "2026-11-01T19:12:37.981Z",
+  "seedId": "88320239",
+  "syncedAt": "2026-11-08T11:20:03.209Z",
   "entries": [
     {
       "id": "main-prompt-presets",
@@ -221,13 +221,13 @@
       "id": "outfit-pages",
       "value": [
         {
-          "id": "outfit_page_1793539952487_klqcyl",
+          "id": "outfit_page_1793694253735_i4so6l",
           "name": "换装",
           "deleteLocked": false,
           "settings": {
-            "model": "tt-image-2",
+            "model": "tt-image-2.5",
             "dispatchMode": "manual",
-            "aspectRatio": "3:4",
+            "aspectRatio": "2:3",
             "imageSize": "2K",
             "concurrency": 5,
             "generationCount": "auto",
@@ -237,9 +237,11 @@
             "recolorUpperLayer": "single",
             "outfitIntent": {
               "parts": [
-                "upper"
+                "upper",
+                "lower",
+                "shoes"
               ],
-              "upperLayer": "single",
+              "upperLayer": "inner-outer",
               "wearing": {
                 "mode": "follow",
                 "values": {
@@ -284,12 +286,12 @@
             },
             "pairingMode": "fixed",
             "randomBackgroundFocus": "default",
-            "prompt": "让图1模特穿着图2的上装。图1的下装保持不变。\n\n穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。\n\n图1是唯一人物身份、人体结构和姿势基准，不改变图1人物的身份、骨骼和姿势。",
+            "prompt": "让图1模特穿着图2的内搭、外套、下装和鞋子。\n\n穿法跟随图2的扣合、衣摆、袖子和领口状态，但人物姿势、站坐走、重心、手臂腿脚和镜头角度一律以图1为准，绝不复制图2模特的姿势或镜头角度。\n\n图1是唯一人物身份、人体结构和姿势基准，不改变图1人物的身份、骨骼和姿势。",
             "productNote": "",
             "n": 1,
-            "quality": "",
+            "quality": "max",
             "background": "",
-            "version": ""
+            "version": "sunburst"
           },
           "uploadLabels": {
             "model": {
@@ -307,7 +309,7 @@
           }
         },
         {
-          "id": "outfit_page_1793560264323_b2o0vm",
+          "id": "outfit_page_1793785083689_wqto5r",
           "name": "改色",
           "deleteLocked": false,
           "settings": {
@@ -393,13 +395,13 @@
           }
         },
         {
-          "id": "outfit_page_1793539952488_xqwx85",
+          "id": "outfit_page_1793694253735_3vimen",
           "name": "精修",
           "deleteLocked": true,
           "settings": {
-            "model": "tt-image-2",
+            "model": "tt-image-2.5",
             "dispatchMode": "manual",
-            "aspectRatio": "3:4",
+            "aspectRatio": "4:3",
             "imageSize": "2K",
             "concurrency": 5,
             "generationCount": "auto",
@@ -448,18 +450,18 @@
             "maskMode": "none",
             "retouchIntent": {
               "version": 1,
-              "symmetry": "off",
+              "symmetry": "on",
               "hemTreatment": "follow_original",
-              "fit": "follow_original",
-              "frontback": "off",
+              "fit": "straight",
+              "frontback": "on",
               "customPrompt": ""
             },
             "pairingMode": "fixed",
             "randomBackgroundFocus": "default",
-            "prompt": "【服装精修目标】\n生成干净的服装白底精修图。去除明显褶皱，在不改变原服装结构的前提下，修正明显歪扭的门襟、缝线、袋口和边缘，使可拉直的细节横平竖直（只修正明显的拍摄摆放或线条歪扭，不把原本有意的褶裥、弧线、波浪边和不对称设计强行拉直）；保持服装原有款式、颜色、面料、纹理、缝线、扣子、口袋和其他细节不变，不创新、不凭空增加细节、不改变服装设计、不偏色。\n\n【清理与轮廓】\n去掉衣架、夹子、大头针和固定服装的其他物品，只保留干净的服装主体；修正服装外轮廓，使轮廓平滑、连续、自然。\n\n【结构要求】\n保留原图中真实的左右不对称细节，不要强行把服装做成对称。",
+            "prompt": "【正反视图】\n把图1和图2服装正反平铺俯视图电商白底精修，无缝纯白背景，清除所有拍摄道具和杂物，左右分开并列摆放，保持清晰间距，禁止重叠、穿插、互相压盖或合并成一件。\n\n【服装精修目标】\n生成干净的服装白底精修图。去除明显褶皱，在不改变原服装结构的前提下，修正明显歪扭的门襟、缝线、袋口和边缘，使可拉直的细节横平竖直（只修正明显的拍摄摆放或线条歪扭，不把原本有意的褶裥、弧线、波浪边和不对称设计强行拉直）；保持服装原有款式、颜色、面料、纹理、缝线、扣子、口袋和其他细节不变，不创新、不凭空增加细节、不改变服装设计、不偏色。\n\n【清理与轮廓】\n去掉衣架、夹子、大头针和固定服装的其他物品，只保留干净的服装主体；修正服装外轮廓，使轮廓平滑、连续、自然。\n\n【结构要求】\n把服装左右结构调成对称版型，不改变人物身体、脸、姿势和服装款式，也不新增设计。\n把服装版型修成直筒轮廓，不改变款式、长度和细节设计。",
             "productNote": "",
             "n": 1,
-            "quality": "",
+            "quality": "max",
             "background": "",
             "version": ""
           },
@@ -479,13 +481,13 @@
           }
         },
         {
-          "id": "outfit_page_1793539952488_w4trm1",
+          "id": "outfit_page_1793694253735_3jed2c",
           "name": "批量姿态",
           "deleteLocked": true,
           "settings": {
-            "model": "tt-image-2",
+            "model": "tt-image-2.6",
             "dispatchMode": "manual",
-            "aspectRatio": "3:4",
+            "aspectRatio": "2:3",
             "imageSize": "2K",
             "concurrency": 5,
             "generationCount": "auto",
@@ -542,12 +544,12 @@
             },
             "pairingMode": "fixed",
             "randomBackgroundFocus": "default",
-            "prompt": "批量姿态任务：图1上传区是批量姿态参考图，每张图1只提取脸部朝向、头颈方向、肩膀角度、手臂手腕手掌、下半身、重心、站坐走关系和构图动势；不要复制图1人物身份、脸、发型、服装、穿法、背景、镜头风格或颜色。\n图2上传区是固定母版成片，人物身份、脸、发型、服装、穿法、场景、光影、镜头和画面风格都作为锁定标准。图2最多上传2张，默认用固定母版。\n生成时保持图2同一个模特、同一套衣服、同一穿法、同一场景和同一商业摄影质感，只把图2人物自然调整为当前图1姿态。\n姿态相似度要高：结果必须一眼看出是在模仿当前图1动作，抬手高度、手肘弯曲、手腕手掌方向、肩膀高低、身体重心、胯部转向、膝盖弯曲、脚尖方向和半身/全身裁切尽量贴近图1，不要只做轻微动作变化。\n服装版型和穿法必须跟图2母版一致：袖子放下/卷起、袖口落点、袖克夫长度、扣子开合、拉链高度、衣摆扎法、裙长/裤长、腰身松量、下摆轮廓、面料纹理和可见细节不要随机漂移。\n如果图1姿态与图2服装穿法冲突，先尽量保持图1动作相似度，再让图2服装做真实穿着褶皱和遮挡适配；只有物理上无法同时满足时才轻微折中。不要让图1衣服、裙裤类型或背景影响结果，不要输出对比图、拼贴图、文字、水印或标注。",
+            "prompt": "图2人物图1的姿势，保持图2人物服装一致性",
             "productNote": "",
             "n": 1,
-            "quality": "",
+            "quality": "max",
             "background": "",
-            "version": ""
+            "version": "sunburst"
           },
           "uploadLabels": {
             "model": {
@@ -565,7 +567,7 @@
           }
         },
         {
-          "id": "outfit_page_1793539952488_midcu5",
+          "id": "outfit_page_1793694253736_2egddr",
           "name": "批量换脸",
           "deleteLocked": true,
           "settings": {
@@ -651,7 +653,7 @@
           }
         },
         {
-          "id": "outfit_page_1793539952488_2kvoew",
+          "id": "outfit_page_1793694253735_f41epm",
           "name": "固定背景",
           "deleteLocked": true,
           "settings": {
@@ -737,7 +739,7 @@
           }
         },
         {
-          "id": "outfit_page_1793539952488_fg8z24",
+          "id": "outfit_page_1793694253736_h946l9",
           "name": "设计稿",
           "deleteLocked": true,
           "settings": {
@@ -833,9 +835,9 @@
     {
       "id": "outfit-settings",
       "value": {
-        "model": "tt-image-2",
+        "model": "tt-image-2.6",
         "dispatchMode": "manual",
-        "aspectRatio": "3:4",
+        "aspectRatio": "2:3",
         "imageSize": "2K",
         "concurrency": 5,
         "generationCount": "auto",
@@ -894,12 +896,12 @@
         "preprocessMode": "original",
         "randomBackgroundFocus": "default",
         "theme": "dark",
-        "prompt": "把图1模特的上衣改成图2上衣的颜色，仅改变上衣颜色，不要添加缝线，不要改变纹理，不要添加细节，图2的上衣细节样式不作为参考",
+        "prompt": "图2人物图1的姿势，保持图2人物服装一致性",
         "productNote": "",
         "n": 1,
-        "quality": "",
+        "quality": "max",
         "background": "",
-        "version": ""
+        "version": "sunburst"
       }
     },
     {
