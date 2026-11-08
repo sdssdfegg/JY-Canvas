@@ -524,10 +524,7 @@ export const LOCAL_DETAIL_DEFAULT_PROMPT = [
   "局部结果必须像原本长在图1这件衣服上，边缘自然连续，不出现突兀色块、材质断层或人物位置变化。"
 ].join("\n");
 export const THEME_OPTIONS = [
-  { value: "dark", label: "暗夜", colors: ["#080910", "#151522", "#10cfc4"] },
-  { value: "jade", label: "柔粉", colors: ["#fff2f7", "#fffafd", "#ec6f9e"] },
-  { value: "graphite", label: "米杏", colors: ["#f3e6d4", "#fff8ec", "#c98652"] },
-  { value: "mist", label: "浅雾", colors: ["#f5f7fa", "#ffffff", "#0d7a76"] }
+  { value: "dark", label: "暗夜", colors: ["#080910", "#151522", "#10cfc4"] }
 ];
 export function shouldRepairOutfitPrompt(prompt) {
   const text = String(prompt || "").trim();
@@ -611,7 +608,7 @@ export function readSettings() {
     settings.model = canonicalModel(settings.model);
     settings.dispatchMode = "manual";
     settings.channelId = String(settings.channelId || "");
-    return settings;
+    return { ...settings, theme: ["jade", "graphite", "mist"].includes(settings.theme) ? "dark" : settings.theme };
   } catch {
     return defaultSettings;
   }

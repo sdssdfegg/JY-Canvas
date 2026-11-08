@@ -55,7 +55,7 @@ export const QuickGalleryCard = React.memo(function QuickGalleryCard({
   if (galleryItem.kind === "task") {
     const task = galleryItem.task;
     return (
-      <article className="assetCard loadingCard">
+      <article className="assetCard loadingCard ui-result-card">
         <Loader2 className="spin" size={28} />
         <span>生成中</span>
         <strong><ElapsedTimer startedAt={task.startedAt} /></strong>
@@ -75,7 +75,7 @@ export const QuickGalleryCard = React.memo(function QuickGalleryCard({
   const selected = isSelected;
   return (
     <article
-      className={`assetCard withAnnotationEdit ${isReplaceTarget ? "replaceTarget" : ""}`}
+      className={`assetCard withAnnotationEdit ui-result-card ${isReplaceTarget ? "replaceTarget" : ""}`}
       onClick={() => openPreview(item)}
       onContextMenu={(event) => openContextMenu(event, item.id)}
       onDragOver={(event) => handleQuickResultReplaceDragOver(event, item)}

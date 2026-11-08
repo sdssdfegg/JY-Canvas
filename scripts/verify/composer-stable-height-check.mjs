@@ -33,6 +33,7 @@ const pagesSrc = readFileSync(path.join(ROOT, "src", "features", "outfit", "use-
 const composerSrc = readFileSync(path.join(ROOT, "src", "features", "outfit", "panels", "OutfitComposer.jsx"), "utf8");
 const intentCssSrc = readFileSync(path.join(ROOT, "src", "features", "outfit", "outfit-intent.css"), "utf8");
 const workflowCssSrc = readFileSync(path.join(ROOT, "src", "outfit-workflow.css"), "utf8");
+const stylesCssSrc = readFileSync(path.join(ROOT, "src", "styles.css"), "utf8");
 
 check("源码：切换成功提示已删除（use-outfit-pages.js 不再含「已切换到」）",
   !pagesSrc.includes("已切换到"), "已切换到");
@@ -84,6 +85,27 @@ check("CSS：.rightTools 隐藏横滚条但保留 overflow-x:auto（参数行高
   /\.outfitWorkflowEmbedded \.composerFooter \.rightTools\s*\{[^}]*scrollbar-width:\s*none/.test(workflowCssSrc)
     && /\.outfitWorkflowEmbedded \.composerFooter \.rightTools::-webkit-scrollbar\s*\{[^}]*display:\s*none/.test(workflowCssSrc)
     && /\.outfitWorkflowEmbedded \.rightTools\s*\{[^}]*overflow-x:\s*auto/.test(workflowCssSrc), "scrollbar-width:none + overflow-x:auto");
+
+// ---- T4-a（V190）：快捷生成侧现状事实断言（契约 §10「Workspace Frame 三段语义契约」） ----
+// 仅断言当前已成立的事实，不新增尚未落地的要求（如 min-height:280px / margin-top:auto / flex:1 1 auto），
+// 否则 A 路当场判红；B 路（FORCED_SIZES / OBSERVE_SIZES / assertSize / dpr 校准）与既有 16 条批量侧断言逐字不动。
+// 快捷生成侧为固定定位悬浮面板：外壳/画板均无纵滚、唯一纵向滚动容器为 .galleryStrip、.composer 无内部纵滚
+// ⇒ 现状满足「整页仅一条主滚动条」（与批量侧待 T4-b 改造对照，见契约 §10.3）。
+check("源码：快捷侧外壳无纵向滚动（.appShell 含 overflow:hidden）",
+  /\.appShell\s*\{[^}]*overflow:\s*hidden/.test(stylesCssSrc), "overflow:hidden");
+check("源码：快捷侧主体区无纵滚（.quickgenArea 含 overflow:hidden）",
+  /\.quickgenArea\s*\{[^}]*overflow:\s*hidden/.test(stylesCssSrc), "overflow:hidden");
+check("源码：快捷侧画板区无纵滚且三段 grid（.canvasBoard 含 overflow:hidden + grid-template-rows:minmax(0,1fr) auto）",
+  /\.canvasBoard\s*\{[^}]*overflow:\s*hidden/.test(stylesCssSrc)
+    && /\.canvasBoard\s*\{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto/.test(stylesCssSrc), "两段 grid + hidden");
+check("源码：快捷侧结果区唯一主滚（.galleryStrip 含 min-height:0 + overflow-y:auto + scrollbar-gutter:stable）",
+  /\.galleryStrip\s*\{[^}]*min-height:\s*0/.test(stylesCssSrc)
+    && /\.galleryStrip\s*\{[^}]*overflow-y:\s*auto/.test(stylesCssSrc)
+    && /\.galleryStrip\s*\{[^}]*scrollbar-gutter:\s*stable/.test(stylesCssSrc), "唯一主滚");
+check("源码：快捷侧结果区顶部对齐（.galleryStrip 含 align-content:flex-start）",
+  /\.galleryStrip\s*\{[^}]*align-content:\s*flex-start/.test(stylesCssSrc), "flex-start");
+check("源码：快捷侧操作区不内滚（.composer 主规则不含 overflow-y:auto）",
+  !/\.composer\s*\{[^}]*overflow-y:\s*auto/.test(stylesCssSrc), "无内部纵滚");
 
 // ---------------------------------------------------------------- B. 浏览器级
 // P1-001 §8.2：4 档强制 + 1024×768 观察档（观察档不纳入强制失败，仅记录溢出/按钮可见性）
@@ -185,21 +207,42 @@ return await page.evaluate(async () => {
   await stopChild(child);
 }
 
-function assertSize(sizeKey, f, forced, wantW, wantH) {
+function assertSize(sizeKey, f, forced, wantW, wantH, module) {
   const tag = forced ? `[${sizeKey}-强制]` : `[${sizeKey}-观察]`;
   if (!f || typeof f !== "object") { check(`浏览器${tag}：探针未返回`, false, "无数据"); return; }
+  // V192（T4 第三刀）：快捷侧字段归一化，使下方 8 条断言逐字不动；仅 :223/:224 名称按模块分流。
+  // 快捷侧无 .outfitWorkflowEmbedded / 无动态页签，用「切到批量再切回快捷」的 switchBackCanvasVisible 等价替代。
+  const ef = module === "quick"
+    ? {
+        ...f,
+        foundEmbed: f.switchBackCanvasVisible === true,
+        tabCount: f.switchBackCanvasVisible === true ? 1 : 0,
+        stickyTopSpread: f.quickRightToolsSpread,
+        stickyBottomSpread: f.quickRightToolsSpread,
+        rightToolsSpread: f.quickRightToolsSpread,
+        composerVisible: f.quickComposerVisible,
+        btnBad: f.quickBtnBad
+      }
+    : f;
   const {
     foundEmbed, tabCount, stickyTopSpread, stickyBottomSpread,
     rightToolsSpread, scrollContainerCount, pageScroll, btnBad, composerVisible, vw, vh, dpr
-  } = f;
+  } = ef;
 
   // 2026-11-04：先证明这一档真的在「100% 缩放的目标 CSS 视口」上跑，否则后面全绿也是假绿。
   check(`浏览器${tag}：真实 CSS 视口已校准到 100% 缩放 ${wantW}×${wantH}（±2px）`,
     typeof vw === "number" && typeof vh === "number"
       && Math.abs(vw - wantW) <= 2 && Math.abs(vh - wantH) <= 2,
     `vw=${vw} vh=${vh} dpr=${dpr} 目标=${wantW}×${wantH}`);
-  check(`浏览器${tag}：进入批量生成并找到 .outfitWorkflowEmbedded`, foundEmbed === true, `foundEmbed=${foundEmbed}`);
-  check(`浏览器${tag}：动态枚举到功能页（共 ${tabCount} 页）`, tabCount > 0, `tabCount=${tabCount}`);
+  if (module === "quick") {
+    check(`浏览器${tag}：[快捷] 模块已切换且 .canvasBoard 可见（替代 foundEmbed）`,
+      foundEmbed === true, `switchBackCanvasVisible=${f.switchBackCanvasVisible} quickFoundCanvas=${f.quickFoundCanvas}`);
+    check(`浏览器${tag}：[快捷] 切到批量再切回快捷（模块切换断言替代 tabCount>0）`,
+      tabCount > 0, `switchBackCanvasVisible=${f.switchBackCanvasVisible}`);
+  } else {
+    check(`浏览器${tag}：进入批量生成并找到 .outfitWorkflowEmbedded`, foundEmbed === true, `foundEmbed=${foundEmbed}`);
+    check(`浏览器${tag}：动态枚举到功能页（共 ${tabCount} 页）`, tabCount > 0, `tabCount=${tabCount}`);
+  }
 
   // 2026-11-04：dock 改为 flex:1 填满剩余空间，高度本就应随结果区内容伸缩（填空白）。
   // 反跳动的真正保证是「底边恒定贴视口底」，故此处断言底边极差 ≤ 2px，不再断言高度恒定。
@@ -228,8 +271,13 @@ function assertSize(sizeKey, f, forced, wantW, wantH) {
 }
 
 if (facts) {
-  for (const [w, h] of FORCED_SIZES) assertSize(`${w}x${h}`, facts[`${w}x${h}`], true, w, h);
-  for (const [w, h] of OBSERVE_SIZES) assertSize(`${w}x${h}`, facts[`${w}x${h}`], false, w, h);
+  // V192（T4 第三刀）：5 档窗口 × 两模块（批量侧 / 快捷侧）矩阵。
+  const allSizes = [...FORCED_SIZES, ...OBSERVE_SIZES];
+  for (const [w, h] of allSizes) {
+    const forced = FORCED_SIZES.some(([fw, fh]) => fw === w && fh === h);
+    assertSize(`${w}x${h}`, facts[`${w}x${h}`], forced, w, h, "batch");
+    assertSize(`${w}x${h}`, facts[`${w}x${h}`], forced, w, h, "quick");
+  }
 } else {
   check("浏览器探针未执行", false, browserReason || "未知原因");
 }

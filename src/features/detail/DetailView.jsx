@@ -163,61 +163,61 @@ export function DetailView({
             <div className="detailParamGrid">
               <label>
                 <span>工作流</span>
-                <select value={detailSettings.workflow} onChange={(event) => updateDetailSetting("workflow", event.target.value)}>
+                <select className="ui-select" value={detailSettings.workflow} onChange={(event) => updateDetailSetting("workflow", event.target.value)}>
                   {workflowOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label>
                 <span>图片模型</span>
-                <select value={detailSettings.model} onChange={(event) => updateDetailSetting("model", event.target.value)}>
+                <select className="ui-select" value={detailSettings.model} onChange={(event) => updateDetailSetting("model", event.target.value)}>
                   {models.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
                 </select>
               </label>
               <label>
                 <span>图片比例</span>
-                <select value={detailSettings.ratio} onChange={(event) => updateDetailSetting("ratio", event.target.value)}>
+                <select className="ui-select" value={detailSettings.ratio} onChange={(event) => updateDetailSetting("ratio", event.target.value)}>
                   {detailRatios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
                 </select>
               </label>
               <label>
                 <span>分辨率</span>
-                <select value={detailSettings.imageSize} onChange={(event) => updateDetailSetting("imageSize", event.target.value)}>
+                <select className="ui-select" value={detailSettings.imageSize} onChange={(event) => updateDetailSetting("imageSize", event.target.value)}>
                   {detailSizes.map((size) => <option key={size} value={size}>{size}</option>)}
                 </select>
               </label>
               <label>
                 <span>生成数量</span>
-                <select value={detailSettings.count} onChange={(event) => updateDetailSetting("count", event.target.value)}>
+                <select className="ui-select" value={detailSettings.count} onChange={(event) => updateDetailSetting("count", event.target.value)}>
                   {countOptions.map((count) => <option key={count} value={count}>{count}张</option>)}
                 </select>
               </label>
               <label>
                 <span>文案设置</span>
-                <select value={detailSettings.copywriting} onChange={(event) => updateDetailSetting("copywriting", event.target.value)}>
+                <select className="ui-select" value={detailSettings.copywriting} onChange={(event) => updateDetailSetting("copywriting", event.target.value)}>
                   {copywritingOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label>
                 <span>画面丰富</span>
-                <select value={detailSettings.richness} onChange={(event) => updateDetailSetting("richness", event.target.value)}>
+                <select className="ui-select" value={detailSettings.richness} onChange={(event) => updateDetailSetting("richness", event.target.value)}>
                   {richnessOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label>
                 <span>字体风格</span>
-                <select value={detailSettings.fontStyle} onChange={(event) => updateDetailSetting("fontStyle", event.target.value)}>
+                <select className="ui-select" value={detailSettings.fontStyle} onChange={(event) => updateDetailSetting("fontStyle", event.target.value)}>
                   {fontStyleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label>
                 <span>模特设置</span>
-                <select value={detailSettings.modelMode} onChange={(event) => updateDetailSetting("modelMode", event.target.value)}>
+                <select className="ui-select" value={detailSettings.modelMode} onChange={(event) => updateDetailSetting("modelMode", event.target.value)}>
                   {modelModeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label>
                 <span>模特姿势</span>
-                <select
+                <select className="ui-select"
                   value={detailSettings.modelPose}
                   disabled={detailSettings.modelMode !== "use-model"}
                   onChange={(event) => updateDetailSetting("modelPose", event.target.value)}
@@ -227,7 +227,7 @@ export function DetailView({
               </label>
               <label>
                 <span>模特使用率</span>
-                <select
+                <select className="ui-select"
                   value={detailSettings.modelUsage}
                   disabled={detailSettings.modelMode !== "use-model"}
                   onChange={(event) => updateDetailSetting("modelUsage", event.target.value)}
@@ -239,7 +239,7 @@ export function DetailView({
               </label>
               <label>
                 <span>插入反转屏</span>
-                <select value={detailSettings.reverseScreens} onChange={(event) => updateDetailSetting("reverseScreens", event.target.value)}>
+                <select className="ui-select" value={detailSettings.reverseScreens} onChange={(event) => updateDetailSetting("reverseScreens", event.target.value)}>
                   {Array.from({ length: 5 }, (_, index) => index).map((count) => (
                     <option key={count} value={count}>{count}</option>
                   ))}
@@ -247,13 +247,13 @@ export function DetailView({
               </label>
               <label>
                 <span>Skill 版本</span>
-                <select value={detailSettings.detailSkillVersion} onChange={(event) => updateDetailSetting("detailSkillVersion", event.target.value)}>
+                <select className="ui-select" value={detailSettings.detailSkillVersion} onChange={(event) => updateDetailSetting("detailSkillVersion", event.target.value)}>
                   {detailSkillVersionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label>
                 <span>视觉风格包</span>
-                <select
+                <select className="ui-select"
                   value={detailSettings.stylePackId}
                   disabled={detailSettings.detailSkillVersion !== "v2"}
                   onChange={(event) => updateDetailSetting("stylePackId", event.target.value)}
@@ -355,7 +355,7 @@ export function DetailView({
                 <div className="detailViewControls">
                   <label>
                     <span>每行展示</span>
-                    <select value={detailColumns} onChange={(event) => setDetailColumns(Number(event.target.value))}>
+                    <select className="ui-select" value={detailColumns} onChange={(event) => setDetailColumns(Number(event.target.value))}>
                       {[2, 3, 4, 5, 6].map((count) => <option key={count} value={count}>{count}</option>)}
                     </select>
                   </label>

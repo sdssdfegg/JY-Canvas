@@ -6,9 +6,9 @@
     "src/features/outfit/outfit-intent.css": 0,
     "src/features/outfit/retouch-intent.css": 3,
     "src/features/outfit/white-refine-split.css": 4,
-    "src/outfit-workflow.css": 59,
+    "src/outfit-workflow.css": 58,
     "src/shared/ui/ui.css": 33,
-    "src/styles.css": 50,
-    "src/styles/tokens.css": 72
+    "src/styles.css": 42,
+    "src/styles/tokens.css": 19
   }
 }

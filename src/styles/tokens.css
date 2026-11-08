@@ -1,7 +1,7 @@
 /* V4.0 设计令牌层 · 唯一样式来源（V69 收口）
  *
  * 本文件是全部 CSS 自定义属性的唯一来源：
- *  - 四套 :root 颜色主题从原 src/styles.css 原值搬入（一个字节未改值）；
+ *  - 单套 :root 颜色主题（dark）从原 src/styles.css 原值搬入（一个字节未改值）；
  *  - 新增尺寸族令牌（control-h / radius / space / text / control-px）；
  *  - 新增 3 个语义令牌 --input / --control-bg / --accent-on。
  *
@@ -12,13 +12,11 @@
  */
 
 :root {
-  /* 全局默认（非令牌，沿用原 styles.css，作用于 :root 本身） */
-  font-family: Inter, "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-  color: var(--text);
-  background: var(--app-bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-
+  /* V186（T2）：原「全局默认（非令牌）」5 行普通声明（font-family / color /
+   * background / font-synthesis / text-rendering）已迁出至 src/styles.css 的
+   * @import 之后 :root 块，值逐字不变、层叠位置等价。本文件纯化为只含 CSS 自定义
+   * 属性的跨应用契约文件，可被独立子应用直接 <link> 或复制，不再连带主应用
+   * 字体与底色。 */
   /* 颜色语义令牌 · 默认（暗色）主题 */
   --app-bg: #07080f;
   --sidebar: #151521;
@@ -39,6 +37,8 @@
   --gold: #fbbf24;
   /* --on-green：跨主题同值为刻意设计，parity 护栏要求四块显式定义 */
   --on-green: #49c85b;
+  /* --warm-ink：跨主题同值为刻意设计，parity 护栏要求四块显式定义 */
+  --warm-ink: #f2bc74;
   --danger-bg: rgba(240, 82, 82, 0.14);
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
 
@@ -94,81 +94,6 @@
   --bp-compact: 760;
   --bp-medium: 1180;
   --bp-wide: 1280;
-}
-
-:root[data-theme="jade"] {
-  --app-bg: #fff2f7;
-  --sidebar: #fffafd;
-  --topbar: #fff8fb;
-  --panel: #fffafd;
-  --panel-strong: #ffe8f1;
-  --border: #f2cfdb;
-  --soft-border: #e9aac3;
-  --text: #3b2230;
-  --muted: #7f5f6e;
-  --faint: #a98494;
-  --accent: #ec6f9e;
-  --accent-strong: #d95786;
-  --danger: #cf5b79;
-  --gold: #fbbf24;
-  --on-green: #49c85b;
-  --danger-bg: rgba(240, 82, 112, 0.14);
-  --warn: #b45309;
-  --success: #22c55e;
-  --shadow: 0 18px 42px rgba(144, 72, 103, 0.13);
-  --input: color-mix(in srgb, var(--panel-strong) 86%, transparent);
-  --control-bg: color-mix(in srgb, var(--panel-strong) 86%, transparent);
-  --accent-on: #ffffff;
-}
-
-:root[data-theme="graphite"] {
-  --app-bg: #f3e6d4;
-  --sidebar: #fff8ec;
-  --topbar: #fffaf2;
-  --panel: #fffaf2;
-  --panel-strong: #f1e1cc;
-  --border: #e1cab0;
-  --soft-border: #d3b58f;
-  --text: #2b241b;
-  --muted: #75685a;
-  --faint: #9a8a78;
-  --accent: #c98652;
-  --accent-strong: #b9773f;
-  --danger: #b86c4b;
-  --warn: #b45309;
-  --success: #22c55e;
-  --gold: #fbbf24;
-  --on-green: #49c85b;
-  --danger-bg: rgba(203, 63, 52, 0.1);
-  --shadow: 0 18px 42px rgba(109, 78, 43, 0.14);
-  --input: color-mix(in srgb, var(--panel-strong) 86%, transparent);
-  --control-bg: color-mix(in srgb, var(--panel-strong) 86%, transparent);
-  --accent-on: #ffffff;
-}
-
-:root[data-theme="mist"] {
-  --app-bg: #edf2f5;
-  --sidebar: #ffffff;
-  --topbar: #ffffff;
-  --panel: #ffffff;
-  --panel-strong: #f5f8fa;
-  --border: #d8e0e5;
-  --soft-border: #cbd7dd;
-  --text: #1d252b;
-  --muted: #5e6b75;
-  --faint: #82909a;
-  --accent: #0d7a76;
-  --accent-strong: #0b6b68;
-  --danger: #c65d5d;
-  --warn: #b45309;
-  --success: #22c55e;
-  --gold: #fbbf24;
-  --on-green: #49c85b;
-  --danger-bg: rgba(203, 63, 52, 0.1);
-  --shadow: 0 18px 42px rgba(23, 36, 42, 0.12);
-  --input: color-mix(in srgb, var(--panel-strong) 86%, transparent);
-  --control-bg: color-mix(in srgb, var(--panel-strong) 86%, transparent);
-  --accent-on: #ffffff;
 }
 
 /*

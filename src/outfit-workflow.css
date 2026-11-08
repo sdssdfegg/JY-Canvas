@@ -154,7 +154,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  overflow: auto;
+  overflow: hidden;
   padding: 18px 22px 36px;
 }
 
@@ -173,25 +173,19 @@
   display: none;
 }
 .outfitWorkflowEmbedded.embedded .workspace {
-  /* V138 五轮（续）：关掉 workspace 自身滚动。基规则是 overflow:auto，
-     会自己出一条滚动条吃掉 ~15px 宽，导致批量结果网格比快捷画廊稳定少一列
-     （快捷 canvasBoard 是 overflow:hidden，滚动在 galleryStrip 且带 scrollbar-gutter:stable）。
-     这里对齐：workspace 不再滚动，滚动交给内部 outfitScrollArea。 */
   padding: 14px 16px;
-  /* 2026-11-01（用户要求）：换装 / 精修与其他页面观感一致 ——
-     V138 五轮把 workspace 设成 overflow:hidden、滚动只交给内部 outfitScrollArea，
-     导致底部生成面板被钉死在视口底：视口一矮就看不到下面，切页时内容贴底像跳页。
-     现改回 workspace 作为**唯一滚动容器**（与其他页面一致）。
-     保住 V138 的成果：滚动条位由 workspace 用 scrollbar-gutter:stable 预留，
-     同时结果区不再自带 gutter，净宽仍与快捷画廊一致（不会少一列）。 */
-  overflow-y: auto;
-  scrollbar-gutter: stable;
+  /* V191（T4-b1·契约 §10.1）：收敛为「外壳 + workspace 均 overflow:hidden、唯一纵向主滚动条归 .outfitScrollArea」。
+     2026-11-01 曾把 workspace 设为唯一滚动容器，但契约要求 C 段不内滚、B 段为唯一主滚；
+     现改回 hidden，滚动交还 .outfitScrollArea（其 scrollbar-gutter 同步回到 stable）。
+     ⚠️ 此改动推翻 2026-11-01 用户观感决策，须 Owner 真机目视（尤其「底部面板钉死 / 切页跳页」是否复发）。 */
+  overflow-y: hidden;
+  scrollbar-gutter: auto;
 }
 .outfitWorkflowEmbedded.embedded .outfitScrollArea {
   padding-right: 8px;
-  /* 滚动条位已上移到 .workspace（scrollbar-gutter:stable），此处不再重复预留，
-     否则会吃掉两份 15px、结果网格反而少一列。 */
-  scrollbar-gutter: auto;
+  /* V191：workspace 不再滚动（overflow:hidden），滚动条位回归 .outfitScrollArea 自身预留，
+     避免结果网格少一列（与快捷侧 galleryStrip 一致）。 */
+  scrollbar-gutter: stable;
 }
 
 .outfitWorkflowEmbedded .viewPanel {
@@ -698,24 +692,13 @@
 }
 
 .outfitWorkflowEmbedded .assetCard {
-  position: relative;
-  min-width: 0;
-  overflow: hidden;
-  /* V50 结果卡滚动性能收口（V46.4 引入）：批量卡显式启用 CSS 级虚拟化。
-     V139（2026-10-28）**禁用**：与快捷结果画廊同症——生成多排后离屏卡片按「记住的尺寸/
-     320px 估计值」占位，与可见卡片真实高度（轨道宽×4/3）混排 ⇒ 行高不齐、卡片大小不一、
-     间距挤紧（用户实测截图实锤）。关掉后布局完全确定性：固定轨道 + aspect-ratio + 固定 gap。
-     只加渲染提示，未改布局属性与 --asset-card-min 变量逻辑。 */
-  content-visibility: visible;
-  contain-intrinsic-size: none;
-  aspect-ratio: 3 / 4;
-  border-radius: 8px;
+  /* V50 结果卡滚动性能收口说明见 .ui-result-card（V187 抽出共享契约类）。
+     V187：外壳声明上收至 .ui-result-card（换装结果卡 <article> 已叠加该类名），
+     本处仅保留换装作用域差异项；background 由 --panel-strong-bg 归顺主应用
+     --panel（V69「换装归顺主应用令牌」）。V69 别名块（:1-20）与其余 9 处
+     --panel-strong-bg 引用逐字不动。 */
   color: var(--text);
-  background: var(--panel-strong-bg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  cursor: zoom-in;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  background: var(--panel);
 }
 
 .outfitWorkflowEmbedded .outfitAssetCard.success {
@@ -2203,8 +2186,9 @@
   order: 3;
   /* 2026-11-01（用户要求·统一底边）：几个批量页切换时结果区高度可不同，
      但「下方功能参数区」（上传 + 设置 + 提示词 + 底部按钮）必须始终贴底、布局一致。
-     做法：整块作底部 dock —— flex 列铺满视口底，超出则内部滚动、
-     底部按钮（.composerStickyControls）吸底常驻；上方结果区自滚。 */
+     做法：整块作底部 dock —— flex 列铺满视口底，底部按钮（.composerStickyControls）吸底常驻；上方结果区自滚。
+     V191（T4-b1·契约 §10.1）：C 段不得 overflow:auto，移除本 dock 内部滚动（改由 .outfitScrollArea 唯一主滚）；
+     ⚠️ 若 dock 内容在矮视口溢出被裁，须 Owner 目视裁定是否需结构改版（非本单范围）。 */
   /* 2026-11-04（用户反馈·填空白）：改为 flex:1 1 auto 填满结果区下方剩余空间，
      不再给固定 clamp 高度。结果区内容少时不会在下方留大块空白、dock 自动顶高填满，
      100% 缩放下整块贴底、生成按钮恒可见、无整页滚动；底边始终贴视口底、切页不跳
@@ -2219,12 +2203,10 @@
   margin-top: 10px;
   margin-bottom: 0;
   padding: 10px;
-  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel-bg);
   box-shadow: 0 -14px 28px rgba(0, 0, 0, 0.22);
-  scrollbar-gutter: stable;
 }
 
 
@@ -2512,7 +2494,7 @@
   align-items: center;
   height: 30px;
   padding: 0 9px;
-  color: #f2bc74;
+  color: var(--warm-ink);
   background: rgba(242, 188, 116, 0.11);
   border: 1px solid rgba(242, 188, 116, 0.34);
   border-radius: 7px;
@@ -2803,14 +2785,13 @@
 /* 2026-11-01（用户要求·统一底边高度）：底部参数下拉与页面 tab / 加锁删除钮统一到
    --control-h-md(36px) 一档，消除原先 28/32/44 三档混排造成的「不在同一底边高度」。
    注意：生成主按钮仍用 lg(44px) 作视觉主操作，靠 .rightTools 的 flex-end 底边对齐，
-   与其它 36px 控件共享同一条底边线。 */
+   与其它 36px 控件共享同一条底边线。
+   外壳（边框 / 圆角 / 焦点环）2026-11-07 起归顺 ui.css 的 .ui-select 契约类（V188），
+   本作用域只保留布局项，不再重复声明外壳，避免与契约类特异性冲突。 */
 .outfitWorkflowEmbedded .rightTools select {
   height: var(--control-h-md, 36px);
   min-width: 92px;
   padding: 0 9px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  outline: 0;
 }
 
 .outfitWorkflowEmbedded .rightTools select.mixed {
@@ -3957,7 +3938,7 @@
 
 .outfitWorkflowEmbedded .themeGrid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(1, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -4197,7 +4178,7 @@
 .outfitWorkflowEmbedded {
   min-width: 0;
   min-height: 100%;
-  overflow: visible;
+  overflow: hidden;
   background: transparent;
 }
 
@@ -4217,7 +4198,7 @@
   height: 100%;
   min-height: 0;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
   padding: 0 6px 18px 0;
   scrollbar-gutter: stable;
 }

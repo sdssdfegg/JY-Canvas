@@ -122,49 +122,49 @@ export function ReferenceRemixView({
             <div className="detailParamGrid">
               <label>
                 <span>图片模型</span>
-                <select value={referenceSettings.model} onChange={(event) => updateReferenceSetting("model", event.target.value)}>
+                <select className="ui-select" value={referenceSettings.model} onChange={(event) => updateReferenceSetting("model", event.target.value)}>
                   {models.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
                 </select>
               </label>
               <label>
                 <span>图片比例</span>
-                <select value={referenceSettings.aspectRatio} onChange={(event) => updateReferenceSetting("aspectRatio", event.target.value)}>
+                <select className="ui-select" value={referenceSettings.aspectRatio} onChange={(event) => updateReferenceSetting("aspectRatio", event.target.value)}>
                   {referenceRatios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
                 </select>
               </label>
               <label>
                 <span>分辨率</span>
-                <select value={referenceSettings.imageSize} onChange={(event) => updateReferenceSetting("imageSize", event.target.value)}>
+                <select className="ui-select" value={referenceSettings.imageSize} onChange={(event) => updateReferenceSetting("imageSize", event.target.value)}>
                   {referenceSizes.map((size) => <option key={size} value={size}>{size}</option>)}
                 </select>
               </label>
               <label>
                 <span>生成数量</span>
-                <select value={referenceSettings.n} onChange={(event) => updateReferenceSetting("n", event.target.value)}>
+                <select className="ui-select" value={referenceSettings.n} onChange={(event) => updateReferenceSetting("n", event.target.value)}>
                   {countOptions.map((count) => <option key={count} value={count}>{count}张</option>)}
                 </select>
               </label>
               <label>
                 <span>参考值</span>
-                <select value={referenceSettings.strength} onChange={(event) => updateReferenceSetting("strength", event.target.value)}>
+                <select className="ui-select" value={referenceSettings.strength} onChange={(event) => updateReferenceSetting("strength", event.target.value)}>
                   {referenceStrengthOptions.map((value) => <option key={value} value={value}>{value}%</option>)}
                 </select>
               </label>
               <label>
                 <span>参考元素</span>
-                <select value={referenceSettings.element} onChange={(event) => updateReferenceSetting("element", event.target.value)}>
+                <select className="ui-select" value={referenceSettings.element} onChange={(event) => updateReferenceSetting("element", event.target.value)}>
                   {referenceControlOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label>
                 <span>参考构图</span>
-                <select value={referenceSettings.composition} onChange={(event) => updateReferenceSetting("composition", event.target.value)}>
+                <select className="ui-select" value={referenceSettings.composition} onChange={(event) => updateReferenceSetting("composition", event.target.value)}>
                   {referenceControlOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label>
                 <span>参考场景主题</span>
-                <select value={referenceSettings.scene} onChange={(event) => updateReferenceSetting("scene", event.target.value)}>
+                <select className="ui-select" value={referenceSettings.scene} onChange={(event) => updateReferenceSetting("scene", event.target.value)}>
                   {referenceControlOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
@@ -195,7 +195,7 @@ export function ReferenceRemixView({
 
         <div className="detailPanelFooter">
           <Button size="lg" tone="primary" onClick={() => void generateReferenceRemix()}>
-            {runningReferenceTasks.length > 0 ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
+            {runningReferenceTasks.length > 0 ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
             <span>生成参考图</span>
           </Button>
         </div>
@@ -212,7 +212,7 @@ export function ReferenceRemixView({
             if (galleryItem.kind === "task") {
               const task = galleryItem.task;
               return (
-                <article className="assetCard loadingCard referenceAssetCard" key={galleryItem.key}>
+                <article className="assetCard loadingCard referenceAssetCard ui-result-card" key={galleryItem.key}>
                   <Loader2 className="spin" size={28} />
                   <span>参考生图中</span>
                   <strong><ElapsedTimer startedAt={task.startedAt} /></strong>
@@ -225,7 +225,7 @@ export function ReferenceRemixView({
             const promptText = item.displayPrompt || item.prompt;
             return (
               <article
-                className="assetCard referenceAssetCard"
+                className="assetCard referenceAssetCard ui-result-card"
                 key={galleryItem.key}
                 onClick={() => openPreview(item)}
                 onContextMenu={(event) => openContextMenu(event, item.id)}

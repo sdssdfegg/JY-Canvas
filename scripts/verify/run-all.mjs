@@ -68,9 +68,9 @@ const ORDER = [
   // 存量记账、只拦新增（某文件 hex 数 > 基线即判红；< 基线只报 improved；基线陈旧判 stale）；
   // 不扫 .jsx 内联 style（动态色合法）。纯源码扫描，跑得飞快（<1s），排在这批纯扫描里。
   "hardcoded-color-check",
-  // V178（2026-11-07）：四主题语义令牌覆盖护栏 —— 静态、零依赖叶子，只读
-  // src/styles/tokens.css，断言 :root 默认暗色与 jade/graphite/mist 三套浅色主题的颜色语义
-  // 令牌键集合逐字一致（缺/多一键即判红）。纯文本解析 <1s，不进浏览器，进提交钩子快速子集。
+  // V178（2026-11-07）：单主题语义令牌覆盖护栏 —— 静态、零依赖叶子，只读
+  // src/styles/tokens.css，断言 :root 默认暗色（单主题）的颜色语义
+  // 令牌键集合齐全（缺/多一键即判红）。纯文本解析 <1s，不进浏览器，进提交钩子快速子集。
   "theme-token-parity-check",
   // V180（2026-11-07）：硬编码颜色棘轮自测护栏 —— 在 mkdtemp 临时目录构造 6 个场景，复制修复后的
   // 真实 hardcoded-color-check.mjs 后用 spawnSync 跑它，断言 exit code 与 JSON report 字段，结束
@@ -239,7 +239,13 @@ const ORDER = [
   "ai-canvas-inspector-browser-check",
   "lint-ratchet-check",
   "run-all-check",
-  "check-launcher"
+  "check-launcher",
+  // V186（2026-11-07）：跨应用令牌契约护栏（纯文本静态断言 <1s），进提交钩子快速子集（--fast 56→57）。
+  "token-contract-check",
+  // V194（2026-11-08）：侧栏折叠交互契约静态护栏（纯文本静态断言 <1s，零依赖叶子），进提交钩子快速子集（--fast 57→58）。
+  "sidebar-collapse-check",
+  // V195（2026-11-08）：其余模块模板接入契约与棘轮防反弹静态护栏（纯文本静态断言 <1s，零依赖叶子），进提交钩子快速子集（--fast 58→59）。
+  "module-template-check"
 ];
 
 /**
@@ -300,7 +306,7 @@ const FAST_ORDER = [
   "legacy-button-ratchet-check",
   // V74（2026-10-17）：硬编码 hex 颜色棘轮门禁，纯 CSS 扫描 <1s，正合提交钩子。
   "hardcoded-color-check",
-  // V178（2026-11-07）：四主题语义令牌覆盖护栏，纯源码静态断言 <1s，进提交钩子快速子集。
+  // V178（2026-11-07）：单主题语义令牌覆盖护栏，纯源码静态断言 <1s，进提交钩子快速子集。
   "theme-token-parity-check",
   // V180（2026-11-07）：硬编码颜色棘轮自测护栏，纯进程内 + 6 次快子进程（<1s），进提交钩子快速子集。
   "hardcoded-color-ratchet-selftest",
@@ -343,7 +349,13 @@ const FAST_ORDER = [
   // V157 后续修复（2026-11-01）：画布生成结果地址提取验收（<1s），进 --fast 子集。
   "ai-canvas-generation-result-check",
   // 2026-11-01：画布 Agent 面板「生图模型 + 渠道」下拉套用验收（<1s），进 --fast 子集。
-  "ai-canvas-agent-genmodel-check"
+  "ai-canvas-agent-genmodel-check",
+  // V186（2026-11-07）：跨应用令牌契约护栏（纯文本静态断言 <1s），进提交钩子快速子集（--fast 56→57）。
+  "token-contract-check",
+  // V194（2026-11-08）：侧栏折叠交互契约静态护栏（纯文本静态断言 <1s，零依赖叶子），进提交钩子快速子集（--fast 57→58）。
+  "sidebar-collapse-check",
+  // V195（2026-11-08）：其余模块模板接入契约与棘轮防反弹静态护栏（纯文本静态断言 <1s，零依赖叶子），进提交钩子快速子集（--fast 58→59）。
+  "module-template-check"
 ];
 
 /**

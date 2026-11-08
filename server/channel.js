@@ -518,6 +518,13 @@ export function buildImageRequestVariants(params, files) {
   const channel = routingChannelForModel(params.model, params.channelId)
     || routingChannelById(params.channelId);
   const provider = channel?.provider;
+  // 直连 new-api 的 GPT Image 2.5/2.6 渠道（云枢-GPT2.5=中继渠道 33 / luckfill / origingateway 等）：
+  // 上游 generations 接口会忽略参考图，图生图必须走 /images/edits + multipart；且请求体 model 必须用上游真实名
+  // （gpt-image-2.5 / GPT2.5 / gpt-image-2.6 / GPT2.6）才能路由到对应中转站渠道，不能用 UI 名 tt-image-2.x。
+  // 仅当渠道显式声明 upstreamModel 且匹配 2.5/2.6 上游名时成立；经「静音中转适配器」的同源 tt25/香蕉 渠道
+  // 不声明 upstreamModel，不受影响，仍走 JSON image_urls 通道。
+  const upstreamModelRaw = channel?.upstreamModel || "";
+  const isDirectGptImage = /gpt-image-2\.[56]/i.test(upstreamModelRaw) || /^gpt2\.[56]$/i.test(upstreamModelRaw);
 
   // ---------------------------------------------------------------------
   // 2026-09-25 香蕉 Pro 参考图通道修复
@@ -566,6 +573,7 @@ export function buildImageRequestVariants(params, files) {
   if (
     params.model === "tt-image-2.5"
     && hasImages
+    && !isDirectGptImage
   ) {
     variants.push({
       id: "jingyin-tt25-json-image-urls",
@@ -617,7 +625,11 @@ export function buildImageRequestVariants(params, files) {
   // 按线路独立价扣费（banana-2 云枢 0.12 / tt-image-2 XT-default 0.10 / PRO laoye 0.14 / TT2.5 LK-1K 0.12）。
   // volc 与 seedream 走各自原生格式（前面分支已拦截或字段不兼容 image_urls），保持原样不动。
   const addJingyinVariant = (variantParams, suffix, requestFormatSuffix, format) => {
-    const useJsonImages = hasImages && format !== "volc" && format !== "seedream";
+    // TT Image 2.6（luckfill/origingateway 直连 new-api）的图生图必须走 /images/edits + multipart：
+    // 其上游 generations 接口会忽略参考图（只出文生图），而 generations+image_urls 的 JSON 通道
+    // 是给经「静音中转适配器」的香蕉/tt25 用的，对 2.6 直连线路无效（表现为「出图但不关联原图」）。
+    const isGptImage26Direct = params.model === "tt-image-2.6" || isDirectGptImage;
+    const useJsonImages = hasImages && format !== "volc" && format !== "seedream" && !isGptImage26Direct;
     variants.push({
       id: `jingyin-channel${suffix}`,
       model: variantParams.model,

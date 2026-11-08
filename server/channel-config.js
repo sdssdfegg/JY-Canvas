@@ -30,7 +30,7 @@ export const OFFICIAL_CHANNELS = Object.freeze({
   // 优质渠道组只保留 LY满血版。要放回优质组时，把该 id 追加回本数组即可（顺序=显示顺序）。
   // 2026-11-02：TT满血版（silent-tt25-tt-manxue，¥0.26，老夜 image2.5全参 满血 KEY，上游/协议/全参能力与 LY 同源、仅 KEY 与价格不同）
   //   排在 LY 后面，追加到本数组 LY 之后即可（顺序=显示顺序，紧跟 LY）。与 src/shared/routing.js 同源同步。
-  "tt-image-2.5": ["silent-tt25-line-10", "silent-tt25-tt-manxue"]
+  "tt-image-2.5": ["silent-tt25-line-10", "silent-tt25-ys-manxue", "silent-tt25-tt-manxue"]
 });
 
 // 已下线的旧线路：必须从前端目录、服务端目录和服务端校验里同时移除/拒绝。
@@ -150,6 +150,12 @@ const ROUTING_CHANNELS = Object.freeze([
   //   上游模型 gpt-image-2（/v1/models 已确认支持），对客 ¥0.12。2.5 的 Subdirect 改名 sub、价格 ¥0.13（见下方 silent-tt25-line-07）。
   { id: "silent-tt2-line-13", label: "sub", price: 0.12, model: "tt-image-2" },
 
+  // 2026-11-08（用户要求）：laoye（silent-tt25-line-12，¥0.08，TT2.5 最便宜）移到「普通渠道」第一位，
+  //   紧接优质渠道组（LY满血版 / YS满血版 / TT满血版）之后。其余普通渠道保持原数组顺序。
+  //   老夜同上游（api.luckfill.com）的 TT25 特价 KEY，上游模型 gpt-image-2.5-flare/sunburst；
+  //   154 适配器 publicId=silent-tt25-line-12，KEY 仅存适配器 env（LK888_SILENT_LAOYE_TT25_API_KEY），前端与源码零 KEY。
+  //   前端 ¥0.08/张（最便宜的 TT2.5；非官方、不抢默认线路，默认仍 LY满血版 line-10）。与 src/shared/routing.js 同源同步。
+  { id: "silent-tt25-line-12", label: "laoye", price: 0.08, model: "tt-image-2.5" },
   // 2026-10-11（晚）：TT2.5 渠道按价格低→高排列；vakv 质量差 2026-10-20 同价位排最后。
   { id: "silent-tt25-line-05", label: "云枢", price: 0.10, model: "tt-image-2.5" },
   { id: "silent-tt25-line-06", label: "Origin", price: 0.10, model: "tt-image-2.5" },
@@ -177,15 +183,8 @@ const ROUTING_CHANNELS = Object.freeze([
   //   154 适配器 publicId=silent-tt25-line-11（provider_families.json 新增 silent-lk-tt25-1k），
   //   KEY 仅存适配器 env（LK888_SILENT_LK_TT25_1K_API_KEY），前端与源码零 KEY。
   { id: "silent-tt25-line-11", label: "LK-1K", price: 0.12, model: "tt-image-2.5", sizes: ["1K"], quality: ["auto", "low", "medium"], official: true },
-  // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，与 laoye 同价，排最后。
+  // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，排最后。
   { id: "silent-tt25-line-09", label: "云枢高质量", price: 0.14, model: "tt-image-2.5" },
-  // 2026-10-31：TT2.5 新增「laoye」——老夜同上游（api.luckfill.com）的 TT25 特价 KEY 专跑低价，
-  //   上游模型 gpt-image-2.5-flare/sunburst；154 适配器 publicId=silent-tt25-line-12
-  //   （见 /opt/jingyin-silent-gpt-image-adapter/provider_families.json 的 silent-tt25-laoye-2），
-  //   KEY 仅存适配器 env（LK888_SILENT_LAOYE_TT25_API_KEY），前端与源码零 KEY。
-  //   前端 ¥0.08/张（最便宜的 TT2.5；非官方、不抢默认线路，默认仍 LY满血版 line-10）。
-  //   注：luckfill「image2.5全参」分组当前对三把钥匙全 503，待上游恢复即生效，前端先就位。
-  { id: "silent-tt25-line-12", label: "laoye", price: 0.08, model: "tt-image-2.5" },
   // 2026-11-06：V176 新增 TT Image 2.6 两条渠道（上游为 GPT Image 2.6，与 TT2.0/2.5 同族）。
   // laoye ¥0.08 排第一 = 默认线路（省钱，与 TT2.0 laoye超分 口径一致）；Origin ¥0.09 其后。
   // 154 适配器 publicId=silent-tt26-line-01 / silent-tt26-line-02（见 /opt/jingyin-silent-gpt-image-adapter/
@@ -197,6 +196,13 @@ const ROUTING_CHANNELS = Object.freeze([
   //   channel.js 的 buildImageRequestVariants 已对「声明 upstreamModel 的非 seedream 路径」做覆盖。
   { id: "silent-tt26-line-01", label: "laoye", price: 0.08, model: "tt-image-2.6", upstreamModel: "GPT2.6" },
   { id: "silent-tt26-line-02", label: "Origin", price: 0.09, model: "tt-image-2.6", upstreamModel: "gpt-image-2.6" },
+  // 2026-11-07：云枢「YS满血版」——直连 new-api 中继渠道 id=33（云枢-GPT2.5，上游 yunshuaiapi.com，OpenAI 协议，GPT2.5 全参）。
+  // 中继 ModelPrice=0.14，前端对客 ¥0.14（与 LY满血版 同价）。上游真实模型 gpt-image-2.5-flare / gpt-image-2.5-sunburst，
+  // 中继 model_mapping 把 GPT2.5 / gpt-image-2.5 都映射到 flare；故用 upstreamModel="gpt-image-2.5" 发往中继，
+  // 中继 abilities 唯一命中渠道 33（该上游名只此一家，不会落到「静音中转适配器」的 tt-image-2.5 同族渠道）。
+  // 与 2.6 直连渠道同源：图生图走 /images/edits + multipart（channel.js 已对直连 2.5/2.6 统一强制），文生图走 /images/generations。
+  // 优质渠道组置顶由 OFFICIAL_CHANNELS 实现（排第一）；对客价对应中转价 0.14。与 src/shared/routing.js 同源同步。
+  { id: "silent-tt25-ys-manxue", label: "YS满血版", price: 0.14, model: "tt-image-2.5", official: true, upstreamModel: "gpt-image-2.5" },
   // 香蕉 2：展示用户指定的四条线路（云枢 / Subdirect / Origin / laoye），统一 ¥0.12/张。
   // 2026-10-20：laoye 由「同价位排第一（默认线路）」改为「同价位排最后」，默认线路让给云枢。
   // 数组顺序就是前端菜单顺序（channelsForModel 按白名单顺序输出），不要重排。
@@ -640,13 +646,44 @@ export function buildChannelBaseCandidates(preferredBaseUrl = "") {
   ].filter((value, index, all) => value && all.indexOf(value) === index);
 }
 
-export function buildImageChannelBaseCandidates(_model, preferredBaseUrl = "") {
+// YS 满血版（silent-tt25-ys-manxue）直连 154 中继的 yunshuai 渠道 33，
+// 不经过「静音中转适配器」，因此前端的出图请求需要直接从香港反代
+// （47.75.115.179:3018）的 /jingyin 专属前缀打出去：HK proxy 的 /jingyin
+// → https://api.jingyin.online，从而落到 154 中继并路由到 yunshuai 渠道 33（gpt-image-2.5）。
+// /v1 前缀已被 luckfill 占用，故 YS 必须用 /jingyin 专属前缀，不能共用默认 /v1。
+// 该 endpoint 只供 YS 的 per-channel 覆盖使用，不进入 LOCKED_CHANNEL_API_BASE_URLS，
+// 因此不会成为其它渠道（LY/香蕉等）的兜底候选，也不会污染全局网关候选。
+const YS_HK_BASE_URL = "http://47.75.115.179:3018/jingyin";
+const CHANNEL_BASE_URL_OVERRIDES = Object.freeze({
+  "silent-tt25-ys-manxue": YS_HK_BASE_URL
+});
+const YS_HK_ENDPOINT = Object.freeze({
+  id: "ys-hk-jingyin",
+  label: "YS满血版·香港",
+  role: "ys-hk",
+  priority: 1,
+  baseUrl: normalizeBaseUrl(YS_HK_BASE_URL),
+  public: false,
+  billingMode: "gateway",
+  billingChannelId: "jingyin-gateway",
+  upstreamApiKey: "",
+  imageModels: CHANNEL_MODELS.map((model) => model.value),
+  modelAliases: {}
+});
+
+export function buildImageChannelBaseCandidates(_model, preferredBaseUrl = "", channelId = "") {
+  if (channelId && CHANNEL_BASE_URL_OVERRIDES[channelId]) {
+    const override = normalizeBaseUrl(CHANNEL_BASE_URL_OVERRIDES[channelId]);
+    return [override, ...LOCKED_CHANNEL_API_BASE_URLS]
+      .filter((value, index, all) => value && all.indexOf(value) === index);
+  }
   return buildChannelBaseCandidates(preferredBaseUrl || PRIMARY_CHANNEL_API_BASE_URL);
 }
 
 export function channelEndpointForBaseUrl(baseUrl) {
   const normalized = normalizeBaseUrl(baseUrl);
-  return CHANNEL_ENDPOINTS.find((endpoint) => endpoint.baseUrl === normalized) || null;
+  return CHANNEL_ENDPOINTS.find((endpoint) => endpoint.baseUrl === normalized)
+    || (normalized === YS_HK_ENDPOINT.baseUrl ? YS_HK_ENDPOINT : null);
 }
 
 export function upstreamModelForChannel(baseUrl, model) {

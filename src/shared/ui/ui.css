@@ -234,3 +234,73 @@
   align-items: center;
   gap: var(--space-2, 8px);
 }
+
+/* ── ResultCard 视觉外壳契约（V187 落地 · UI-A13 · T3 第一刀） ───────────────
+ * 两套结果卡（快捷 quick-gallery-card / 换装 outfit result-card）共享的「视觉外壳」。
+ * 业务组件各自保留，仅在此统一外壳；取值逐字沿用 styles.css .assetCard 现状，
+ * 全部走 V69 令牌（无回退值、零新增 hex、零 !important），确保与快捷 / 换装外观一致。
+ * 视频 / 参考结果卡（VideoView / ReferenceRemixView）仍依赖基类 .assetCard 外壳，
+ * 其接入本契约类属后续独立单，不在本单封闭集（§3.1）。 */
+.ui-result-card {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  /* V141 / V139（2026-10-28）：结果卡禁用 CSS 级虚拟化，布局完全确定性
+     （固定轨道 + aspect-ratio + 固定 gap），避免离屏卡片占位估计导致行高不齐 / 重叠。 */
+  content-visibility: visible;
+  contain-intrinsic-size: none;
+  aspect-ratio: 3 / 4;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  cursor: zoom-in;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.ui-result-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.18s ease, filter 0.18s ease;
+  will-change: transform;
+}
+
+.ui-result-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.ui-result-card:hover img {
+  transform: scale(1.018);
+}
+
+/* ── Select 视觉外壳契约（V188 落地 · UI-A14 · T3-b 第一刀） ───────────────
+ * 选择器（<select>）的「视觉外壳」单一真相源，逐字沿用 styles.css:44-59 全局
+ * select 基样式；全部走 V69 令牌（无回退值、零新增 hex、零 !important），
+ * 确保批量换装 .rightTools 选择器与全局 / 快捷 / 详情侧同类控件归顺同一套令牌。
+ * 本契约只管外壳（color / background / border / radius / focus / disabled / option），
+ * 业务语义（.mixed 灰字、.channelSelect 金色、option 官方绿）由各作用域规则叠加，
+ * 不在此重定义。严禁新建 Select.jsx 组件——本单只做 CSS 契约类（V187 先例）。 */
+.ui-select {
+  color: var(--text);
+  background: color-mix(in srgb, var(--panel-strong) 82%, transparent);
+  border: 1px solid var(--soft-border);
+  border-radius: 7px;
+  outline: none;
+}
+
+.ui-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.ui-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ui-select option {
+  color: var(--text);
+  background: var(--option-bg);
+}

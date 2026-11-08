@@ -873,7 +873,7 @@ export default function ImageEditorPanel({
             <span>打开目录</span>
           </Button>
           <Button size="lg" tone="primary" onClick={() => void exportMerged()} disabled={!baseFile || status === "exporting"}>
-            {status === "exporting" ? <RefreshCw className="spin" size={16} /> : <Download size={16} />}
+            {status === "exporting" ? <RefreshCw className="spin" size={17} /> : <Download size={17} />}
             <span>合并导出</span>
           </Button>
         </footer>

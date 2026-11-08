@@ -123,7 +123,7 @@ export const MODEL_CHANNEL_ALLOWLIST = Object.freeze({
 // 每模型「默认渠道」覆盖：channelId 为空（用户未选 / 初次加载）时，defaultChannelForModel
 // 优先返回这里指定的渠道，而不是 channelsForModel 的第一条（价格升序首条=最便宜）。
 // 这样既能把某条较高价渠道设为默认，又不破坏「渠道列表按价格升序」的展示规约。
-// 仅 TT2.5 设了 laoye 满血版；TT2.0 因该 KEY 仅 image2.5全参 分组、无 gpt-image-2，
+// 仅 TT2.5 设了 laoye 满血版（silent-tt25-line-10）；TT2.0 因该 KEY 仅 image2.5全参 分组、无 gpt-image-2，
 // 不存在 laoye 渠道，故不在此映射，2.0 默认仍走列表首条。
 export const MODEL_DEFAULT_CHANNEL = Object.freeze({
   "tt-image-2.5": "silent-tt25-line-10"
@@ -139,7 +139,7 @@ export const OFFICIAL_CHANNELS = Object.freeze({
   // 优质渠道组只保留 LY满血版。要放回优质组时，把该 id 追加回本数组即可（顺序=显示顺序）。
   // 2026-11-02：TT满血版（silent-tt25-tt-manxue，¥0.26，老夜 image2.5全参 满血 KEY，上游/协议/全参能力与 LY 同源、仅 KEY 与价格不同）
   //   排在 LY 后面，追加到本数组 LY 之后即可（顺序=显示顺序，紧跟 LY）。与 server/provider_families.json 同源同步。
-  "tt-image-2.5": ["silent-tt25-line-10", "silent-tt25-tt-manxue"]
+  "tt-image-2.5": ["silent-tt25-line-10", "silent-tt25-ys-manxue", "silent-tt25-tt-manxue"]
 });
 
 // 目录未加载完成时的本地兜底能力表（与 server/channel-config.js 的 ROUTING_MODELS 对齐）。
@@ -378,6 +378,9 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     { id: "silent-tt2-line-13", label: "sub", price: 0.12 },
   ]),
   "tt-image-2.5": Object.freeze([
+    // 2026-11-08（用户要求）：laoye（silent-tt25-line-12，¥0.08，TT2.5 最便宜）移到「普通渠道」第一位，
+    //   紧接优质渠道组（LY满血版 / YS满血版 / TT满血版）之后。其余普通渠道保持原数组顺序。与 server/channel-config.js 同源同步。
+    { id: "silent-tt25-line-12", label: "laoye", price: 0.08 },
     // 2026-10-11（晚）：TT2.5 渠道按价格低→高排列；vakv 质量差 2026-10-20 同价位排最后。
     { id: "silent-tt25-line-05", label: "云枢", price: 0.1 },
     { id: "silent-tt25-line-06", label: "Origin", price: 0.1 },
@@ -393,11 +396,12 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
     //   默认渠道由 MODEL_DEFAULT_CHANNEL 覆盖实现（channelId 为空时 defaultChannelForModel 返回 silent-tt25-line-10），
     //   列表本身仍严格价格升序。该 KEY 分组仅含 2.5（无 gpt-image-2），故只有 TT2.5 满血版；与 server/channel-config.js 同源同步。
     { id: "silent-tt25-line-10", label: "LY满血版", price: 0.14, official: true },
+    // 2026-11-07：云枢「YS满血版」（直连中继渠道 33，yunshuaiapi.com GPT2.5 全参，对客 ¥0.14，与 LY满血版 同价）；
+    // 优质渠道组置顶排第一，与 server/channel-config.js 同源同步。
+    { id: "silent-tt25-ys-manxue", label: "YS满血版", price: 0.14, official: true },
     // 2026-10-30 改名：LK满血版-1K → LK-1K（上游 api.lk888.ai，仅 1K，价格 0.12），优质渠道第二组。
     { id: "silent-tt25-line-11", label: "LK-1K", price: 0.12, sizes: ["1K"], quality: ["auto", "low", "medium"], official: true },
-    // 2026-10-31：TT2.5 laoye（silent-tt25-line-12，¥0.08，老夜 TT25 特价 KEY；与 server/channel-config.js 同源同步）。
-    { id: "silent-tt25-line-12", label: "laoye", price: 0.08 },
-    // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，与 laoye 同价，排最后。
+    // 2026-10-11：TT2.5 新增「云枢高质量」分组（yunshuaiapi.com），价格 ¥0.14，排最后。
     { id: "silent-tt25-line-09", label: "云枢高质量", price: 0.14 },
     // 2026-11-02：TT满血版（silent-tt25-tt-manxue，¥0.26，老夜 image2.5全参 满血 KEY，与 LY满血版 同源上游/协议/全参能力，仅 KEY 与价格不同）；
     //   排 LY 后面。官方组置顶由 OFFICIAL_CHANNELS 实现；与 server/provider_families.json 同源同步。

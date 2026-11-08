@@ -45,7 +45,7 @@ export const TaskStatusCard = React.memo(function TaskStatusCard({
   const runningTask = task.status === "running";
   const canRetry = failed && canRerunTask(task);
   return (
-    <article className={`assetCard loadingCard outfitAssetCard ${task.status} ${selected ? "selected" : ""}`}>
+    <article className={`assetCard ui-result-card loadingCard outfitAssetCard ${task.status} ${selected ? "selected" : ""}`}>
       <button
         className="selectBox"
         type="button"
@@ -136,7 +136,7 @@ export const ResultCard = React.memo(function ResultCard({
   );
   return (
     <article
-      className={`assetCard outfitAssetCard withAnnotationEdit success ${selected ? "selected" : ""} ${task.rerunCandidate ? "rerunCandidate" : ""} ${hasCropReturn ? "cropReturnResult" : ""} ${isReplaceTarget ? "replaceTarget" : ""}`}
+      className={`assetCard ui-result-card outfitAssetCard withAnnotationEdit success ${selected ? "selected" : ""} ${task.rerunCandidate ? "rerunCandidate" : ""} ${hasCropReturn ? "cropReturnResult" : ""} ${isReplaceTarget ? "replaceTarget" : ""}`}
       onClick={() => setPreview(task)}
       onDragOver={(event) => handleResultReplaceDragOver(event, task)}
       onDragLeave={() => setResultReplaceTargetId((current) => current === task.id ? "" : current)}

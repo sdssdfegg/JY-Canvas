@@ -51,7 +51,7 @@ export function VideoView({
     <div className="canvasBoard videoCanvasBoard">
       <section className="galleryStrip videoGalleryStrip" style={{ "--asset-card-min": `${Math.round(236 * galleryZoom)}px` }}>
         {videoTasks.map((task) => (
-          <article className="assetCard loadingCard videoAssetCard" key={task.id}>
+          <article className="assetCard loadingCard videoAssetCard ui-result-card" key={task.id}>
             <Loader2 className="spin" size={28} />
             <span>{task.statusText || "视频生成中"}</span>
             <strong><ElapsedTimer startedAt={task.startedAt} /></strong>
@@ -59,7 +59,7 @@ export function VideoView({
           </article>
         ))}
         {videoResults.map((item) => (
-          <article className="assetCard videoAssetCard" key={item.id}>
+          <article className="assetCard videoAssetCard ui-result-card" key={item.id}>
             <button
               className="assetDownloadButton"
               type="button"
@@ -160,16 +160,16 @@ export function VideoView({
           </div>
 
           <div className="rightTools videoRightTools">
-            <select value={videoSettings.model} onChange={(event) => updateVideoSetting("model", event.target.value)}>
+            <select className="ui-select" value={videoSettings.model} onChange={(event) => updateVideoSetting("model", event.target.value)}>
               {videoModels.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
             </select>
-            <select value={videoSettings.aspectRatio} onChange={(event) => updateVideoSetting("aspectRatio", event.target.value)}>
+            <select className="ui-select" value={videoSettings.aspectRatio} onChange={(event) => updateVideoSetting("aspectRatio", event.target.value)}>
               {videoRatios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
             </select>
-            <select value={videoSettings.resolution} onChange={(event) => updateVideoSetting("resolution", event.target.value)}>
+            <select className="ui-select" value={videoSettings.resolution} onChange={(event) => updateVideoSetting("resolution", event.target.value)}>
               {videoResolutions.map((resolution) => <option key={resolution} value={resolution}>{resolution}</option>)}
             </select>
-            <select value={videoSettings.duration} onChange={(event) => updateVideoSetting("duration", event.target.value)}>
+            <select className="ui-select" value={videoSettings.duration} onChange={(event) => updateVideoSetting("duration", event.target.value)}>
               {videoDurations.map((duration) => <option key={duration} value={duration}>{duration}s</option>)}
             </select>
             <Button

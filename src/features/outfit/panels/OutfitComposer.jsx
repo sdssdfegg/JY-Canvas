@@ -442,14 +442,14 @@ export default function OutfitComposer({
 
       <div className="footerTools">
         <div className="rightTools">
-          <select value={settings.model} onChange={(event) => updateSetting("model", event.target.value)}>
+          <select className="ui-select" value={settings.model} onChange={(event) => updateSetting("model", event.target.value)}>
             {models.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}
           </select>
           {/* 线路选择：请求必须带 canonical channelId；旧线路不会出现在这里，服务端也会拒绝。
               2026-09-26：批量页保持原来的下拉框样式（和旁边模型/比例/尺寸同级），
               只让"当前选中的渠道"用快捷生成那套金色 #fbbf24 显示，其余样式不变。 */}
           <select
-            className="channelSelect"
+            className="channelSelect ui-select"
             value={outfitChannels.some((channel) => channel.id === settings.channelId) ? settings.channelId : (outfitChannels[0]?.id || "")}
             onChange={(event) => updateSetting("channelId", event.target.value)}
             title="当前模型的可用线路"
@@ -475,16 +475,17 @@ export default function OutfitComposer({
               ));
             })()}
           </select>
-          <select value={settings.aspectRatio} onChange={(event) => updateSetting("aspectRatio", event.target.value)}>
+          <select className="ui-select" value={settings.aspectRatio} onChange={(event) => updateSetting("aspectRatio", event.target.value)}>
             {ratios.map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}
           </select>
-          <select value={outfitSizes.includes(settings.imageSize) ? settings.imageSize : (outfitSizes[0] || "")} onChange={(event) => updateSetting("imageSize", event.target.value)}>
+          <select className="ui-select" value={outfitSizes.includes(settings.imageSize) ? settings.imageSize : (outfitSizes[0] || "")} onChange={(event) => updateSetting("imageSize", event.target.value)}>
             {(outfitSizesAll && outfitSizesAll.length ? outfitSizesAll : outfitSizes).map((size) => (
               <option key={size} value={size} disabled={outfitSizes.length > 0 && !outfitSizes.includes(size)}>{size}</option>
             ))}
           </select>
           {allowedQualities.length > 0 && (
             <select
+              className="ui-select"
               value={allowedQualities.includes(settings.quality) ? settings.quality : (allowedQualities[0] || "")}
               onChange={(event) => updateSetting("quality", event.target.value)}
               title="出图质量"
@@ -499,7 +500,7 @@ export default function OutfitComposer({
             </select>
           )}
           {outfitCapabilities.versions && outfitCapabilities.versions.length > 0 && (
-            <select value={settings.version || ""} onChange={(event) => updateSetting("version", event.target.value)} title="模型版本">
+            <select className="ui-select" value={settings.version || ""} onChange={(event) => updateSetting("version", event.target.value)} title="模型版本">
               <option value="">版本(默认)</option>
               {outfitCapabilities.versions.map((version) => (
                 <option key={version} value={version}>{version}</option>
@@ -507,14 +508,14 @@ export default function OutfitComposer({
             </select>
           )}
           {outfitCapabilities.backgrounds && outfitCapabilities.backgrounds.length > 0 && (
-            <select value={settings.background || ""} onChange={(event) => updateSetting("background", event.target.value)} title="背景">
+            <select className="ui-select" value={settings.background || ""} onChange={(event) => updateSetting("background", event.target.value)} title="背景">
               <option value="">背景(默认)</option>
               {outfitCapabilities.backgrounds.map((background) => (
                 <option key={background} value={background}>{background === "opaque" ? "不透明" : background === "transparent" ? "透明" : background}</option>
               ))}
             </select>
           )}
-          <select className={globalBulkMode === "mixed" ? "mixed" : ""} value={globalBulkMode} onChange={(event) => void applyGlobalPreprocess(event.target.value)}>
+          <select className={globalBulkMode === "mixed" ? "mixed ui-select" : "ui-select"} value={globalBulkMode} onChange={(event) => void applyGlobalPreprocess(event.target.value)}>
             <option value="mixed" disabled>混合状态</option>
             {globalBulkMode === "crop" && <option value="crop" disabled>{preprocessModeLabel("crop")}</option>}
             {PREPROCESS_OPTIONS.filter((option) => option.value !== "crop").map((option) => (
@@ -522,11 +523,11 @@ export default function OutfitComposer({
             ))}
           </select>
           {isOutpaintWorkflow || isRandomBackgroundWorkflow ? (
-            <select value="fixed" disabled>
+            <select className="ui-select" value="fixed" disabled>
               <option value="fixed">{isRandomBackgroundWorkflow ? "按场景补充生成" : "图1向下扩图"}</option>
             </select>
           ) : (
-            <select value={settings.pairingMode} onChange={(event) => updateSetting("pairingMode", event.target.value)}>
+            <select className="ui-select" value={settings.pairingMode} onChange={(event) => updateSetting("pairingMode", event.target.value)}>
               <option value="fixed">{isPoseRemixWorkflow ? "固定母版" : isFaceSwapWorkflow ? "固定人脸" : isBackgroundChangeWorkflow ? "固定场景" : "固定服装"}</option>
               <option value="sequence">{isPoseRemixWorkflow ? "母版一一对应" : isFaceSwapWorkflow ? "人脸一一对应" : isBackgroundChangeWorkflow ? "人物场景一一对应" : "按顺序一一对应"}</option>
               <option value="cycle">{isPoseRemixWorkflow ? "母版循环配对" : isFaceSwapWorkflow ? "人脸循环配对" : isBackgroundChangeWorkflow ? "场景循环配对" : "服装循环配对"}</option>
@@ -534,6 +535,7 @@ export default function OutfitComposer({
           )}
           {isRandomBackgroundWorkflow && (
             <select
+              className="ui-select"
               value={normalizeRandomBackgroundFocus(settings.randomBackgroundFocus)}
               onChange={(event) => updateSetting("randomBackgroundFocus", event.target.value)}
               title="随机背景视觉重点"
@@ -543,7 +545,7 @@ export default function OutfitComposer({
               ))}
             </select>
           )}
-          <select value={generationCount} onChange={(event) => updateSetting("generationCount", event.target.value)}>
+          <select className="ui-select" value={generationCount} onChange={(event) => updateSetting("generationCount", event.target.value)}>
             {GENERATION_COUNT_OPTIONS.map((count) => (
               <option key={count} value={count}>{count === "auto" ? `数量(${plannedGenerationCount})` : `数量 ${count}`}</option>
             ))}

@@ -29,8 +29,8 @@ function channelBaseCandidates() {
   return buildChannelBaseCandidates(PRIMARY_CHANNEL_API_BASE_URL);
 }
 
-function imageChannelBaseCandidates(model) {
-  return buildImageChannelBaseCandidates(model);
+function imageChannelBaseCandidates(model, channelId = "") {
+  return buildImageChannelBaseCandidates(model, "", channelId);
 }
 
 const JSON_IMAGE_URLS_CHANNEL = "silent-tt25-line-07";

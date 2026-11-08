@@ -116,7 +116,7 @@ export function loadState() {
   const merged = { ...defaultState, ...safeStored, baseUrl: defaultState.baseUrl };
   merged.model = canonicalModel(merged.model);
   merged.dispatchMode = "manual";
-  return merged;
+  return { ...merged, theme: ["jade", "graphite", "mist"].includes(merged.theme) ? "dark" : merged.theme };
 }
 
 export function sanitizeStoredImage(image) {

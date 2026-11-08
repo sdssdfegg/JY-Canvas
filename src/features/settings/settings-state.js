@@ -11,10 +11,7 @@ import { writeJsonStorage } from "../../lib/storage/json-storage.js";
 import { STORAGE_KEY } from "../../shared/app-defaults.js";
 
 export const themeOptions = [
-  { value: "dark", label: "暗夜", colors: ["#080910", "#151522", "#10cfc4"] },
-  { value: "jade", label: "柔粉", colors: ["#fff2f7", "#fffafd", "#ec6f9e"] },
-  { value: "graphite", label: "米杏", colors: ["#f3e6d4", "#fff8ec", "#c98652"] },
-  { value: "mist", label: "浅雾", colors: ["#f5f7fa", "#ffffff", "#0d7a76"] }
+  { value: "dark", label: "暗夜", colors: ["#080910", "#151522", "#10cfc4"] }
 ];
 
 // deps 来自 App() 的共享状态 / 回调：

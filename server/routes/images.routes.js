@@ -145,7 +145,7 @@ export function registerImagesRoutes(app) {
       return res.status(400).json({ ok: false, error: capability.code, message: capability.message });
     }
     const apiKey = resolveApiKey(req.body.apiKey);
-    const candidates = imageChannelBaseCandidates(params.model);
+    const candidates = imageChannelBaseCandidates(params.model, params.channelId);
     const requestId = String(req.headers["x-jingyin-client-request-id"] || `img_${receivedAt}_${Math.random().toString(36).slice(2, 9)}`);
 
     if (!apiKey) {

@@ -1,22 +1,21 @@
 #!/usr/bin/env node
 /**
- * V178（UI-A4 · T1-b2 前置段）：四主题语义令牌覆盖护栏。
+ * V178（UI-A4 · T1-b2 前置段）：单主题语义令牌覆盖护栏。
  *
  * 静态、零依赖叶子：只 import Node 内置（node:fs / node:path / node:process），
  * 只读 src/styles/tokens.css，不启动服务、不读浏览器、不取 getComputedStyle、
  * 不碰 data/、不写任何文件、不扫 .jsx 内联 style、不扫其它 CSS。
  *
  * 断言：
- *  ① 四个主题块（:root 默认暗色 + jade / graphite / mist 三套浅色）都解析到；
- *  ② 以 :root 的颜色语义令牌键集合为基准，三套浅色块键集合逐字一致
- *     （缺一键 / 多一键都判红，输出 missing / extra 明细）；
+ *  ① 单主题块（:root 默认暗色）解析到；
+ *  ② 颜色语义令牌键集合齐全（缺一键 / 多一键都判红，输出 missing / extra 明细）；
  *  ③ 每个颜色令牌值非空、非 var() 自引用。
  *
  * 颜色语义令牌判据：值中含 `#` 或 `rgba(` 或 `color-mix(`。
  * 尺寸 / 层级 / 动效 / 断点类令牌值不含上述记号，天然排除，不硬编码白名单。
  *
  * 注意：本脚本只覆盖「令牌键集合是否齐全」，不覆盖「配色是否正确 / 是否好看」。
- * 配色的最终闸门仍是换装/设置页 4 主题 A/B 截图 + Owner 目视。
+ * 配色的最终闸门仍是设置页单主题深色 + Owner 目视。
  */
 
 import { readFileSync } from "node:fs";
@@ -30,7 +29,7 @@ const TOKENS_PATH = resolve(REPO_ROOT, "src/styles/tokens.css");
 
 const COLOR_RE = /#|rgba\(|color-mix\(/i;
 const THEME_ATTR_RE = /^:root\[data-theme="([\w-]+)"\]$/;
-const REQUIRED = ["dark", "jade", "graphite", "mist"];
+const REQUIRED = ["dark"];
 
 /**
  * 提取顶层规则块（depth 0 的 `{ ... }`）。
@@ -141,19 +140,11 @@ function main() {
     }
   }
 
-  const result = { ok: true, baseKeys: 0, themes: {}, missing: [], extra: [] };
+  const result = { ok: true, baseKeys: 0, themes: { dark: 0 }, missing: [], extra: [] };
   if (colorKeys.dark) {
     result.baseKeys = colorKeys.dark.length;
-    const base = new Set(colorKeys.dark);
-    for (const t of ["jade", "graphite", "mist"]) {
-      if (!colorKeys[t]) continue;
-      result.themes[t] = colorKeys[t].length;
-      const set = new Set(colorKeys[t]);
-      for (const k of base) if (!set.has(k)) result.missing.push(`${t}:${k}`);
-      for (const k of set) if (!base.has(k)) result.extra.push(`${t}:${k}`);
-    }
+    result.themes.dark = colorKeys.dark.length;
   }
-  result.themes.dark = colorKeys.dark ? colorKeys.dark.length : 0;
 
   if (problems.length || result.missing.length || result.extra.length) {
     result.ok = false;

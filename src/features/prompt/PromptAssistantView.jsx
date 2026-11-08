@@ -157,7 +157,7 @@ export function PromptAssistantView({ isOpen, categories, onClose, promptApi }) 
             <div className="promptEditorBody">
               <label className="editorField">
                 <span>分类</span>
-                <select
+                <select className="ui-select"
                   value={editingPrompt.category}
                   onChange={(event) => updateEditingPrompt("category", event.target.value)}
                 >
