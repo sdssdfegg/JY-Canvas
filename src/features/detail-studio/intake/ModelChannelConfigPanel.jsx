@@ -8,7 +8,7 @@
 // 组件零业务逻辑：只持有局部选择态，保存一律经 props.onSave → state.saveModelConfig → 服务端。
 
 import { useEffect, useState } from "react";
-import { Cpu, Image as ImageIcon, Network } from "lucide-react";
+import { Cpu, Image as ImageIcon } from "lucide-react";
 import { Button } from "../../../shared/ui/Button.jsx";
 import { Field } from "../../../shared/ui/Field.jsx";
 import { ModuleHeader } from "../../../shared/ui/ModuleHeader.jsx";
@@ -59,7 +59,7 @@ export function ModelChannelConfigPanel({ state, onSave }) {
       />
 
       <div className="detailStudioModelChannel">
-        <Field label="推理模型（文本策划）">
+        <Field label="推理模型">
           <select
             className="detailStudioSelect detailStudioReasoningSelect"
             value={textModel}

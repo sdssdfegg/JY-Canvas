@@ -9,6 +9,7 @@ import { useDetailStudioState } from "../state/use-detail-studio-state.js";
 import { DetailStudioBasicsPanel } from "./DetailStudioBasicsPanel.jsx";
 import { DetailStudioCapabilityPanel } from "./DetailStudioCapabilityPanel.jsx";
 import { DetailStudioProjectPanel } from "./DetailStudioProjectPanel.jsx";
+import { FlowGuidanceBar } from "./FlowGuidanceBar.jsx";
 import { ModelChannelConfigPanel } from "../intake/ModelChannelConfigPanel.jsx";
 import { IntakeArea } from "../intake/IntakeArea.jsx";
 import "../styles/detail-studio.css";
@@ -31,9 +32,12 @@ export function DetailStudioView() {
       {state.notice ? <div className="detailStudioBanner">{state.notice}</div> : null}
 
       <div className="detailStudioGrid">
-        <DetailStudioProjectPanel state={state} />
-        <div className="detailStudioColumn">
+        <div className="detailStudioLeft">
+          <DetailStudioProjectPanel state={state} />
           <ModelChannelConfigPanel state={state} onSave={state.saveModelConfig} />
+        </div>
+        <div className="detailStudioColumn">
+          <FlowGuidanceBar state={state} />
           <DetailStudioBasicsPanel state={state} />
           <DetailStudioCapabilityPanel state={state} />
           <IntakeArea state={state} />

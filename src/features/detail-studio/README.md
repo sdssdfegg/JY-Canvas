@@ -26,13 +26,15 @@ src/features/detail-studio/
 │   ├── DetailStudioView.jsx                 工作区根视图：只做布局与组合，零业务逻辑
 │   ├── DetailStudioProjectPanel.jsx        业务区① 项目列表 + 新建
 │   ├── DetailStudioBasicsPanel.jsx         业务区① 当前项目基础信息查看与保存
-│   └── DetailStudioCapabilityPanel.jsx     基础设施：能力自检（文本/图片链路）
+│   ├── DetailStudioCapabilityPanel.jsx     基础设施：能力自检（单行状态条 + 折叠开发者信息）
+│   └── FlowGuidanceBar.jsx                 V201 主流程引导条：当前阶段 / 已完成 / 下一步 + 主按钮（不触发生图）
 ├── intake/
-│   ├── ModelChannelConfigPanel.jsx         重点 A：推理模型 / 图片模型 / 渠道三独立下拉，配置随项目保存
+│   ├── ModelChannelConfigPanel.jsx         重点 A：推理模型 / 图片模型 / 渠道三独立下拉（V201 已迁左列），配置随项目保存
 │   ├── IntakeArea.jsx                      录入区组合：商品资料 + 参考图 + 当前模式专属面板（零业务逻辑）
 │   ├── ProductDataPanel.jsx                §4 商品资料录入（fields + text），随项目保存
-│   ├── ReferenceImagesPanel.jsx            §4 参考图上传 + 职责标注（product / visualStyle / contentStructure）
-│   ├── mode-a/GuidedIntakePanel.jsx        §3 模式 A 引导式录入骨架（不 import planner / skill）
+│   ├── ReferenceImagesPanel.jsx            §4 参考图分块面板：三类角色各挂一个 ReferenceImageDropzone
+│   ├── ReferenceImageDropzone.jsx          V201 参考图批量上传：点击 / 拖拽 / 粘贴、多文件、缩略图预览、按角色分块
+│   ├── mode-a/GuidedIntakePanel.jsx        §3 模式 A 引导式录入骨架（V201 去 checklist 语义，改必填/可选标签化；不 import planner / skill）
 │   ├── mode-b/AssistedIntakePanel.jsx      §3 模式 B 保留原意录入骨架（不 import planner / skill）
 │   └── mode-c/DirectPromptPanel.jsx        §3 模式 C 四份边界（raw / tidy / diff / frozen，禁止 import planner / skill）
 └── styles/detail-studio.css                 私有样式：零 hex、零 :root 新变量，全用 tokens.css 语义令牌
