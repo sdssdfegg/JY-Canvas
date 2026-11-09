@@ -71,3 +71,4 @@ src/features/detail-studio/
 - 不引入第二套模型 Provider / API Key / 网关 / 图片生成体系；图片只经 `src/api/images.js` → `/api/images`。
 - 组件一律用 `src/shared/ui/`，禁止新写旧按钮类；CSS 禁止 hex 与新建 `:root` 变量。
 - 项目数据只落服务端 `data/detail-studio/projects/`，不进 `seed/manifest.json`、不进浏览器 localStorage。
+- KEY 红线（Owner 原则）：整个画板只在设置页填一次 KEY，详情创作视图（及任何其他视图）**禁止出现 KEY 输入**。`apiKey` 一律由 `state/use-detail-studio-state.js` 从全局设置存储（`STORAGE_KEY` + `normalizeApiKeyInput`）读取，与 ai-canvas / video / detail 同源；无 KEY 且服务端无内建 KEY 时由面板提示「请到设置页填写」，不在此视图新建任何 KEY 输入框或常量。

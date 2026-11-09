@@ -36,6 +36,7 @@ server/features/detail-studio/
 - 项目数据只落 `data/detail-studio/projects/`（`index.json` + 每项目 `project.json`）。
   **不进** `data/results`（`cleanupResultCache` 按 7 天 TTL 清理）、**不进** `seed/manifest.json`、**不进**安装包默认种子，**不允许**封装版安装或首启覆盖用户项目。
 - 文本模型：`server/core/ai-chat-shared.js#postChatCompletion` → 单网关 `/chat/completions`；KEY 走 `resolveApiKey` 只在请求内存活，不落盘、不写日志、不回显。
+- KEY 红线（Owner 原则）：整个画板只在设置页填一次 KEY。**详情创作前端视图禁止出现 KEY 输入**；`apiKey` 由 `src/features/detail-studio/state/use-detail-studio-state.js` 从全局设置存储（`STORAGE_KEY` + `normalizeApiKeyInput`）读取（与 ai-canvas / video / detail 同源），本视图不新建任何 KEY 输入框或常量；无 KEY 且服务端无内建 KEY 时由前端面板提示「请到设置页填写」。
 - 图片：只复用现有 `POST /api/images`；`probe` 只组装并校验请求体契约，**不实际调用上游、不产生费用**。
 - **严禁修改**：`server/channel-config.js`、`server/channel.js`、`src/shared/routing.js`、`server/core/image-concurrency.js`、`server/core/ai-chat-shared.js`、`server/routes/detail.routes.js`、`server/ai-tryon/task-store.js`、`scripts/verify/routing-check.mjs`。
 - R2 通用持久化任务层抽取授权留**阶段 4**（批量生成与任务管理）落地并单独验证旧换装任务兼容；阶段 1 不动 `server/ai-tryon/task-store.js`。

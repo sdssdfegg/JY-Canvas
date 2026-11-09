@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-18",
-  "reason": "V94 清除无限画布死代码(B层)：整删 canvas-actions.js/canvas-graph.js，剥离 canvas-generation-handlers 的 infinite 部分，删 main.jsx 状态层与工厂调用、main-handlers 死分支与 sendResultToCanvas、INFINITE_CANVAS_KEY；纯删除使体量只降不升，刷新陈旧基线",
+  "generatedAt": "2026-11-09",
+  "reason": "V199 阶段2 重点A 修正（KEY 红线）：detail-studio 须与 video/detail/reference 同源读取 apiKey，统一经 auth 的 normalizeApiKeyInput 清洗（STORAGE_KEY + normalizeApiKeyInput 范式）。detail-studio → auth 与既有 detail → auth / video → auth 同源同责，非新增第二套 KEY 逻辑。",
   "allowed": [
     {
       "from": "canvas",
@@ -73,6 +73,13 @@
       "sample": "src/features/detail/detail-state.js → src/features/upload/reference-upload.js"
     },
     {
+      "from": "detail-studio",
+      "to": "auth",
+      "reason": "V199 阶段2 重点A 修正（KEY 红线）：detail-studio 须与 video/detail/reference 同源读取 apiKey，统一经 auth 的 normalizeApiKeyInput 清洗（STORAGE_KEY + normalizeApiKeyInput 范式）。detail-studio → auth 与既有 detail → auth / video → auth 同源同责，非新增第二套 KEY 逻辑。",
+      "refs": 1,
+      "sample": "src/features/detail-studio/state/use-detail-studio-state.js → src/features/auth/api-key.js"
+    },
+    {
       "from": "main-app",
       "to": "storage",
       "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
@@ -83,15 +90,15 @@
       "from": "outfit",
       "to": "auth",
       "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
-      "refs": 3,
-      "sample": "src/features/outfit/outfit-page-actions.js → src/features/auth/api-key.js"
+      "refs": 4,
+      "sample": "src/features/outfit/handlers/outfit-effects.js → src/features/auth/api-key.js"
     },
     {
       "from": "outfit",
       "to": "video",
       "reason": "P7-5 引入时存量登记：24 个跨板块方向（2026-10-16 派发日实测，与审计 24 组吻合）；后续解耦归另一单",
       "refs": 1,
-      "sample": "src/features/outfit/outfit-panels.jsx → src/features/video/video-composer.js"
+      "sample": "src/features/outfit/panels/WorkflowQuickVideoPanel.jsx → src/features/video/video-composer.js"
     },
     {
       "from": "quickgen",
@@ -151,10 +158,10 @@
     }
   ],
   "metrics": {
-    "featureFiles": 51,
-    "directions": 21,
-    "crossFeatureRefs": 26,
-    "sharedRefs": 160,
+    "featureFiles": 92,
+    "directions": 22,
+    "crossFeatureRefs": 28,
+    "sharedRefs": 244,
     "unresolved": 0
   }
 }

@@ -1,14 +1,11 @@
 // src/features/detail-studio/components/DetailStudioCapabilityPanel.jsx
 // 基础设施面板：能力自检（复用现有统一模型体系，不引入第二套 Provider / KEY / 网关）。
 
-import { useState } from "react";
 import { Database, Image as ImageIcon, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "../../../shared/ui/Button.jsx";
-import { Field } from "../../../shared/ui/Field.jsx";
 import { ModuleHeader } from "../../../shared/ui/ModuleHeader.jsx";
 import { Panel } from "../../../shared/ui/Panel.jsx";
 import { Toolbar } from "../../../shared/ui/Toolbar.jsx";
-import { buildDetailStudioImageForm } from "../../../api/detail-studio.js";
 import {
   STUDIO_MAX_SCREENS,
   STUDIO_PROBE_CHANNEL_ID,
@@ -22,10 +19,13 @@ function formatDetailStudioProbeResult(result) {
 }
 
 export function DetailStudioCapabilityPanel({ state }) {
-  const [probeKey, setProbeKey] = useState("");
   const caps = state.capabilities;
+  // 能力信息须含 text/image 才算就绪；API 未返回（或返回非 JSON / 缺字段）时回落加载态，
+  // 绝不读 undefined.endpoint 崩溃（无后端 / 代理返回 HTML 时 caps 会是 {message,raw} 这类真值畸形对象）。
+  const capsReady = Boolean(caps && caps.text && caps.image);
   // 重点 A ⑤：探针使用「用户在模型与渠道面板所选」的值，而非写死常量。
   // 用户未选（或尚未在面板保存）时回落到推荐默认 / 自检默认。
+  // KEY 红线（Owner）：apiKey 由 state hook 从全局设置读取，本视图不出现任何 KEY 输入。
   const modelConfig = state.currentProject?.modelConfig || {};
   const textModel = modelConfig.textModel || STUDIO_RECOMMENDED_TEXT_MODEL;
   const imageModel = modelConfig.imageModel || STUDIO_PROBE_MODEL;
@@ -33,12 +33,12 @@ export function DetailStudioCapabilityPanel({ state }) {
 
   function handleTextProbe() {
     // 把用户所选推理模型作为 textModel 透传给探针（接住 probeTextModel 的新签名）。
-    state.runTextProbe({ apiKey: probeKey, prompt: "连通性测试", textModel });
+    // apiKey 由 runTextProbe 内部从全局设置读取，此处不传、不持有 KEY。
+    state.runTextProbe({ prompt: "连通性测试", textModel });
   }
 
   function handleImageProbe() {
     state.runImageProbe({
-      apiKey: probeKey,
       prompt: "详情创作工作区请求体预检",
       model: imageModel,
       channelId
@@ -46,13 +46,8 @@ export function DetailStudioCapabilityPanel({ state }) {
   }
 
   function handleImageGeneration() {
-    const form = buildDetailStudioImageForm({
-      apiKey: probeKey,
-      prompt: STUDIO_PROBE_PROMPT,
-      model: imageModel,
-      channelId
-    });
-    state.runImageGeneration(form);
+    // 真实出图所需 apiKey 由 runImageGeneration 内部从全局设置读取。
+    state.runImageGeneration({ prompt: STUDIO_PROBE_PROMPT, model: imageModel, channelId });
   }
 
   return (
@@ -62,7 +57,7 @@ export function DetailStudioCapabilityPanel({ state }) {
         title="能力自检"
         subtitle="复用 JY-Canvas 现有统一模型与数据体系"
       />
-      {caps ? (
+      {capsReady ? (
         <div className="detailStudioFacts">
           <div className="detailStudioFact">
             <span className="detailStudioFactLabel">所选推理模型</span>
@@ -94,12 +89,12 @@ export function DetailStudioCapabilityPanel({ state }) {
           </div>
           <div className="detailStudioFact">
             <span className="detailStudioFactLabel">项目存储</span>
-            <span className="detailStudioFactValue">{caps.storage.root}</span>
+            <span className="detailStudioFactValue">{caps.storage?.root ?? "—"}</span>
           </div>
           <div className="detailStudioFact">
             <span className="detailStudioFactLabel">数据边界 / 屏数上限</span>
             <span className="detailStudioFactValue">
-              排除种子 {String(caps.storage.seedExcluded)} · 最多 {STUDIO_MAX_SCREENS} 屏
+              排除种子 {String(caps.storage?.seedExcluded ?? false)} · 最多 {STUDIO_MAX_SCREENS} 屏
             </span>
           </div>
         </div>
@@ -107,16 +102,11 @@ export function DetailStudioCapabilityPanel({ state }) {
         <p className="detailStudioEmpty">能力信息加载中…</p>
       )}
 
-      <Field label="API Key（仅本次请求使用，不保存、不回显）">
-        <input
-          className="detailStudioInput"
-          type="password"
-          autoComplete="off"
-          value={probeKey}
-          onChange={(event) => setProbeKey(event.target.value)}
-          placeholder="调用文本模型或真实出图时填写"
-        />
-      </Field>
+      {state.apiKeyMissing ? (
+        <p className="detailStudioKeyMissing">
+          未检测到 API Key：请到「设置」页统一填写（全画板只在设置页填一次，本视图不重复输入）；填写后将自动生效。
+        </p>
+      ) : null}
       <Toolbar align="start" wrap>
         <Button size="sm" tone="default" loading={state.busy} onClick={handleTextProbe}>
           <Sparkles size={14} />
@@ -130,7 +120,7 @@ export function DetailStudioCapabilityPanel({ state }) {
           size="sm"
           tone="danger"
           loading={state.busy}
-          disabled={!probeKey.trim()}
+          disabled={state.apiKeyMissing}
           onClick={handleImageGeneration}
         >
           <ImageIcon size={14} />
@@ -155,7 +145,7 @@ export function DetailStudioCapabilityPanel({ state }) {
       ) : null}
 
       <p className="detailStudioNote">
-        预检只校验 /api/images 请求体契约，不调用上游、不产生费用。真实出图按钮需主动点击并填写 Key。
+        预检只校验 /api/images 请求体契约，不调用上游、不产生费用。真实出图按钮需主动点击；API Key 请在设置页统一填写（全画板只填一次）。
         阶段 2 起逐步接入三种创作模式、商品资料与参考图、分屏规划与提示词冻结、批量生成与版本管理；
         旧「一键详情/主图」保持原状。
       </p>

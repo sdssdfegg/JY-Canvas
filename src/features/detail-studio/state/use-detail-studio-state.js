@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getAppConfig } from "../../../api/config.js";
 import {
+  buildDetailStudioImageForm,
   createDetailStudioProject,
   generateDetailStudioImage,
   getDetailStudioCapabilities,
@@ -14,9 +15,24 @@ import {
   probeDetailStudioText,
   updateDetailStudioProject
 } from "../../../api/detail-studio.js";
+import { readJsonStorage } from "../../../lib/storage/json-storage.js";
+import { STORAGE_KEY } from "../../../shared/app-defaults.js";
+import { normalizeApiKeyInput } from "../../auth/api-key.js";
 
 function errorMessage(error, fallback) {
   return error && error.message ? error.message : fallback;
+}
+
+// Owner 红线（V199 §6 + 两端 README）：整个画板只在设置页填一次 KEY，详情创作视图不得出现 KEY 输入。
+// apiKey 一律从全局设置存储（STORAGE_KEY）经 normalizeApiKeyInput 读取，与 ai-canvas / video / detail 同源；
+// 无 KEY 且服务端无内建 KEY 时，由面板提示「请到设置页填写」，绝不在本视图放输入。
+function readDetailStudioApiKey() {
+  try {
+    const settings = readJsonStorage(STORAGE_KEY, null) || {};
+    return normalizeApiKeyInput(settings && settings.apiKey);
+  } catch {
+    return "";
+  }
 }
 
 export function useDetailStudioState() {
@@ -24,12 +40,17 @@ export function useDetailStudioState() {
   const [currentProject, setCurrentProject] = useState(null);
   const [capabilities, setCapabilities] = useState(null);
   const [routing, setRouting] = useState(null);
+  const [hasServerKey, setHasServerKey] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [textProbe, setTextProbe] = useState(null);
   const [imageProbe, setImageProbe] = useState(null);
   const [imageGeneration, setImageGeneration] = useState(null);
+
+  // apiKey 由本 hook 统一从全局设置读取（Owner 红线：详情创作视图不出现 KEY 输入）。
+  const apiKey = readDetailStudioApiKey();
+  const apiKeyMissing = !apiKey && !hasServerKey;
 
   const refresh = useCallback(async () => {
     try {
@@ -48,8 +69,10 @@ export function useDetailStudioState() {
     try {
       const config = await getAppConfig();
       setRouting(config && config.routing ? config.routing : null);
+      setHasServerKey(Boolean(config && config.hasServerKey));
     } catch {
       setRouting(null);
+      setHasServerKey(false);
     }
   }, []);
 
@@ -136,31 +159,62 @@ export function useDetailStudioState() {
     }
   }, [currentProject]);
 
-  const runTextProbe = useCallback(async (payload) => {
+  const runTextProbe = useCallback(async (payload = {}) => {
+    const apiKey = readDetailStudioApiKey();
+    if (!apiKey && !hasServerKey) {
+      setError("请到设置页填写 API Key（全画板只在设置页填一次，其他视图不重复输入）");
+      return;
+    }
     setBusy(true);
     try {
-      setTextProbe(await probeDetailStudioText(payload));
+      setTextProbe(await probeDetailStudioText({
+        apiKey,
+        prompt: payload.prompt,
+        textModel: payload.textModel
+      }));
     } catch (err) {
       setTextProbe({ ok: false, message: errorMessage(err, "文本模型连通性测试失败") });
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [hasServerKey]);
 
-  const runImageProbe = useCallback(async (payload) => {
+  const runImageProbe = useCallback(async (payload = {}) => {
+    const apiKey = readDetailStudioApiKey();
+    if (!apiKey && !hasServerKey) {
+      setError("请到设置页填写 API Key（全画板只在设置页填一次，其他视图不重复输入）");
+      return;
+    }
     setBusy(true);
     try {
-      setImageProbe(await probeDetailStudioImage(payload));
+      setImageProbe(await probeDetailStudioImage({
+        apiKey,
+        prompt: payload.prompt,
+        model: payload.model,
+        channelId: payload.channelId
+      }));
     } catch (err) {
       setImageProbe({ ok: false, message: errorMessage(err, "图片请求体预检失败") });
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [hasServerKey]);
 
-  const runImageGeneration = useCallback(async (form) => {
+  // 真实出图：由本 hook 用当前 apiKey 拼 FormData，面板不再持有 / 传入 KEY。
+  const runImageGeneration = useCallback(async (payload = {}) => {
+    const apiKey = readDetailStudioApiKey();
+    if (!apiKey && !hasServerKey) {
+      setError("请到设置页填写 API Key（全画板只在设置页填一次，其他视图不重复输入）");
+      return;
+    }
     setBusy(true);
     try {
+      const form = buildDetailStudioImageForm({
+        apiKey,
+        prompt: payload.prompt,
+        model: payload.model,
+        channelId: payload.channelId
+      });
       const result = await generateDetailStudioImage(form);
       setImageGeneration({
         ok: true,
@@ -172,13 +226,16 @@ export function useDetailStudioState() {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [hasServerKey]);
 
   return {
     projects,
     currentProject,
     capabilities,
     routing,
+    hasServerKey,
+    apiKey,
+    apiKeyMissing,
     busy,
     error,
     notice,
