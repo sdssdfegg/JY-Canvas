@@ -1,6 +1,6 @@
 // storage-store.js —— RF-082 从 src/main.jsx 逐字抽出（加 export），未改逻辑。
 import { ACTIVE_VIEW_KEY, DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, PUBLIC_RELEASE_MODE, PUBLIC_RELEASE_RESET_KEY, STORAGE_KEY, STORAGE_PREFIX, defaultState } from "../../shared/app-defaults.js";
-import { BookOpen, Brush, Crop, FileText, Layers, Network, Sparkles, Wand2 } from "lucide-react";
+import { BookOpen, Brush, Crop, FileText, Layers, LayoutTemplate, Network, Sparkles, Wand2 } from "lucide-react";
 import { readJsonStorage, removeStorageItem, writeJsonStorage } from "../../lib/storage/json-storage.js";
 import { importReleaseSeed } from "../../shared/release-seed.js";
 import { canonicalModel } from "../../shared/routing.js";
@@ -24,6 +24,7 @@ export const navItems = [
   { id: "reference-remix", label: "参考生图", icon: Layers },
   { id: "detail-main", label: "一键详情/主图", icon: FileText },
   { id: "ai-canvas", label: "无限画布", icon: Network },
+  { id: "detail-studio", label: "详情创作", icon: LayoutTemplate },
   { id: "prompts", label: "提示词助手", icon: BookOpen }
 ];
 

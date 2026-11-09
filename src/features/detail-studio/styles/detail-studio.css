@@ -1,0 +1,202 @@
+/* 详情创作独立工作区 · 阶段 1 */
+/* 纪律：零 hex、零 :root 新变量，全部复用 src/styles/tokens.css 的语义令牌；不另建主题体系。 */
+
+.detailStudio {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  height: 100%;
+  overflow: auto;
+  box-sizing: border-box;
+  color: var(--text);
+}
+
+.detailStudioHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.detailStudioStageTag {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+  white-space: nowrap;
+}
+
+.detailStudioBanner {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.detailStudioBannerError {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.detailStudioGrid {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.detailStudioColumn {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.detailStudioPanel {
+  min-width: 0;
+}
+
+.detailStudioList {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 260px;
+  overflow: auto;
+}
+
+.detailStudioProjectRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel-strong);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.detailStudioProjectRow:hover {
+  border-color: var(--accent);
+}
+
+.detailStudioProjectRowActive {
+  border-color: var(--accent);
+}
+
+.detailStudioProjectMeta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.detailStudioProjectName {
+  font-size: var(--text-sm);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detailStudioProjectSub {
+  font-size: var(--text-xs);
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+.detailStudioEmpty {
+  margin: 0;
+  color: var(--faint);
+  font-size: var(--text-sm);
+}
+
+.detailStudioInput,
+.detailStudioSelect,
+.detailStudioTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: var(--control-h-md);
+  padding: 0 var(--control-px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--input);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-family: inherit;
+}
+
+.detailStudioTextarea {
+  min-height: 72px;
+  padding: var(--space-2) var(--control-px);
+  resize: vertical;
+}
+
+.detailStudioFacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-2);
+}
+
+.detailStudioFact {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel-strong);
+  min-width: 0;
+}
+
+.detailStudioFactLabel {
+  font-size: var(--text-xs);
+  color: var(--faint);
+}
+
+.detailStudioFactValue {
+  font-size: var(--text-sm);
+  color: var(--text);
+  word-break: break-all;
+}
+
+.detailStudioProbeResult {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel-strong);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.detailStudioProbeOk {
+  color: var(--success);
+}
+
+.detailStudioProbeFail {
+  color: var(--danger);
+}
+
+.detailStudioNote {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--faint);
+  line-height: 1.6;
+}
+
+@media (max-width: 1180px) {
+  .detailStudioGrid {
+    grid-template-columns: 1fr;
+  }
+}

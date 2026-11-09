@@ -45,6 +45,7 @@ import { registerImageProxyRoutes } from "./routes/image-proxy.routes.js";
 import { registerImagesRoutes } from "./routes/images.routes.js";
 import { registerOutfitRoutes } from "./routes/outfit.routes.js";
 import { registerSeedRoutes } from "./routes/seed.routes.js";
+import { registerDetailStudioRoutes } from "./routes/detail-studio.routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -103,6 +104,9 @@ registerSeedRoutes(app);
 registerImageProxyRoutes(app);
 
 registerImagesRoutes(app);
+
+// 阶段 1：详情创作独立工作区（产品功能，无条件注册，public 版必须保留）。
+registerDetailStudioRoutes(app);
 
 async function attachFrontend() {
   if (process.env.NODE_ENV === "production") {

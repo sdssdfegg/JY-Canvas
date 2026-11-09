@@ -94,6 +94,8 @@ const LazyOutfitWorkflow = React.lazy(() => import("./outfit-workflow.jsx"));
 const LazyImageEditorPanel = React.lazy(() => import("./image-editor.jsx"));
 // V143：AI 无限画布 MVP-1（隔离 feature，懒加载，不进首屏主包）。
 const LazyAiCanvas = React.lazy(() => import("./features/ai-canvas/ai-canvas-view.jsx"));
+// 阶段 1：详情创作独立工作区（隔离 feature，懒加载，不进首屏主包）。
+const LazyDetailStudio = React.lazy(() => import("./features/detail-studio/components/DetailStudioView.jsx"));
 
 
 
@@ -1083,6 +1085,12 @@ function App() {
           <ErrorBoundary label="AI 无限画布" key="canvas">
             <React.Suspense fallback={VIEW_LOADING}>
               <LazyAiCanvas />
+            </React.Suspense>
+          </ErrorBoundary>
+        ) : activeView === "detail-studio" ? (
+          <ErrorBoundary label="详情创作" key="detail-studio">
+            <React.Suspense fallback={VIEW_LOADING}>
+              <LazyDetailStudio />
             </React.Suspense>
           </ErrorBoundary>
         ) : activeView === "quickgen" && quickMode === "video" ? (
