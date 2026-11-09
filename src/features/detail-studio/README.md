@@ -27,6 +27,8 @@ src/features/detail-studio/
 │   ├── DetailStudioProjectPanel.jsx        业务区① 项目列表 + 新建
 │   ├── DetailStudioBasicsPanel.jsx         业务区① 当前项目基础信息查看与保存
 │   └── DetailStudioCapabilityPanel.jsx     基础设施：能力自检（文本/图片链路）
+├── intake/
+│   └── ModelChannelConfigPanel.jsx         重点 A：推理模型 / 图片模型 / 渠道三独立下拉，配置随项目保存
 └── styles/detail-studio.css                 私有样式：零 hex、零 :root 新变量，全用 tokens.css 语义令牌
 ```
 
@@ -41,7 +43,7 @@ src/features/detail-studio/
 
 | 阶段 | 新增业务区目录 | 承载 |
 |---|---|---|
-| 2 | `intake/` | 三种创作模式入口、商品资料、参考图分类 |
+| 2 | `intake/` | 三种创作模式入口、商品资料、参考图分类；重点 A 模型与渠道配置面板（ModelChannelConfigPanel.jsx，三独立下拉随项目保存） |
 | 3 | `planning/` | 商品分析、消费者逻辑、Storyboard、提示词冻结、质检 |
 | 4 | `generation/` | 最多 20 屏、批量任务、状态、失败重试、断点恢复 |
 | 5 | `versions/` | 单屏连续编辑、版本历史、版本切换 |

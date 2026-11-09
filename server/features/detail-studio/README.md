@@ -19,9 +19,10 @@ server/routes/detail-studio.routes.js         路由装配：无条件注册，�
 
 server/features/detail-studio/
 ├── README.md                                 本文件（目录契约）
-├── store/project-store.js                    项目持久化：原子写(tmp+rename) / .bak 回退 / index.json 单写入器链
-├── model/model-config.js                     文本模型适配单点：本期沿用 gpt-5.6-luna，禁止散落到业务模块
-└── probe/capabilities.js                     能力清单 + 文本模型探针 + /api/images 请求体预检
+├── store/project-store.js                    项目持久化：原子写(tmp+rename) / .bak 回退 / index.json 单写入器链（schema v2）
+├── model/model-config.js                     文本/图片模型适配单点：重点 A 推荐默认 + selectable 标志，禁止散落到业务模块
+├── probe/capabilities.js                     能力清单 + 文本模型探针(接 textModel) + /api/images 请求体预检
+└── intake/mode-c.js                          模式 C 纯函数：提示词整理 tidyPrompt / 行级差异 computePromptDiff（零 AI 依赖）
 ```
 
 | 目录 | 职责 | 允许 import |

@@ -13,7 +13,8 @@ import {
   STUDIO_MAX_SCREENS,
   STUDIO_PROBE_CHANNEL_ID,
   STUDIO_PROBE_MODEL,
-  STUDIO_PROBE_PROMPT
+  STUDIO_PROBE_PROMPT,
+  STUDIO_RECOMMENDED_TEXT_MODEL
 } from "../constants/workspace-contract.js";
 
 function formatDetailStudioProbeResult(result) {
@@ -23,17 +24,24 @@ function formatDetailStudioProbeResult(result) {
 export function DetailStudioCapabilityPanel({ state }) {
   const [probeKey, setProbeKey] = useState("");
   const caps = state.capabilities;
+  // 重点 A ⑤：探针使用「用户在模型与渠道面板所选」的值，而非写死常量。
+  // 用户未选（或尚未在面板保存）时回落到推荐默认 / 自检默认。
+  const modelConfig = state.currentProject?.modelConfig || {};
+  const textModel = modelConfig.textModel || STUDIO_RECOMMENDED_TEXT_MODEL;
+  const imageModel = modelConfig.imageModel || STUDIO_PROBE_MODEL;
+  const channelId = modelConfig.channelId || STUDIO_PROBE_CHANNEL_ID;
 
   function handleTextProbe() {
-    state.runTextProbe({ apiKey: probeKey, prompt: "连通性测试" });
+    // 把用户所选推理模型作为 textModel 透传给探针（接住 probeTextModel 的新签名）。
+    state.runTextProbe({ apiKey: probeKey, prompt: "连通性测试", textModel });
   }
 
   function handleImageProbe() {
     state.runImageProbe({
       apiKey: probeKey,
       prompt: "详情创作工作区请求体预检",
-      model: STUDIO_PROBE_MODEL,
-      channelId: STUDIO_PROBE_CHANNEL_ID
+      model: imageModel,
+      channelId
     });
   }
 
@@ -41,8 +49,8 @@ export function DetailStudioCapabilityPanel({ state }) {
     const form = buildDetailStudioImageForm({
       apiKey: probeKey,
       prompt: STUDIO_PROBE_PROMPT,
-      model: STUDIO_PROBE_MODEL,
-      channelId: STUDIO_PROBE_CHANNEL_ID
+      model: imageModel,
+      channelId
     });
     state.runImageGeneration(form);
   }
@@ -57,8 +65,20 @@ export function DetailStudioCapabilityPanel({ state }) {
       {caps ? (
         <div className="detailStudioFacts">
           <div className="detailStudioFact">
-            <span className="detailStudioFactLabel">文本模型</span>
-            <span className="detailStudioFactValue">{caps.text.model}（本期不可选）</span>
+            <span className="detailStudioFactLabel">所选推理模型</span>
+            <span className="detailStudioFactValue">{textModel}</span>
+          </div>
+          <div className="detailStudioFact">
+            <span className="detailStudioFactLabel">所选图片模型</span>
+            <span className="detailStudioFactValue">{imageModel}</span>
+          </div>
+          <div className="detailStudioFact">
+            <span className="detailStudioFactLabel">所选渠道</span>
+            <span className="detailStudioFactValue">{channelId || "默认（按图片模型自动选合法线路）"}</span>
+          </div>
+          <div className="detailStudioFact">
+            <span className="detailStudioFactLabel">推荐默认</span>
+            <span className="detailStudioFactValue">{caps.recommended?.textModel} · {caps.recommended?.imageModel}</span>
           </div>
           <div className="detailStudioFact">
             <span className="detailStudioFactLabel">文本端点 / 网关数</span>

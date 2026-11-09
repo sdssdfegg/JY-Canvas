@@ -3,6 +3,7 @@
 // public 首启会清 localStorage 并删 IndexedDB 库，所以工作进度一律落服务端 data/。
 
 import { useCallback, useEffect, useState } from "react";
+import { getAppConfig } from "../../../api/config.js";
 import {
   createDetailStudioProject,
   generateDetailStudioImage,
@@ -22,6 +23,7 @@ export function useDetailStudioState() {
   const [projects, setProjects] = useState([]);
   const [currentProject, setCurrentProject] = useState(null);
   const [capabilities, setCapabilities] = useState(null);
+  const [routing, setRouting] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -40,6 +42,14 @@ export function useDetailStudioState() {
       setError("");
     } catch (err) {
       setError(errorMessage(err, "加载详情创作工作区失败"));
+    }
+    // 模型 / 渠道目录（重点 A 下拉选项源）：取 GET /api/config 的 routing 段。
+    // 目录加载慢或失败不应阻断工作区主流程，故独立 try 且不改主 error/notice。
+    try {
+      const config = await getAppConfig();
+      setRouting(config && config.routing ? config.routing : null);
+    } catch {
+      setRouting(null);
     }
   }, []);
 
@@ -99,6 +109,33 @@ export function useDetailStudioState() {
     }
   }, [currentProject, refresh]);
 
+  // 重点 A：保存「推理模型 / 图片模型 / 渠道」三选配置，随当前项目落服务端 modelConfig。
+  // 局部选择态在面板内自管，保存经此动作合并进 project.modelConfig（服务端对四字段放行，mode 不可变）。
+  const saveModelConfig = useCallback(async (patch) => {
+    if (!currentProject) return null;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const prev = currentProject.modelConfig || { textModel: "", imageModel: "", channelId: "" };
+      const next = {
+        textModel: prev.textModel,
+        imageModel: prev.imageModel,
+        channelId: prev.channelId,
+        ...patch
+      };
+      const result = await updateDetailStudioProject(currentProject.id, { modelConfig: next });
+      setCurrentProject(result.project);
+      setNotice("模型与渠道配置已随项目保存");
+      return result.project;
+    } catch (err) {
+      setError(errorMessage(err, "保存模型配置失败"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [currentProject]);
+
   const runTextProbe = useCallback(async (payload) => {
     setBusy(true);
     try {
@@ -141,6 +178,7 @@ export function useDetailStudioState() {
     projects,
     currentProject,
     capabilities,
+    routing,
     busy,
     error,
     notice,
@@ -151,6 +189,7 @@ export function useDetailStudioState() {
     createProject,
     openProject,
     saveProject,
+    saveModelConfig,
     runTextProbe,
     runImageProbe,
     runImageGeneration

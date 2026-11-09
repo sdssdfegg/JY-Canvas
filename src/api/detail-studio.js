@@ -44,7 +44,7 @@ export function probeDetailStudioImage(payload) {
 export function buildDetailStudioImageForm({
   apiKey = "",
   prompt = "",
-  model = "tt-image-2.5",
+  model = "tt-image-2.6",
   channelId = "",
   imageSize = "2K",
   aspectRatio = "3:4"

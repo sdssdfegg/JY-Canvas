@@ -9,6 +9,7 @@ import { useDetailStudioState } from "../state/use-detail-studio-state.js";
 import { DetailStudioBasicsPanel } from "./DetailStudioBasicsPanel.jsx";
 import { DetailStudioCapabilityPanel } from "./DetailStudioCapabilityPanel.jsx";
 import { DetailStudioProjectPanel } from "./DetailStudioProjectPanel.jsx";
+import { ModelChannelConfigPanel } from "../intake/ModelChannelConfigPanel.jsx";
 import "../styles/detail-studio.css";
 
 export function DetailStudioView() {
@@ -22,7 +23,7 @@ export function DetailStudioView() {
           title="详情创作"
           subtitle="独立工作区 · 项目 / 商品资料 / 策划 / 分屏 / 生成 / 编辑 / 预览"
         />
-        <span className="detailStudioStageTag">阶段 1 · 基础建设 · {WORKSPACE_ID}</span>
+        <span className="detailStudioStageTag">阶段 2 · 模型与渠道配置 · {WORKSPACE_ID}</span>
       </header>
 
       {state.error ? <div className="detailStudioBanner detailStudioBannerError">{state.error}</div> : null}
@@ -31,6 +32,7 @@ export function DetailStudioView() {
       <div className="detailStudioGrid">
         <DetailStudioProjectPanel state={state} />
         <div className="detailStudioColumn">
+          <ModelChannelConfigPanel state={state} onSave={state.saveModelConfig} />
           <DetailStudioBasicsPanel state={state} />
           <DetailStudioCapabilityPanel state={state} />
         </div>

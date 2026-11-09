@@ -7,7 +7,12 @@
 import { modelName, postChatCompletion, responseContent } from "../../../core/ai-chat-shared.js";
 import { resolveApiKey } from "../../../core/image-error-policy.js";
 import { channelBaseCandidates } from "../../../core/image-channel-candidates.js";
-import { DETAIL_STUDIO_MODEL_SPEC, describeDetailStudioModel } from "../model/model-config.js";
+import {
+  DETAIL_STUDIO_MODEL_SPEC,
+  describeDetailStudioModel,
+  DETAIL_STUDIO_RECOMMENDED_TEXT_MODEL,
+  DETAIL_STUDIO_RECOMMENDED_IMAGE_MODEL
+} from "../model/model-config.js";
 import { DETAIL_STUDIO_MODES, DETAIL_STUDIO_SCHEMA_VERSION } from "../store/project-store.js";
 
 // 与 server/channel.js:126-211 及 server/routes/images.routes.js:147-158 对齐的最小契约。
@@ -24,7 +29,7 @@ export function describeCapabilities() {
   return {
     ok: true,
     workspace: "detail-studio",
-    stage: 1,
+    stage: 2,
     publicSafe: true,
     noSecondProvider: true,
     text: {
@@ -38,6 +43,7 @@ export function describeCapabilities() {
       reuse: "src/api/images.js#generateImages",
       requiredFields: IMAGE_REQUEST_REQUIRED_FIELDS,
       optionalFields: IMAGE_REQUEST_OPTIONAL_FIELDS,
+      recommendedModel: DETAIL_STUDIO_RECOMMENDED_IMAGE_MODEL,
       noDirectUpstreamCall: true
     },
     storage: {
@@ -48,6 +54,10 @@ export function describeCapabilities() {
       seedExcluded: true,
       schemaVersion: DETAIL_STUDIO_SCHEMA_VERSION
     },
+    recommended: {
+      textModel: DETAIL_STUDIO_RECOMMENDED_TEXT_MODEL,
+      imageModel: DETAIL_STUDIO_RECOMMENDED_IMAGE_MODEL
+    },
     modes: DETAIL_STUDIO_MODES,
     maxScreens: 20
   };
@@ -55,7 +65,8 @@ export function describeCapabilities() {
 
 // 真调一次文本模型，验证 postChatCompletion 链路（需用户自带 API Key）。
 // KEY 只在请求内存活，不落盘、不写日志、不回显。
-export async function probeTextModel({ apiKey, prompt } = {}) {
+// 重点 A：接受前端透传的 textModel（推理模型选择），为空时回退到 spec.fallback（gpt-5.6-luna）。
+export async function probeTextModel({ apiKey, prompt, textModel } = {}) {
   const key = resolveApiKey(apiKey);
   if (!key) {
     return { ok: false, status: 401, message: "请先在设置里填写 API Key" };
@@ -65,7 +76,7 @@ export async function probeTextModel({ apiKey, prompt } = {}) {
   if (!baseUrl) {
     return { ok: false, status: 502, message: "未配置可用网关" };
   }
-  const model = modelName({}, DETAIL_STUDIO_MODEL_SPEC);
+  const model = modelName({ textModel }, DETAIL_STUDIO_MODEL_SPEC);
   const body = {
     model,
     messages: [

@@ -1,5 +1,5 @@
 // server/features/detail-studio/project-store.js
-// 阶段 1：详情创作「项目」持久化（服务端 truth 源）。
+// 阶段 2：详情创作「项目」持久化（服务端 truth 源，schema v2）。
 //
 // 纪律：
 // - 保持「零依赖叶子」：只 import node 内置模块 + server/core/app-paths.js，
@@ -16,8 +16,64 @@ import path from "node:path";
 import { dataDir } from "../../../core/app-paths.js";
 
 export const DETAIL_STUDIO_PROJECTS_DIR = path.join(dataDir, "detail-studio", "projects");
-export const DETAIL_STUDIO_SCHEMA_VERSION = 1;
+export const DETAIL_STUDIO_ASSETS_DIR = path.join(dataDir, "detail-studio", "assets");
+export const DETAIL_STUDIO_SCHEMA_VERSION = 2;
 export const DETAIL_STUDIO_MODES = ["guided", "assisted", "direct"];
+
+// §4 参考图职责：与前端 src/features/detail-studio/constants/workspace-contract.js#STUDIO_REFERENCE_ROLES 同源。
+// 后端 store 侧独立维护一份，避免跨树 import 破坏「零依赖叶子」约束。
+export const DETAIL_STUDIO_REFERENCE_ROLES = ["product", "visualStyle", "contentStructure"];
+
+const REFERENCE_IMAGE_LIMIT = 60;
+const REFERENCE_LABEL_LIMIT = 120;
+const MODE_C_TEXT_LIMIT = 60000;
+
+// 模式 C 边界（重点 A ④）：rawPrompt 一经写入即只读；tidyVersion / diff 可选；frozenPrompt 仅在用户确认后设定。
+function sanitizeModeC(input, previous) {
+  const base = previous && typeof previous === "object" ? previous : {
+    rawPrompt: "", tidyVersion: null, diff: null, frozenPrompt: "", frozenAt: null
+  };
+  const value = input && typeof input === "object" ? input : {};
+  const rawPrompt = base.rawPrompt
+    ? base.rawPrompt
+    : String(value.rawPrompt == null ? "" : value.rawPrompt).slice(0, MODE_C_TEXT_LIMIT);
+  return {
+    rawPrompt,
+    tidyVersion: value.tidyVersion == null ? (base.tidyVersion ?? null) : String(value.tidyVersion).slice(0, MODE_C_TEXT_LIMIT),
+    diff: value.diff == null ? (base.diff ?? null) : value.diff,
+    frozenPrompt: String(value.frozenPrompt == null ? (base.frozenPrompt || "") : value.frozenPrompt).slice(0, MODE_C_TEXT_LIMIT),
+    frozenAt: value.frozenAt == null ? (base.frozenAt || null) : value.frozenAt
+  };
+}
+
+function isValidReferenceImage(item) {
+  return Boolean(item && typeof item === "object" && typeof item.filename === "string" && item.filename
+    && DETAIL_STUDIO_REFERENCE_ROLES.includes(item.role));
+}
+
+// v1 → v2 一次性升级：补齐阶段 2 预留的四个字段，对已 v2 项目幂等。
+export function migrateProject(project) {
+  if (!project || typeof project !== "object") return project;
+  if (project.schemaVersion === DETAIL_STUDIO_SCHEMA_VERSION) return project;
+  const migrated = { ...project, schemaVersion: DETAIL_STUDIO_SCHEMA_VERSION };
+  if (!Array.isArray(migrated.referenceImages)) migrated.referenceImages = [];
+  if (!migrated.productData || typeof migrated.productData !== "object") {
+    migrated.productData = { fields: {}, text: "" };
+  }
+  if (!migrated.modelConfig || typeof migrated.modelConfig !== "object") {
+    migrated.modelConfig = { textModel: "", imageModel: "", channelId: "" };
+  }
+  if (!migrated.modeC || typeof migrated.modeC !== "object") {
+    migrated.modeC = { rawPrompt: "", tidyVersion: null, diff: null, frozenPrompt: "", frozenAt: null };
+  }
+  return migrated;
+}
+
+export function detailStudioAssetsDir(id) {
+  const safeId = safeProjectId(id);
+  if (!safeId) return "";
+  return path.join(DETAIL_STUDIO_ASSETS_DIR, safeId);
+}
 
 const INDEX_FILE = path.join(DETAIL_STUDIO_PROJECTS_DIR, "index.json");
 const PROJECT_FILE_NAME = "project.json";
@@ -111,7 +167,7 @@ export async function getDetailStudioProject(id) {
   if (!safeId) return null;
   const project = await readJsonWithBackup(projectFilePath(safeId), null);
   if (!project || project.id !== safeId) return null;
-  return project;
+  return migrateProject(project);
 }
 
 export async function createDetailStudioProject(input = {}) {
@@ -128,6 +184,10 @@ export async function createDetailStudioProject(input = {}) {
     note: cleanText(input.note, MAX_NOTE_LENGTH),
     status: "draft",
     currentPlanRunId: null,
+    modelConfig: { textModel: "", imageModel: "", channelId: "" },
+    productData: { fields: {}, text: "" },
+    referenceImages: [],
+    modeC: { rawPrompt: "", tidyVersion: null, diff: null, frozenPrompt: "", frozenAt: null },
     createdAt: timestamp,
     updatedAt: timestamp
   };
@@ -144,9 +204,9 @@ export async function updateDetailStudioProject(id, patch = {}) {
   const safeId = safeProjectId(id);
   if (!safeId) throw new Error("项目 id 非法");
   return withIndexWrite(async () => {
-    const project = await readJsonWithBackup(projectFilePath(safeId), null);
+    const project = migrateProject(await readJsonWithBackup(projectFilePath(safeId), null));
     if (!project || project.id !== safeId) return null;
-    // 只允许改基础信息：mode / id / createdAt 一律不可变（三种模式硬隔离）。
+    // 只允许改基础信息 + 阶段 2 四字段；mode / id / createdAt / schemaVersion 一律不可变（三种模式硬隔离）。
     if (Object.prototype.hasOwnProperty.call(patch, "name")) {
       const name = cleanText(patch.name, MAX_NAME_LENGTH);
       if (!name) throw new Error("项目名称不能为空");
@@ -159,6 +219,52 @@ export async function updateDetailStudioProject(id, patch = {}) {
       const status = cleanText(patch.status, 32);
       if (PROJECT_STATUSES.includes(status)) project.status = status;
     }
+    if (Object.prototype.hasOwnProperty.call(patch, "modelConfig")) {
+      const mc = patch.modelConfig;
+      project.modelConfig = {
+        textModel: String((mc && mc.textModel) || "").slice(0, 80),
+        imageModel: String((mc && mc.imageModel) || "").slice(0, 80),
+        channelId: String((mc && mc.channelId) || "").slice(0, 80)
+      };
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "productData")) {
+      const pd = patch.productData;
+      project.productData = {
+        fields: (pd && pd.fields && typeof pd.fields === "object" && !Array.isArray(pd.fields)) ? pd.fields : {},
+        text: String((pd && pd.text) || "").slice(0, 20000)
+      };
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "referenceImages")) {
+      const refs = patch.referenceImages;
+      project.referenceImages = Array.isArray(refs)
+        ? refs.filter(isValidReferenceImage).slice(0, REFERENCE_IMAGE_LIMIT)
+        : project.referenceImages;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "modeC")) {
+      project.modeC = sanitizeModeC(patch.modeC, project.modeC);
+    }
+    project.updatedAt = nowIso();
+    await writeJsonAtomic(projectFilePath(safeId), project);
+    const index = await loadIndex();
+    index.projects = index.projects.map((item) =>
+      item && item.id === safeId ? indexEntry(project) : item
+    );
+    await writeJsonAtomic(INDEX_FILE, index);
+    return project;
+  });
+}
+
+// §4 参考图专用上传落盘：落 data/detail-studio/assets/<id>/，并把条目追加进 project.referenceImages。
+// 只接受已校验的合法条目（见 isValidReferenceImage）；落盘与索引更新都在单写入器链内串行化。
+export async function appendReferenceImage(id, entry) {
+  const safeId = safeProjectId(id);
+  if (!safeId) throw new Error("项目 id 非法");
+  if (!isValidReferenceImage(entry)) throw new Error("参考图条目非法");
+  return withIndexWrite(async () => {
+    const project = migrateProject(await readJsonWithBackup(projectFilePath(safeId), null));
+    if (!project || project.id !== safeId) return null;
+    const list = Array.isArray(project.referenceImages) ? project.referenceImages : [];
+    project.referenceImages = [...list, entry].slice(-REFERENCE_IMAGE_LIMIT);
     project.updatedAt = nowIso();
     await writeJsonAtomic(projectFilePath(safeId), project);
     const index = await loadIndex();
