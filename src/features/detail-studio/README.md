@@ -28,15 +28,22 @@ src/features/detail-studio/
 │   ├── DetailStudioBasicsPanel.jsx         业务区① 当前项目基础信息查看与保存
 │   └── DetailStudioCapabilityPanel.jsx     基础设施：能力自检（文本/图片链路）
 ├── intake/
-│   └── ModelChannelConfigPanel.jsx         重点 A：推理模型 / 图片模型 / 渠道三独立下拉，配置随项目保存
+│   ├── ModelChannelConfigPanel.jsx         重点 A：推理模型 / 图片模型 / 渠道三独立下拉，配置随项目保存
+│   ├── IntakeArea.jsx                      录入区组合：商品资料 + 参考图 + 当前模式专属面板（零业务逻辑）
+│   ├── ProductDataPanel.jsx                §4 商品资料录入（fields + text），随项目保存
+│   ├── ReferenceImagesPanel.jsx            §4 参考图上传 + 职责标注（product / visualStyle / contentStructure）
+│   ├── mode-a/GuidedIntakePanel.jsx        §3 模式 A 引导式录入骨架（不 import planner / skill）
+│   ├── mode-b/AssistedIntakePanel.jsx      §3 模式 B 保留原意录入骨架（不 import planner / skill）
+│   └── mode-c/DirectPromptPanel.jsx        §3 模式 C 四份边界（raw / tidy / diff / frozen，禁止 import planner / skill）
 └── styles/detail-studio.css                 私有样式：零 hex、零 :root 新变量，全用 tokens.css 语义令牌
 ```
 
 | 目录 | 职责 | 允许 import |
 |---|---|---|
 | `constants/` | 纯常量与契约，跨阶段复用 | 无（零依赖叶子） |
-| `state/` | 业务状态与所有异步动作 | React、`src/api/detail-studio.js` |
+| `state/` | 业务状态与所有异步动作（含 §4 商品资料 / 参考图、§3 模式 C 四边界动作） | React、`src/api/detail-studio.js` |
 | `components/` | 视图，按业务区分文件 | `src/shared/ui/`、`constants/`、`state/` 经 props、api 层 |
+| `intake/` | 录入区组合与 §3/§4 面板（商品资料、参考图、三种模式专属面板）。**红线：任何面板禁止 import planner / skill / 策划模块** | `src/shared/ui/`、`constants/`、`state/` 经 props、`src/api/detail-studio.js`（仅经 state 动作间接触发） |
 | `styles/` | 本 feature 私有 CSS | 无 |
 
 ## 3. 后续阶段业务区归属表（规划占位，不预建空目录）

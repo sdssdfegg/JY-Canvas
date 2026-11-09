@@ -69,3 +69,40 @@ export function buildDetailStudioImageForm({
 export function generateDetailStudioImage(form) {
   return generateImages(form);
 }
+
+// ── 阶段 2 §4 商品资料：落到 project.productData（fields + text），随项目保存 ──
+export function saveDetailStudioProductData(id, productData) {
+  return updateDetailStudioProject(id, { productData });
+}
+
+// ── 阶段 2 §4 参考图：专用上传端点（落 data/detail-studio/assets/<id>/），不改动现有 assets/save 路由 ──
+export function uploadDetailStudioReferenceImage(id, file, role, label = "") {
+  const form = new FormData();
+  form.set("file", file);
+  form.set("role", role);
+  form.set("label", String(label || ""));
+  return postForm(BASE + "/projects/" + encodeURIComponent(id) + "/reference-images", form, "上传参考图失败");
+}
+
+export function listDetailStudioReferenceImages(id) {
+  return apiJson(BASE + "/projects/" + encodeURIComponent(id) + "/reference-images", {}, "读取参考图列表失败");
+}
+
+// ── 阶段 2 §3 模式 C 四份边界 ──
+// rawPrompt 落库后只读：仅传 rawPrompt，store 侧 sanitizeModeC 对已有 rawPrompt 保持不覆盖。
+export function saveDetailStudioModeCRawPrompt(id, rawPrompt) {
+  return updateDetailStudioProject(id, { modeC: { rawPrompt } });
+}
+
+// 整理版解析（纯函数，不落盘）：返回 tidyVersion 与 diff，由前端决定是否保存/冻结。
+export function parseModeCPrompt(id, rawPrompt) {
+  return postJson(BASE + "/projects/" + encodeURIComponent(id) + "/intake/mode-c/parse", { rawPrompt }, "整理提示词失败");
+}
+
+// 冻结最终提示词：仅用户确认后写入 frozenPrompt，生成只认这一份。
+export function freezeModeCPrompt(id, frozenPrompt) {
+  return apiJson(BASE + "/projects/" + encodeURIComponent(id) + "/intake/mode-c/freeze", {
+    method: "PUT",
+    body: JSON.stringify({ frozenPrompt })
+  }, "冻结提示词失败");
+}

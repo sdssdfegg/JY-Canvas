@@ -7,13 +7,19 @@ import { getAppConfig } from "../../../api/config.js";
 import {
   buildDetailStudioImageForm,
   createDetailStudioProject,
+  freezeModeCPrompt,
   generateDetailStudioImage,
   getDetailStudioCapabilities,
   getDetailStudioProject,
   listDetailStudioProjects,
+  listDetailStudioReferenceImages,
+  parseModeCPrompt,
   probeDetailStudioImage,
   probeDetailStudioText,
-  updateDetailStudioProject
+  saveDetailStudioModeCRawPrompt,
+  saveDetailStudioProductData,
+  updateDetailStudioProject,
+  uploadDetailStudioReferenceImage
 } from "../../../api/detail-studio.js";
 import { readJsonStorage } from "../../../lib/storage/json-storage.js";
 import { STORAGE_KEY } from "../../../shared/app-defaults.js";
@@ -47,6 +53,9 @@ export function useDetailStudioState() {
   const [textProbe, setTextProbe] = useState(null);
   const [imageProbe, setImageProbe] = useState(null);
   const [imageGeneration, setImageGeneration] = useState(null);
+  // 阶段 2 §4 / §3：参考图列表（带 url，由 list 端点补全）+ 模式 C 解析结果（整理版与差异，瞬时 UI 态）。
+  const [referenceImages, setReferenceImages] = useState([]);
+  const [modeCParse, setModeCParse] = useState(null);
 
   // apiKey 由本 hook 统一从全局设置读取（Owner 红线：详情创作视图不出现 KEY 输入）。
   const apiKey = readDetailStudioApiKey();
@@ -98,6 +107,17 @@ export function useDetailStudioState() {
     }
   }, [refresh]);
 
+  // §4 参考图列表（带 url，由 list 端点补全；无 KEY、不上游，失败不阻断主流程）。
+  const loadReferenceImages = useCallback(async (id) => {
+    if (!id) return;
+    try {
+      const res = await listDetailStudioReferenceImages(id);
+      setReferenceImages(Array.isArray(res.referenceImages) ? res.referenceImages : []);
+    } catch {
+      setReferenceImages([]);
+    }
+  }, []);
+
   const openProject = useCallback(async (id) => {
     setBusy(true);
     setError("");
@@ -105,13 +125,15 @@ export function useDetailStudioState() {
     try {
       const result = await getDetailStudioProject(id);
       setCurrentProject(result.project);
+      setReferenceImages([]);
+      await loadReferenceImages(id);
       setNotice("已从服务端重新打开项目");
     } catch (err) {
       setError(errorMessage(err, "重新打开项目失败"));
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [loadReferenceImages]);
 
   const saveProject = useCallback(async (patch) => {
     if (!currentProject) return null;
@@ -228,6 +250,101 @@ export function useDetailStudioState() {
     }
   }, [hasServerKey]);
 
+  // §4 商品资料：落到 project.productData（fields + text），随项目保存。
+  const saveProductData = useCallback(async (productData) => {
+    if (!currentProject) return null;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await saveDetailStudioProductData(currentProject.id, productData);
+      setCurrentProject(result.project);
+      setNotice("商品资料已保存");
+      return result.project;
+    } catch (err) {
+      setError(errorMessage(err, "保存商品资料失败"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [currentProject]);
+
+  // §4 参考图：上传（带 role + label）→ 重新拉取列表（带 url）刷新本地展示。
+  const uploadReferenceImage = useCallback(async (file, role, label = "") => {
+    if (!currentProject) return null;
+    if (!file) return null;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await uploadDetailStudioReferenceImage(currentProject.id, file, role, label);
+      const res = await listDetailStudioReferenceImages(currentProject.id);
+      setReferenceImages(Array.isArray(res.referenceImages) ? res.referenceImages : []);
+      setNotice("参考图已上传并按职责标注");
+      return true;
+    } catch (err) {
+      setError(errorMessage(err, "上传参考图失败"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [currentProject]);
+
+  // §3 模式 C：保存原始提示词（rawPrompt，落库后只读）。
+  const saveModeCRawPrompt = useCallback(async (rawPrompt) => {
+    if (!currentProject) return null;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await saveDetailStudioModeCRawPrompt(currentProject.id, rawPrompt);
+      setCurrentProject(result.project);
+      setNotice("原始提示词已保存（只读，不可再覆盖）");
+      return result.project;
+    } catch (err) {
+      setError(errorMessage(err, "保存原始提示词失败"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [currentProject]);
+
+  // §3 模式 C：调用纯函数解析整理版与差异（不落盘，前端决定后续是否冻结）。
+  const parseModeC = useCallback(async (rawPrompt) => {
+    if (!currentProject) return null;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await parseModeCPrompt(currentProject.id, rawPrompt);
+      setModeCParse(res);
+      return res;
+    } catch (err) {
+      setError(errorMessage(err, "整理提示词失败"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [currentProject]);
+
+  // §3 模式 C：仅用户确认后冻结 frozenPrompt，生成只认这一份。
+  const freezeModeC = useCallback(async (frozenPrompt) => {
+    if (!currentProject) return null;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await freezeModeCPrompt(currentProject.id, frozenPrompt);
+      setCurrentProject(result.project);
+      setNotice("提示词已冻结，生成时仅使用此版本");
+      return result.project;
+    } catch (err) {
+      setError(errorMessage(err, "冻结提示词失败"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [currentProject]);
+
   return {
     projects,
     currentProject,
@@ -242,11 +359,19 @@ export function useDetailStudioState() {
     textProbe,
     imageProbe,
     imageGeneration,
+    referenceImages,
+    modeCParse,
     refresh,
     createProject,
     openProject,
+    loadReferenceImages,
     saveProject,
     saveModelConfig,
+    saveProductData,
+    uploadReferenceImage,
+    saveModeCRawPrompt,
+    parseModeC,
+    freezeModeC,
     runTextProbe,
     runImageProbe,
     runImageGeneration
