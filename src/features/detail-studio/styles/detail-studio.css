@@ -527,6 +527,71 @@
   color: var(--danger);
 }
 
+.detailStudioScreens {
+  margin-top: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.detailStudioScreensHead {
+  padding: var(--space-2) var(--space-3);
+  background: var(--panel-strong);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.detailStudioScreensList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.detailStudioScreenChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--panel-strong);
+  font-size: var(--text-xs);
+}
+
+.detailStudioScreenIndex {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.detailStudioScreenTitle {
+  color: var(--text);
+  max-width: 14em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detailStudioScreenLines {
+  color: var(--muted);
+}
+
+.detailStudioScreenNote {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.detailStudioScreenWarn {
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--danger);
+  border-top: 1px solid var(--border);
+}
+
 .detailStudioModeCFreeze {
   margin-top: var(--space-3);
   display: grid;

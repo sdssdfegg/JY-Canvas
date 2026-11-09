@@ -94,9 +94,64 @@ export function DirectPromptPanel({ state }) {
         </Toolbar>
       ) : null}
 
-      {/* 边界二 + 三：tidyVersion 可选（默认关闭）+ diff 可看可改 */}
+      {/* 边界二 + 三：tidyVersion 可选（默认关闭）+ diff 可看可改 + screens 结构识别 */}
       {rawLocked ? (
         <div className="detailStudioModeCTidy">
+          {/* 阶段 2 解析范畴：整理版 + 屏结构识别（不调 AI、不改原文），一次点击即出 screens */}
+          <Toolbar align="start">
+            <Button size="sm" tone="ghost" loading={state.busy} onClick={handleParse}>
+              <span>生成整理版并识别屏结构</span>
+            </Button>
+          </Toolbar>
+
+          {/* 屏结构：按空行 / 序号 / /// 屏 N 约定切出 screens[]，展示结构差异 */}
+          {parse && Array.isArray(parse.screens) ? (
+            <div className="detailStudioScreens">
+              <div className="detailStudioScreensHead">屏结构识别（按空行 / 序号 / /// 屏 N 约定切分，原文不改）</div>
+              <div className="detailStudioScreensList">
+                {parse.screens.map((screen) => (
+                  <div className="detailStudioScreenChip" key={screen.index}>
+                    <span className="detailStudioScreenIndex">屏 {screen.index}</span>
+                    {screen.title ? <span className="detailStudioScreenTitle">{screen.title}</span> : null}
+                    <span className="detailStudioScreenLines">{screen.lines.length} 行</span>
+                  </div>
+                ))}
+              </div>
+              {parse.structure ? (
+                tidyEnabled && parse.structure.boundaryShift ? (
+                  <p className="detailStudioScreenWarn">
+                    注意：整理版合并空行后屏边界变化 —— 原文切 {parse.structure.rawScreenCount} 屏，整理版切 {parse.structure.tidyScreenCount} 屏。若以整理版生成请留意此差异。
+                  </p>
+                ) : tidyEnabled ? (
+                  <p className="detailStudioScreenNote">屏结构一致：原文与整理版均切 {parse.structure.rawScreenCount} 屏。</p>
+                ) : (
+                  <p className="detailStudioScreenNote">已识别 {parse.structure.rawScreenCount} 屏（启用整理版可对比边界变化）。</p>
+                )
+              ) : null}
+            </div>
+          ) : null}
+
+          {diff ? (
+            <div className="detailStudioDiff">
+              <div className="detailStudioDiffHead">
+                行级差异（equal {diff.summary.equal} · add {diff.summary.add} · remove {diff.summary.remove}）
+              </div>
+              <div className="detailStudioDiffBody">
+                {diff.lines.map((line, idx) => (
+                  <div className={"detailStudioDiffLine detailStudioDiff_" + line.type} key={idx}>
+                    <span className="detailStudioDiffSign">
+                      {line.type === "add" ? "+" : line.type === "remove" ? "-" : " "}
+                    </span>
+                    <span className="detailStudioDiffText">
+                      {line.type === "remove" ? line.raw : line.tidy}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* 整理版可选编辑（默认关闭，用于生成二选一） */}
           <label className="detailStudioToggle">
             <input
               type="checkbox"
@@ -104,43 +159,17 @@ export function DirectPromptPanel({ state }) {
               disabled={state.busy}
               onChange={(event) => setTidyEnabled(event.target.checked)}
             />
-            <span>启用整理版（确定性排版归一，默认关闭）</span>
+            <span>启用整理版用于生成（确定性排版归一，默认关闭）</span>
           </label>
           {tidyEnabled ? (
-            <>
-              <Toolbar align="start">
-                <Button size="sm" tone="ghost" loading={state.busy} onClick={handleParse}>
-                  <span>生成整理版并对比</span>
-                </Button>
-              </Toolbar>
-              <Field label="整理版（可编辑，与原始提示词二选一用于生成）">
-                <textarea
-                  className="detailStudioTextarea"
-                  value={tidyText}
-                  placeholder="点击「生成整理版」后在此呈现，可手动微调"
-                  onChange={(event) => setTidyText(event.target.value)}
-                />
-              </Field>
-              {diff ? (
-                <div className="detailStudioDiff">
-                  <div className="detailStudioDiffHead">
-                    行级差异（equal {diff.summary.equal} · add {diff.summary.add} · remove {diff.summary.remove}）
-                  </div>
-                  <div className="detailStudioDiffBody">
-                    {diff.lines.map((line, idx) => (
-                      <div className={"detailStudioDiffLine detailStudioDiff_" + line.type} key={idx}>
-                        <span className="detailStudioDiffSign">
-                          {line.type === "add" ? "+" : line.type === "remove" ? "-" : " "}
-                        </span>
-                        <span className="detailStudioDiffText">
-                          {line.type === "remove" ? line.raw : line.tidy}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </>
+            <Field label="整理版（可编辑，与原始提示词二选一用于生成）">
+              <textarea
+                className="detailStudioTextarea"
+                value={tidyText}
+                placeholder="点击「生成整理版并识别屏结构」后在此呈现，可手动微调"
+                onChange={(event) => setTidyText(event.target.value)}
+              />
+            </Field>
           ) : null}
         </div>
       ) : null}

@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-11-09",
-  "reason": "V199 P2 新增 intake 录入区：5 个面板(ProductData/ReferenceImages/IntakeArea + mode-a/b/c) + state hook 扩展(商品资料/参考图/模式C 四边界动作)",
+  "reason": "V199 P3 模式C分屏识别UI：DirectPromptPanel 增加屏结构展示区（屏号/标题/行数 chips + 结构差异提示），+29 行属必要新增",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -48,7 +48,7 @@
     "src/features/detail-studio/intake/IntakeArea.jsx": 43,
     "src/features/detail-studio/intake/mode-a/GuidedIntakePanel.jsx": 66,
     "src/features/detail-studio/intake/mode-b/AssistedIntakePanel.jsx": 56,
-    "src/features/detail-studio/intake/mode-c/DirectPromptPanel.jsx": 174,
+    "src/features/detail-studio/intake/mode-c/DirectPromptPanel.jsx": 203,
     "src/features/detail-studio/intake/ModelChannelConfigPanel.jsx": 121,
     "src/features/detail-studio/intake/ProductDataPanel.jsx": 116,
     "src/features/detail-studio/intake/ReferenceImagesPanel.jsx": 113,
@@ -199,7 +199,7 @@
     "src/features/detail-studio/components/DetailStudioBasicsPanel.jsx::DetailStudioBasicsPanel": 77,
     "src/features/detail-studio/components/DetailStudioCapabilityPanel.jsx::DetailStudioCapabilityPanel": 134,
     "src/features/detail-studio/components/DetailStudioProjectPanel.jsx::DetailStudioProjectPanel": 87,
-    "src/features/detail-studio/intake/mode-c/DirectPromptPanel.jsx::DirectPromptPanel": 153,
+    "src/features/detail-studio/intake/mode-c/DirectPromptPanel.jsx::DirectPromptPanel": 182,
     "src/features/detail-studio/intake/ModelChannelConfigPanel.jsx::ModelChannelConfigPanel": 97,
     "src/features/detail-studio/intake/ProductDataPanel.jsx::ProductDataPanel": 100,
     "src/features/detail-studio/intake/ReferenceImagesPanel.jsx::ReferenceImagesPanel": 91,
