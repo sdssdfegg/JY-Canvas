@@ -11,6 +11,7 @@ import {
   createDetailStudioProject,
   directorDetailStudio,
   freezeDetailStudioPrompts,
+  qualityDetailStudio,
   freezeModeCPrompt,
   generateDetailStudioImage,
   getDetailStudioCapabilities,
@@ -60,6 +61,8 @@ export function useDetailStudioState() {
   // 阶段 2 §4 / §3：参考图列表（带 url，由 list 端点补全）+ 模式 C 解析结果（整理版与差异，瞬时 UI 态）。
   const [referenceImages, setReferenceImages] = useState([]);
   const [modeCParse, setModeCParse] = useState(null);
+  // B4 质检报告（瞬时 UI 态，不落盘；与 modeCParse 同口径）。
+  const [qcReport, setQcReport] = useState(null);
 
   // apiKey 由本 hook 统一从全局设置读取（Owner 红线：详情创作视图不出现 KEY 输入）。
   const apiKey = readDetailStudioApiKey();
@@ -436,6 +439,33 @@ export function useDetailStudioState() {
     }
   }, [currentProject]);
 
+  // ── B4 质量审查：独立 1 次模型调用 + 一次定向修正 + 再审查（封顶）──
+  const qualityReview = useCallback(async () => {
+    if (!currentProject) return null;
+    const apiKey = readDetailStudioApiKey();
+    if (!apiKey && !hasServerKey) {
+      setError("请到设置页填写 API Key（全画板只在设置页填一次，其他视图不重复输入）");
+      return null;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const res = await qualityDetailStudio(currentProject.id, { apiKey });
+      setQcReport(res);
+      if (res.project) setCurrentProject(res.project);
+      setNotice(res.needsHuman
+        ? "质检发现需人工确认的问题，已交回人工"
+        : `质检完成（${res.findings ? res.findings.length : 0} 项，修正 ${res.fixedCount || 0} 次）`);
+      return res;
+    } catch (err) {
+      setError(errorMessage(err, "质量审查失败"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [currentProject, hasServerKey]);
+
   return {
     projects,
     currentProject,
@@ -452,6 +482,7 @@ export function useDetailStudioState() {
     imageGeneration,
     referenceImages,
     modeCParse,
+    qcReport,
     refresh,
     createProject,
     openProject,
@@ -467,6 +498,7 @@ export function useDetailStudioState() {
     directorProject,
     compilePrompts,
     freezePrompts,
+    qualityReview,
     runTextProbe,
     runImageProbe,
     runImageGeneration

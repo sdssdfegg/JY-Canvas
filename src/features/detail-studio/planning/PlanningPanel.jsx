@@ -4,7 +4,7 @@
 // 布局沿用 V201 §2 契约（右列版块内网格堆叠，不回退卡片墙）。
 
 import { useState } from "react";
-import { Clapperboard, FileText, Sparkles } from "lucide-react";
+import { CheckCircle, Clapperboard, FileText, Sparkles } from "lucide-react";
 import { Button } from "../../../shared/ui/Button.jsx";
 import { ModuleHeader } from "../../../shared/ui/ModuleHeader.jsx";
 import { Panel } from "../../../shared/ui/Panel.jsx";
@@ -204,6 +204,62 @@ function FreezeSection({ state, planning }) {
   );
 }
 
+function QualitySection({ state, planning }) {
+  const report = state.qcReport;
+  const screens = planning.screens || [];
+  const CAT_LABELS = {
+    fact: "商品事实",
+    purchaseLogic: "购买逻辑",
+    completeness: "内容完整性",
+    visual: "视觉设计",
+    prompt: "提示词",
+    options: "用户选项"
+  };
+  const run = async () => { await state.qualityReview(); };
+
+  return (
+    <Panel>
+      <ModuleHeader
+        icon={<CheckCircle size={16} />}
+        title="④ 质量审查"
+        subtitle="六类检查 · 定向修正封顶"
+        action={
+          <Button size="sm" tone="primary" loading={state.busy} disabled={!screens.length} onClick={run}>
+            运行质检
+          </Button>
+        }
+      />
+      {!screens.length ? (
+        <p className="dsPlanHint">尚无分屏方案，无法质检。</p>
+      ) : !report ? (
+        <p className="dsPlanHint">
+          运行质检：六类检查（商品事实 / 购买逻辑 / 内容完整性 / 视觉设计 / 提示词 / 用户选项），最多 1 次定向修正 + 再审查。
+        </p>
+      ) : (
+        <div className="dsQcBody">
+          <div className="dsQcSummary">
+            <span className="dsQcCount">共 {report.findings ? report.findings.length : 0} 项</span>
+            <span className="dsQcFixed">修正 {report.fixedCount || 0} 次</span>
+            {report.needsHuman
+              ? <span className="dsQcHuman">需人工确认</span>
+              : <span className="dsQcOk">通过</span>}
+          </div>
+          <ul className="dsQcList">
+            {(report.findings || []).map((f, i) => (
+              <li key={i} className={`dsQcItem dsQcItem--${f.severity}`}>
+                <span className="dsQcCat">{CAT_LABELS[f.category] || f.category}</span>
+                <span className="dsQcMsg">{f.message}</span>
+                {f.screenId ? <span className="dsQcScreen">{f.screenId}</span> : null}
+              </li>
+            ))}
+            {(report.findings || []).length === 0 ? <li className="dsQcOk">未发现质量问题</li> : null}
+          </ul>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 export function PlanningPanel({ state }) {
   const planning = (state.currentProject && state.currentProject.planning) || {};
   if (!state.currentProject) {
@@ -218,6 +274,7 @@ export function PlanningPanel({ state }) {
       <AnalyzeSection state={state} planning={planning} />
       <DirectorSection state={state} planning={planning} />
       <FreezeSection state={state} planning={planning} />
+      <QualitySection state={state} planning={planning} />
     </div>
   );
 }

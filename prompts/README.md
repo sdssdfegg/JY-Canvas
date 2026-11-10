@@ -27,6 +27,7 @@ prompts/
   detail-studio/         阶段 3 详情创作「分层 SKILL 包」（V202 新增，独立于旧 detail-skills.js）
     core/                 事实分级 / 全局锁 / 单屏构图原语 / 选项溯源 / 确定性提示词编译器（纯函数，零依赖）
     prompts/              批次①/②系统提示 + 结构化 JSON schema（纯数据/纯函数）
+    quality/              B4 质量审查：确定性质检规则 checklist.js（六类，零模型）+ LLM 主观质检 qc-prompt.js（纯数据/纯函数）
   frontend/
     README.md             前端默认提示词归档计划
 ```

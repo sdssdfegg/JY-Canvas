@@ -32,6 +32,7 @@ import { parseModeCTidy } from "../features/detail-studio/intake/mode-c.js";
 import { analyzeProductStrategy } from "../features/detail-studio/planning/analyze-strategy.js";
 import { directVisualPlan } from "../features/detail-studio/planning/director-visual.js";
 import { compileScreenPlan, recompileForFreeze } from "../features/detail-studio/planning/compile-screen.js";
+import { runQualityCheck } from "../features/detail-studio/planning/qc-review.js";
 
 function respondDetailStudioError(res, error, fallback) {
   const message = error instanceof Error ? error.message : String(error || fallback);
@@ -315,6 +316,45 @@ export function registerDetailStudioRoutes(app) {
       res.json({ ok: true, frozenPrompts: compiled.frozenPrompts, project: updated });
     } catch (error) {
       respondDetailStudioError(res, error, "冻结提示词失败");
+    }
+  });
+
+  // ── B4 质量审查：独立 1 次模型调用 + 一次定向修正 + 再审查（封顶），不合格交回人工 ──
+  // 模型调用合计 ≤2 次（review + re-review），受 MAX_AUTO_FIX=1 约束，绝不触发第三次调用。
+  app.post("/api/detail-studio/projects/:id/planning/quality", async (req, res) => {
+    try {
+      const project = await getDetailStudioProject(req.params.id);
+      if (!project) return res.status(404).json({ ok: false, message: "项目不存在" });
+      const payload = detailStudioPayload(req);
+      const textModel = String((project.modelConfig && project.modelConfig.textModel) || payload.textModel || "").trim();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 120000);
+      try {
+        const result = await runQualityCheck({ project, apiKey: payload.apiKey, textModel, signal: controller.signal });
+        if (!result.ok) {
+          return res.status(result.status || 502).json({ ok: false, message: result.message });
+        }
+        let updated = project;
+        if (result.updatedScreens) {
+          const patch = { planning: { screens: result.updatedScreens } };
+          if (result.recompiled) patch.planning.frozenPrompts = result.recompiled;
+          updated = await updateDetailStudioProject(req.params.id, patch);
+        }
+        res.json({
+          ok: true,
+          findings: result.findings,
+          deterministicFindings: result.deterministicFindings,
+          llmFindings: result.llmFindings,
+          reReviewFindings: result.reReviewFindings,
+          fixedCount: result.fixedCount,
+          needsHuman: result.needsHuman,
+          project: updated
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (error) {
+      respondDetailStudioError(res, error, "质量审查失败");
     }
   });
 }

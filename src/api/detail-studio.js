@@ -127,3 +127,9 @@ export function compileDetailStudioPrompts(id) {
 export function freezeDetailStudioPrompts(id) {
   return apiJson(BASE + "/projects/" + encodeURIComponent(id) + "/planning/freeze", { method: "PUT" }, "冻结提示词失败");
 }
+
+// ── B4 质量审查：独立 1 次模型调用 + 一次定向修正 + 再审查（封顶）──
+// 模型调用合计 ≤2 次，受服务端 MAX_AUTO_FIX=1 约束，不合格明确交回人工。
+export function qualityDetailStudio(id, { apiKey = "" } = {}) {
+  return postJson(BASE + "/projects/" + encodeURIComponent(id) + "/planning/quality", { apiKey }, "质量审查失败");
+}

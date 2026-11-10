@@ -26,7 +26,8 @@ server/features/detail-studio/
 └── planning/
     ├── analyze-strategy.js                   规划批次①（商品分析+电商策划）：1 次 postChatCompletion 结构化 JSON；选项→全局锁→上下文→appliedOptions 溯源；事实分级校验
     ├── director-visual.js                    规划批次②（导演+分屏）：1 次 postChatCompletion 产出结构化 ScreenSpec[]；unconfirmed 事实上下文侧过滤 + normalize 二次剔除；逐屏上下文
-    └── compile-screen.js                     B3 确定性编译：ScreenSpec[]→每屏 frozenPrompts（零模型调用）；冻结时服务端重编译落库保证 parity
+    ├── compile-screen.js                     B3 确定性编译：ScreenSpec[]→每屏 frozenPrompts（零模型调用）；冻结时服务端重编译落库保证 parity
+    └── qc-review.js                          B4 质量审查：确定性 checklist + 独立 1 次模型调用（review）+ 一次定向修正 + 再审查（MAX_AUTO_FIX=1 封顶）；不合格交回人工
 ```
 
 | 目录 | 职责 | 允许 import |
@@ -35,6 +36,8 @@ server/features/detail-studio/
 | `model/` | 模型名与 spec 的唯一适配点，零依赖 | 无 |
 | `probe/` | 复用现有模型链路做连通性自检 | `server/core/*`、`store/`、`model/` |
 | `planning/` | 阶段 3 规划业务区：批次①分析/策划、批次②导演分屏、提示词编译、质量审查 | `server/core/ai-chat-shared.js`、`store/`、`model/`、`prompts/detail-studio/**`（只读复用）、`prompts/server/detail-skills.js`（只读复用） |
+
+> B4 质检上限（V202 §7-7）：`qc-review.js` 的模型调用封顶为 review + re-review 合计 ≤2 次；定向修正受 `MAX_AUTO_FIX=1` 约束，只发生一次、不无限循环；仍不合格明确交回人工（`needsHuman`），绝不触发第三次调用。
 
 ## 3. 数据与模型边界（红线）
 

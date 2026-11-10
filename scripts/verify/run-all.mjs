@@ -233,6 +233,8 @@ const ORDER = [
   "mode-c-purity-check",
   "option-effect-check",
   "frozen-prompt-parity-check",
+  // V202（2026-11-10）：详情创作 B4 质检上限门禁——MAX_AUTO_FIX=1、循环以常量为界、模型调用封顶 ≤2 次，进提交钩子快速子集。
+  "qc-ceiling-check",
   // 2026-10-16：上条的浏览器实测（起服务 + tabbit 真实浏览器）：v1 禁用 / v2 出现 off 选项 /
   // 选中 off / 保存预设刷新回载仍 off / 切回 v1 仍禁用。不起服务的进不了 --fast，只进全量表。
   "detail-stylepack-off-browser-check",
@@ -327,6 +329,8 @@ const FAST_ORDER = [
   "mode-c-purity-check",
   "option-effect-check",
   "frozen-prompt-parity-check",
+  // V202（2026-11-10）：阶段 3B B4 质检上限门禁（纯逻辑、零上游，进 --fast 快速子集）。
+  "qc-ceiling-check",
   "generation-error-check",
   "history-integrity-check",
   "local-edit-ratio-check",

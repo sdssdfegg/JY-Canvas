@@ -38,7 +38,7 @@ src/features/detail-studio/
 │   ├── mode-b/AssistedIntakePanel.jsx      §3 模式 B 保留原意录入骨架（不 import planner / skill）
 │   └── mode-c/DirectPromptPanel.jsx        §3 模式 C 四份边界（raw / tidy / diff / frozen，禁止 import planner / skill）
 ├── planning/
-│   └── PlanningPanel.jsx                   阶段 3 规划面板：商品分析展示 / A 模式 completeness>0.8 停追问 / 导演分屏 ScreenSpec[] 结构化审阅 / 编译冻结。**红线：只调 state 动作与 src/api/detail-studio.js，禁止 import planner / skill / 策划模块**
+│   └── PlanningPanel.jsx                   阶段 3 规划面板：商品分析展示 / A 模式 completeness>0.8 停追问 / 导演分屏 ScreenSpec[] 结构化审阅 / 编译冻结 / B4 质量审查六类检查。**红线：只调 state 动作与 src/api/detail-studio.js，禁止 import planner / skill / 策划模块**
 └── styles/detail-studio.css                 私有样式：零 hex、零 :root 新变量，全用 tokens.css 语义令牌
 ```
 
