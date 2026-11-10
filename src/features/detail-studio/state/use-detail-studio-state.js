@@ -5,8 +5,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { getAppConfig } from "../../../api/config.js";
 import {
+  analyzeDetailStudio,
   buildDetailStudioImageForm,
+  compileDetailStudioPrompts,
   createDetailStudioProject,
+  directorDetailStudio,
+  freezeDetailStudioPrompts,
   freezeModeCPrompt,
   generateDetailStudioImage,
   getDetailStudioCapabilities,
@@ -345,6 +349,93 @@ export function useDetailStudioState() {
     }
   }, [currentProject]);
 
+  // ── 阶段 3 规划批次①：商品分析 + 电商策划（1 次模型调用）──
+  const analyzeProject = useCallback(async () => {
+    if (!currentProject) return null;
+    const apiKey = readDetailStudioApiKey();
+    if (!apiKey && !hasServerKey) {
+      setError("请到设置页填写 API Key（全画板只在设置页填一次，其他视图不重复输入）");
+      return null;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const res = await analyzeDetailStudio(currentProject.id, { apiKey });
+      setCurrentProject(res.project);
+      setNotice(res.completeness >= 0.8
+        ? "商品分析完成，信息较完整，可进入分屏"
+        : "商品分析完成，信息尚有缺口，建议补充后再分屏");
+      return res;
+    } catch (err) {
+      setError(errorMessage(err, "商品分析失败"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [currentProject, hasServerKey]);
+
+  // ── 阶段 3 规划批次②：导演 + 分屏（1 次模型调用，产出结构化 ScreenSpec[]）──
+  const directorProject = useCallback(async () => {
+    if (!currentProject) return null;
+    const apiKey = readDetailStudioApiKey();
+    if (!apiKey && !hasServerKey) {
+      setError("请到设置页填写 API Key（全画板只在设置页填一次，其他视图不重复输入）");
+      return null;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const res = await directorDetailStudio(currentProject.id, { apiKey });
+      setCurrentProject(res.project);
+      setNotice("分屏方案已生成（" + (res.screens ? res.screens.length : 0) + " 屏），可审阅后编译冻结");
+      return res;
+    } catch (err) {
+      setError(errorMessage(err, "导演分屏失败"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [currentProject, hasServerKey]);
+
+  // ── B3 确定性编译：把已规划 ScreenSpec[] 编译成每屏 frozenPrompts（零模型）──
+  const compilePrompts = useCallback(async () => {
+    if (!currentProject) return null;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const res = await compileDetailStudioPrompts(currentProject.id);
+      setNotice("提示词已编译，请审阅每屏后再冻结");
+      return res;
+    } catch (err) {
+      setError(errorMessage(err, "编译提示词失败"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [currentProject]);
+
+  // ── B3 冻结：用户确认后服务端重编译并落库 frozenPrompts ──
+  const freezePrompts = useCallback(async () => {
+    if (!currentProject) return null;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const res = await freezeDetailStudioPrompts(currentProject.id);
+      setCurrentProject(res.project);
+      setNotice("提示词已冻结，生成时仅使用此版本");
+      return res;
+    } catch (err) {
+      setError(errorMessage(err, "冻结提示词失败"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [currentProject]);
+
   return {
     projects,
     currentProject,
@@ -372,6 +463,10 @@ export function useDetailStudioState() {
     saveModeCRawPrompt,
     parseModeC,
     freezeModeC,
+    analyzeProject,
+    directorProject,
+    compilePrompts,
+    freezePrompts,
     runTextProbe,
     runImageProbe,
     runImageGeneration

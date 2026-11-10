@@ -29,6 +29,9 @@ import {
   updateDetailStudioProject
 } from "../features/detail-studio/store/project-store.js";
 import { parseModeCTidy } from "../features/detail-studio/intake/mode-c.js";
+import { analyzeProductStrategy } from "../features/detail-studio/planning/analyze-strategy.js";
+import { directVisualPlan } from "../features/detail-studio/planning/director-visual.js";
+import { compileScreenPlan, recompileForFreeze } from "../features/detail-studio/planning/compile-screen.js";
 
 function respondDetailStudioError(res, error, fallback) {
   const message = error instanceof Error ? error.message : String(error || fallback);
@@ -200,6 +203,116 @@ export function registerDetailStudioRoutes(app) {
       });
       if (!updated) return res.status(404).json({ ok: false, message: "项目不存在" });
       res.json({ ok: true, project: updated });
+    } catch (error) {
+      respondDetailStudioError(res, error, "冻结提示词失败");
+    }
+  });
+
+  // ── 规划批次①（商品分析 + 电商策划）：1 次 postChatCompletion，结构化 JSON ──
+  // 落库到 project.planning（analyze / appliedOptions / globalLock / industryId）。
+  // KEY 只在本请求内存活（resolveApiKey），不落盘、不回显；文本模型复用单网关。
+  app.post("/api/detail-studio/projects/:id/planning/analyze", async (req, res) => {
+    try {
+      const project = await getDetailStudioProject(req.params.id);
+      if (!project) return res.status(404).json({ ok: false, message: "项目不存在" });
+      const payload = detailStudioPayload(req);
+      const textModel = String((project.modelConfig && project.modelConfig.textModel) || payload.textModel || "").trim();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 60000);
+      try {
+        const result = await analyzeProductStrategy({ project, apiKey: payload.apiKey, textModel, signal: controller.signal });
+        if (!result.ok) {
+          return res.status(result.status || 502).json({ ok: false, message: result.message });
+        }
+        const updated = await updateDetailStudioProject(req.params.id, {
+          planning: {
+            analyze: result.analysis,
+            appliedOptions: result.appliedOptions,
+            globalLock: result.globalLock,
+            industryId: result.industryId
+          }
+        });
+        res.json({
+          ok: true,
+          analysis: result.analysis,
+          industryId: result.industryId,
+          appliedOptions: result.appliedOptions,
+          appliedOptionsComplete: result.appliedOptionsComplete,
+          completeness: result.completeness,
+          project: updated
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (error) {
+      respondDetailStudioError(res, error, "商品分析失败");
+    }
+  });
+
+  // ── 规划批次②（导演 + 分屏 + 单屏视觉）：1 次 postChatCompletion，产出结构化 ScreenSpec[] ──
+  // 落库到 project.planning（screens / narrativeSummary / visualDNA）。
+  // unconfirmed 事实已在上下文侧过滤 + normalize 程序层二次剔除，绝不进 ScreenSpec/frozenPrompt。
+  app.post("/api/detail-studio/projects/:id/planning/director", async (req, res) => {
+    try {
+      const project = await getDetailStudioProject(req.params.id);
+      if (!project) return res.status(404).json({ ok: false, message: "项目不存在" });
+      const payload = detailStudioPayload(req);
+      const textModel = String((project.modelConfig && project.modelConfig.textModel) || payload.textModel || "").trim();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 90000);
+      try {
+        const result = await directVisualPlan({ project, apiKey: payload.apiKey, textModel, signal: controller.signal });
+        if (!result.ok) {
+          return res.status(result.status || 502).json({ ok: false, message: result.message, upstream: result.upstream });
+        }
+        const updated = await updateDetailStudioProject(req.params.id, {
+          planning: {
+            screens: result.screens,
+            narrativeSummary: result.narrativeSummary,
+            visualDNA: result.visualDNA
+          }
+        });
+        res.json({
+          ok: true,
+          screens: result.screens,
+          narrativeSummary: result.narrativeSummary,
+          visualDNA: result.visualDNA,
+          project: updated
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (error) {
+      respondDetailStudioError(res, error, "导演分屏失败");
+    }
+  });
+
+  // ── B3 确定性编译：把已规划的 ScreenSpec[] 编译成每屏 frozenPrompts（零模型调用）──
+  // 仅预览用，不落库；用户确认后再走 freeze 端点（服务端重编译落库，保证 parity）。
+  app.post("/api/detail-studio/projects/:id/planning/compile", async (req, res) => {
+    try {
+      const project = await getDetailStudioProject(req.params.id);
+      if (!project) return res.status(404).json({ ok: false, message: "项目不存在" });
+      const compiled = compileScreenPlan(project);
+      res.json({ ok: true, frozenPrompts: compiled.frozenPrompts, screenCount: compiled.screenCount });
+    } catch (error) {
+      respondDetailStudioError(res, error, "编译提示词失败");
+    }
+  });
+
+  // ── B3 冻结：用户确认后，服务端重编译并落库 frozenPrompts（生成只认这一份）──
+  app.put("/api/detail-studio/projects/:id/planning/freeze", async (req, res) => {
+    try {
+      const project = await getDetailStudioProject(req.params.id);
+      if (!project) return res.status(404).json({ ok: false, message: "项目不存在" });
+      const screens = (project.planning && Array.isArray(project.planning.screens)) ? project.planning.screens : [];
+      if (!screens.length) return res.status(400).json({ ok: false, message: "尚无分屏方案，无法冻结" });
+      // 服务端重编译：不信任客户端传来的字符串，保证「展示 == 实际发送 == 落库」三者同源。
+      const compiled = recompileForFreeze(project);
+      const updated = await updateDetailStudioProject(req.params.id, {
+        planning: { frozenPrompts: compiled.frozenPrompts }
+      });
+      res.json({ ok: true, frozenPrompts: compiled.frozenPrompts, project: updated });
     } catch (error) {
       respondDetailStudioError(res, error, "冻结提示词失败");
     }

@@ -23,7 +23,10 @@ prompts/
   README.md
   server/
     outfit-skill.js       批量生成最终提示词出口（结构化意图 → 唯一编译器；其它 workflow = 只发用户原话）
-    detail-skills.js      一键详情/主图的行业、平台、质检规则（仍然生效）
+    detail-skills.js      一键详情/主图的行业、平台、质检规则（仍然生效，详情创作只读复用）
+  detail-studio/         阶段 3 详情创作「分层 SKILL 包」（V202 新增，独立于旧 detail-skills.js）
+    core/                 事实分级 / 全局锁 / 单屏构图原语 / 选项溯源 / 确定性提示词编译器（纯函数，零依赖）
+    prompts/              批次①/②系统提示 + 结构化 JSON schema（纯数据/纯函数）
   frontend/
     README.md             前端默认提示词归档计划
 ```

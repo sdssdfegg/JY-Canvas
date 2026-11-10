@@ -37,6 +37,8 @@ src/features/detail-studio/
 │   ├── mode-a/GuidedIntakePanel.jsx        §3 模式 A 引导式录入骨架（V201 去 checklist 语义，改必填/可选标签化；不 import planner / skill）
 │   ├── mode-b/AssistedIntakePanel.jsx      §3 模式 B 保留原意录入骨架（不 import planner / skill）
 │   └── mode-c/DirectPromptPanel.jsx        §3 模式 C 四份边界（raw / tidy / diff / frozen，禁止 import planner / skill）
+├── planning/
+│   └── PlanningPanel.jsx                   阶段 3 规划面板：商品分析展示 / A 模式 completeness>0.8 停追问 / 导演分屏 ScreenSpec[] 结构化审阅 / 编译冻结。**红线：只调 state 动作与 src/api/detail-studio.js，禁止 import planner / skill / 策划模块**
 └── styles/detail-studio.css                 私有样式：零 hex、零 :root 新变量，全用 tokens.css 语义令牌
 ```
 
@@ -46,6 +48,7 @@ src/features/detail-studio/
 | `state/` | 业务状态与所有异步动作（含 §4 商品资料 / 参考图、§3 模式 C 四边界动作） | React、`src/api/detail-studio.js` |
 | `components/` | 视图，按业务区分文件 | `src/shared/ui/`、`constants/`、`state/` 经 props、api 层 |
 | `intake/` | 录入区组合与 §3/§4 面板（商品资料、参考图、三种模式专属面板）。**红线：任何面板禁止 import planner / skill / 策划模块** | `src/shared/ui/`、`constants/`、`state/` 经 props、`src/api/detail-studio.js`（仅经 state 动作间接触发） |
+| `planning/` | 阶段 3 规划面板（分析 / 分屏 / 冻结 UI）。**红线：禁止 import planner / skill / 策划模块**，只经 state 动作触发 | `src/shared/ui/`、`state/` 经 props、`src/api/detail-studio.js`（仅经 state 动作间接触发） |
 | `styles/` | 本 feature 私有 CSS | 无 |
 
 ## 3. 后续阶段业务区归属表（规划占位，不预建空目录）

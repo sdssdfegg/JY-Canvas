@@ -2,7 +2,7 @@
 // 详情创作工作区唯一请求出口（api-layering-check：页面组件禁止散写 fetch）。
 // 图片生成复用现有 /api/images 与现有封装 generateImages，不新建第二套图片体系。
 
-import { apiJson, postJson } from "./client.js";
+import { apiJson, postForm, postJson } from "./client.js";
 import { generateImages } from "./images.js";
 import { routingFields } from "../shared/routing.js";
 
@@ -105,4 +105,25 @@ export function freezeModeCPrompt(id, frozenPrompt) {
     method: "PUT",
     body: JSON.stringify({ frozenPrompt })
   }, "冻结提示词失败");
+}
+
+// ── 阶段 3 规划批次①（商品分析 + 电商策划）：1 次模型调用，返回结构化 JSON ──
+// KEY 由前端从全局设置读取后透传（不在本视图落盘）。落库到 project.planning。
+export function analyzeDetailStudio(id, { apiKey = "", textModel = "" } = {}) {
+  return postJson(BASE + "/projects/" + encodeURIComponent(id) + "/planning/analyze", { apiKey, textModel }, "商品分析失败");
+}
+
+// ── 阶段 3 规划批次②（导演 + 分屏）：1 次模型调用，产出结构化 ScreenSpec[] ──
+export function directorDetailStudio(id, { apiKey = "", textModel = "" } = {}) {
+  return postJson(BASE + "/projects/" + encodeURIComponent(id) + "/planning/director", { apiKey, textModel }, "导演分屏失败");
+}
+
+// ── B3 确定性编译：把已规划的 ScreenSpec[] 编译成每屏 frozenPrompts（零模型）──
+export function compileDetailStudioPrompts(id) {
+  return postJson(BASE + "/projects/" + encodeURIComponent(id) + "/planning/compile", {}, "编译提示词失败");
+}
+
+// ── B3 冻结：用户确认后服务端重编译并落库 frozenPrompts ──
+export function freezeDetailStudioPrompts(id) {
+  return apiJson(BASE + "/projects/" + encodeURIComponent(id) + "/planning/freeze", { method: "PUT" }, "冻结提示词失败");
 }

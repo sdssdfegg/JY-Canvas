@@ -19,10 +19,14 @@ server/routes/detail-studio.routes.js         路由装配：无条件注册，�
 
 server/features/detail-studio/
 ├── README.md                                 本文件（目录契约）
-├── store/project-store.js                    项目持久化：原子写(tmp+rename) / .bak 回退 / index.json 单写入器链（schema v2）
+├── store/project-store.js                    项目持久化：原子写(tmp+rename) / .bak 回退 / index.json 单写入器链（schema v2；规划区 planning 受控合并）
 ├── model/model-config.js                     文本/图片模型适配单点：重点 A 推荐默认 + selectable 标志，禁止散落到业务模块
 ├── probe/capabilities.js                     能力清单 + 文本模型探针(接 textModel) + /api/images 请求体预检
-└── intake/mode-c.js                          模式 C 纯函数：提示词整理 tidyPrompt / 行级差异 computePromptDiff / 分屏边界 splitIntoScreens（零 AI 依赖，screens 仅解析识别、不生成）
+├── intake/mode-c.js                          模式 C 纯函数：提示词整理 tidyPrompt / 行级差异 computePromptDiff / 分屏边界 splitIntoScreens（零 AI 依赖，screens 仅解析识别、不生成）
+└── planning/
+    ├── analyze-strategy.js                   规划批次①（商品分析+电商策划）：1 次 postChatCompletion 结构化 JSON；选项→全局锁→上下文→appliedOptions 溯源；事实分级校验
+    ├── director-visual.js                    规划批次②（导演+分屏）：1 次 postChatCompletion 产出结构化 ScreenSpec[]；unconfirmed 事实上下文侧过滤 + normalize 二次剔除；逐屏上下文
+    └── compile-screen.js                     B3 确定性编译：ScreenSpec[]→每屏 frozenPrompts（零模型调用）；冻结时服务端重编译落库保证 parity
 ```
 
 | 目录 | 职责 | 允许 import |
@@ -30,6 +34,7 @@ server/features/detail-studio/
 | `store/` | 项目 JSON 持久化，零依赖叶子 | Node 内置、`app-paths.js` |
 | `model/` | 模型名与 spec 的唯一适配点，零依赖 | 无 |
 | `probe/` | 复用现有模型链路做连通性自检 | `server/core/*`、`store/`、`model/` |
+| `planning/` | 阶段 3 规划业务区：批次①分析/策划、批次②导演分屏、提示词编译、质量审查 | `server/core/ai-chat-shared.js`、`store/`、`model/`、`prompts/detail-studio/**`（只读复用）、`prompts/server/detail-skills.js`（只读复用） |
 
 ## 3. 数据与模型边界（红线）
 
@@ -46,7 +51,7 @@ server/features/detail-studio/
 | 阶段 | 新增业务区目录 | 承载 |
 |---|---|---|
 | 2 | `intake/` | 三种创作模式入口、商品事实资料、参考图职责分类 |
-| 3 | `planning/` | 商品分析、消费者购买逻辑、Storyboard、提示词冻结、质量检查 |
+| 3 | `planning/` | 商品分析、消费者购买逻辑、Storyboard、提示词冻结、质量检查（V202 批次① analyze-strategy.js 已落地；批次②/③/④ 见执行单） |
 | 4 | `generation/` | 最多 20 屏、任务状态、失败重试、断点恢复、幂等 |
 | 5 | `versions/` | 单屏连续编辑、版本历史、版本切换 |
 | 6 | `export/` | 整体预览、项目保存恢复、批量导出 |

@@ -66,6 +66,27 @@ export function migrateProject(project) {
   if (!migrated.modeC || typeof migrated.modeC !== "object") {
     migrated.modeC = { rawPrompt: "", tidyVersion: null, diff: null, frozenPrompt: "", frozenAt: null };
   }
+  // 阶段 3（详情创作规划/分屏/冻结/质检）承载区：analyze 结论、逐屏 ScreenSpec、frozenPrompt、选项溯源。
+  // 与 modeC 同口径——旧字段缺失时补齐默认，已存在则保留，保证幂等。
+  if (!migrated.planning || typeof migrated.planning !== "object") {
+    migrated.planning = {
+      analyze: null,
+      appliedOptions: [],
+      globalLock: "",
+      industryId: "",
+      screens: [],
+      narrativeSummary: "",
+      visualDNA: null,
+      frozenPrompts: {}
+    };
+  }
+  if (!Array.isArray(migrated.planning.appliedOptions)) migrated.planning.appliedOptions = [];
+  if (!Array.isArray(migrated.planning.screens)) migrated.planning.screens = [];
+  if (!migrated.planning.frozenPrompts || typeof migrated.planning.frozenPrompts !== "object") {
+    migrated.planning.frozenPrompts = {};
+  }
+  if (migrated.planning.visualDNA == null) migrated.planning.visualDNA = null;
+  if (typeof migrated.planning.narrativeSummary !== "string") migrated.planning.narrativeSummary = "";
   return migrated;
 }
 
@@ -188,6 +209,16 @@ export async function createDetailStudioProject(input = {}) {
     productData: { fields: {}, text: "" },
     referenceImages: [],
     modeC: { rawPrompt: "", tidyVersion: null, diff: null, frozenPrompt: "", frozenAt: null },
+    planning: {
+      analyze: null,
+      appliedOptions: [],
+      globalLock: "",
+      industryId: "",
+      screens: [],
+      narrativeSummary: "",
+      visualDNA: null,
+      frozenPrompts: {}
+    },
     createdAt: timestamp,
     updatedAt: timestamp
   };
@@ -242,6 +273,25 @@ export async function updateDetailStudioProject(id, patch = {}) {
     }
     if (Object.prototype.hasOwnProperty.call(patch, "modeC")) {
       project.modeC = sanitizeModeC(patch.modeC, project.modeC);
+    }
+    // 阶段 3 规划区：analyze 结论 / 逐屏 / 冻结 / 选项溯源。受控合并，避免整体覆盖丢其它子字段。
+    if (Object.prototype.hasOwnProperty.call(patch, "planning")) {
+      const incoming = patch.planning;
+      if (incoming && typeof incoming === "object" && !Array.isArray(incoming)) {
+        const prev = project.planning || {};
+        project.planning = {
+          analyze: incoming.analyze !== undefined ? incoming.analyze : (prev.analyze || null),
+          appliedOptions: Array.isArray(incoming.appliedOptions) ? incoming.appliedOptions : (prev.appliedOptions || []),
+          globalLock: String(incoming.globalLock != null ? incoming.globalLock : (prev.globalLock || "")),
+          industryId: String(incoming.industryId != null ? incoming.industryId : (prev.industryId || "")),
+          screens: Array.isArray(incoming.screens) ? incoming.screens : (prev.screens || []),
+          narrativeSummary: String(incoming.narrativeSummary != null ? incoming.narrativeSummary : (prev.narrativeSummary || "")),
+          visualDNA: incoming.visualDNA !== undefined ? incoming.visualDNA : (prev.visualDNA || null),
+          frozenPrompts: (incoming.frozenPrompts && typeof incoming.frozenPrompts === "object")
+            ? incoming.frozenPrompts
+            : (prev.frozenPrompts || {})
+        };
+      }
     }
     project.updatedAt = nowIso();
     await writeJsonAtomic(projectFilePath(safeId), project);
