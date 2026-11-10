@@ -56,13 +56,14 @@ export const DIRECTOR_OUTPUT_SCHEMA = [
 ].join("\n");
 
 /**
- * 拼装批次②的用户消息：批次①结论（仅可发布事实）+ 屏数 + 平台节奏 + 整体视觉 DNA + 全局锁 + 选项 + 参考图元信息。
+ * 拼装批次②的用户消息：批次①结论（仅可发布事实）+ 屏数 + 平台节奏 + 整体视觉 DNA + 全局锁 + 行业策略四字段 + 选项 + 参考图元信息。
  * 参考图只传元信息（role / label），不传像素。
  * @param {Object} input
  * @param {Object} input.analyze            批次①规范化结论（含 facts 已过滤为可发布分级、consumerLogic、sellingPoints、decisionLogic）
  * @param {Array}  input.publishableFacts   已过滤为可发布分级的事实 [{key,value,grade,field}]
  * @param {number} input.screenCount        目标屏数（≤20）
  * @param {Object} input.globalLockContext  全局锁与平台/风格/构图基调（来自 buildAnalyzeContext 的上下文）
+ * @param {Object} input.industryStrategy   已解析行业策略（B5 四字段覆盖层：contentPlan/visualExpression/productFacts/promoBoundaries）
  * @param {Object} input.options            已迁移结构化选项
  * @param {Array}  input.referenceMeta      [{role, label}]
  * @returns {string}
@@ -72,6 +73,7 @@ export function buildDirectorUserPrompt({
   publishableFacts = [],
   screenCount = 8,
   globalLockContext = {},
+  industryStrategy = {},
   referenceMeta = []
 } = {}) {
   const consumerLogic = analyze.consumerLogic || {};
@@ -89,6 +91,15 @@ export function buildDirectorUserPrompt({
   const platformText = meta.platformProfile
     ? `平台：${meta.platformProfile.platform || "通用"}${meta.platformProfile.pageType || ""}；节奏：${meta.platformProfile.rhythm || "标准"}。`
     : "平台：通用；节奏：标准。";
+  const industry = industryStrategy || {};
+  const contentPlanLines = (Array.isArray(industry.contentPlan) && industry.contentPlan.length)
+    ? industry.contentPlan.map((c) => `  - ${c}`).join("\n")
+    : "  （通用内容节奏）";
+  const visualExpressionLines = (Array.isArray(industry.visualExpression) && industry.visualExpression.length)
+    ? industry.visualExpression.map((v) => `  - ${v}`).join("\n")
+    : "  （通用视觉基调）";
+  const productFactsLine = `事实边界（只描述可观察/已确认）：${(Array.isArray(industry.productFacts) && industry.productFacts.length) ? industry.productFacts.join("、") : "以商品图为准"}。`;
+  const promoBoundariesLine = `宣传边界（不得跨过）：${(Array.isArray(industry.promoBoundaries) && industry.promoBoundaries.length) ? industry.promoBoundaries.join("；") : "不虚构未证实的功效/参数/认证"}。`;
 
   return [
     "【商品分析结论（已确认事实 + 策划）】",
@@ -102,6 +113,14 @@ export function buildDirectorUserPrompt({
     sellingLines || "  （未明确）",
     "【决策逻辑】",
     String(analyze.decisionLogic || "以真实商品事实驱动，避免过度承诺。"),
+    "",
+    "【行业内容规划】",
+    contentPlanLines,
+    "【行业视觉表达】",
+    visualExpressionLines,
+    "【行业事实与宣传边界】",
+    productFactsLine,
+    promoBoundariesLine,
     "",
     "【目标屏数】",
     String(screenCount),

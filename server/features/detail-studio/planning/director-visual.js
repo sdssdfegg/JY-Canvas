@@ -68,6 +68,7 @@ export function buildDirectorContext(project = {}) {
       globalLock: planningContext.globalLock,
       platformProfile: planningContext.platformProfile
     },
+    industryStrategy: planningContext.industryStrategy,
     options,
     referenceMeta
   });

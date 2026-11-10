@@ -8,8 +8,9 @@
 //  - 选项 → 全局锁 → 上下文 → 逐屏 的参数链源头在此；appliedOptions 必须完整溯源。
 //  - 不 import 任何 planner / skill / quality 之外的越权模块；C 路径完全不经过本文件（见 mode-c-purity 门禁）。
 //
-// 复用（只读）：prompts/server/detail-skills.js 的 INDUSTRY_SKILLS / PLATFORM_SKILLS / getIndustrySkillByText / getPlatformSkill
-// 属执行单 §2 #8 明确「只读复用，不修改」。
+// 复用（只读）：prompts/server/detail-skills.js 的 PLATFORM_SKILLS / getPlatformSkill（执行单 §2 #8「只读复用，不修改」）。
+// 行业策略解析改走 prompts/detail-studio/industry/index.js 的 getIndustryStrategy（B5 新加载器，含三条冲突消解规则，
+// 修复旧 getIndustrySkillByText 把「清洁日化」误判为家居的问题）；旧 INDUSTRY_SKILLS 底座仍被该加载器只读复用。
 
 import { extractJsonObject, modelName, postChatCompletion, responseContent } from "../../../core/ai-chat-shared.js";
 import { resolveApiKey } from "../../../core/image-error-policy.js";
@@ -21,11 +22,8 @@ import {
   ANALYZE_SYSTEM_PROMPT,
   buildAnalyzeUserPrompt
 } from "../../../../prompts/detail-studio/prompts/analyze-strategy.js";
-import {
-  INDUSTRY_SKILLS,
-  getIndustrySkillByText,
-  getPlatformSkill
-} from "../../../../prompts/server/detail-skills.js";
+import { getIndustryStrategy } from "../../../../prompts/detail-studio/industry/index.js";
+import { getPlatformSkill } from "../../../../prompts/server/detail-skills.js";
 
 /** 选项白名单：参与编译、必须在 appliedOptions 中被溯源追踪的键。 */
 export const TRACED_OPTION_KEYS = Object.freeze([
@@ -53,19 +51,20 @@ export function extractPlanningOptions(project = {}) {
   return options;
 }
 
-/** 解析行业策略：显式 industryId 优先（执行单 §3 B5 冲突消解规则①），否则按文本打分。 */
+/**
+ * 解析行业策略：委托 B5 新加载器 getIndustryStrategy。
+ * 显式 industryId 优先（冲突消解规则①），否则按文本关键词打分 + 同分专属词 tie-break（规则②）。
+ * 修复旧 getIndustrySkillByText 把「清洁日化」误判为家居（home 关键词含 bare「清洁」）的缺陷。
+ * 返回的 strategy 已合并旧 INDUSTRY_SKILLS 底座结构 + 四字段覆盖层（决策逻辑/内容规划/视觉表达/事实边界）。
+ */
 export function resolveIndustryStrategy(project = {}, options = {}) {
   const explicit = project.industryId || options.industryId;
-  if (explicit && INDUSTRY_SKILLS[explicit]) {
-    return { id: explicit, strategy: INDUSTRY_SKILLS[explicit], explicit: true };
-  }
   const text = [
     (project.productData && project.productData.text) || "",
     JSON.stringify((project.productData && project.productData.fields) || {}),
     options.customRequirements || ""
   ].join(" ");
-  const strategy = getIndustrySkillByText(text);
-  return { id: strategy.id, strategy, explicit: false };
+  return getIndustryStrategy(text, explicit);
 }
 
 /**
