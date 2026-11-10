@@ -7,10 +7,12 @@ import { getAppConfig } from "../../../api/config.js";
 import {
   analyzeDetailStudio,
   buildDetailStudioImageForm,
+  cancelDetailStudioGenerationTask,
   compileDetailStudioPrompts,
   createDetailStudioProject,
   directorDetailStudio,
   freezeDetailStudioPrompts,
+  getDetailStudioGenerationStatus,
   qualityDetailStudio,
   freezeModeCPrompt,
   generateDetailStudioImage,
@@ -21,8 +23,10 @@ import {
   parseModeCPrompt,
   probeDetailStudioImage,
   probeDetailStudioText,
+  retryDetailStudioGenerationTask,
   saveDetailStudioModeCRawPrompt,
   saveDetailStudioProductData,
+  startDetailStudioGeneration,
   updateDetailStudioProject,
   uploadDetailStudioReferenceImage
 } from "../../../api/detail-studio.js";
@@ -466,6 +470,29 @@ export function useDetailStudioState() {
     }
   }, [currentProject, hasServerKey]);
 
+  // ── 阶段 4 批量生成与任务管理：提交整批屏生成任务（服务端编排 + 复用 /api/images）──
+  const startGeneration = useCallback(async (projectId, { screenIndexes } = {}) => {
+    if (!projectId) return null;
+    const apiKey = readDetailStudioApiKey();
+    if (!apiKey && !hasServerKey) {
+      setError("请到设置页填写 API Key（全画板只在设置页填一次，其他视图不重复输入）");
+      return null;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const res = await startDetailStudioGeneration(projectId, { apiKey, screenIndexes });
+      setNotice("已提交批量生成任务，可在下方任务列表查看进度");
+      return res;
+    } catch (err) {
+      setError(errorMessage(err, "启动批量生成失败"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [hasServerKey]);
+
   return {
     projects,
     currentProject,
@@ -501,6 +528,10 @@ export function useDetailStudioState() {
     qualityReview,
     runTextProbe,
     runImageProbe,
-    runImageGeneration
+    runImageGeneration,
+    startGeneration,
+    getDetailStudioGenerationStatus,
+    retryDetailStudioGenerationTask,
+    cancelDetailStudioGenerationTask
   };
 }

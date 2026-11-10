@@ -13,6 +13,7 @@ import { FlowGuidanceBar } from "./FlowGuidanceBar.jsx";
 import { ModelChannelConfigPanel } from "../intake/ModelChannelConfigPanel.jsx";
 import { IntakeArea } from "../intake/IntakeArea.jsx";
 import { PlanningPanel } from "../planning/PlanningPanel.jsx";
+import { GenerationPanel } from "../generation/GenerationPanel.jsx";
 import "../styles/detail-studio.css";
 
 export function DetailStudioView() {
@@ -43,6 +44,7 @@ export function DetailStudioView() {
           <DetailStudioCapabilityPanel state={state} />
           <IntakeArea state={state} />
           <PlanningPanel state={state} />
+          <GenerationPanel state={state} />
         </div>
       </div>
     </div>

@@ -66,3 +66,11 @@ export const appSettingsFile = path.join(dataDir, "app-settings.json");
 // P1-1 换装任务存储目录（仅路径出口，无副作用；task-store.js 消费）。
 // 落点对齐 contracts/tryon-task.md §3：data/ai-tryon/tasks/<task_id>.json + index.json。
 export const aiTryonTasksDir = path.join(dataDir, "ai-tryon", "tasks");
+
+// V203 阶段 4：详情创作「批量生成」独立数据区（与旧换装 tasks 物理隔离，不共用索引文件）。
+// 任务持久化：data/detail-studio/generation/tasks/<task_id>.json + index.json
+// 结果图落盘：data/detail-studio/generation/results/（严禁 data/results 的 7 天 TTL、严禁进 seed）
+// 仅路径出口，无副作用；由 server/features/detail-studio/generation/task-store.js 消费。
+export const detailStudioGenerationDir = path.join(dataDir, "detail-studio", "generation");
+export const detailStudioGenerationTasksDir = path.join(detailStudioGenerationDir, "tasks");
+export const detailStudioGenerationResultsDir = path.join(detailStudioGenerationDir, "results");

@@ -133,3 +133,38 @@ export function freezeDetailStudioPrompts(id) {
 export function qualityDetailStudio(id, { apiKey = "" } = {}) {
   return postJson(BASE + "/projects/" + encodeURIComponent(id) + "/planning/quality", { apiKey }, "质量审查失败");
 }
+
+// ── 阶段 4 批量生成与任务管理 ──
+// 全部复用现有 /api/images（经服务端内部自调用），不新建第二套图片体系。
+// KEY 由 hook 从全局设置读取后透传（本视图不出现 KEY 输入）。
+export function startDetailStudioGeneration(id, { apiKey = "", screenIndexes } = {}) {
+  return postJson(
+    BASE + "/projects/" + encodeURIComponent(id) + "/generation/start",
+    { apiKey, screenIndexes },
+    "启动批量生成失败"
+  );
+}
+
+export function getDetailStudioGenerationStatus(id) {
+  return apiJson(
+    BASE + "/projects/" + encodeURIComponent(id) + "/generation",
+    {},
+    "读取生成状态失败"
+  );
+}
+
+export function retryDetailStudioGenerationTask(id, taskId, { apiKey = "" } = {}) {
+  return postJson(
+    BASE + "/projects/" + encodeURIComponent(id) + "/generation/" + encodeURIComponent(taskId) + "/retry",
+    { apiKey },
+    "重试任务失败"
+  );
+}
+
+export function cancelDetailStudioGenerationTask(id, taskId) {
+  return postJson(
+    BASE + "/projects/" + encodeURIComponent(id) + "/generation/" + encodeURIComponent(taskId) + "/cancel",
+    {},
+    "取消任务失败"
+  );
+}

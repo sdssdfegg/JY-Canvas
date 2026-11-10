@@ -39,6 +39,8 @@ src/features/detail-studio/
 │   └── mode-c/DirectPromptPanel.jsx        §3 模式 C 四份边界（raw / tidy / diff / frozen，禁止 import planner / skill）
 ├── planning/
 │   └── PlanningPanel.jsx                   阶段 3 规划面板：商品分析展示 / A 模式 completeness>0.8 停追问 / 导演分屏 ScreenSpec[] 结构化审阅 / 编译冻结 / B4 质量审查六类检查。**红线：只调 state 动作与 src/api/detail-studio.js，禁止 import planner / skill / 策划模块**
+├── generation/
+│   └── GenerationPanel.jsx                 阶段 4 批量生成与任务管理面板：整体进度(成功/失败/待确认/已取消/百分比) + 单屏任务列表 + 每屏重试/取消。只做展示与触发，业务逻辑(排队/并发闸门/幂等/失败隔离/重试/恢复)全在服务端 orchestrator；复用 Button/TaskBadge；CSS 零 hex；挂载顺序按客户操作序在 PlanningPanel 之后
 └── styles/detail-studio.css                 私有样式：零 hex、零 :root 新变量，全用 tokens.css 语义令牌
 ```
 
@@ -49,6 +51,7 @@ src/features/detail-studio/
 | `components/` | 视图，按业务区分文件 | `src/shared/ui/`、`constants/`、`state/` 经 props、api 层 |
 | `intake/` | 录入区组合与 §3/§4 面板（商品资料、参考图、三种模式专属面板）。**红线：任何面板禁止 import planner / skill / 策划模块** | `src/shared/ui/`、`constants/`、`state/` 经 props、`src/api/detail-studio.js`（仅经 state 动作间接触发） |
 | `planning/` | 阶段 3 规划面板（分析 / 分屏 / 冻结 UI）。**红线：禁止 import planner / skill / 策划模块**，只经 state 动作触发 | `src/shared/ui/`、`state/` 经 props、`src/api/detail-studio.js`（仅经 state 动作间接触发） |
+| `generation/` | 阶段 4 批量生成与任务管理面板（进度 / 任务列表 / 单屏重试取消）。**红线：只经 state 动作触发，禁止 import 服务端模块 / 策划模块** | `src/shared/ui/`、`state/` 经 props、`src/api/detail-studio.js`（仅经 state 动作间接触发） |
 | `styles/` | 本 feature 私有 CSS | 无 |
 
 ## 3. 后续阶段业务区归属表（规划占位，不预建空目录）
@@ -57,7 +60,7 @@ src/features/detail-studio/
 |---|---|---|
 | 2 | `intake/` | 三种创作模式入口、商品资料、参考图分类；重点 A 模型与渠道配置面板（ModelChannelConfigPanel.jsx，三独立下拉随项目保存） |
 | 3 | `planning/` | 商品分析、消费者逻辑、Storyboard、提示词冻结、质检 |
-| 4 | `generation/` | 最多 20 屏、批量任务、状态、失败重试、断点恢复 |
+| 4 | `generation/` | 最多 20 屏、批量任务、状态、失败重试、断点恢复（**阶段 4 已落地**：`generation/GenerationPanel.jsx`，业务逻辑全在服务端 `server/features/detail-studio/generation/`） |
 | 5 | `versions/` | 单屏连续编辑、版本历史、版本切换 |
 | 6 | `export/` | 整体预览、项目保存恢复、批量导出 |
 

@@ -28,7 +28,15 @@ server/features/detail-studio/
     ├── director-visual.js                    规划批次②（导演+分屏）：1 次 postChatCompletion 产出结构化 ScreenSpec[]；unconfirmed 事实上下文侧过滤 + normalize 二次剔除；逐屏上下文；注入行业策略四字段（内容规划/视觉表达/事实边界）
     ├── compile-screen.js                     B3 确定性编译：ScreenSpec[]→每屏 frozenPrompts（零模型调用）；冻结时服务端重编译落库保证 parity
     └── qc-review.js                          B4 质量审查：确定性 checklist + 独立 1 次模型调用（review）+ 一次定向修正 + 再审查（MAX_AUTO_FIX=1 封顶）；不合格交回人工
+└── generation/
+    ├── routes.js                            路由装配 registerDetailStudioGenerationRoutes(app)（server/app.js 无条件注册）+ buildBatchSpec + recoverOnStartup（启动即 running→needs_confirm 收敛）
+    ├── orchestrator.js                       批量编排引擎：内存幂等账本 / 状态机(queued→running→success|failed|cancelled|needs_confirm) / 失败隔离 / 有限重试(指数退避+抖动) / 断点恢复（generator 依赖注入，便于单测）
+    ├── task-store.js                        薄适配层：绑定 task-store-core 到 detailStudioGenerationTasksDir（不 import 旧 task-store.js）
+    ├── task-model.js                        纯逻辑：MAX_SCREENS=20 / MAX_ATTEMPTS=3 / idempotencyKey / classifyError / computeBackoffMs / canTransition
+    └── local-images-generator.js            内部自调 POST /api/images：复用全局 5 并发闸门 + 计费 + 持久化；prompt 只读 frozenPrompt，字节一致
 ```
+
+> R2 通用持久化任务层抽取（阶段 4 落地）：`server/core/task-store-core.js` 为零依赖叶子（只依赖 Node 内置 + `app-paths.js`），`createTaskStore({ tasksDir })` 参数化镜像 `server/ai-tryon/task-store.js` 的 6 项机制；`server/features/detail-studio/generation/task-store.js` 仅作薄适配。旧换装任务目录与 `data/detail-studio/generation/tasks/` 隔离，互不共用索引。
 
 | 目录 | 职责 | 允许 import |
 |---|---|---|
@@ -36,6 +44,7 @@ server/features/detail-studio/
 | `model/` | 模型名与 spec 的唯一适配点，零依赖 | 无 |
 | `probe/` | 复用现有模型链路做连通性自检 | `server/core/*`、`store/`、`model/` |
 | `planning/` | 阶段 3 规划业务区：批次①分析/策划、批次②导演分屏、提示词编译、质量审查 | `server/core/ai-chat-shared.js`、`store/`、`model/`、`prompts/detail-studio/**`（只读复用）、`prompts/server/detail-skills.js`（只读复用） |
+| `generation/` | 阶段 4 批量生成与任务管理：编排 / 状态机 / 持久化适配 / R2 任务层调用 | `server/core/*`、`store/`、`model/`、`generation/task-store.js`、`generation/task-model.js`（均零依赖叶子） |
 
 > B4 质检上限（V202 §7-7）：`qc-review.js` 的模型调用封顶为 review + re-review 合计 ≤2 次；定向修正受 `MAX_AUTO_FIX=1` 约束，只发生一次、不无限循环；仍不合格明确交回人工（`needsHuman`），绝不触发第三次调用。
 
@@ -45,6 +54,7 @@ server/features/detail-studio/
 
 - 项目数据只落 `data/detail-studio/projects/`（`index.json` + 每项目 `project.json`）。
   **不进** `data/results`（`cleanupResultCache` 按 7 天 TTL 清理）、**不进** `seed/manifest.json`、**不进**安装包默认种子，**不允许**封装版安装或首启覆盖用户项目。
+- 阶段 4 生成任务只落 `data/detail-studio/generation/tasks/`（每任务 `<task_id>.json` + `index.json`，由 R2 `task-store-core` 托管），结果图落 `data/detail-studio/generation/results/`；与 `data/results`（7 天 TTL）、`seed/manifest.json`、安装包默认种子**严格隔离**。任务持久化与旧 AI 换装 `data/ai-tryon/tasks/` 互不共用索引。
 - 文本模型：`server/core/ai-chat-shared.js#postChatCompletion` → 单网关 `/chat/completions`；KEY 走 `resolveApiKey` 只在请求内存活，不落盘、不写日志、不回显。
 - KEY 红线（Owner 原则）：整个画板只在设置页填一次 KEY。**详情创作前端视图禁止出现 KEY 输入**；`apiKey` 由 `src/features/detail-studio/state/use-detail-studio-state.js` 从全局设置存储（`STORAGE_KEY` + `normalizeApiKeyInput`）读取（与 ai-canvas / video / detail 同源），本视图不新建任何 KEY 输入框或常量；无 KEY 且服务端无内建 KEY 时由前端面板提示「请到设置页填写」。
 - 图片：只复用现有 `POST /api/images`；`probe` 只组装并校验请求体契约，**不实际调用上游、不产生费用**。
@@ -57,7 +67,7 @@ server/features/detail-studio/
 |---|---|---|
 | 2 | `intake/` | 三种创作模式入口、商品事实资料、参考图职责分类 |
 | 3 | `planning/` | 商品分析、消费者购买逻辑、Storyboard、提示词冻结、质量检查（V202 批次① analyze-strategy.js 已落地；批次②/③/④ 见执行单） |
-| 4 | `generation/` | 最多 20 屏、任务状态、失败重试、断点恢复、幂等 |
+| 4 | `generation/` | 最多 20 屏、任务状态、失败重试、断点恢复、幂等（**阶段 4 已落地**：routes/orchestrator/task-store/task-model/local-images-generator，R2 任务层在 `server/core/task-store-core.js`） |
 | 5 | `versions/` | 单屏连续编辑、版本历史、版本切换 |
 | 6 | `export/` | 整体预览、项目保存恢复、批量导出 |
 

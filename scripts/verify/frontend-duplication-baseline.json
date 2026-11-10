@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 171,
+    "fileCount": 172,
     "files": [
       "src/api/ai-canvas-agent.js",
       "src/api/assets.js",
@@ -55,6 +55,7 @@
       "src/features/detail-studio/components/DetailStudioView.jsx",
       "src/features/detail-studio/components/FlowGuidanceBar.jsx",
       "src/features/detail-studio/constants/workspace-contract.js",
+      "src/features/detail-studio/generation/GenerationPanel.jsx",
       "src/features/detail-studio/intake/IntakeArea.jsx",
       "src/features/detail-studio/intake/ModelChannelConfigPanel.jsx",
       "src/features/detail-studio/intake/ProductDataPanel.jsx",

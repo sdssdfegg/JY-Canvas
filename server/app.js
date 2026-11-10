@@ -46,6 +46,7 @@ import { registerImagesRoutes } from "./routes/images.routes.js";
 import { registerOutfitRoutes } from "./routes/outfit.routes.js";
 import { registerSeedRoutes } from "./routes/seed.routes.js";
 import { registerDetailStudioRoutes } from "./routes/detail-studio.routes.js";
+import { registerDetailStudioGenerationRoutes } from "./features/detail-studio/generation/routes.js";
 
 app.use(express.json({ limit: "100mb" }));
 app.use(gatewayCompressionMiddleware);
@@ -107,6 +108,8 @@ registerImagesRoutes(app);
 
 // 阶段 1：详情创作独立工作区（产品功能，无条件注册，public 版必须保留）。
 registerDetailStudioRoutes(app);
+// 阶段 4：详情创作「批量生成与任务管理」（V203）。无条件注册，复用现有 /api/images。
+registerDetailStudioGenerationRoutes(app);
 
 async function attachFrontend() {
   if (process.env.NODE_ENV === "production") {
