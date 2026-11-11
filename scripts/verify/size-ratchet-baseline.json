@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-11-11",
-  "reason": "V204 阶段5 单屏连续编辑与版本管理：src/api/detail-studio.js +37（版本路由薄封装 finalizeVersion/switchVersion 等）、src/features/detail-studio/components/DetailStudioView.jsx +7（组合版本面板 VersionPanel），均为合法功能新增，非质量退化",
+  "reason": "V206 必要修复：src/shared/ui/cached-image.jsx +69（新增预载调度器 MAX_CONCURRENT_PRELOADS 并发上限+队列+视口门控 effect，修复一次性解码大量大图 OOM）；src/features/main-app/panels/main-canvas-board.jsx +33（visibleTail 首屏渲染限量 + 加载更多 UI，数据层零截断）。均为必要修复逻辑，非质量退化",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -69,7 +69,7 @@
     "src/features/local-edit/LocalEditCropOverlay.jsx": 61,
     "src/features/local-edit/LocalEditModal.jsx": 379,
     "src/features/main-app/main-handlers.js": 618,
-    "src/features/main-app/panels/main-canvas-board.jsx": 481,
+    "src/features/main-app/panels/main-canvas-board.jsx": 514,
     "src/features/main-app/panels/main-top-bar.jsx": 187,
     "src/features/main-app/panels/quick-gallery-card.jsx": 185,
     "src/features/outfit/handlers/outfit-batch-execution.js": 786,
@@ -165,7 +165,7 @@
     "src/shared/text-normalize.js": 42,
     "src/shared/ui/AppSidebar.jsx": 39,
     "src/shared/ui/Button.jsx": 53,
-    "src/shared/ui/cached-image.jsx": 223,
+    "src/shared/ui/cached-image.jsx": 289,
     "src/shared/ui/ChannelPicker.jsx": 186,
     "src/shared/ui/detail-upload-zone.jsx": 82,
     "src/shared/ui/elapsed-timer.jsx": 20,
@@ -227,7 +227,7 @@
     "src/features/local-edit/LocalEditBrushTools.jsx::LocalEditBrushTools": 71,
     "src/features/local-edit/LocalEditModal.jsx::LocalEditModal": 336,
     "src/features/main-app/main-handlers.js::useMainHandlers": 578,
-    "src/features/main-app/panels/main-canvas-board.jsx::MainCanvasBoard": 414,
+    "src/features/main-app/panels/main-canvas-board.jsx::MainCanvasBoard": 447,
     "src/features/main-app/panels/main-top-bar.jsx::MainTopBar": 165,
     "src/features/outfit/handlers/outfit-batch-execution.js::buildTasks": 68,
     "src/features/outfit/handlers/outfit-batch-execution.js::runSingleTask": 394,
@@ -312,7 +312,7 @@
     "src/shared/prompt-library.js::usePromptLibrary": 181,
     "src/shared/release-seed.js::buildReleaseSeed": 90,
     "src/shared/routing.js::convergeSettingsForModel": 65,
-    "src/shared/ui/cached-image.jsx::CachedImage": 120,
+    "src/shared/ui/cached-image.jsx::CachedImage": 149,
     "src/shared/ui/ChannelPicker.jsx::ChannelPicker": 155,
     "src/shared/ui/detail-upload-zone.jsx::DetailUploadZone": 77,
     "src/shared/ui/reference-thumb-tray.jsx::ReferenceThumbTray": 72

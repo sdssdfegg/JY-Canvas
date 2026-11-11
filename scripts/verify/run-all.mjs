@@ -210,6 +210,10 @@ const ORDER = [
   // 浏览器类只进全量，不进 --fast。
   "composer-stable-height-check",
   "quickgen-prompt-passthrough-check",
+  // V206（2026-11-11）：快捷生成切换 OOM 修复门禁——CachedImage 预加载须「视口门控 + 全局并发上限(≤4)」
+  // 且去掉强制 decode()；画廊首屏渲染须限量（visibleTail + slice）+ 加载更多，且数据层不得截断
+  // （loadHistoryResults / storage-store / /api/history 不得 slice）。纯源码静态断言 <1s（FAST_ORDER 同时登记）。
+  "quickgen-image-budget-check",
   // 2026-09-26：批量换装结构化意图 + 唯一精简提示词编译器。
   // 前者是纯逻辑断言（七种部位组合 / 层级 / 穿法 / 事实过滤 / 字符数）；
   // 后者用本地 mock 上游钉住"结构化意图真的进了发给模型的最终提示词"。
@@ -337,6 +341,10 @@ const FAST_ORDER = [
   "routing-check",
   "ui-duplication-check",
   "quickgen-prompt-passthrough-check",
+  // V206（2026-11-11）：快捷生成切换 OOM 修复门禁——CachedImage 预加载须「视口门控 + 全局并发上限(≤4)」
+  // 且去掉强制 decode()；画廊首屏渲染须限量（visibleTail + slice）+ 加载更多，且数据层不得截断
+  // （loadHistoryResults / storage-store / /api/history 不得 slice）。纯源码静态断言 <1s（FAST_ORDER 同时登记）。
+  "quickgen-image-budget-check",
   "outfit-intent-check",
   "retouch-intent-check",
   "detail-stylepack-off-check",

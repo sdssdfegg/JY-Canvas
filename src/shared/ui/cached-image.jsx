@@ -23,6 +23,17 @@
 // ⚠️ `DISPLAY_IMAGE_CACHE` 是**模块级可变 Map**：搬到本文件后仍是整个应用共享一份缓存。
 //    它是「前端模块单例」，不是进程级单例 ⇒ **不在 `state-singleton-check` 的监视范围**
 //    （该门禁复用 `listServerSourceFiles()`，只扫 `server/`）。本文件保持它有且仅有一处定义点。
+//
+// V206（2026-11-11）：修复「切到快捷生成」标签页 OOM。原 `[src]` effect **无条件**
+// `preloadDisplayImageUrl()`（内部 `new Image()` + `image.decode()`），绕过 `<img loading="lazy">`，
+// 93 张高分辨率历史图近同时解码 ⇒ 标签页内存爆掉。改为「视口门控 + 全局并发上限」：
+//   ① 仅在元素进入视口附近（IntersectionObserver，rootMargin 200px）才入队预载，离屏项根本不预载；
+//   ② 全局预载并发上限 MAX_CONCURRENT_PRELOADS（≤4）+ FIFO 队列，在视口内也串行解码；
+//   ③ 去掉 `image.decode()` 强制解码，只保留 onload（不强制位图立即解码，交给浏览器惰性解码）；
+//   ④ src 变化 / 卸载时取消未完成任务，避免滚动时积压。
+// 保持：DISPLAY_IMAGE_CACHE LRU 300、`loading="lazy"` / `decoding="async"` 默认值、
+// `client-result-display-ready` 埋点字段、失败回退 `onError` 行为一律不回退。
+// 禁止：删缓存（每次回看重新下载）、把 `loading` 默认值改成 `eager`、新增第三方依赖。
 
 import { useEffect, useRef, useState } from "react";
 import { displayImageRequestUrl } from "../../api/assets.js";
@@ -51,7 +62,6 @@ function cacheDisplayImageTouch(key) {
 
 // V46.5：离屏时把已解码位图替换成 1x1 透明占位，回收显存/内存（低端机长会话核心痛点）。
 // 仅对经代理的 http(s) 外链生效；data:/blob: 本地资源不卸载（卸载即丢失且本就极小）。
-// 真·「小图下载」缩略图需服务端缩放（受 🔴 G-6 约束，当前不做），本方案是零服务端改动的安全替代。
 const OFFSCREEN_PLACEHOLDER = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
 // 找到最近的滚动容器作为 IntersectionObserver 的 root，
@@ -66,26 +76,53 @@ function findScrollRoot(el) {
   return null;
 }
 
-function preloadDisplayImageUrl(url, timeoutMs = 20000) {
-  if (!url || typeof Image !== "function") return Promise.resolve();
-  return new Promise((resolve) => {
+// V206：全局预加载调度器（门控「一次性解码大量大图」的内存峰值）。
+// 仅「在视口附近」的请求入队；队首在并发上限内才真正发起 `new Image()`；
+// 离屏项不预载，滚动进入视口才补；src 变化 / 卸载取消未完成任务。
+// 单图超时沿用 V11-RF-043 的 20s（与搬来前一致）。
+const MAX_CONCURRENT_PRELOADS = 4;
+let activePreloads = 0;
+const preloadQueue = [];
+function pumpPreloadQueue() {
+  while (activePreloads < MAX_CONCURRENT_PRELOADS && preloadQueue.length > 0) {
+    const task = preloadQueue.shift();
+    if (task.cancelled) continue;
+    activePreloads += 1;
     const image = new Image();
-    let settled = false;
-    const done = () => {
-      if (settled) return;
-      settled = true;
-      if (timer) window.clearTimeout(timer);
-      resolve();
+    const url = task.url;
+    const finish = (loadedUrl) => {
+      activePreloads = Math.max(0, activePreloads - 1);
+      if (!task.cancelled) {
+        try {
+          task.onDone(loadedUrl);
+        } catch {
+          /* 回调异常不影响队列推进 */
+        }
+      }
+      pumpPreloadQueue();
     };
-    const timer = typeof window !== "undefined" ? window.setTimeout(done, timeoutMs) : null;
-    image.onload = done;
-    image.onerror = done;
     image.decoding = "async";
+    image.onload = () => finish(url);
+    image.onerror = () => finish(url);
+    // V206：去掉原 preloadDisplayImageUrl 的 `image.decode()` 强制解码——
+    // 只依赖 onload 触发，不强制浏览器立即把位图解码出来（交给浏览器按绘制惰性解码）。
     image.src = url;
-    if (typeof image.decode === "function") {
-      image.decode().then(done, done);
-    }
-  });
+    task.timer = typeof window !== "undefined" ? window.setTimeout(() => finish(url), 20000) : null;
+    task.clear = () => {
+      if (task.timer) window.clearTimeout(task.timer);
+    };
+  }
+}
+function enqueuePreload(url, onDone) {
+  const task = { url, onDone, cancelled: false };
+  preloadQueue.push(task);
+  pumpPreloadQueue();
+  return task;
+}
+function cancelPreload(task) {
+  if (!task) return;
+  task.cancelled = true;
+  if (task.clear) task.clear();
 }
 
 // `...rest` 会原样透传给底层 `<img>`（V11-RF-048 放宽）。
@@ -111,36 +148,45 @@ export function CachedImage({ src, alt = "", className = "", style, draggable = 
   // V46.5：离屏标记。为 true 时渲染占位图、释放已解码位图；不影响原始 src 与拖拽源地址。
   const imgRef = useRef(null);
   const [isOffscreen, setOffscreen] = useState(false);
+  // V206：当前挂起/进行中的预载任务引用（用于 src 变化 / 卸载时取消）。
+  const preloadTaskRef = useRef(null);
+
+  const emitDisplayReady = (shownSrc) => {
+    const requestId = String(diagnostic?.requestId || diagnostic?.taskId || "").trim();
+    if (!requestId) return;
+    const key = `${requestId}|${diagnostic?.placement || ""}|${shownSrc || src || ""}`;
+    if (displayLogKeyRef.current === key) return;
+    displayLogKeyRef.current = key;
+    emitClientDiagnosticEvent({
+      requestId,
+      stage: "client-result-display-ready",
+      endpoint: diagnostic?.endpoint || "",
+      method: "DISPLAY",
+      ok: true,
+      durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now())),
+      detail: {
+        taskId: requestId,
+        placement: diagnostic?.placement || "",
+        module: diagnostic?.module || "",
+        // V11-RF-048：outfit 侧克隆版多带一个 `workflowMode`。
+        // 它只补数据、不参与任何判断分支 ⇒ 按「多出字段直接取超集」的判据并入。
+        // main 侧调用点不传该字段 ⇒ 落空串，埋点输出与改前逐字一致。
+        workflowMode: diagnostic?.workflowMode || "",
+        sourceType: diagnosticImageSourceType(shownSrc || src),
+        displayMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()))
+      }
+    });
+  };
+  // 用 ref 持有最新 emitDisplayReady，供异步预载回调（effect 之外）调用，避免闭包陈旧。
+  const emitRef = useRef(emitDisplayReady);
+  emitRef.current = emitDisplayReady;
 
   useEffect(() => {
-    let cancelled = false;
-    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const emitDisplayReady = (shownSrc) => {
-      const requestId = String(diagnostic?.requestId || diagnostic?.taskId || "").trim();
-      if (!requestId) return;
-      const key = `${requestId}|${diagnostic?.placement || ""}|${shownSrc || src || ""}`;
-      if (displayLogKeyRef.current === key) return;
-      displayLogKeyRef.current = key;
-      emitClientDiagnosticEvent({
-        requestId,
-        stage: "client-result-display-ready",
-        endpoint: diagnostic?.endpoint || "",
-        method: "DISPLAY",
-        ok: true,
-        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
-        detail: {
-          taskId: requestId,
-          placement: diagnostic?.placement || "",
-          module: diagnostic?.module || "",
-          // V11-RF-048：outfit 侧克隆版多带一个 `workflowMode`。
-          // 它只补数据、不参与任何判断分支 ⇒ 按「多出字段直接取超集」的判据并入。
-          // main 侧调用点不传该字段 ⇒ 落空串，埋点输出与改前逐字一致。
-          workflowMode: diagnostic?.workflowMode || "",
-          sourceType: diagnosticImageSourceType(shownSrc || src),
-          displayMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt)
-        }
-      });
-    };
+    // 切换 src 时先取消上一条挂起的预载
+    if (preloadTaskRef.current) {
+      cancelPreload(preloadTaskRef.current);
+      preloadTaskRef.current = null;
+    }
     if (!src) {
       setDisplaySrc("");
       return undefined;
@@ -150,40 +196,60 @@ export function CachedImage({ src, alt = "", className = "", style, draggable = 
       emitDisplayReady(src);
       return undefined;
     }
-    const requestSrc = displayImageRequestUrl(src);
     const cached = DISPLAY_IMAGE_CACHE.get(src);
-    if (cached) cacheDisplayImageTouch(src);
-    if (cached?.url) {
+    if (cached) {
+      cacheDisplayImageTouch(src);
       setDisplaySrc(cached.url);
       emitDisplayReady(cached.url);
       return undefined;
     }
-    const promise = cached?.promise || preloadDisplayImageUrl(requestSrc)
-      .then(() => {
-        cacheDisplayImageSet(src, { url: requestSrc });
-        return requestSrc;
-      });
-    if (!cached?.promise) cacheDisplayImageSet(src, { promise });
+    // 未命中缓存：先清空展示位，等「进入视口 + 并发额度允许」时再由下方 effect 预载。
     setDisplaySrc("");
-    promise
-      .then((url) => {
-        if (!cancelled) {
-          setDisplaySrc(url);
-          emitDisplayReady(url);
-        }
-      })
-      .catch((error) => {
-        DISPLAY_IMAGE_CACHE.delete(src);
-        if (!cancelled) {
-          setDisplaySrc(src);
-          onError?.(error);
-        }
-      });
     return () => {
-      cancelled = true;
+      if (preloadTaskRef.current) {
+        cancelPreload(preloadTaskRef.current);
+        preloadTaskRef.current = null;
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
+
+  // V206：预载门控 effect——仅当「在视口内」且「尚未展示」时才入队门控预载。
+  // 依赖 [src, isOffscreen, displaySrc]：滚动使 isOffscreen 翻转 / 预载完成使 displaySrc 变更都会重新判定。
+  useEffect(() => {
+    if (!src || src.startsWith("data:") || src.startsWith("blob:")) return undefined;
+    const requestSrc = displayImageRequestUrl(src);
+    const cached = DISPLAY_IMAGE_CACHE.get(src);
+    // 已展示或已缓存 ⇒ 取消任何挂起的预载（避免重复）
+    if (cached?.url || displaySrc) {
+      if (preloadTaskRef.current) {
+        cancelPreload(preloadTaskRef.current);
+        preloadTaskRef.current = null;
+      }
+      return undefined;
+    }
+    // 离屏 ⇒ 暂不预载（滚动进入视口再补），并取消挂起任务
+    if (isOffscreen) {
+      if (preloadTaskRef.current) {
+        cancelPreload(preloadTaskRef.current);
+        preloadTaskRef.current = null;
+      }
+      return undefined;
+    }
+    // 在视口内且未展示 ⇒ 入队门控预载（受 MAX_CONCURRENT_PRELOADS 并发上限约束）
+    const task = enqueuePreload(requestSrc, (loadedUrl) => {
+      cacheDisplayImageSet(src, { url: loadedUrl });
+      setDisplaySrc(loadedUrl);
+      emitRef.current(loadedUrl);
+    });
+    preloadTaskRef.current = task;
+    return () => {
+      if (preloadTaskRef.current) {
+        cancelPreload(preloadTaskRef.current);
+        preloadTaskRef.current = null;
+      }
+    };
+  }, [src, isOffscreen, displaySrc]);
 
   // V46.5：离屏卸载已解码位图，削减长会话内存。
   // 仅对经代理的 http(s) 外链生效；data:/blob: 与无 IO 环境直接跳过。

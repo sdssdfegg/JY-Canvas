@@ -105,6 +105,10 @@ export function MainCanvasBoard({
   setIsPromptAssistantOpen
 }) {
   const [errorCopied, setErrorCopied] = useState(false); // 2026-10-30 失败信息点击复制后的短暂反馈
+  // V206（2026-11-11）：渲染层限量——历史记录全量保留在 quickGalleryItems（数据层零截断），
+  // 这里只限量首屏渲染最近 N 张，向上「加载更多」再逐步展开更早记录。与 main.jsx:638 的
+  // scrollTop=scrollHeight 自动滚底兼容（自动滚底只滚到底部最新 N 张，不会把全部条目拉进视口）。
+  const [visibleTail, setVisibleTail] = useState(30);
   // V5.0-002：下游 QuickGalleryCard 已 React.memo；上游 15 个 handler 来自 App 透传，每次 App 重渲染
   // 都重建闭包（createResultActions/createResultDownload/createQuickResultReplace/useMainHandlers 普通工厂），
   // 若直接透传则 memo 被绕过、全树仍重渲染。此处用「晚期绑定委托」将 15 个 handler 收敛为稳定引用：
@@ -157,12 +161,41 @@ export function MainCanvasBoard({
   // 同一 --asset-card-min + 同一 gap；不再用 JS 注入 --gallery-columns，避免缩放瞬间
   // 列数与轨道宽脱节导致上下重叠。
 
+  // V206：渲染层限量。quickGalleryItems 全量（数据层不截断）；只取「最近 visibleTail 张」渲染，
+  // startIndex 为窗口在全集里的起始下标，保证卡片 key / index 仍对应原始位置（下载/标注不串）。
+  const startIndex = Math.max(0, quickGalleryItems.length - visibleTail);
+  const renderItems = quickGalleryItems.slice(startIndex);
+
   return (
     <div className="canvasBoard" onWheel={onQuickBoardWheel}>
+      {quickGalleryItems.length > visibleTail && (
+        <div
+          className="quickLoadMoreBar"
+          style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}
+        >
+          <button
+            type="button"
+            className="quickLoadMoreButton"
+            style={{
+              padding: "6px 14px",
+              borderRadius: "999px",
+              border: "1px solid var(--border-color, #3a3a3a)",
+              background: "var(--surface-2, #2a2a2a)",
+              color: "inherit",
+              cursor: "pointer",
+              fontSize: "13px"
+            }}
+            onClick={() => setVisibleTail((t) => t + 30)}
+          >
+            加载更早的记录（已显示 {renderItems.length} / 共 {quickGalleryItems.length}）
+          </button>
+        </div>
+      )}
       <section ref={quickGalleryRef} className="galleryStrip galleryStripColumns" style={{ "--asset-card-min": `${galleryCardMin}px` }}>
-        {quickGalleryItems.map((galleryItem, index) => {
+        {renderItems.map((galleryItem, localIndex) => {
           // V5.0-002：整包集合改每卡派生布尔——单张选中/下载/拖拽高亮只翻转该卡对应布尔，
           // 其余卡布尔值不变（基元相等）→ React.memo 跳过，杜绝全树重渲染。
+          const index = startIndex + localIndex;
           const itemId = galleryItem.kind === "result" ? galleryItem.result.id : null;
           return (
             <QuickGalleryCard
