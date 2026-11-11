@@ -2,6 +2,7 @@
 // 工作区根视图：只做布局与组合，不承载业务逻辑。
 // 三个面板各自管理局部表单状态，跨区通信统一经 state/ 与 src/api/detail-studio.js。
 
+import { lazy, Suspense } from "react";
 import { LayoutTemplate } from "lucide-react";
 import { ModuleHeader } from "../../../shared/ui/ModuleHeader.jsx";
 import { WORKSPACE_ID } from "../constants/workspace-contract.js";
@@ -15,6 +16,9 @@ import { IntakeArea } from "../intake/IntakeArea.jsx";
 import { PlanningPanel } from "../planning/PlanningPanel.jsx";
 import { GenerationPanel } from "../generation/GenerationPanel.jsx";
 import "../styles/detail-studio.css";
+
+// 阶段 5：单屏连续编辑与版本管理面板（独立懒加载 chunk，避免撑大详情工作区 bundle）。
+const VersionPanel = lazy(() => import("../versions/VersionPanel.jsx"));
 
 export function DetailStudioView() {
   const state = useDetailStudioState();
@@ -45,6 +49,9 @@ export function DetailStudioView() {
           <IntakeArea state={state} />
           <PlanningPanel state={state} />
           <GenerationPanel state={state} />
+          <Suspense fallback={null}>
+            <VersionPanel state={state} />
+          </Suspense>
         </div>
       </div>
     </div>

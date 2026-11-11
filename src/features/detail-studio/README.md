@@ -41,6 +41,8 @@ src/features/detail-studio/
 │   └── PlanningPanel.jsx                   阶段 3 规划面板：商品分析展示 / A 模式 completeness>0.8 停追问 / 导演分屏 ScreenSpec[] 结构化审阅 / 编译冻结 / B4 质量审查六类检查。**红线：只调 state 动作与 src/api/detail-studio.js，禁止 import planner / skill / 策划模块**
 ├── generation/
 │   └── GenerationPanel.jsx                 阶段 4 批量生成与任务管理面板：整体进度(成功/失败/待确认/已取消/百分比) + 单屏任务列表 + 每屏重试/取消。只做展示与触发，业务逻辑(排队/并发闸门/幂等/失败隔离/重试/恢复)全在服务端 orchestrator；复用 Button/TaskBadge；CSS 零 hex；挂载顺序按客户操作序在 PlanningPanel 之后
+├── versions/
+│   └── VersionPanel.jsx                    阶段 5 单屏连续编辑与版本管理面板：版本列表(图+当时提示词+修改说明)/对比/切换/连续对话输入/单屏重试取消；复用 Button/TaskBadge；CSS 零 hex；懒加载 chunk；挂在右列 GenerationPanel 之后、DetailStudioView 仅组合 2 行
 └── styles/detail-studio.css                 私有样式：零 hex、零 :root 新变量，全用 tokens.css 语义令牌
 ```
 

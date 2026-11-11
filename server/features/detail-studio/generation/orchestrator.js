@@ -89,7 +89,8 @@ export async function submitBatch(spec, opts = {}) {
   const skipped = [];
   for (const screen of screens) {
     const fp = screen.frozenPrompt == null ? "" : String(screen.frozenPrompt);
-    const key = idempotencyKey(projectId, screen.screenIndex, fp);
+    // versionId 维度（阶段 5 单屏编辑必填 → 同屏同提示词连续生成也产出不同任务，不命中旧账本）。
+    const key = idempotencyKey(projectId, screen.screenIndex, fp, screen.versionId);
 
     // 幂等：同指纹已有非取消任务 → 直接复用，绝不再发上游请求 / 扣费。
     const existingId = ledger.get(key);
@@ -110,7 +111,8 @@ export async function submitBatch(spec, opts = {}) {
       imageSize: screen.imageSize,
       aspectRatio: screen.aspectRatio,
       referenceRoles: screen.referenceRoles,
-      idempotencyKey: key
+      idempotencyKey: key,
+      versionId: screen.versionId
     });
     await generationTaskStore.writeTask(record);
     ledger.set(key, record.task_id);
@@ -119,6 +121,48 @@ export async function submitBatch(spec, opts = {}) {
     runTask(record.task_id, { generator: spec.apiKey ? generator : generator, apiKey: spec.apiKey, backoffBaseMs: opts.backoffBaseMs }).catch(() => {});
   }
   return { created, skipped };
+}
+
+// ── 单屏连续编辑：只提交「某一屏」的一次生成任务（阶段 5）──
+// 与 submitBatch 同机制、同账本、同出图链路（复用 V203 generation），但强制绑定 versionId：
+//   - 幂等键含版本维度 → 同屏连续两次编辑（即使提示词相同）各得独立任务 / 独立版本 / 独立图片；
+//   - 不重跑 B1 分析 / B2 导演 / B3 编译 / B4 质检，不触发整批策划，不影响其他屏任务。
+// spec: { projectId, apiKey, screen: { screenIndex, frozenPrompt, versionId, referenceImagePaths, referenceRoles, model, channelId, imageSize, aspectRatio } }
+export async function submitSingleScreen(spec, opts = {}) {
+  const generator = opts.generator;
+  if (typeof generator !== "function") throw new Error("submitSingleScreen requires a generator function");
+  const projectId = String(spec.projectId || "");
+  if (!projectId) throw new Error("submitSingleScreen requires projectId");
+  const screen = spec.screen;
+  if (!screen || screen.screenIndex == null) throw new Error("submitSingleScreen requires screen.screenIndex");
+  if (!screen.versionId) throw new Error("submitSingleScreen requires screen.versionId（单屏编辑必须绑定版本维度）");
+  const fp = screen.frozenPrompt == null ? "" : String(screen.frozenPrompt);
+  const key = idempotencyKey(projectId, screen.screenIndex, fp, screen.versionId);
+
+  const existingId = ledger.get(key);
+  if (existingId) {
+    const existing = await generationTaskStore.readTask(existingId);
+    if (existing && existing.status !== TASK_STATUS.CANCELLED) {
+      return { created: [], skipped: [{ taskId: existingId, status: existing.status, reason: "idempotent_reuse" }] };
+    }
+  }
+
+  const record = buildTaskRecord({
+    projectId,
+    screenIndex: screen.screenIndex,
+    frozenPrompt: fp,
+    model: screen.model,
+    channelId: screen.channelId,
+    imageSize: screen.imageSize,
+    aspectRatio: screen.aspectRatio,
+    referenceRoles: screen.referenceRoles,
+    idempotencyKey: key,
+    versionId: screen.versionId
+  });
+  await generationTaskStore.writeTask(record);
+  ledger.set(key, record.task_id);
+  runTask(record.task_id, { generator, apiKey: spec.apiKey, backoffBaseMs: opts.backoffBaseMs }).catch(() => {});
+  return { created: [record.task_id], skipped: [] };
 }
 
 // ── 执行单个任务（含有限重试 + 退避）──

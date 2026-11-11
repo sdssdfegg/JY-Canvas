@@ -28,12 +28,15 @@ server/features/detail-studio/
     ├── director-visual.js                    规划批次②（导演+分屏）：1 次 postChatCompletion 产出结构化 ScreenSpec[]；unconfirmed 事实上下文侧过滤 + normalize 二次剔除；逐屏上下文；注入行业策略四字段（内容规划/视觉表达/事实边界）
     ├── compile-screen.js                     B3 确定性编译：ScreenSpec[]→每屏 frozenPrompts（零模型调用）；冻结时服务端重编译落库保证 parity
     └── qc-review.js                          B4 质量审查：确定性 checklist + 独立 1 次模型调用（review）+ 一次定向修正 + 再审查（MAX_AUTO_FIX=1 封顶）；不合格交回人工
-└── generation/
+├── generation/
     ├── routes.js                            路由装配 registerDetailStudioGenerationRoutes(app)（server/app.js 无条件注册）+ buildBatchSpec + recoverOnStartup（启动即 running→needs_confirm 收敛）
     ├── orchestrator.js                       批量编排引擎：内存幂等账本 / 状态机(queued→running→success|failed|cancelled|needs_confirm) / 失败隔离 / 有限重试(指数退避+抖动) / 断点恢复（generator 依赖注入，便于单测）
     ├── task-store.js                        薄适配层：绑定 task-store-core 到 detailStudioGenerationTasksDir（不 import 旧 task-store.js）
     ├── task-model.js                        纯逻辑：MAX_SCREENS=20 / MAX_ATTEMPTS=3 / idempotencyKey / classifyError / computeBackoffMs / canTransition
     └── local-images-generator.js            内部自调 POST /api/images：复用全局 5 并发闸门 + 计费 + 持久化；prompt 只读 frozenPrompt，字节一致
+└── versions/
+    ├── version-store.js                     版本元数据/版本链/编辑线程（受控经 project-store 写入器链，读操作无写盘副作用）；createPendingVersion/finalizeVersion/switchScreenVersion/appendEditThreadRound/getScreenVersions
+    └── version-routes.js                     版本路由：单屏编辑(绑定 versionId→一次独立任务)/生成完成落盘/读版本/切换/编辑线程（server/app.js 无条件注册，严禁 NODE_ENV 提前 return）
 ```
 
 > R2 通用持久化任务层抽取（阶段 4 落地）：`server/core/task-store-core.js` 为零依赖叶子（只依赖 Node 内置 + `app-paths.js`），`createTaskStore({ tasksDir })` 参数化镜像 `server/ai-tryon/task-store.js` 的 6 项机制；`server/features/detail-studio/generation/task-store.js` 仅作薄适配。旧换装任务目录与 `data/detail-studio/generation/tasks/` 隔离，互不共用索引。
@@ -68,7 +71,7 @@ server/features/detail-studio/
 | 2 | `intake/` | 三种创作模式入口、商品事实资料、参考图职责分类 |
 | 3 | `planning/` | 商品分析、消费者购买逻辑、Storyboard、提示词冻结、质量检查（V202 批次① analyze-strategy.js 已落地；批次②/③/④ 见执行单） |
 | 4 | `generation/` | 最多 20 屏、任务状态、失败重试、断点恢复、幂等（**阶段 4 已落地**：routes/orchestrator/task-store/task-model/local-images-generator，R2 任务层在 `server/core/task-store-core.js`） |
-| 5 | `versions/` | 单屏连续编辑、版本历史、版本切换 |
+| 5 | `versions/` | 单屏连续编辑、版本历史、版本切换、连续对话（**阶段 5 已落地**：version-store.js / version-routes.js，前端 `src/features/detail-studio/versions/VersionPanel.jsx`） |
 | 6 | `export/` | 整体预览、项目保存恢复、批量导出 |
 
 ## 5. 排查顺序

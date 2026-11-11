@@ -168,3 +168,40 @@ export function cancelDetailStudioGenerationTask(id, taskId) {
     "取消任务失败"
   );
 }
+
+// ── 阶段 5 单屏连续编辑与版本管理 ──
+// 单屏编辑：基于上一版结果继续改，产生新版本 + 一次独立生成任务（绑定 versionId）。
+export function editDetailStudioScreen(id, screenIndex, payload) {
+  return postJson(
+    BASE + "/projects/" + encodeURIComponent(id) + "/screens/" + encodeURIComponent(screenIndex) + "/edit",
+    payload,
+    "单屏编辑失败"
+  );
+}
+
+// 生成完成后补齐版本图片（前端轮询 generation 状态成功后调用）。
+export function finalizeDetailStudioVersion(id, versionId) {
+  return postJson(
+    BASE + "/projects/" + encodeURIComponent(id) + "/versions/" + encodeURIComponent(versionId) + "/finalize",
+    {},
+    "版本落盘失败"
+  );
+}
+
+// 读取某屏版本列表 + 当前版本 id。
+export function getDetailStudioScreenVersions(id, screenIndex) {
+  return apiJson(
+    BASE + "/projects/" + encodeURIComponent(id) + "/screens/" + encodeURIComponent(screenIndex) + "/versions",
+    {},
+    "读取版本失败"
+  );
+}
+
+// 切换当前版本：只改 currentVersionId，不删历史、不覆盖图片。
+export function switchDetailStudioVersion(id, screenIndex, versionId) {
+  return postJson(
+    BASE + "/projects/" + encodeURIComponent(id) + "/screens/" + encodeURIComponent(screenIndex) + "/versions/" + encodeURIComponent(versionId) + "/switch",
+    {},
+    "切换版本失败"
+  );
+}

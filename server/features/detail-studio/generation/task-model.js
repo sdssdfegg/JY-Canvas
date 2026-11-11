@@ -30,11 +30,16 @@ export const TERMINAL_STATES = new Set([
   TASK_STATUS.NEEDS_CONFIRM
 ]);
 
-// ── 幂等键：项目 id + 屏 index + frozenPrompt 内容指纹 ──
-// 重复提交同一屏（相同 frozenPrompt）必然得到相同键 → 可直接复用已有成功任务，绝不二次扣费。
-export function idempotencyKey(projectId, screenIndex, frozenPrompt) {
+// ── 幂等键：项目 id + 屏 index + versionId + frozenPrompt 内容指纹 ──
+// 阶段 4（初始整批）无版本维度：versionId 为空时退化为原公式（向后兼容，存量任务幂等复用不失效）。
+// 阶段 5（单屏编辑）：versionId 必填 → 同屏连续两次生成（即使提示词相同）得到不同键，
+// 直接产出两个独立任务 / 两个独立版本 / 两张独立图片，不复用旧账本、不覆盖历史版本。
+export function idempotencyKey(projectId, screenIndex, frozenPrompt, versionId) {
   const fp = String(frozenPrompt == null ? "" : frozenPrompt);
-  const seed = `${projectId || ""}|${screenIndex == null ? "" : screenIndex}|${fp}`;
+  const vid = String(versionId == null ? "" : versionId);
+  const seed = vid
+    ? `${projectId || ""}|${screenIndex == null ? "" : screenIndex}|${vid}|${fp}`
+    : `${projectId || ""}|${screenIndex == null ? "" : screenIndex}|${fp}`;
   return createHash("sha256").update(seed).digest("hex");
 }
 
@@ -108,14 +113,17 @@ export function canTransition(from, to) {
 }
 
 // 构建一条新任务记录的骨架（不落盘，交由编排层 writeTask）。
-export function buildTaskRecord({ projectId, screenIndex, frozenPrompt, model, channelId, idempotencyKey: key, imageSize, aspectRatio, referenceRoles }) {
+// versionId：阶段 5 单屏编辑必填，写入任务记录以便 finalize 时反查版本；阶段 4 初始整批为 null。
+export function buildTaskRecord({ projectId, screenIndex, frozenPrompt, model, channelId, idempotencyKey: key, imageSize, aspectRatio, referenceRoles, versionId }) {
   const now = new Date().toISOString();
+  const vidTag = versionId ? String(versionId).slice(0, 8) : "v0";
   return {
-    task_id: `dsg_${projectId}_${screenIndex}_${key.slice(0, 12)}`,
+    task_id: `dsg_${projectId}_${screenIndex}_${vidTag}_${key.slice(0, 12)}`,
     kind: "detail-studio-generation",
     projectId,
     screenIndex,
     frozenPrompt,
+    versionId: versionId || null,
     model: model || "",
     channelId: channelId || "",
     imageSize: imageSize || "2K",

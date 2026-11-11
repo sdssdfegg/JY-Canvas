@@ -14,6 +14,7 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { upload, safeUploadFilename, outfitUploadErrorPayload } from "../core/uploads.js";
+import { detailStudioGenerationResultsDir } from "../core/app-paths.js";
 import {
   buildImageProbe,
   describeCapabilities,
@@ -33,6 +34,7 @@ import { analyzeProductStrategy } from "../features/detail-studio/planning/analy
 import { directVisualPlan } from "../features/detail-studio/planning/director-visual.js";
 import { compileScreenPlan, recompileForFreeze } from "../features/detail-studio/planning/compile-screen.js";
 import { runQualityCheck } from "../features/detail-studio/planning/qc-review.js";
+import { registerDetailStudioVersionRoutes } from "../features/detail-studio/versions/version-routes.js";
 
 function respondDetailStudioError(res, error, fallback) {
   const message = error instanceof Error ? error.message : String(error || fallback);
@@ -48,6 +50,9 @@ function referenceImageServeUrl(id, filename) {
 }
 
 export function registerDetailStudioRoutes(app) {
+  // 阶段 5：单屏连续编辑与版本管理（无条件注册，沿用本文件口径，严禁 NODE_ENV 提前 return）。
+  registerDetailStudioVersionRoutes(app);
+
   // 能力清单：纯本地，不需要 API Key，供阶段验收与前端自检使用。
   app.get("/api/detail-studio/capabilities", (_req, res) => {
     res.json(describeCapabilities());
@@ -176,6 +181,26 @@ export function registerDetailStudioRoutes(app) {
       res.sendFile(absPath);
     } catch (error) {
       respondDetailStudioError(res, error, "读取参考图失败");
+    }
+  });
+
+  // 阶段 5：版本结果图服务（落 data/detail-studio/generation/results/<task_id>.png）。
+  // 与参考图同源：basename 校验防目录穿越，sendFile 流式返回，无写盘副作用。
+  app.get("/api/detail-studio/projects/:id/generation/results/:filename", async (req, res) => {
+    try {
+      const id = req.params.id;
+      const safeId = /^[A-Za-z0-9_-]{1,80}$/.test(String(id || "")) ? id : "";
+      if (!safeId) return res.status(400).json({ ok: false, message: "项目 id 非法" });
+      const dir = detailStudioGenerationResultsDir;
+      const safeName = path.basename(String(req.params.filename || ""));
+      const absPath = path.resolve(dir, safeName);
+      if (absPath !== dir && !absPath.startsWith(dir + path.sep)) {
+        return res.status(400).json({ ok: false, message: "文件名非法" });
+      }
+      if (!existsSync(absPath)) return res.status(404).json({ ok: false, message: "文件不存在" });
+      res.sendFile(absPath);
+    } catch (error) {
+      respondDetailStudioError(res, error, "读取生成结果图失败");
     }
   });
 

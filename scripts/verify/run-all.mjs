@@ -237,6 +237,17 @@ const ORDER = [
   "qc-ceiling-check",
   // V202（2026-11-10）：阶段 3B B5 行业策略包门禁——cleaning 不误判为 home + 三包四字段齐备 + 覆盖层不覆盖 BASE，进提交钩子快速子集。
   "industry-strategy-match-check",
+  // V204（2026-11-11）：阶段 5 单屏隔离门禁——编辑第 5 屏只产该屏 1 任务、其他屏 task 数不变、
+  // planning 未重跑（frozenPrompts 字节不变）、缺 versionId 被拒、同屏同 versionId 幂等跳过。纯逻辑、沙盒 data 根（--fast 59→60）。
+  "screen-edit-isolation-check",
+  // V204（2026-11-11）：阶段 5 版本幂等门禁——同屏连续两次生成（同提示词、不同 versionId）产出
+  // 两任务/两版本/两图、不命中旧账本、缺 versionId 被拒。纯逻辑、沙盒 data 根（--fast 60→61）。
+  "version-idempotency-check",
+  // V203（2026-11-11，V204 任务 5 固化）：通用任务核心 task-store-core 六机制单测（写临时目录、零上游）。
+  "v203-core-smoke",
+  // V203（2026-11-11，V204 任务 5 固化）：编排层幂等/失败隔离/有限重试/不确定请求/断点恢复/取消
+  // 验收（mock generator、沙盒 data 根、零端口、<1s），与上面核心单测同族，排在此处。
+  "v203-orchestrator-smoke",
   // 2026-10-16：上条的浏览器实测（起服务 + tabbit 真实浏览器）：v1 禁用 / v2 出现 off 选项 /
   // 选中 off / 保存预设刷新回载仍 off / 切回 v1 仍禁用。不起服务的进不了 --fast，只进全量表。
   "detail-stylepack-off-browser-check",
@@ -335,6 +346,12 @@ const FAST_ORDER = [
   "qc-ceiling-check",
   // V202（2026-11-10）：阶段 3B B5 行业策略包门禁（纯逻辑、零上游，进 --fast 快速子集）。
   "industry-strategy-match-check",
+  // V204（2026-11-11）：阶段 5 单屏隔离 + 版本幂等两道门禁（纯逻辑、沙盒 data 根，进 --fast 快速子集）。
+  "screen-edit-isolation-check",
+  "version-idempotency-check",
+  // V203（2026-11-11，V204 任务 5 固化）：核心单测 + 编排层验收（纯逻辑、沙盒 data 根、零端口、<1s），进 --fast 快速子集。
+  "v203-core-smoke",
+  "v203-orchestrator-smoke",
   "generation-error-check",
   "history-integrity-check",
   "local-edit-ratio-check",

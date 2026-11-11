@@ -87,7 +87,28 @@ export function migrateProject(project) {
   }
   if (migrated.planning.visualDNA == null) migrated.planning.visualDNA = null;
   if (typeof migrated.planning.narrativeSummary !== "string") migrated.planning.narrativeSummary = "";
+  // 阶段 5 版本管理承载区：每屏版本链 screenVersions[] / 当前版本 currentVersionIds / 编辑线程 editThreads。
+  // 旧项目缺省补齐默认；已存在则保留并补齐子字段（幂等）。读操作（getScreenVersions）无写盘副作用。
+  if (!migrated.versions || typeof migrated.versions !== "object") {
+    migrated.versions = defaultVersions();
+  } else {
+    const dv = migrated.versions;
+    if (!Array.isArray(dv.screenVersions)) dv.screenVersions = [];
+    if (!dv.currentVersionIds || typeof dv.currentVersionIds !== "object") dv.currentVersionIds = {};
+    if (!dv.editThreads || typeof dv.editThreads !== "object") dv.editThreads = {};
+  }
   return migrated;
+}
+
+// 阶段 5 版本管理默认结构（随项目落 data/detail-studio/projects/<id>/project.json 的 versions 子对象）。
+// 不单独建目录、不进 data/results（7 天 TTL）/ seed / 安装包默认种子。
+function defaultVersions() {
+  return { screenVersions: [], currentVersionIds: {}, editThreads: {} };
+}
+
+function isValidVersionEntry(v) {
+  return Boolean(v && typeof v === "object" && typeof v.versionId === "string" && v.versionId
+    && Number.isInteger(v.screenIndex));
 }
 
 export function detailStudioAssetsDir(id) {
@@ -160,6 +181,26 @@ function withIndexWrite(task) {
   return result;
 }
 
+// 通用受控写：在单写入器链内读 → migrate → mutate → 原子写 → 同步索引。
+// 返回最新 project；项目不存在返回 null。版本管理等业务区经此修改 project.versions，
+// 避免各自重复实现写盘与索引同步（保持唯一写入器链不变式）。
+export async function mutateProject(id, mutator) {
+  const safeId = safeProjectId(id);
+  if (!safeId) throw new Error("项目 id 非法");
+  return withIndexWrite(async () => {
+    const project = migrateProject(await readJsonWithBackup(projectFilePath(safeId), null));
+    if (!project || project.id !== safeId) return null;
+    const next = mutator(project);
+    if (!next) return project;
+    next.updatedAt = nowIso();
+    await writeJsonAtomic(projectFilePath(safeId), next);
+    const index = await loadIndex();
+    index.projects = index.projects.map((item) => (item && item.id === safeId ? indexEntry(next) : item));
+    await writeJsonAtomic(INDEX_FILE, index);
+    return next;
+  });
+}
+
 async function loadIndex() {
   const index = await readJsonWithBackup(INDEX_FILE, { version: 1, projects: [] });
   return {
@@ -219,6 +260,7 @@ export async function createDetailStudioProject(input = {}) {
       visualDNA: null,
       frozenPrompts: {}
     },
+    versions: defaultVersions(),
     createdAt: timestamp,
     updatedAt: timestamp
   };
