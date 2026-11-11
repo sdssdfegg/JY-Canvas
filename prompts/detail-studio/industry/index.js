@@ -5,8 +5,9 @@
 // 机制：
 //  - 只读复用旧底座 prompts/server/detail-skills.js 的 INDUSTRY_SKILLS（含 name/keywords/
 //    analyzeAttributes/sellingAngles/recommendedScreens/visualAnchors/taboos/qcRules），不修改它。
-//  - 新策略包（generic/apparel/cleaning）只覆盖「决策逻辑 / 内容规划 / 视觉表达 / 事实边界」
-//    四字段，不覆盖 BASE_SKILL 事实锁与平台规则。
+//  - 新策略包（generic/apparel/cleaning + V205 的 beauty/home/food/electronics）只覆盖
+//    「决策逻辑 / 内容规划 / 视觉表达 / 事实边界」四字段，不覆盖 BASE_SKILL 事实锁与平台规则。
+//    beauty/home/food/electronics 已在旧底座存在（结构性字段齐全），走覆盖层；cleaning 为新增行业，自包含。
 //  - cleaning 为新增行业，旧底座无对应项，故 cleaning.js 自包含全部字段。
 //  - 三条冲突消解规则：
 //      ① 显式 industryId 优先（跳过文本打分）。
@@ -19,9 +20,17 @@ import { INDUSTRY_SKILLS } from "../../../server/detail-skills.js";
 import { generic } from "./generic.js";
 import { apparel } from "./apparel.js";
 import { cleaning } from "./cleaning.js";
+// V205 P0（阶段 3C）：补齐 3B 未落地的 4 个行业策略内容层。
+// beauty/home/food/electronics 已在旧 INDUSTRY_SKILLS 底座中存在（结构性字段齐全），
+// 故走「覆盖层」范式（与 apparel/generic 一致），只覆盖决策逻辑/内容规划/视觉表达/事实边界四字段，
+// 不重复搬运旧底座、不破坏 V202 的 cleaning↔home 冲突消解（home 关键词含泛词「清洁」由 cleaning 专属词化解）。
+import { beauty } from "./beauty.js";
+import { home } from "./home.js";
+import { food } from "./food.js";
+import { electronics } from "./electronics.js";
 
 // 覆盖层：id → 四字段覆盖包。cleaning 在旧底座中不存在，单独处理。
-const STRATEGY_OVERRIDES = { generic, apparel };
+const STRATEGY_OVERRIDES = { generic, apparel, beauty, home, food, electronics };
 const NEW_STRATEGIES = { cleaning };
 
 /** 合并旧底座结构与四字段覆盖层；新行业（cleaning）直接采用自包含包。 */

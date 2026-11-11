@@ -26,9 +26,11 @@ prompts/
     detail-skills.js      一键详情/主图的行业、平台、质检规则（仍然生效，详情创作只读复用）
   detail-studio/         阶段 3 详情创作「分层 SKILL 包」（V202 新增，独立于旧 detail-skills.js）
     core/                 事实分级 / 全局锁 / 单屏构图原语 / 选项溯源 / 确定性提示词编译器（纯函数，零依赖）
-    industry/             B5 行业策略包：index.js 加载器（getIndustryStrategy + 三条冲突消解规则）+ generic/apparel/cleaning 三包（只覆盖决策逻辑/内容规划/视觉表达/事实边界四字段，不覆盖 BASE/平台）
+    industry/             B5 行业策略包：index.js 加载器（getIndustryStrategy + 三条冲突消解规则）+ generic/apparel/cleaning 三包（只覆盖决策逻辑/内容规划/视觉表达/事实边界四字段，不覆盖 BASE/平台）；**V205 阶段 3C 新增 beauty/home/food/electronics 四包**（旧 INDUSTRY_SKILLS 底座已含结构性字段，走覆盖层只补四字段；结构性字段继承旧底座、不重复搬运）
     prompts/              批次①/②系统提示 + 结构化 JSON schema（纯数据/纯函数）
-    quality/              B4 质量审查：确定性质检规则 checklist.js（六类，零模型）+ LLM 主观质检 qc-prompt.js（纯数据/纯函数）
+    platform/             **V205 阶段 3C 新增**：平台规则包，只读复用旧 PLATFORM_SKILLS（11 平台/页型）+ resolvePlatformProfile 解析器 + buildPlatformContext，供规划链路消费节奏/比例/文案规则，**不覆盖 BASE_SKILL 事实锁**
+    references/           **V205 阶段 3C 新增**：文本资产区 —— reference-image-roles.js（参考图三角色 product/visualStyle/contentStructure 方法论 + 确定性守卫 + reference-image-guide.md 说明）、copywriting.js（消费者语言库 + 禁绝对化/禁医疗化词表 + 文案方向/信息层级 + scanForbiddenWords 扫描器）、case-library.js（每行业 ≥1 正例 + ≥1 反例并标注理由）、methodology.js（叙事弧/信息节奏/视觉多样性方法论 + 自检）
+    quality/              B4 质量审查：确定性质检规则 checklist.js（六类，零模型；V205 深化：商品事实维度加禁词扫描、购买逻辑维度加叙事弧自检）+ LLM 主观质检 qc-prompt.js（纯数据/纯函数；V205 注入行业宣传边界与禁词表供主观判定）
   frontend/
     README.md             前端默认提示词归档计划
 ```

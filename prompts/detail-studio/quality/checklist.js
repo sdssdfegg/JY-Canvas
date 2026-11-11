@@ -14,6 +14,10 @@
 import { FACT_GRADE, isPublishableGrade } from "../core/fact-grading.js";
 import { compileScreenPrompt } from "../core/prompt-compiler.js";
 import { missingTracedOptions } from "../core/option-trace.js";
+// V205 P2：电商文案与消费者语言子模块（禁绝对化/禁医疗化词表 + 扫描器），用于「宣传合规」确定性检查。
+import { scanForbiddenWords } from "../references/copywriting.js";
+// V205 P2：叙事弧自检（吸引→解释→转化），用于购买逻辑维度的深化。
+import { narrativeSelfCheck } from "../references/methodology.js";
 
 export const QC_CATEGORY_LABELS = Object.freeze({
   fact: "商品事实",
@@ -72,6 +76,24 @@ export function runChecklist(project = {}) {
         fixType: "stripUnconfirmed"
       });
     }
+    // V205 P2：宣传合规（确定性，挂在「商品事实与宣传边界」维度）—— 扫描每屏文案是否命中
+    // 禁绝对化 / 禁医疗化词表（来自 references/copywriting.js）。命中即告警，交人工/LLM 复核。
+    const copy = screen.copy || {};
+    const copyText = `${String(copy.headline || "")} ${String(copy.subcopy || "")}`;
+    if (copyText.trim()) {
+      const hit = scanForbiddenWords(copyText);
+      const all = [...hit.absolute, ...hit.medical];
+      if (all.length) {
+        findings.push({
+          category: "fact",
+          severity: "warn",
+          screenId: screen.id,
+          field: "copy",
+          message: `屏 ${screen.id} 文案命中禁词（绝对化/医疗化）：${all.join("、")} —— 违反宣传边界，须复核`,
+          autoFixable: false
+        });
+      }
+    }
   }
 
   // 类别② 购买逻辑：缺消费者逻辑 / 决策逻辑。
@@ -103,6 +125,39 @@ export function runChecklist(project = {}) {
         screenId: null,
         field: "analyze.decisionLogic",
         message: "缺少决策逻辑描述（决策逻辑驱动每屏卖点）",
+        autoFixable: false
+      });
+    }
+    // V205 P2：叙事弧自检（确定性，挂在购买逻辑维度）—— 整套方案应覆盖「吸引→解释→转化」三段，
+    // 否则无法服务消费者决策逻辑。引用 references/methodology.js 的 narrativeSelfCheck。
+    const arc = narrativeSelfCheck(screens);
+    if (!arc.hasHero) {
+      findings.push({
+        category: "purchaseLogic",
+        severity: "warn",
+        screenId: null,
+        field: "screens[0].role",
+        message: "首屏缺少 hero/身份锚角色，叙事弧「吸引」段缺失",
+        autoFixable: false
+      });
+    }
+    if (!arc.hasConversion) {
+      findings.push({
+        category: "purchaseLogic",
+        severity: "warn",
+        screenId: null,
+        field: "screens[last].role",
+        message: "末屏缺少 conversion/close 角色，叙事弧「转化」段缺失",
+        autoFixable: false
+      });
+    }
+    if (!arc.ok && arc.hasHero && arc.hasConversion && arc.middleCount < 1) {
+      findings.push({
+        category: "purchaseLogic",
+        severity: "warn",
+        screenId: null,
+        field: "screens",
+        message: "叙事弧中段（解释卖点/用法/信任）屏数不足，无法充分服务决策逻辑",
         autoFixable: false
       });
     }

@@ -237,6 +237,8 @@ const ORDER = [
   "qc-ceiling-check",
   // V202（2026-11-10）：阶段 3B B5 行业策略包门禁——cleaning 不误判为 home + 三包四字段齐备 + 覆盖层不覆盖 BASE，进提交钩子快速子集。
   "industry-strategy-match-check",
+  // V205（2026-11-11）：阶段 3C 专业能力内容层资产契约门禁——行业四字段/案例库/禁词表/platform/参考图角色齐备，纯逻辑零上游，进提交钩子快速子集。
+  "skill-asset-contract-check",
   // V204（2026-11-11）：阶段 5 单屏隔离门禁——编辑第 5 屏只产该屏 1 任务、其他屏 task 数不变、
   // planning 未重跑（frozenPrompts 字节不变）、缺 versionId 被拒、同屏同 versionId 幂等跳过。纯逻辑、沙盒 data 根（--fast 59→60）。
   "screen-edit-isolation-check",
@@ -346,6 +348,8 @@ const FAST_ORDER = [
   "qc-ceiling-check",
   // V202（2026-11-10）：阶段 3B B5 行业策略包门禁（纯逻辑、零上游，进 --fast 快速子集）。
   "industry-strategy-match-check",
+  // V205（2026-11-11）：阶段 3C 专业能力内容层资产契约门禁（纯逻辑、零上游，进 --fast 快速子集）。
+  "skill-asset-contract-check",
   // V204（2026-11-11）：阶段 5 单屏隔离 + 版本幂等两道门禁（纯逻辑、沙盒 data 根，进 --fast 快速子集）。
   "screen-edit-isolation-check",
   "version-idempotency-check",
