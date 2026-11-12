@@ -19,6 +19,7 @@ const AS_JSON = process.argv.includes("--json");
 const COMPILER = pathToFileURL(path.join(ROOT, "prompts", "detail-studio", "core", "prompt-compiler.js")).href;
 const FACT_GRADING = pathToFileURL(path.join(ROOT, "prompts", "detail-studio", "core", "fact-grading.js")).href;
 const COMPILE_PLAN = pathToFileURL(path.join(ROOT, "server", "features", "detail-studio", "planning", "compile-screen.js")).href;
+const ROUTES = pathToFileURL(path.join(ROOT, "server", "features", "detail-studio", "generation", "routes.js")).href;
 
 const results = [];
 function check(name, pass, detail = "") {
@@ -29,6 +30,7 @@ async function main() {
   const { compileScreenPrompt } = await import(COMPILER);
   const { FACT_GRADE } = await import(FACT_GRADING);
   const { compileScreenPlan, recompileForFreeze } = await import(COMPILE_PLAN);
+  const { buildBatchSpec } = await import(ROUTES);
 
   const screenUnconfirmed = {
     id: "screen_1",
@@ -81,6 +83,42 @@ async function main() {
     "逐屏编译与单屏编译偏离");
 
   check("user 事实（白色）进入第 2 屏提示词", plan.frozenPrompts.screen_2.indexOf("白色") >= 0, "user 事实未进入");
+
+  // ── V209 扩展：generation 端读取断言（compile 写 screen_N → buildBatchSpec 读出同一提示词）──
+  // 这条断言专门抓原断点 1：buildBatchSpec 曾用数字索引 frozenMap[i] 读 screen_N 键 → 读到空 → 整批被吞。
+  const genProject = {
+    id: "frozen-parity-gen",
+    mode: "guided",
+    modelConfig: { imageModel: "tt-image-2.6", channelId: "silent-tt26-line-01" },
+    planning: { screens: [screenUnconfirmed, screenUser], frozenPrompts: plan.frozenPrompts }
+  };
+  try {
+    const spec = buildBatchSpec(genProject, {});
+    check("generation 端读取：返回屏数 == 规划屏数", spec.screens.length === 2, "screens=" + spec.screens.length);
+    check("generation 端读取：screen_1 提示词与冻结值逐字一致",
+      spec.screens[0] && spec.screens[0].frozenPrompt === plan.frozenPrompts.screen_1,
+      spec.screens[0] && spec.screens[0].frozenPrompt);
+    check("generation 端读取：screen_2 提示词与冻结值逐字一致",
+      spec.screens[1] && spec.screens[1].frozenPrompt === plan.frozenPrompts.screen_2,
+      spec.screens[1] && spec.screens[1].frozenPrompt);
+  } catch (e) {
+    check("generation 端读取：buildBatchSpec 不抛错", false, e.message);
+  }
+
+  // 负向对照（防锚点搬家变假绿）：键错（wrong_N）+ 屏无 frozenPrompt → 必须抛「没有可生成的屏」，
+  // 证明修复后的代码不会用错键 / 空提示词悄悄生成。
+  const wrongProject = {
+    id: "frozen-parity-wrong",
+    mode: "guided",
+    modelConfig: { imageModel: "tt-image-2.6", channelId: "silent-tt26-line-01" },
+    planning: { screens: [screenUnconfirmed, screenUser], frozenPrompts: { wrong_1: "X", wrong_2: "Y" } }
+  };
+  try {
+    buildBatchSpec(wrongProject, {});
+    check("负向对照：键错必须抛「没有可生成的屏」", false, "未抛错（空提示词不应生成）");
+  } catch (e) {
+    check("负向对照：键错必须抛「没有可生成的屏」", /没有可生成的屏/.test(e.message), e.message);
+  }
 
   const failed = results.filter((r) => !r.pass);
   if (AS_JSON) {

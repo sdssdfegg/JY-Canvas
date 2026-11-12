@@ -27,7 +27,7 @@ export async function generateViaLocalApi(req) {
   form.set("aspectRatio", String(req.aspectRatio || "3:4"));
   form.set("n", "1");
   form.set("deferAutoSave", "1"); // 不自动落 history，结果由编排层落到 data/detail-studio/generation/results/
-  form.set("source", "detail-main");
+  form.set("source", "detail-studio");
   form.set("apiKey", String(req.apiKey || ""));
 
   for (const p of Array.isArray(req.referenceImagePaths) ? req.referenceImagePaths : []) {

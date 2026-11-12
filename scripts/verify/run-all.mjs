@@ -239,6 +239,8 @@ const ORDER = [
   "frozen-prompt-parity-check",
   // V202（2026-11-10）：详情创作 B4 质检上限门禁——MAX_AUTO_FIX=1、循环以常量为界、模型调用封顶 ≤2 次，进提交钩子快速子集。
   "qc-ceiling-check",
+  // V209（2026-11-12）：详情创作参数链断点门禁——参考图链路 / textModel 透传 / 质检行业边界全链不丢，纯逻辑+源码静态断言，零上游，进提交钩子快速子集。
+  "planning-parameter-chain-check",
   // V202（2026-11-10）：阶段 3B B5 行业策略包门禁——cleaning 不误判为 home + 三包四字段齐备 + 覆盖层不覆盖 BASE，进提交钩子快速子集。
   "industry-strategy-match-check",
   // V205（2026-11-11）：阶段 3C 专业能力内容层资产契约门禁——行业四字段/案例库/禁词表/platform/参考图角色齐备，纯逻辑零上游，进提交钩子快速子集。
@@ -357,6 +359,8 @@ const FAST_ORDER = [
   "frozen-prompt-parity-check",
   // V202（2026-11-10）：阶段 3B B4 质检上限门禁（纯逻辑、零上游，进 --fast 快速子集）。
   "qc-ceiling-check",
+  // V209（2026-11-12）：详情创作参数链断点门禁（纯逻辑+源码静态断言、零上游，进 --fast 快速子集）。
+  "planning-parameter-chain-check",
   // V202（2026-11-10）：阶段 3B B5 行业策略包门禁（纯逻辑、零上游，进 --fast 快速子集）。
   "industry-strategy-match-check",
   // V205（2026-11-11）：阶段 3C 专业能力内容层资产契约门禁（纯逻辑、零上游，进 --fast 快速子集）。

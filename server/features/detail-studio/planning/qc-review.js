@@ -13,6 +13,7 @@ import { resolveApiKey } from "../../../core/image-error-policy.js";
 import { channelBaseCandidates } from "../../../core/image-channel-candidates.js";
 import { DETAIL_STUDIO_MODEL_SPEC } from "../model/model-config.js";
 import { compileScreenPlan } from "./compile-screen.js";
+import { resolveIndustryStrategy } from "./analyze-strategy.js";
 import { runChecklist, applyDirectedFix } from "../../../../prompts/detail-studio/quality/checklist.js";
 import { QC_SYSTEM_PROMPT, buildQcUserPrompt } from "../../../../prompts/detail-studio/quality/qc-prompt.js";
 
@@ -23,7 +24,7 @@ export const MAX_AUTO_FIX = 1;
  * 单一模型质检调用（review 或 re-review 共用）。
  * @returns {{ ok: boolean, findings?: Array, status?: number, message?: string }}
  */
-async function callQcModel({ project, apiKey, textModel, signal }) {
+async function callQcModel({ project, apiKey, textModel, signal, industryStrategy }) {
   const planning = project.planning || {};
   const screens = Array.isArray(planning.screens) ? planning.screens : [];
   const frozen = planning.frozenPrompts && typeof planning.frozenPrompts === "object" ? planning.frozenPrompts : {};
@@ -32,7 +33,8 @@ async function callQcModel({ project, apiKey, textModel, signal }) {
     screens,
     frozenPrompts: frozen,
     analyze: planning.analyze,
-    appliedOptions: planning.appliedOptions
+    appliedOptions: planning.appliedOptions,
+    industryStrategy
   });
   const key = resolveApiKey(apiKey);
   if (!key) return { ok: false, status: 401, message: "请先在设置页填写 API Key" };
@@ -102,10 +104,14 @@ export async function runQualityCheck({ project, apiKey, textModel, signal } = {
   const screens = Array.isArray(planning.screens) ? planning.screens : [];
   if (!screens.length) return { ok: false, status: 400, message: "尚无分屏方案，无法质检" };
 
+  // V209：解析本次行业策略（含 promoBoundaries），透传给质检提示词，补上「行业宣传边界」维度。
+  const industry = resolveIndustryStrategy(project);
+  const industryStrategy = (industry && industry.strategy) || null;
+
   const deterministicFindings = runChecklist(project);
 
   // 第 1 次模型调用：独立质检（review）。
-  const review = await callQcModel({ project, apiKey, textModel, signal });
+  const review = await callQcModel({ project, apiKey, textModel, signal, industryStrategy });
   if (!review.ok) return { ok: false, status: review.status || 502, message: review.message };
   const llmFindings = normalizeLlmFindings(review.findings);
 
@@ -130,7 +136,7 @@ export async function runQualityCheck({ project, apiKey, textModel, signal } = {
       ...project,
       planning: { ...planning, screens: updatedScreens, frozenPrompts: recompiled || planning.frozenPrompts }
     };
-    const reReview = await callQcModel({ project: reProject, apiKey, textModel, signal });
+    const reReview = await callQcModel({ project: reProject, apiKey, textModel, signal, industryStrategy });
     if (reReview.ok) reReviewFindings = normalizeLlmFindings(reReview.findings);
     findings = mergeFindings(findings, reReviewFindings);
   }

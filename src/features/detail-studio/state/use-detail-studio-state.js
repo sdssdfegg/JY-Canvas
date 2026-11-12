@@ -368,7 +368,7 @@ export function useDetailStudioState() {
     setError("");
     setNotice("");
     try {
-      const res = await analyzeDetailStudio(currentProject.id, { apiKey });
+      const res = await analyzeDetailStudio(currentProject.id, { apiKey, textModel: (currentProject.modelConfig && currentProject.modelConfig.textModel) || "" });
       setCurrentProject(res.project);
       setNotice(res.completeness >= 0.8
         ? "商品分析完成，信息较完整，可进入分屏"
@@ -394,7 +394,7 @@ export function useDetailStudioState() {
     setError("");
     setNotice("");
     try {
-      const res = await directorDetailStudio(currentProject.id, { apiKey });
+      const res = await directorDetailStudio(currentProject.id, { apiKey, textModel: (currentProject.modelConfig && currentProject.modelConfig.textModel) || "" });
       setCurrentProject(res.project);
       setNotice("分屏方案已生成（" + (res.screens ? res.screens.length : 0) + " 屏），可审阅后编译冻结");
       return res;
@@ -455,7 +455,7 @@ export function useDetailStudioState() {
     setError("");
     setNotice("");
     try {
-      const res = await qualityDetailStudio(currentProject.id, { apiKey });
+      const res = await qualityDetailStudio(currentProject.id, { apiKey, textModel: (currentProject.modelConfig && currentProject.modelConfig.textModel) || "" });
       setQcReport(res);
       if (res.project) setCurrentProject(res.project);
       setNotice(res.needsHuman

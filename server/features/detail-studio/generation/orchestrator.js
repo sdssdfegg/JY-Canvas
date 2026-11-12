@@ -111,6 +111,7 @@ export async function submitBatch(spec, opts = {}) {
       imageSize: screen.imageSize,
       aspectRatio: screen.aspectRatio,
       referenceRoles: screen.referenceRoles,
+      referenceImagePaths: screen.referenceImagePaths,
       idempotencyKey: key,
       versionId: screen.versionId
     });
@@ -156,6 +157,7 @@ export async function submitSingleScreen(spec, opts = {}) {
     imageSize: screen.imageSize,
     aspectRatio: screen.aspectRatio,
     referenceRoles: screen.referenceRoles,
+    referenceImagePaths: screen.referenceImagePaths,
     idempotencyKey: key,
     versionId: screen.versionId
   });

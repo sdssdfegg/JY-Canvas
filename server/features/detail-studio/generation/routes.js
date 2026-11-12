@@ -26,7 +26,7 @@ function respondError(res, error, fallback) {
 
 // 从项目构建批次规格：每屏一个独立任务，1:1 对应 ScreenSpec[] / 模式 C screens[]。
 // 三类参考图（product / visualStyle / contentStructure）按 V202 约定全部带入（不混用、不作角色再分配）。
-function buildBatchSpec(project, { screenIndexes } = {}) {
+export function buildBatchSpec(project, { screenIndexes } = {}) {
   if (!project || !project.id) throw new Error("项目不存在");
   const assetsDir = detailStudioAssetsDir(project.id);
   const referenceImagePaths = Array.isArray(project.referenceImages)
@@ -67,7 +67,12 @@ function buildBatchSpec(project, { screenIndexes } = {}) {
     const frozenMap = (project.planning && project.planning.frozenPrompts) || {};
     if (!planned.length) throw new Error("尚未生成分屏方案（阶段 3 规划）");
     planned.forEach((screen, i) => {
-      const fp = String(frozenMap[i] != null ? frozenMap[i] : (screen.frozenPrompt || screen.raw || "")).trim();
+      // 双轨兼容（V209）：优先按 screen.id（compile 写入的 screen_N 键），数字索引 i 仅作老项目兜底。
+      const fp = String(
+        frozenMap[screen.id] != null ? frozenMap[screen.id]
+          : (frozenMap[i] != null ? frozenMap[i]
+            : (screen.frozenPrompt || screen.raw || ""))
+      ).trim();
       if (!fp) return; // 空屏跳过（不浪费一次上游请求）
       screens.push({
         screenIndex: i,
@@ -152,4 +157,4 @@ export function registerDetailStudioGenerationRoutes(app) {
 }
 
 // 供 app.js 在路由注册后显式触发的恢复入口（与路由内自愈互补）。
-export { recoverOnStartup, buildBatchSpec };
+export { recoverOnStartup };

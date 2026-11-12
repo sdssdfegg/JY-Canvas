@@ -130,8 +130,8 @@ export function freezeDetailStudioPrompts(id) {
 
 // ── B4 质量审查：独立 1 次模型调用 + 一次定向修正 + 再审查（封顶）──
 // 模型调用合计 ≤2 次，受服务端 MAX_AUTO_FIX=1 约束，不合格明确交回人工。
-export function qualityDetailStudio(id, { apiKey = "" } = {}) {
-  return postJson(BASE + "/projects/" + encodeURIComponent(id) + "/planning/quality", { apiKey }, "质量审查失败");
+export function qualityDetailStudio(id, { apiKey = "", textModel = "" } = {}) {
+  return postJson(BASE + "/projects/" + encodeURIComponent(id) + "/planning/quality", { apiKey, textModel }, "质量审查失败");
 }
 
 // ── 阶段 4 批量生成与任务管理 ──

@@ -114,7 +114,7 @@ export function canTransition(from, to) {
 
 // 构建一条新任务记录的骨架（不落盘，交由编排层 writeTask）。
 // versionId：阶段 5 单屏编辑必填，写入任务记录以便 finalize 时反查版本；阶段 4 初始整批为 null。
-export function buildTaskRecord({ projectId, screenIndex, frozenPrompt, model, channelId, idempotencyKey: key, imageSize, aspectRatio, referenceRoles, versionId }) {
+export function buildTaskRecord({ projectId, screenIndex, frozenPrompt, model, channelId, idempotencyKey: key, imageSize, aspectRatio, referenceRoles, referenceImagePaths, versionId }) {
   const now = new Date().toISOString();
   const vidTag = versionId ? String(versionId).slice(0, 8) : "v0";
   return {
@@ -129,6 +129,7 @@ export function buildTaskRecord({ projectId, screenIndex, frozenPrompt, model, c
     imageSize: imageSize || "2K",
     aspectRatio: aspectRatio || "3:4",
     referenceRoles: Array.isArray(referenceRoles) ? referenceRoles : [],
+    referenceImagePaths: Array.isArray(referenceImagePaths) ? referenceImagePaths : [],
     idempotencyKey: key,
     status: TASK_STATUS.QUEUED,
     attempts: [],
