@@ -249,6 +249,9 @@ const ORDER = [
   // V204（2026-11-11）：阶段 5 版本幂等门禁——同屏连续两次生成（同提示词、不同 versionId）产出
   // 两任务/两版本/两图、不命中旧账本、缺 versionId 被拒。纯逻辑、沙盒 data 根（--fast 60→61）。
   "version-idempotency-check",
+  // V208（2026-11-12）：Tool 抽象底座 parity 门禁——7 个 Tool 元数据齐全 + 确定性 Tool
+  // 直接调用 vs dispatchTool 字节一致 + 4 条负向对照。纯逻辑、沙盒 data 根、零上游（--fast 71→72）。
+  "tool-parity-check",
   // V203（2026-11-11，V204 任务 5 固化）：通用任务核心 task-store-core 六机制单测（写临时目录、零上游）。
   "v203-core-smoke",
   // V203（2026-11-11，V204 任务 5 固化）：编排层幂等/失败隔离/有限重试/不确定请求/断点恢复/取消
@@ -361,6 +364,8 @@ const FAST_ORDER = [
   // V204（2026-11-11）：阶段 5 单屏隔离 + 版本幂等两道门禁（纯逻辑、沙盒 data 根，进 --fast 快速子集）。
   "screen-edit-isolation-check",
   "version-idempotency-check",
+  // V208（2026-11-12）：Tool 抽象底座 parity 门禁（纯逻辑、沙盒 data 根、零上游，进 --fast 快速子集）。
+  "tool-parity-check",
   // V203（2026-11-11，V204 任务 5 固化）：核心单测 + 编排层验收（纯逻辑、沙盒 data 根、零端口、<1s），进 --fast 快速子集。
   "v203-core-smoke",
   "v203-orchestrator-smoke",

@@ -20,6 +20,8 @@ import {
   describeCapabilities,
   probeTextModel
 } from "../features/detail-studio/probe/capabilities.js";
+import { registerDetailStudioTools } from "../features/detail-studio/tools/index.js";
+import { listTools } from "../core/tool-registry.js";
 import {
   appendReferenceImage,
   createDetailStudioProject,
@@ -53,9 +55,19 @@ export function registerDetailStudioRoutes(app) {
   // 阶段 5：单屏连续编辑与版本管理（无条件注册，沿用本文件口径，严禁 NODE_ENV 提前 return）。
   registerDetailStudioVersionRoutes(app);
 
+  // V208 P1：Tool 抽象底座（纯增量注册，无条件——严禁照抄 seed 的 NODE_ENV 提前 return）。
+  // 注册表为只读元数据 + 统一执行入口，不切换任何既有出图 / 版本 / 任务调用点（硬约束 1）。
+  registerDetailStudioTools();
+
   // 能力清单：纯本地，不需要 API Key，供阶段验收与前端自检使用。
   app.get("/api/detail-studio/capabilities", (_req, res) => {
     res.json(describeCapabilities());
+  });
+
+  // V208 P1：只读 Tool 发现端点——只返回 listTools() 元数据，绝不执行任何 Tool。
+  // 在 dev / internal / public production 三种模式下均 200（注册无条件，本文件口径）。
+  app.get("/api/detail-studio/tools", (_req, res) => {
+    res.json({ ok: true, tools: listTools() });
   });
 
   app.get("/api/detail-studio/projects", async (_req, res) => {

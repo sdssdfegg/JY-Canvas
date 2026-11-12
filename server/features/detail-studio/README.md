@@ -16,6 +16,7 @@
 
 ```text
 server/routes/detail-studio.routes.js         路由装配：无条件注册，严禁 NODE_ENV === "production" 提前 return
+server/core/tool-registry.js                  V208 P1：Tool 抽象底座注册表（零依赖、仅 Node 内置；registerTool/getTool/listTools/dispatchTool；缺字段/重复 id/未注册调用一律抛错拒绝）
 
 server/features/detail-studio/
 ├── README.md                                 本文件（目录契约）
@@ -34,9 +35,18 @@ server/features/detail-studio/
     ├── task-store.js                        薄适配层：绑定 task-store-core 到 detailStudioGenerationTasksDir（不 import 旧 task-store.js）
     ├── task-model.js                        纯逻辑：MAX_SCREENS=20 / MAX_ATTEMPTS=3 / idempotencyKey / classifyError / computeBackoffMs / canTransition
     └── local-images-generator.js            内部自调 POST /api/images：复用全局 5 并发闸门 + 计费 + 持久化；prompt 只读 frozenPrompt，字节一致
-└── versions/
+├── versions/
     ├── version-store.js                     版本元数据/版本链/编辑线程（受控经 project-store 写入器链，读操作无写盘副作用）；createPendingVersion/finalizeVersion/switchScreenVersion/appendEditThreadRound/getScreenVersions
     └── version-routes.js                     版本路由：单屏编辑(绑定 versionId→一次独立任务)/生成完成落盘/读版本/切换/编辑线程（server/app.js 无条件注册，严禁 NODE_ENV 提前 return）
+└── tools/                                   V208 P1：Tool 抽象底座适配器层（纯增量包装，原函数一行不改、保留为 Tool 内部实现；P5 才切换调用点）
+    ├── index.js                             registerDetailStudioTools() 集中注册 7 个 Tool
+    ├── image-generate.tool.js               imageGenerate（包装 generation/local-images-generator.js#generateViaLocalApi）
+    ├── edit-screen.tool.js                  editScreen（包装 generation/orchestrator.js#submitSingleScreen）
+    ├── save-version.tool.js                 saveVersion（包装 versions/version-store.js#finalizeVersion）
+    ├── switch-version.tool.js               switchVersion（包装 versions/version-store.js#switchScreenVersion）
+    ├── manage-asset.tool.js                 manageAsset（包装 store/project-store.js#appendReferenceImage）
+    ├── create-task.tool.js                  createTask（包装 generation/orchestrator.js#submitBatch）
+    └── retry-task.tool.js                   retryTask（包装 generation/orchestrator.js#retryTask）
 ```
 
 > R2 通用持久化任务层抽取（阶段 4 落地）：`server/core/task-store-core.js` 为零依赖叶子（只依赖 Node 内置 + `app-paths.js`），`createTaskStore({ tasksDir })` 参数化镜像 `server/ai-tryon/task-store.js` 的 6 项机制；`server/features/detail-studio/generation/task-store.js` 仅作薄适配。旧换装任务目录与 `data/detail-studio/generation/tasks/` 隔离，互不共用索引。
@@ -48,6 +58,7 @@ server/features/detail-studio/
 | `probe/` | 复用现有模型链路做连通性自检 | `server/core/*`、`store/`、`model/` |
 | `planning/` | 阶段 3 规划业务区：批次①分析/策划、批次②导演分屏、提示词编译、质量审查 | `server/core/ai-chat-shared.js`、`store/`、`model/`、`prompts/detail-studio/**`（只读复用）、`prompts/server/detail-skills.js`（只读复用） |
 | `generation/` | 阶段 4 批量生成与任务管理：编排 / 状态机 / 持久化适配 / R2 任务层调用 | `server/core/*`、`store/`、`model/`、`generation/task-store.js`、`generation/task-model.js`（均零依赖叶子） |
+| `tools/` | V208 P1 Tool 抽象底座适配器层：纯增量包装既有业务函数，P5 才切换调用点 | `server/core/tool-registry.js`、各被包装业务模块（只读复用，不改写） |
 
 > B4 质检上限（V202 §7-7）：`qc-review.js` 的模型调用封顶为 review + re-review 合计 ≤2 次；定向修正受 `MAX_AUTO_FIX=1` 约束，只发生一次、不无限循环；仍不合格明确交回人工（`needsHuman`），绝不触发第三次调用。
 
