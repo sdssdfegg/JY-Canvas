@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-11-13",
-  "reason": "V210 导演分屏可观测性与稳定性：PlanningPanel.jsx(+29 新增 DirectorErrorBanner+等待计时 UI)、use-detail-studio-state.js(+34 useDetailStudioState 新增 directorRunning/waitingSec/error 反馈状态)均为前端反馈必要逻辑，非质量退化",
+  "reason": "V211-P0 生成面板前置可见性：GenerationPanel.jsx +26 行（未冻结时禁用按钮并提示、未配置模型/渠道提示将用推荐默认、启动失败就地显示 state.error），必要的前端反馈逻辑非质量退化",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -46,7 +46,7 @@
     "src/features/detail-studio/components/DetailStudioView.jsx": 61,
     "src/features/detail-studio/components/FlowGuidanceBar.jsx": 80,
     "src/features/detail-studio/constants/workspace-contract.js": 54,
-    "src/features/detail-studio/generation/GenerationPanel.jsx": 170,
+    "src/features/detail-studio/generation/GenerationPanel.jsx": 196,
     "src/features/detail-studio/intake/IntakeArea.jsx": 43,
     "src/features/detail-studio/intake/mode-a/GuidedIntakePanel.jsx": 77,
     "src/features/detail-studio/intake/mode-b/AssistedIntakePanel.jsx": 56,
@@ -205,7 +205,7 @@
     "src/features/detail-studio/components/DetailStudioCapabilityPanel.jsx::DetailStudioCapabilityPanel": 167,
     "src/features/detail-studio/components/DetailStudioProjectPanel.jsx::DetailStudioProjectPanel": 87,
     "src/features/detail-studio/components/FlowGuidanceBar.jsx::FlowGuidanceBar": 51,
-    "src/features/detail-studio/generation/GenerationPanel.jsx::GenerationPanel": 142,
+    "src/features/detail-studio/generation/GenerationPanel.jsx::GenerationPanel": 168,
     "src/features/detail-studio/intake/mode-a/GuidedIntakePanel.jsx::GuidedIntakePanel": 54,
     "src/features/detail-studio/intake/mode-c/DirectPromptPanel.jsx::DirectPromptPanel": 182,
     "src/features/detail-studio/intake/ModelChannelConfigPanel.jsx::ModelChannelConfigPanel": 97,

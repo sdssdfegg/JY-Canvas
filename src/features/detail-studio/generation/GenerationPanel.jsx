@@ -26,7 +26,7 @@ function isActive(counts) {
 
 export function GenerationPanel({ state }) {
   const { currentProject, apiKeyMissing, startGeneration, getDetailStudioGenerationStatus,
-    retryDetailStudioGenerationTask, cancelDetailStudioGenerationTask } = state;
+    retryDetailStudioGenerationTask, cancelDetailStudioGenerationTask, error } = state;
   const projectId = currentProject?.id;
 
   const [status, setStatus] = useState(null);
@@ -105,6 +105,26 @@ export function GenerationPanel({ state }) {
 
   if (!currentProject) return null;
 
+  // ── P0 前置可见性（V211）：冻结前 / 未配置时给用户明确原因，不再「点了没反应」──
+  const modelConfig = currentProject?.modelConfig || {};
+  const requestedImageModel = String(modelConfig.imageModel || "").trim();
+  const requestedChannelId = String(modelConfig.channelId || "").trim();
+  const modelConfigMissing = !requestedImageModel || !requestedChannelId;
+
+  const planning = currentProject?.planning || {};
+  const frozenPrompts = planning.frozenPrompts || {};
+  const frozenAorB = Object.keys(frozenPrompts).length > 0;
+  const frozenModeC = currentProject?.mode === "direct"
+    && String(currentProject?.modeC?.frozenPrompt || "").trim().length > 0;
+  const frozen = frozenAorB || frozenModeC;
+
+  const blocked = apiKeyMissing || !frozen;
+  const blockReason = apiKeyMissing
+    ? "请到设置页填写 API Key 后再生成（全画板只在设置页填一次）。"
+    : !frozen
+      ? "请先编译并冻结提示词（冻结成功后才能开始批量生成）。"
+      : "";
+
   const counts = status?.counts;
   const tasks = status?.tasks || [];
 
@@ -116,16 +136,22 @@ export function GenerationPanel({ state }) {
           size="sm"
           tone="primary"
           loading={starting}
-          disabled={apiKeyMissing}
+          disabled={blocked}
           onClick={onStart}
         >
           <Play size={14} /> 开始批量生成（最多 20 屏）
         </Button>
       </header>
 
-      {apiKeyMissing && (
-        <div className="generationHint">请到设置页填写 API Key 后再生成（全画板只在设置页填一次）。</div>
+      {blockReason && (
+        <div className="generationHint">{blockReason}</div>
       )}
+      {modelConfigMissing && !blocked && (
+        <div className="generationHint generationHintInfo">
+          未配置生图模型 / 渠道，生成时将使用推荐默认（tt-image-2.6 / laoye），可在左列「模型与渠道配置」中修改。
+        </div>
+      )}
+      {error && <div className="detailStudioBanner detailStudioBannerError">{error}</div>}
       {localError && <div className="detailStudioBanner detailStudioBannerError">{localError}</div>}
 
       {counts && (

@@ -1348,6 +1348,10 @@
   color: var(--warn);
 }
 
+.generationHintInfo {
+  color: var(--muted);
+}
+
 .generationProgress {
   display: grid;
   gap: var(--space-2);

@@ -18,6 +18,11 @@ import {
 } from "./orchestrator.js";
 import { generateViaLocalApi } from "./local-images-generator.js";
 import { MAX_SCREENS } from "./task-model.js";
+import { routingChannelsForModel } from "../../../channel-config.js";
+
+// 详情创作默认生图模型（与前端 buildDetailStudioImageForm 默认 model 一致：tt-image-2.6）。
+// 仅用于「项目未配置 modelConfig」时的服务端兜底，绝不覆盖用户显式选择。
+const DEFAULT_DETAIL_STUDIO_IMAGE_MODEL = "tt-image-2.6";
 
 function respondError(res, error, fallback) {
   const message = error instanceof Error ? error.message : String(error || fallback);
@@ -36,8 +41,18 @@ export function buildBatchSpec(project, { screenIndexes } = {}) {
     new Set((Array.isArray(project.referenceImages) ? project.referenceImages : []).map((r) => r.role).filter(Boolean))
   );
 
-  const imageModel = String((project.modelConfig && project.modelConfig.imageModel) || "").trim();
-  const channelId = String((project.modelConfig && project.modelConfig.channelId) || "").trim();
+  // 新建 / 旧项目 modelConfig 三项可能全空（create 不写默认、migrate 补空），
+  // 服务端默认回退到 tt-image-2.6 + 该模型合法渠道首项，口径与前端 buildDetailStudioImageForm
+  // 的 routingFields 一致（channel-config.js 为权威渠道表，避免前端 / 服务端双份维护漂移）。
+  // 用户显式配置过则用用户值，不让默认覆盖选择。
+  const requestedImageModel = String((project.modelConfig && project.modelConfig.imageModel) || "").trim();
+  const requestedChannelId = String((project.modelConfig && project.modelConfig.channelId) || "").trim();
+  const imageModel = requestedImageModel || DEFAULT_DETAIL_STUDIO_IMAGE_MODEL;
+  let channelId = requestedChannelId;
+  if (!channelId) {
+    const candidates = routingChannelsForModel(imageModel);
+    channelId = candidates.length ? candidates[0].id : "";
+  }
   if (!imageModel) throw new Error("尚未配置图片模型（阶段 2 模型与渠道配置）");
   if (!channelId) throw new Error("尚未选择图片渠道（阶段 2 模型与渠道配置）");
 
