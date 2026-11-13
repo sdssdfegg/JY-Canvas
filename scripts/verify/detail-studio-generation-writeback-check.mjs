@@ -24,7 +24,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..", "..");
 const ORCH_SRC = path.join(ROOT, "server", "features", "detail-studio", "generation", "orchestrator.js");
 
-const { registerBatch, beginTask, recordResult, getBatchStatus } =
+const { registerBatch, beginTask, recordResult, getBatchStatus, reconcileStaleRunning } =
   await import("../../server/features/detail-studio/generation/orchestrator.js");
 const { generationTaskStore } =
   await import("../../server/features/detail-studio/generation/task-store.js");
@@ -160,6 +160,55 @@ async function main() {
   const specDirect = await registerOne(projectDirect, "未 begin 提示词");
   const directTask = await recordResult(projectDirect, specDirect.taskId, { outcome: "success", image });
   check("负向对照·QUEUED 直接回写也落终态", directTask.status === TASK_STATUS.SUCCESS, directTask.status);
+
+  // ── 6) V212-R1 P1：RUNNING 悬挂看门狗（页面刷新 / 切走导致 /result 丢失） ──
+  // writeTask 会强制把 updated_at 刷成当前时间，故用 getBatchStatus 的注入参数 now
+  // 模拟「时间已过去 20 分钟」，而不是 hack 落盘文件；生产调用不传该参数。
+  const futureNow = Date.now() + 20 * 60 * 1000;
+  async function makeRunning(projectId, prompt, extra = {}) {
+    const spec = await registerOne(projectId, prompt);
+    await beginTask(projectId, spec.taskId);
+    if (Object.keys(extra).length) {
+      const task = await generationTaskStore.readTask(spec.taskId);
+      await generationTaskStore.writeTask({ ...task, ...extra });
+    }
+    return spec;
+  }
+
+  const projectStale = "v212r1_t_stale";
+  const specStale = await makeRunning(projectStale, "悬挂超时提示词");
+  const staleStatus = await getBatchStatus(projectStale, { now: futureNow });
+  const staleAfter = await generationTaskStore.readTask(specStale.taskId);
+  check("超时 RUNNING 自动转 needs_confirm", staleAfter.status === TASK_STATUS.NEEDS_CONFIRM, staleAfter.status);
+  check("看门狗给出可诊断原因与可重试标记", staleAfter.error && staleAfter.error.code === "stalled_running"
+    && staleAfter.error.recoverable === true, JSON.stringify(staleAfter.error || {}));
+  check("看门狗后统计 running=0 / needs_confirm=1",
+    staleStatus.counts.running === 0 && staleStatus.counts.needs_confirm === 1,
+    `running=${staleStatus.counts.running} needs_confirm=${staleStatus.counts.needs_confirm}`);
+
+  // 负向对照：未超时的正常 RUNNING 不被误伤（生产默认 now = 当前时间）
+  const projectFresh = "v212r1_t_fresh";
+  const specFresh = await makeRunning(projectFresh, "新鲜运行中提示词");
+  const freshStatus = await getBatchStatus(projectFresh);
+  check("负向对照·未超时 RUNNING 不被误伤",
+    (await generationTaskStore.readTask(specFresh.taskId)).status === TASK_STATUS.RUNNING
+    && freshStatus.counts.running === 1, `running=${freshStatus.counts.running}`);
+
+  // 负向对照：看门狗按项目隔离，不跨项目改写其它项目的悬挂任务
+  const projectOther = "v212r1_t_other";
+  const specOther = await makeRunning(projectOther, "别的项目悬挂提示词");
+  await getBatchStatus(projectFresh, { now: futureNow });
+  check("负向对照·看门狗不跨项目误伤",
+    (await generationTaskStore.readTask(specOther.taskId)).status === TASK_STATUS.RUNNING);
+  check("显式全量 reconcile 能回收其它项目的悬挂任务",
+    (await reconcileStaleRunning(undefined, { now: futureNow })).includes(specOther.taskId));
+
+  // 负向对照：已有 resultRef 的旧 RUNNING 是「等回写」，不应被改写成需确认
+  const projectHasResult = "v212r1_t_hasresult";
+  const specHasResult = await makeRunning(projectHasResult, "已有结果提示词", { resultRef: { localUrl } });
+  await getBatchStatus(projectHasResult, { now: futureNow });
+  check("负向对照·已有结果的旧 RUNNING 不被改写",
+    (await generationTaskStore.readTask(specHasResult.taskId)).status === TASK_STATUS.RUNNING);
 }
 
 try {

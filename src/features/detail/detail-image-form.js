@@ -26,7 +26,8 @@ const MAX_REFERENCE_FILES = 6;
  * @param {string} [opts.aspectRatio]
  * @param {number} [opts.n]
  * @param {string} [opts.source] 白名单值：detail-main / detail-studio
- * @param {string} [opts.baseUrl] 可选，缺省则不发送（由上游默认值处理）
+ * @param {string} [opts.baseUrl] 网关地址；缺省空串（与一键详情默认配置一致，服务端回退默认网关）
+ * @param {boolean} [opts.deferAutoSave] 仅工作区为 true：不自动落全局 history，由工作区自行持久化
  * @param {Array<{file: File|Blob, role?: string}>} [opts.referenceFiles] 参考图（含角色）
  * @returns {Promise<FormData>}
  */
@@ -39,12 +40,16 @@ export async function buildDetailImageForm({
   aspectRatio = "3:4",
   n = 1,
   source = "detail-main",
-  baseUrl,
+  baseUrl = "",
+  deferAutoSave = false,
   referenceFiles = []
 } = {}) {
   const fields = routingFields(model, channelId);
   const form = new FormData();
-  if (baseUrl) form.set("baseUrl", baseUrl);
+  // V212-R1 P2：一键详情总是发送 baseUrl（缺省空串），此前 `if (baseUrl)` 会让工作区请求
+  // 从不带该字段，造成两套字段集漂移。空串由服务端 normalizeImageRequest 回退默认网关。
+  form.set("baseUrl", String(baseUrl ?? ""));
+  if (deferAutoSave) form.set("deferAutoSave", "1");
   form.set("apiKey", normalizeApiKeyInput(apiKey));
   form.set("model", fields.model);
   form.set("channelId", fields.channelId);

@@ -42,7 +42,9 @@ export function probeDetailStudioImage(payload) {
 // 详情创作生图 FormData 构造器：统一委托到共享 buildDetailImageForm（V212 P1 · 出图入口唯一化），
 // 与一键详情共用同一套字段集（禁止两套 FormData 字段）。source 用 detail-studio，
 // routingFields 在内部分配合法 channelId/dispatchMode，baseUrl/referenceFiles 透传。
-// deferAutoSave=1：结果不自动落全局 history，由工作区自行持久化到 data/detail-studio/generation/results/。
+// deferAutoSave=1（V212-R1 P2 已真正落到共享 FormData，不再只是注释）：结果不自动落全局 history，
+// 由工作区自行持久化到 data/detail-studio/generation/results/；/api/images 的 display-cache
+// 仍会把图片落到 data/history-images/ 并返回 /api/history-image/... URL，故结果图仍可显示。
 export function buildDetailStudioImageForm({
   apiKey = "",
   prompt = "",
@@ -65,6 +67,7 @@ export function buildDetailStudioImageForm({
     n,
     source,
     baseUrl,
+    deferAutoSave: true,
     referenceFiles
   });
 }

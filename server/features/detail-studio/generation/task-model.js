@@ -13,6 +13,10 @@ export const MAX_SCREENS = 20; // 单个详情项目最多 20 屏
 export const MAX_ATTEMPTS = 3; // 重试上限：含首试共 3 次（额外最多 2 次重试）
 export const BACKOFF_BASE_MS = 2000;
 export const BACKOFF_CAP_MS = 60000;
+// V212-R1 P1：前端直调出图后若页面刷新 / 切走，/result 回写会丢失，任务可能永远停在 running。
+// 阈值与 /api/images 的整体请求超时（IMAGE_REQUEST_TIMEOUT_MS = 15min）对齐，只兜底异常悬挂，
+// 绝不误伤仍在合法等待窗口内的请求；看门狗只标 needs_confirm（不自动重跑、不二次扣费）。
+export const RUNNING_STALE_TIMEOUT_MS = 15 * 60 * 1000;
 
 export const TASK_STATUS = {
   QUEUED: "queued",

@@ -41,7 +41,15 @@ async function loadReferenceBlobs(referenceImages) {
     if (!r || !r.url) return;
     try {
       const blob = await fetchReferenceImageBlob(r.url);
-      if (blob && blob.size > 0) files.push({ file: blob, role: r.role || "reference" });
+      if (blob && blob.size > 0) {
+        // V212-R1 P2：Blob 没有 name，会让共享 form 的 referenceMeta.name 退化为占位名；
+        // 还原服务端返回的真实文件名，与一键详情的 File 上传同构（上游按角色/文件名识别参考图）。
+        const filename = String(r.filename || r.name || "reference.png");
+        const file = typeof File === "function"
+          ? new File([blob], filename, { type: blob.type || "image/png" })
+          : blob;
+        files.push({ file, role: r.role || "reference" });
+      }
     } catch {
       // 单张拉取失败不阻断整批，跳过
     }

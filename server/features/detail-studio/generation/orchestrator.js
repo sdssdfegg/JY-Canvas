@@ -25,6 +25,7 @@ import {
   TERMINAL_STATES,
   MAX_SCREENS,
   MAX_ATTEMPTS,
+  RUNNING_STALE_TIMEOUT_MS,
   idempotencyKey,
   classifyError,
   computeBackoffMs,
@@ -209,7 +210,10 @@ export async function runTask(taskId, { generator, apiKey, backoffBaseMs } = {})
         apiKey: apiKey || "",
         imageSize: current.imageSize,
         aspectRatio: current.aspectRatio,
-        referenceImagePaths: current.referenceImagePaths || []
+        referenceImagePaths: current.referenceImagePaths || [],
+        // V212-R1 P3：参考图角色随任务记录透传，供 generateViaLocalApi 构造与前端同构的 referenceMeta
+        // （此前角色在 runTask 丢失，服务端内部自调用的参考图全部退化为无角色裸 Blob）。
+        referenceRoles: current.referenceRoles || []
       });
     } catch (err) {
       genResult = {
@@ -469,8 +473,39 @@ export async function recoverOnStartup() {
   return recovered;
 }
 
+// ── V212-R1 P1：RUNNING 悬挂看门狗 ──
+// 前端逐屏直调 generateImages 后，若用户刷新 / 切走页面，浏览器会取消在途请求，
+// /result 回写永远不到达 ⇒ 任务会永久停在 running（服务重启才由 recoverOnStartup 兜底）。
+// 本函数在读取批次状态时顺带把「超过阈值、仍无结果」的 RUNNING 标为 needs_confirm，
+// 给用户一个可见原因与重试入口；不自动重跑、不二次扣费、不动已有结果的任务。
+export async function reconcileStaleRunning(projectId, { now = Date.now(), timeoutMs = RUNNING_STALE_TIMEOUT_MS } = {}) {
+  const prefix = projectId ? `dsg_${projectId}_` : "";
+  const all = await generationTaskStore.listTasks();
+  const recovered = [];
+  for (const entry of all) {
+    if (prefix && !entry.id.startsWith(prefix)) continue;
+    const task = await generationTaskStore.readTask(entry.id);
+    if (!task || task.status !== TASK_STATUS.RUNNING) continue;
+    if (task.resultRef || task.resultPath) continue; // 结果已落，等正常回写即可
+    const stamp = Date.parse(task.updated_at || task.created_at || "");
+    if (!Number.isFinite(stamp) || now - stamp < timeoutMs) continue;
+    await generationTaskStore.updateStatus(task.task_id, TASK_STATUS.NEEDS_CONFIRM, {
+      error: {
+        code: "stalled_running",
+        message: "生成请求未回写结果（可能刷新或离开了页面），请手动重试该屏",
+        recoverable: true
+      }
+    });
+    recovered.push(task.task_id);
+  }
+  return recovered;
+}
+
 // ── 聚合某项目的批次状态 ──
-export async function getBatchStatus(projectId) {
+// opts 仅用于门禁注入时间（now / timeoutMs），生产调用不传，行为与 V203 一致。
+export async function getBatchStatus(projectId, opts = {}) {
+  // 每次读状态顺带兜底悬挂任务（幂等：转终态后不再命中，重复轮询无副作用）。
+  await reconcileStaleRunning(projectId, opts);
   const all = await generationTaskStore.listTasks();
   const tasks = [];
   for (const entry of all) {
