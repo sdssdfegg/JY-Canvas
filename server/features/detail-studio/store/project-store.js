@@ -66,6 +66,10 @@ export function migrateProject(project) {
   if (!migrated.modeC || typeof migrated.modeC !== "object") {
     migrated.modeC = { rawPrompt: "", tidyVersion: null, diff: null, frozenPrompt: "", frozenAt: null };
   }
+  // 阶段 2 P2.6：基础参数（15 控件 + 4 文本域）承载区，缺省补齐空对象，已存在则保留（幂等）。
+  if (!migrated.basicParams || typeof migrated.basicParams !== "object") {
+    migrated.basicParams = {};
+  }
   // 阶段 3（详情创作规划/分屏/冻结/质检）承载区：analyze 结论、逐屏 ScreenSpec、frozenPrompt、选项溯源。
   // 与 modeC 同口径——旧字段缺失时补齐默认，已存在则保留，保证幂等。
   if (!migrated.planning || typeof migrated.planning !== "object") {
@@ -249,6 +253,7 @@ export async function createDetailStudioProject(input = {}) {
     modelConfig: { textModel: "", imageModel: "", channelId: "" },
     productData: { fields: {}, text: "" },
     referenceImages: [],
+    basicParams: {},
     modeC: { rawPrompt: "", tidyVersion: null, diff: null, frozenPrompt: "", frozenAt: null },
     planning: {
       analyze: null,
@@ -299,6 +304,24 @@ export async function updateDetailStudioProject(id, patch = {}) {
         imageModel: String((mc && mc.imageModel) || "").slice(0, 80),
         channelId: String((mc && mc.channelId) || "").slice(0, 80)
       };
+    }
+    // 阶段 2 P2.6：基础参数（15 控件 + 4 文本域）。白名单键 + 字符串截断，避免任意字段污染 project。
+    if (Object.prototype.hasOwnProperty.call(patch, "basicParams")) {
+      const bp = (patch.basicParams && typeof patch.basicParams === "object" && !Array.isArray(patch.basicParams)) ? patch.basicParams : {};
+      const merged = { ...(project.basicParams || {}) };
+      const BP_KEYS = [
+        "workflow", "imageModel", "ratio", "imageSize", "count", "copywriting", "richness",
+        "fontStyle", "modelMode", "modelPose", "modelUsage", "reverseScreens",
+        "detailSkillVersion", "stylePackId", "lang", "productName", "productFeature",
+        "userInstruction", "sellingPoints"
+      ];
+      for (const key of BP_KEYS) {
+        if (Object.prototype.hasOwnProperty.call(bp, key)) {
+          const val = bp[key];
+          merged[key] = typeof val === "number" ? val : String(val == null ? "" : val).slice(0, 4000);
+        }
+      }
+      project.basicParams = merged;
     }
     if (Object.prototype.hasOwnProperty.call(patch, "productData")) {
       const pd = patch.productData;

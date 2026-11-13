@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAppConfig } from "../../../api/config.js";
+import { runDetailStudioBatchGeneration, runDetailStudioScreenRetry } from "../generation/detail-studio-generate.js";
 import {
   analyzeDetailStudio,
   buildDetailStudioImageForm,
@@ -23,7 +24,6 @@ import {
   parseModeCPrompt,
   probeDetailStudioImage,
   probeDetailStudioText,
-  retryDetailStudioGenerationTask,
   saveDetailStudioModeCRawPrompt,
   saveDetailStudioProductData,
   startDetailStudioGeneration,
@@ -72,6 +72,8 @@ export function useDetailStudioState() {
   const [directorWaitingSec, setDirectorWaitingSec] = useState(0);
   const [directorError, setDirectorError] = useState(null);
   const directorTimerRef = useRef(null);
+  // V212 P1：前端逐屏直调 generateImages 的后台批次进行中标记，防止重复点击导致同一屏二次扣费。
+  const generatingRef = useRef(false);
 
   useEffect(() => () => {
     if (directorTimerRef.current) clearInterval(directorTimerRef.current);
@@ -195,6 +197,31 @@ export function useDetailStudioState() {
       return result.project;
     } catch (err) {
       setError(errorMessage(err, "保存模型配置失败"));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [currentProject]);
+
+  // P2.6：保存「基础参数」15 控件 + 4 文本域，落 project.basicParams（服务端对 basicParams 放行）。
+  // 局部草稿在面板内自管，保存时整体合并进 project.basicParams；重开项目经服务端还原。
+  const [basicParamsSaved, setBasicParamsSaved] = useState(false);
+  const saveBasicParams = useCallback(async (patch) => {
+    if (!currentProject) return null;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    setBasicParamsSaved(false);
+    try {
+      const prev = currentProject.basicParams || {};
+      const next = { ...prev, ...patch };
+      const result = await updateDetailStudioProject(currentProject.id, { basicParams: next });
+      setCurrentProject(result.project);
+      setBasicParamsSaved(true);
+      setNotice("基础参数已保存");
+      return result.project;
+    } catch (err) {
+      setError(errorMessage(err, "保存基础参数失败"));
       return null;
     } finally {
       setBusy(false);
@@ -501,9 +528,18 @@ export function useDetailStudioState() {
     }
   }, [currentProject, hasServerKey]);
 
-  // ── 阶段 4 批量生成与任务管理：提交整批屏生成任务（服务端编排 + 复用 /api/images）──
+  // ── 阶段 4 批量生成与任务管理：提交整批屏生成任务（V212 P1 · 前端直调 + 回写）──
+  // 流程：服务端 registerBatch 仅登记 QUEUED 任务 + 返回每屏规格 → 前端逐屏直调 generateImages
+  // （与一键详情同一入口 /api/images）→ begin/result 回写状态。服务端不再自调用出图。
+  // 幂等：registerBatch 同一指纹返回 skipped（已有任务），不会重复扣费。
+  // 具体编排（构造 form / 并发 / 回写）抽到 generation/detail-studio-generate.js，本 hook 只做薄封装。
+
   const startGeneration = useCallback(async (projectId, { screenIndexes } = {}) => {
     if (!projectId) return null;
+    if (generatingRef.current) {
+      setNotice("已有批量生成在进行中，请等待完成或查看下方任务列表");
+      return null;
+    }
     const apiKey = readDetailStudioApiKey();
     if (!apiKey && !hasServerKey) {
       setError("请到设置页填写 API Key（全画板只在设置页填一次，其他视图不重复输入）");
@@ -513,16 +549,60 @@ export function useDetailStudioState() {
     setError("");
     setNotice("");
     try {
-      const res = await startDetailStudioGeneration(projectId, { apiKey, screenIndexes });
-      setNotice("已提交批量生成任务，可在下方任务列表查看进度");
-      return res;
+      const reg = await startDetailStudioGeneration(projectId, { apiKey, screenIndexes });
+      const specs = (reg && reg.specs) || [];
+      if (specs.length === 0) {
+        if (Array.isArray(reg?.skipped) && reg.skipped.length > 0) {
+          setNotice("该批屏已生成成功（幂等复用，未重复提交上游）");
+        } else {
+          setNotice("没有可生成的屏（请先冻结提示词 / 完成分屏规划）");
+        }
+        return reg;
+      }
+      // 后台逐屏直调 generateImages + 回写（不阻塞按钮）；按钮在注册后即恢复可用。
+      generatingRef.current = true;
+      void runDetailStudioBatchGeneration({ projectId, specs, apiKey, referenceImages, onNotice: setNotice })
+        .catch((err) => setError(errorMessage(err, "批量生成执行失败")))
+        .finally(() => { generatingRef.current = false; });
+      setNotice(`已提交 ${specs.length} 屏，正在逐屏出图（与一键详情同一生图链路）…`);
+      return reg;
     } catch (err) {
       setError(errorMessage(err, "启动批量生成失败"));
       return null;
     } finally {
       setBusy(false);
     }
-  }, [hasServerKey]);
+  }, [hasServerKey, referenceImages]);
+
+  // 单屏重试（用户态）：重置任务为 QUEUED → 前端重新直调 generateImages → 回写。
+  const retryGeneration = useCallback(async (taskId) => {
+    if (!currentProject) return null;
+    if (generatingRef.current) {
+      setNotice("已有批量生成在进行中，请稍后重试");
+      return null;
+    }
+    const apiKey = readDetailStudioApiKey();
+    if (!apiKey && !hasServerKey) {
+      setError("请到设置页填写 API Key（全画板只在设置页填一次，其他视图不重复输入）");
+      return null;
+    }
+    setError("");
+    setNotice("");
+    try {
+      await runDetailStudioScreenRetry({
+        projectId: currentProject.id,
+        taskId,
+        apiKey,
+        referenceImages,
+        onError: (msg) => setError(msg)
+      });
+      setNotice("该屏已重新提交生成，请查看任务列表进度");
+      return taskId;
+    } catch (err) {
+      setError(errorMessage(err, "重试失败"));
+      return null;
+    }
+  }, [currentProject, hasServerKey, referenceImages]);
 
   return {
     projects,
@@ -550,6 +630,8 @@ export function useDetailStudioState() {
     loadReferenceImages,
     saveProject,
     saveModelConfig,
+    saveBasicParams,
+    basicParamsSaved,
     saveProductData,
     uploadReferenceImage,
     saveModeCRawPrompt,
@@ -564,8 +646,8 @@ export function useDetailStudioState() {
     runImageProbe,
     runImageGeneration,
     startGeneration,
+    retryGeneration,
     getDetailStudioGenerationStatus,
-    retryDetailStudioGenerationTask,
     cancelDetailStudioGenerationTask
   };
 }

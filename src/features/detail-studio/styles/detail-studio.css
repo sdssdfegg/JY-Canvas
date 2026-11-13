@@ -152,6 +152,82 @@
   resize: vertical;
 }
 
+/* P2.6 基础参数：15 控件紧凑双列网格，避免「三条长下拉」式占屏。 */
+.detailStudioParamGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2) var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.detailStudioParamDivider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-3) 0;
+}
+
+.detailStudioContentInputs {
+  display: grid;
+  gap: var(--space-2);
+}
+
+/* P2.6 重点 A：模型/渠道紧凑触发式选择器（Button 回显 + 下拉，不用公有选择器类）。 */
+.detailStudioCompactSelect {
+  position: relative;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.detailStudioCompactSelectRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.detailStudioCompactSelectLabel {
+  font-size: var(--text-xs);
+  color: var(--faint);
+}
+
+.detailStudioCompactSelectMenu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  min-width: 100%;
+  display: grid;
+  gap: 2px;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel-strong);
+  box-shadow: var(--shadow-sm);
+  max-height: 240px;
+  overflow: auto;
+}
+
+.detailStudioCompactOption {
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.detailStudioCompactOption:hover {
+  background: var(--panel);
+}
+
+.detailStudioCompactOption.isActive {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .detailStudioFacts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1223,6 +1299,44 @@
   font-family: inherit;
   font-size: var(--text-xs);
   padding: var(--space-2);
+}
+
+/* ── P2.8 拼图预览（客户端 canvas 纵向长图）── */
+.dsStitchPreview {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+
+.dsStitchHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.dsStitchTitle {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dsStitchCanvas {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-strong);
+}
+
+.dsStitchHint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
 }
 
 .dsPlanReady {

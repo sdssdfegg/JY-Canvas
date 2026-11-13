@@ -4,7 +4,7 @@
 
 import { apiJson, postForm, postJson } from "./client.js";
 import { generateImages } from "./images.js";
-import { routingFields } from "../shared/routing.js";
+import { buildDetailImageForm } from "../features/detail/detail-image-form.js";
 
 const BASE = "/api/detail-studio";
 
@@ -39,29 +39,34 @@ export function probeDetailStudioImage(payload) {
   return postJson(BASE + "/probe/image", payload, "图片生成请求体预检失败");
 }
 
-// 按现有 POST /api/images 契约拼 FormData（字段与 server/channel.js 归一化口径一致）。
-// source 沿用现有白名单值 detail-main；routingFields 保证 channelId 落在合法线路。
+// 详情创作生图 FormData 构造器：统一委托到共享 buildDetailImageForm（V212 P1 · 出图入口唯一化），
+// 与一键详情共用同一套字段集（禁止两套 FormData 字段）。source 用 detail-studio，
+// routingFields 在内部分配合法 channelId/dispatchMode，baseUrl/referenceFiles 透传。
+// deferAutoSave=1：结果不自动落全局 history，由工作区自行持久化到 data/detail-studio/generation/results/。
 export function buildDetailStudioImageForm({
   apiKey = "",
   prompt = "",
   model = "tt-image-2.6",
   channelId = "",
   imageSize = "2K",
-  aspectRatio = "3:4"
+  aspectRatio = "3:4",
+  n = 1,
+  source = "detail-studio",
+  baseUrl,
+  referenceFiles = []
 } = {}) {
-  const fields = routingFields(model, channelId);
-  const form = new FormData();
-  form.set("prompt", prompt);
-  form.set("model", fields.model);
-  form.set("channelId", fields.channelId);
-  form.set("dispatchMode", fields.dispatchMode);
-  form.set("imageSize", imageSize);
-  form.set("aspectRatio", aspectRatio);
-  form.set("n", "1");
-  form.set("deferAutoSave", "1");
-  form.set("source", "detail-main");
-  form.set("apiKey", apiKey);
-  return form;
+  return buildDetailImageForm({
+    apiKey,
+    prompt,
+    model,
+    channelId,
+    imageSize,
+    aspectRatio,
+    n,
+    source,
+    baseUrl,
+    referenceFiles
+  });
 }
 
 // 真实出图入口：直接复用现有 generateImages → POST /api/images。
@@ -153,10 +158,38 @@ export function getDetailStudioGenerationStatus(id) {
   );
 }
 
-export function retryDetailStudioGenerationTask(id, taskId, { apiKey = "" } = {}) {
+// 前端开始生成某屏前：标记任务 RUNNING（面板展示「生成中」）。
+export function beginDetailStudioGenerationTask(id, taskId) {
+  return postJson(
+    BASE + "/projects/" + encodeURIComponent(id) + "/generation/" + encodeURIComponent(taskId) + "/begin",
+    {},
+    "标记任务开始失败"
+  );
+}
+
+// 前端出图完成后回写结果：{ outcome: "success", image } | { outcome: "error", error: { status?, name?, message } }
+export function writebackDetailStudioResult(id, taskId, body) {
+  return postJson(
+    BASE + "/projects/" + encodeURIComponent(id) + "/generation/" + encodeURIComponent(taskId) + "/result",
+    body,
+    "回写生成结果失败"
+  );
+}
+
+// 把参考图 serve URL 取回为 Blob（前端构造生图 form 的参考文件用）。
+// 收口到 api 层（api-layering-check：页面 / 状态层禁止散写 fetch）。同域请求，无需额外鉴权。
+export async function fetchReferenceImageBlob(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("参考图读取失败（HTTP " + res.status + "）");
+  return res.blob();
+}
+
+// 用户态重试：重置任务为 QUEUED 并返回任务（含屏参数），由前端重新直调 generateImages + 回写。
+// V212 P1：不再由服务端发起真实出图（generateViaLocalApi 已从用户态生产路径退役）。
+export function resetDetailStudioGenerationTask(id, taskId) {
   return postJson(
     BASE + "/projects/" + encodeURIComponent(id) + "/generation/" + encodeURIComponent(taskId) + "/retry",
-    { apiKey },
+    {},
     "重试任务失败"
   );
 }

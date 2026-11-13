@@ -31,22 +31,47 @@ export const TRACED_OPTION_KEYS = Object.freeze([
   "copywriting", "fontStyle", "richness", "modelMode", "modelPose"
 ]);
 
-/** 从项目抽取已迁移的结构化选项（阶段 2 落库的 productData / modelConfig + 规划专属选项）。 */
+/**
+ * 从项目抽取已迁移的结构化选项（阶段 2 落库的 productData / modelConfig + 规划专属选项）。
+ * V212 P2.6：基础参数面板（BasicParamsPanel）写入的 project.basicParams 优先；
+ * 回退 project.productData.fields（旧结构化录入），保证存量项目零回归（R12）。
+ */
 export function extractPlanningOptions(project = {}) {
   const productData = project.productData || {};
   const fields = productData.fields || {};
+  const bp = (project.basicParams && typeof project.basicParams === "object" && !Array.isArray(project.basicParams)) ? project.basicParams : {};
+  // 取数优先级：basicParams（新建基础参数面板）> productData.fields（旧结构化录入）> 默认值
+  const pick = (key, fallback) => {
+    const bv = bp[key];
+    if (bv !== undefined && bv !== null && String(bv) !== "") return String(bv);
+    const fv = fields[key];
+    if (fv !== undefined && fv !== null && String(fv) !== "") return String(fv);
+    return fallback;
+  };
+  // 工作流键（basicParams.workflow，如 taobao-detail / tmall-detail）即平台标识，
+  // 直接复用为规划链 platform（getPlatformSkill 已兼容 main/amazon 等子串）。
+  const platform = (bp.workflow !== undefined && bp.workflow !== null && String(bp.workflow) !== "")
+    ? String(bp.workflow)
+    : (fields.platform ? String(fields.platform) : "taobao-detail");
   const options = {
-    platform: String(fields.platform || "taobao-detail"),
-    lang: String(fields.lang || "中文"),
-    copywriting: String(fields.copywriting || "need"),
-    fontStyle: String(fields.fontStyle || "soft"),
-    richness: String(fields.richness || "simple"),
-    modelMode: String(fields.modelMode || "no-model"),
-    modelPose: String(fields.modelPose || "regular"),
-    ratio: String(fields.ratio || "21:9"),
-    imageSize: String(fields.imageSize || "2K"),
-    screenCount: Number.isFinite(fields.screenCount) ? fields.screenCount : 8,
-    customRequirements: String(fields.customRequirements || "")
+    platform,
+    lang: pick("lang", "中文"),
+    copywriting: pick("copywriting", "need"),
+    fontStyle: pick("fontStyle", "soft"),
+    richness: pick("richness", "simple"),
+    modelMode: pick("modelMode", "no-model"),
+    modelPose: pick("modelPose", "regular"),
+    ratio: pick("ratio", "21:9"),
+    imageSize: pick("imageSize", "2K"),
+    // 屏数来自基础参数面板的 count 控件；缺省 8
+    screenCount: Number.isFinite(Number(bp.count)) && Number(bp.count) > 0 ? Number(bp.count)
+      : (Number.isFinite(fields.screenCount) ? fields.screenCount : 8),
+    // 三类文本域：userInstruction→customRequirements；productFeature/sellingPoints 进入分析上下文
+    customRequirements: String(bp.userInstruction || fields.customRequirements || ""),
+    productFeature: String(bp.productFeature || ""),
+    sellingPoints: String(bp.sellingPoints || ""),
+    // productName 同为被追踪选项：basicParams 优先、回退 productData.fields
+    productName: String(bp.productName || fields.productName || "").trim()
   };
   return options;
 }
@@ -75,10 +100,10 @@ export function buildAnalyzeContext(project = {}) {
   const options = extractPlanningOptions(project);
   const industry = resolveIndustryStrategy(project, options);
   const platformProfile = getPlatformSkill(options.platform);
-  const productName = String((project.productData && project.productData.fields && project.productData.fields.productName) || "").trim()
-    || "目标产品";
+  // productName 取数已统一到 extractPlanningOptions（basicParams 优先、回退 fields），此处仅补「目标产品」兜底
+  const resolvedProductName = (options.productName && options.productName.trim()) || "目标产品";
   const globalLock = buildGlobalLock({
-    productName,
+    productName: resolvedProductName,
     ratio: options.ratio,
     imageSize: options.imageSize,
     lang: options.lang,
@@ -98,7 +123,10 @@ export function buildAnalyzeContext(project = {}) {
     productData: project.productData || {},
     referenceMeta,
     globalLock: globalLock.text,
-    industryStrategy: industry.strategy
+    industryStrategy: industry.strategy,
+    customRequirements: options.customRequirements,
+    productFeature: options.productFeature,
+    sellingPoints: options.sellingPoints
   });
   const appliedOptions = buildAppliedOptions({ globalLockTraces: globalLock.traces });
   const missing = missingTracedOptions(appliedOptions, TRACED_OPTION_KEYS);

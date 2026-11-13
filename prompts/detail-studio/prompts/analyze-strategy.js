@@ -44,14 +44,19 @@ export const ANALYZE_OUTPUT_SCHEMA = [
 /**
  * 拼装批次①的用户消息：商品事实 + 参考图元信息 + 全局锁 + 行业决策逻辑 + 输出 schema。
  * 参考图只传元信息（role / 数量 / 文件名），不传像素，满足 §3.5 上下文窗口约束。
+ * V212 P2.6：追加基础参数面板的三个文本域（userInstruction→customRequirements / productFeature / sellingPoints），
+ * 使其进入分析上下文，最终经由导演产出 ScreenSpec → frozenPrompt。
  * @param {Object} input
  * @param {Object} input.productData   { fields, text }
  * @param {Array}  input.referenceMeta [{ role, filename, label }]
  * @param {string} input.globalLock    来自 core/global-lock.js 的拼装文本
  * @param {Object} input.industryStrategy 已解析行业策略（含 decisionLogic / name）
+ * @param {string} input.customRequirements 用户补充指令（basicParams.userInstruction）
+ * @param {string} input.productFeature     商品特征（basicParams.productFeature）
+ * @param {string} input.sellingPoints      核心卖点（basicParams.sellingPoints）
  * @returns {string}
  */
-export function buildAnalyzeUserPrompt({ productData = {}, referenceMeta = [], globalLock = "", industryStrategy = {} } = {}) {
+export function buildAnalyzeUserPrompt({ productData = {}, referenceMeta = [], globalLock = "", industryStrategy = {}, customRequirements = "", productFeature = "", sellingPoints = "" } = {}) {
   const fields = (productData && productData.fields) || {};
   const text = (productData && productData.text) || "";
   const fieldLines = Object.keys(fields).map((k) => `  - ${k}：${fields[k]}`).join("\n");
@@ -59,11 +64,18 @@ export function buildAnalyzeUserPrompt({ productData = {}, referenceMeta = [], g
     .map((r) => `  - [${r.role}] ${r.label || r.filename || "未命名"}`)
     .join("\n");
   const decisionLogic = (industryStrategy && industryStrategy.decisionLogic) || "通用决策逻辑：以真实商品事实驱动，避免过度承诺。";
+  // V212 P2.6：基础参数文本域进入分析上下文（仅在非空时追加，避免污染空项目）
+  const extraContext = [
+    productFeature ? `【商品特征（用户填写）】\n${productFeature}` : "",
+    sellingPoints ? `【核心卖点（用户填写）】\n${sellingPoints}` : "",
+    customRequirements ? `【用户补充指令（用户填写）】\n${customRequirements}` : ""
+  ].filter(Boolean).join("\n");
 
   return [
     "【商品资料（用户填写）】",
     fieldLines || "  （无结构化字段）",
     text ? `\n【商品描述】\n${text}` : "",
+    extraContext ? `\n${extraContext}` : "",
     "",
     "【参考图元信息（仅角色与命名，不含像素）】",
     refLines || "  （无参考图）",

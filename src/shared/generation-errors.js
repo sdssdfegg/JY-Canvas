@@ -201,3 +201,24 @@ export function formatGenerationError(error, context = {}) {
   const idText = info.requestId ? ` [requestId: ${info.requestId}]` : "";
   return `${info.label}${statusText}${reasonText} ${info.advice}${idText}`.trim();
 }
+
+/**
+ * 统一归一化「生图结果/错误」为给用户看的一行文案。
+ * 供详情创作工作区等「非 main.jsx」模块共用，消除第二套错误处理（V212 §P1）。
+ * 注意：main.jsx 因 §3 红线零改动，仍保留本地同名 normalizeGenerationErrorMessage；
+ * 本导出刻意改名以避免跨文件同名顶层函数，真实分类逻辑在 classifyGenerationError /
+ * formatGenerationError（同源）。
+ *
+ * @param {unknown} error ApiError（带 status/payload）或任意错误 / 错误文本
+ * @param {object} [context] `{ phase: "upload"|"request"|"result", cancelled, requestId }`
+ */
+export function normalizeGenerationErrorText(error, context = {}) {
+  const value = error instanceof Error || (error && typeof error === "object")
+    ? error
+    : new Error(String(error || ""));
+  const info = classifyGenerationError(value, context);
+  if (!info.reason && info.kind === "unknown") {
+    return `${info.label}：没有拿到具体原因，请重试。${info.advice}`;
+  }
+  return formatGenerationError(value, context);
+}

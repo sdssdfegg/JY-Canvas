@@ -13,6 +13,8 @@ import { TaskBadge } from "../../../shared/ui/TaskBadge.jsx";
 import { Modal, ModalHeader } from "../../../shared/ui/Modal.jsx";
 import { ElapsedTimer } from "../../../shared/ui/elapsed-timer.jsx";
 import { formatMs } from "../../../lib/format/index.js";
+import { StitchPreview } from "./StitchPreview.jsx";
+import { resultImageSrc } from "./result-image.js";
 
 const STATUS_LABEL = {
   queued: "排队中",
@@ -25,14 +27,6 @@ const STATUS_LABEL = {
 
 function isActive(counts) {
   return counts && (counts.queued + counts.running) > 0;
-}
-
-// 结果图可加载的浏览器 URL：优先 relative URL（/api/history-image/...），
-// 绝不把文件系统绝对路径（resultPath）当 src —— 那在浏览器里不可加载。
-function resultImageSrc(task) {
-  const ref = task?.resultRef;
-  if (ref && (ref.localUrl || ref.value)) return ref.localUrl || ref.value;
-  return null;
 }
 
 // 已完成（成功/失败/待确认/取消）任务的耗时（毫秒）。
@@ -50,7 +44,7 @@ function generationTaskDurationMs(task) {
 
 export function GenerationPanel({ state }) {
   const { currentProject, apiKeyMissing, startGeneration, getDetailStudioGenerationStatus,
-    retryDetailStudioGenerationTask, cancelDetailStudioGenerationTask, error } = state;
+    retryGeneration, cancelDetailStudioGenerationTask, error } = state;
   const projectId = currentProject?.id;
 
   const [status, setStatus] = useState(null);
@@ -113,7 +107,7 @@ export function GenerationPanel({ state }) {
 
   const onRetry = async (taskId) => {
     try {
-      await retryDetailStudioGenerationTask(projectId, taskId, {});
+      await retryGeneration(taskId);
       await loadStatus();
     } catch (err) {
       setLocalError(err?.message || "重试失败");
@@ -252,6 +246,8 @@ export function GenerationPanel({ state }) {
           );
         })}
       </ul>
+
+      <StitchPreview tasks={tasks} />
 
       {zoom && (
         <Modal layerClassName="modalLayer" panelClassName="detailStudioZoomModal" onClose={() => setZoom(null)}>

@@ -85,9 +85,12 @@ async function persistResult(task, image) {
   return resultPath;
 }
 
-// ── 提交一批屏生成任务 ──
+// ── 提交一批屏生成任务（服务端内部出图：V208 Tool 层 create-task.tool.js + 单测）──
+// 🔴 V212 P1：用户态「开始批量生成」按钮已改为前端直调 generateImages + 回写（routes.js /generation/start → registerBatch），
+//    本函数保留给 V208 Tool 层与单测、以及需要服务端完整编排（重试/退避）的场景，不再由用户态 /generation/start 调用。
 // spec: { projectId, apiKey, screens: [{ screenIndex, frozenPrompt, referenceImagePaths, model, channelId, imageSize, aspectRatio, referenceRoles }] }
 // opts: { generator, backoffBaseMs }
+// @internal 保留给 V208 Tool 层（create-task.tool.js）与单测；用户态批量出图走 registerBatch + 前端直调 generateImages。
 export async function submitBatch(spec, opts = {}) {
   const generator = opts.generator;
   if (typeof generator !== "function") throw new Error("submitBatch requires a generator function");
@@ -137,7 +140,8 @@ export async function submitBatch(spec, opts = {}) {
   return { created, skipped };
 }
 
-// ── 单屏连续编辑：只提交「某一屏」的一次生成任务（阶段 5）──
+// ── 单屏连续编辑：只提交「某一屏」的一次生成任务（阶段 5 · V204 单屏编辑 + edit-screen.tool.js）──
+// @internal 保留：V204 单屏编辑（version-routes.js）与 V208 Tool 层 edit-screen.tool.js 仍走服务端出图链路。
 // 与 submitBatch 同机制、同账本、同出图链路（复用 V203 generation），但强制绑定 versionId：
 //   - 幂等键含版本维度 → 同屏连续两次编辑（即使提示词相同）各得独立任务 / 独立版本 / 独立图片；
 //   - 不重跑 B1 分析 / B2 导演 / B3 编译 / B4 质检，不触发整批策划，不影响其他屏任务。
@@ -271,7 +275,8 @@ export async function runTask(taskId, { generator, apiKey, backoffBaseMs } = {})
   }
 }
 
-// ── 手动重试（失败 / 需确认的任务）──
+// ── 手动重试（失败 / 需确认的任务 · 服务端完整编排版）──
+// @internal 保留给 V208 Tool / 测试：同步发起重试并写回终态。用户态重试走 resetTaskForRetry + 前端直调 generateImages + recordResult。
 export async function retryTask(taskId, { generator, apiKey, backoffBaseMs } = {}) {
   if (typeof generator !== "function") throw new Error("retryTask requires a generator function");
   const task = await generationTaskStore.readTask(taskId);
@@ -292,6 +297,149 @@ export async function cancelTask(taskId) {
     throw new Error(`cancelTask: 当前状态 ${task.status} 不可取消`);
   }
   await generationTaskStore.updateStatus(taskId, TASK_STATUS.CANCELLED);
+  return generationTaskStore.readTask(taskId);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// V212 P1 · 用户态「前端直调 generateImages + 回写」登记层
+//
+// 下面四个函数把「开始批量生成」拆成：登记（registerBatch）→ 前端逐屏直调
+// generateImages → 标记开始（beginTask）→ 回写结果（recordResult）。服务端不再
+// 发起真实出图（生产路径退役 generateViaLocalApi），仅承担「任务记录 + 幂等 +
+// 断点恢复 + V204 单屏编辑版本」登记职责。出图实体与一键详情共用 /api/images，
+// 由前端完成并回写，保证两套界面同一套生图链路（V212 §2 裁决①）。
+// ───────────────────────────────────────────────────────────────────────────
+
+// 仅登记 QUEUED 任务并返回每屏规格（taskId + 屏参数），不发起任何上游请求。
+// 幂等账本与 submitBatch 同源：同指纹命中既有非取消任务 → 复用且返回该任务 spec。
+// 返回 { created, skipped, specs }，specs 供前端逐屏构造 buildDetailImageForm。
+export async function registerBatch(spec) {
+  const projectId = String(spec.projectId || "");
+  const screens = Array.isArray(spec.screens) ? spec.screens : [];
+  if (!projectId) throw new Error("registerBatch requires projectId");
+  if (screens.length > MAX_SCREENS) {
+    throw new Error(`单项目最多 ${MAX_SCREENS} 屏，收到 ${screens.length}`);
+  }
+
+  const created = [];
+  const skipped = [];
+  const specs = [];
+  for (const screen of screens) {
+    const fp = screen.frozenPrompt == null ? "" : String(screen.frozenPrompt);
+    // 阶段 4 整批无版本维度：versionId 为空，幂等键退化为（projectId|screenIndex|fp）。
+    const key = idempotencyKey(projectId, screen.screenIndex, fp, screen.versionId);
+
+    // 幂等：同指纹已有非取消任务 → 直接复用，绝不再发上游请求 / 扣费。
+    const existingId = ledger.get(key);
+    if (existingId) {
+      const existing = await generationTaskStore.readTask(existingId);
+      if (existing && existing.status !== TASK_STATUS.CANCELLED) {
+        skipped.push({ taskId: existingId, status: existing.status, reason: "idempotent_reuse" });
+        specs.push({
+          taskId: existingId,
+          screenIndex: screen.screenIndex,
+          frozenPrompt: fp,
+          model: screen.model,
+          channelId: screen.channelId,
+          imageSize: screen.imageSize,
+          aspectRatio: screen.aspectRatio
+        });
+        continue;
+      }
+    }
+
+    const record = buildTaskRecord({
+      projectId,
+      screenIndex: screen.screenIndex,
+      frozenPrompt: fp,
+      model: screen.model,
+      channelId: screen.channelId,
+      imageSize: screen.imageSize,
+      aspectRatio: screen.aspectRatio,
+      referenceRoles: screen.referenceRoles,
+      referenceImagePaths: screen.referenceImagePaths,
+      idempotencyKey: key,
+      versionId: screen.versionId
+    });
+    await generationTaskStore.writeTask(record);
+    ledger.set(key, record.task_id);
+    created.push(record.task_id);
+    specs.push({
+      taskId: record.task_id,
+      screenIndex: screen.screenIndex,
+      frozenPrompt: fp,
+      model: screen.model,
+      channelId: screen.channelId,
+      imageSize: screen.imageSize,
+      aspectRatio: screen.aspectRatio
+    });
+  }
+  return { created, skipped, specs };
+}
+
+// 前端开始生成某屏前调用：把 QUEUED → RUNNING，使面板展示「生成中 + 已等待 Ns」。
+export async function beginTask(projectId, taskId) {
+  const task = await generationTaskStore.readTask(taskId);
+  if (!task) throw new Error(`beginTask: task not found: ${taskId}`);
+  if (task.projectId && projectId && task.projectId !== String(projectId)) {
+    throw new Error("beginTask: projectId 与任务归属不符");
+  }
+  if (!canTransition(task.status, TASK_STATUS.RUNNING)) return task; // 已是终态则跳过
+  await generationTaskStore.updateStatus(taskId, TASK_STATUS.RUNNING);
+  return generationTaskStore.readTask(taskId);
+}
+
+// 前端出图完成后回写：RUNNING → SUCCESS / FAILED / NEEDS_CONFIRM。
+// success: image 为 /api/images 返回的 historyItem.image（含 url/localUrl/value），
+//   经 persistResult 复制到 data/detail-studio/generation/results/。
+// error: { status, name, message }，服务端用 classifyError 判定 FAILED 或 NEEDS_CONFIRM。
+export async function recordResult(projectId, taskId, { outcome, image = null, error = null } = {}) {
+  const task = await generationTaskStore.readTask(taskId);
+  if (!task) throw new Error(`recordResult: task not found: ${taskId}`);
+  if (task.projectId && projectId && task.projectId !== String(projectId)) {
+    throw new Error("recordResult: projectId 与任务归属不符");
+  }
+  // 已在终态（如重启恢复标了 needs_confirm）→ 不覆盖已完成结果，直接返回。
+  if (!canTransition(task.status, TASK_STATUS.RUNNING)) return task;
+
+  await generationTaskStore.updateStatus(taskId, TASK_STATUS.RUNNING);
+  if (outcome === "success") {
+    const resultPath = await persistResult(task, image || {});
+    await generationTaskStore.updateStatus(taskId, TASK_STATUS.SUCCESS, {
+      resultRef: image || null,
+      resultPath
+    });
+    return generationTaskStore.readTask(taskId);
+  }
+
+  const status = Number(error?.status || 0);
+  const name = error?.name;
+  const uncertain = Boolean(error?.uncertain) || name === "AbortError" || status === 504;
+  const cls = classifyError({ status, name, uncertain });
+  const finalStatus = cls.uncertain ? TASK_STATUS.NEEDS_CONFIRM : TASK_STATUS.FAILED;
+  await generationTaskStore.updateStatus(taskId, finalStatus, {
+    error: {
+      code: cls.errorClass,
+      message: String(error?.message || "生成失败"),
+      recoverable: cls.recoverable,
+      attempts: (task.attempts?.length || 0) + 1
+    }
+  });
+  return generationTaskStore.readTask(taskId);
+}
+
+// 用户态重试：FAILED / NEEDS_CONFIRM / CANCELLED → QUEUED，返回重置后的任务（含屏参数），
+// 由前端重新直调 generateImages 并 recordResult（与首生成同链路，不二次自调用）。
+export async function resetTaskForRetry(projectId, taskId) {
+  const task = await generationTaskStore.readTask(taskId);
+  if (!task) throw new Error(`resetTaskForRetry: task not found: ${taskId}`);
+  if (task.projectId && projectId && task.projectId !== String(projectId)) {
+    throw new Error("resetTaskForRetry: projectId 与任务归属不符");
+  }
+  if (task.status !== TASK_STATUS.FAILED && task.status !== TASK_STATUS.NEEDS_CONFIRM && task.status !== TASK_STATUS.CANCELLED) {
+    throw new Error(`resetTaskForRetry: 仅失败/待确认/已取消任务可重置，当前 ${task.status}`);
+  }
+  await generationTaskStore.updateStatus(taskId, TASK_STATUS.QUEUED, { error: null });
   return generationTaskStore.readTask(taskId);
 }
 
@@ -335,4 +483,7 @@ export async function getBatchStatus(projectId) {
   return { counts, tasks };
 }
 
-export { ledger, isImageLocalPath };
+export {
+  ledger,
+  isImageLocalPath
+};

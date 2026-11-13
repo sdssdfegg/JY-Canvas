@@ -12,6 +12,7 @@ import { DetailStudioCapabilityPanel } from "./DetailStudioCapabilityPanel.jsx";
 import { DetailStudioProjectPanel } from "./DetailStudioProjectPanel.jsx";
 import { FlowGuidanceBar } from "./FlowGuidanceBar.jsx";
 import { ModelChannelConfigPanel } from "../intake/ModelChannelConfigPanel.jsx";
+import { BasicParamsPanel } from "../intake/basic-params/BasicParamsPanel.jsx";
 import { IntakeArea } from "../intake/IntakeArea.jsx";
 import { PlanningPanel } from "../planning/PlanningPanel.jsx";
 import { GenerationPanel } from "../generation/GenerationPanel.jsx";
@@ -40,6 +41,13 @@ export function DetailStudioView() {
       <div className="detailStudioGrid">
         <div className="detailStudioLeft">
           <DetailStudioProjectPanel state={state} />
+          <BasicParamsPanel
+            routing={state.routing}
+            value={state.currentProject ? state.currentProject.basicParams : undefined}
+            onSave={state.saveBasicParams}
+            busy={state.busy}
+            saved={state.basicParamsSaved}
+          />
           <ModelChannelConfigPanel state={state} onSave={state.saveModelConfig} />
         </div>
         <div className="detailStudioColumn">

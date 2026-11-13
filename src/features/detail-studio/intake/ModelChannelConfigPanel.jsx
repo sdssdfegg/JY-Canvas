@@ -1,16 +1,16 @@
 // src/features/detail-studio/intake/ModelChannelConfigPanel.jsx
-// 重点 A：推理模型 + 图片模型 + 渠道 三个「独立」下拉，配置随当前项目保存。
+// 重点 A：推理模型 + 图片模型 + 渠道 三个「独立」选择器，配置随当前项目保存。
 //
 // 选项来源：
 //   - 推理模型：CANVAS_REASONING_MODELS（文本推理模型清单，维护在 src/shared/routing.js）
 //   - 图片模型 / 渠道：getAppConfig() 返回的 config.routing（catalog.models / channelsForModel）
 // 用 detailStudio* 私有类名，不引入新的下拉选择组件（README 红线：复用 shared/ui 的 Field/Panel，不新写选择类）。
-// 组件零业务逻辑：只持有局部选择态，保存一律经 props.onSave → state.saveModelConfig → 服务端。
+// 按 V211 §2 裁决④：「做成按钮」= 紧凑触发式选择器，三个 shared/ui/Button 各点开选项、选中值回显在按钮上，
+// 总占高 ≤1.5 行；不新建 Select.jsx、不用公有选择器类、不复制选项清单到新常量。
 
 import { useEffect, useState } from "react";
-import { Cpu, Image as ImageIcon } from "lucide-react";
+import { ChevronDown, Cpu, Image as ImageIcon } from "lucide-react";
 import { Button } from "../../../shared/ui/Button.jsx";
-import { Field } from "../../../shared/ui/Field.jsx";
 import { ModuleHeader } from "../../../shared/ui/ModuleHeader.jsx";
 import { Panel } from "../../../shared/ui/Panel.jsx";
 import { Toolbar } from "../../../shared/ui/Toolbar.jsx";
@@ -19,6 +19,45 @@ import {
   STUDIO_RECOMMENDED_IMAGE_MODEL,
   STUDIO_RECOMMENDED_TEXT_MODEL
 } from "../constants/workspace-contract.js";
+
+// 紧凑触发式选择器：按钮回显当前值，点开下拉列出选项（不写公有选择器类，符合 B3 锁 5 文件）。
+function CompactSelect({ label, value, options, onChange, disabled, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const current = options.find((option) => option.value === value) || null;
+  return (
+    <div className="detailStudioCompactSelect">
+      <div className="detailStudioCompactSelectRow">
+        <span className="detailStudioCompactSelectLabel">{label}</span>
+        <Button
+          size="sm"
+          tone="default"
+          disabled={disabled}
+          onClick={() => setOpen((next) => !next)}
+          aria-expanded={open}
+        >
+          <span>{current ? current.label : (placeholder || "请选择")}</span>
+          <ChevronDown size={13} />
+        </Button>
+      </div>
+      {open ? (
+        <div className="detailStudioCompactSelectMenu" role="listbox">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={option.value === value}
+              className={"detailStudioCompactOption" + (option.value === value ? " isActive" : "")}
+              onClick={() => { onChange(option.value); setOpen(false); }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function ModelChannelConfigPanel({ state, onSave }) {
   const routing = state.routing || null;
@@ -38,7 +77,8 @@ export function ModelChannelConfigPanel({ state, onSave }) {
   }, [state.currentProject?.id]);
 
   const imageModels = Array.isArray(routing?.models) ? routing.models : [];
-  const channelOptions = channelsForModel(imageModel, routing);
+  const imageModelOptions = imageModels.map((model) => ({ value: model.id, label: model.label || model.id }));
+  const channelOptions = channelsForModel(imageModel, routing).map((channel) => ({ value: channel.id, label: channel.label || channel.id }));
 
   function handleImageModelChange(value) {
     setImageModel(value);
@@ -59,48 +99,28 @@ export function ModelChannelConfigPanel({ state, onSave }) {
       />
 
       <div className="detailStudioModelChannel">
-        <Field label="推理模型">
-          <select
-            className="detailStudioSelect detailStudioReasoningSelect"
-            value={textModel}
-            disabled={state.busy}
-            onChange={(event) => setTextModel(event.target.value)}
-          >
-            {CANVAS_REASONING_MODELS.map((model) => (
-              <option key={model.id} value={model.id}>{model.label}</option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="图片模型">
-          <select
-            className="detailStudioSelect detailStudioImageModelSelect"
-            value={imageModel}
-            disabled={state.busy}
-            onChange={(event) => handleImageModelChange(event.target.value)}
-          >
-            {imageModels.length === 0 ? (
-              <option value={imageModel || STUDIO_RECOMMENDED_IMAGE_MODEL}>（模型目录加载中…）</option>
-            ) : null}
-            {imageModels.map((model) => (
-              <option key={model.id} value={model.id}>{model.label || model.id}</option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="渠道">
-          <select
-            className="detailStudioSelect detailStudioChannelSelect"
-            value={channelId}
-            disabled={state.busy || !imageModel}
-            onChange={(event) => setChannelId(event.target.value)}
-          >
-            <option value="">默认（按图片模型自动选合法线路）</option>
-            {channelOptions.map((channel) => (
-              <option key={channel.id} value={channel.id}>{channel.label || channel.id}</option>
-            ))}
-          </select>
-        </Field>
+        <CompactSelect
+          label="推理模型"
+          value={textModel}
+          options={CANVAS_REASONING_MODELS.map((model) => ({ value: model.id, label: model.label }))}
+          onChange={setTextModel}
+          disabled={state.busy}
+        />
+        <CompactSelect
+          label="图片模型"
+          value={imageModel}
+          options={imageModelOptions.length ? imageModelOptions : [{ value: imageModel || STUDIO_RECOMMENDED_IMAGE_MODEL, label: imageModel || STUDIO_RECOMMENDED_IMAGE_MODEL }]}
+          onChange={handleImageModelChange}
+          disabled={state.busy}
+          placeholder="（模型目录加载中…）"
+        />
+        <CompactSelect
+          label="渠道"
+          value={channelId}
+          options={[{ value: "", label: "默认（按图片模型自动选合法线路）" }, ...channelOptions]}
+          onChange={setChannelId}
+          disabled={state.busy || !imageModel}
+        />
       </div>
 
       <Toolbar align="start" wrap>
