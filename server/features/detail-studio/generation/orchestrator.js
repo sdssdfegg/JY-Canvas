@@ -19,6 +19,7 @@ import path from "node:path";
 import { mkdir, copyFile } from "node:fs/promises";
 import { generationTaskStore } from "./task-store.js";
 import { detailStudioGenerationResultsDir } from "../../../core/app-paths.js";
+import { historyImagePath } from "../../../core/asset-urls.js";
 import {
   TASK_STATUS,
   MAX_SCREENS,
@@ -49,6 +50,15 @@ async function rebuildLedger() {
 function isImageLocalPath(url) {
   if (!url || typeof url !== "string") return null;
   if (url.startsWith("file://")) return url.slice("file://".length);
+  // 相对 URL：/api/history-image/<file> → 映射到 historyImageDir（data/history-images/）。
+  // 仅当文件名不含路径分隔符 / 上级引用时才解析，防止路径穿越。
+  if (url.startsWith("/api/history-image/")) {
+    const filename = decodeURIComponent(url.split("/").pop() || "");
+    if (!filename || filename.includes("/") || filename.includes("\\") || filename.startsWith("..")) {
+      return null;
+    }
+    return historyImagePath(filename);
+  }
   // 仅认可仓库 data 下的绝对路径（Windows / POSIX）
   if (/^(?:[A-Za-z]:[\\/]|\/)/.test(url)) return url;
   return null;
@@ -57,7 +67,10 @@ function isImageLocalPath(url) {
 async function persistResult(task, image) {
   const resultsDir = detailStudioGenerationResultsDir;
   await mkdir(resultsDir, { recursive: true });
-  const localPath = isImageLocalPath(image && image.url);
+  // 取可落盘的本地图片地址：优先 image.url，兼容 /api/images 返回的 localUrl / value
+  // （两者均为 /api/history-image/<file> 形态，旧版只读 image.url 导致 resultPath 恒为 null）。
+  const imgUrl = (image && (image.url || image.localUrl || image.value)) || "";
+  const localPath = isImageLocalPath(imgUrl);
   let resultPath = null;
   if (localPath) {
     try {
@@ -66,7 +79,7 @@ async function persistResult(task, image) {
       await copyFile(localPath, dest);
       resultPath = dest;
     } catch {
-      resultPath = null; // 复制失败不致命，仍可保留上游引用
+      resultPath = null; // 复制失败不致命，仍可保留上游引用（resultRef 仍可展示）
     }
   }
   return resultPath;

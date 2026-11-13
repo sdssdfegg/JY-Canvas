@@ -1394,13 +1394,24 @@
 }
 
 .generationTaskRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--panel-strong);
+}
+
+.generationTaskHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.generationTaskElapsed {
+  font-size: var(--text-xs);
+  color: var(--muted);
 }
 
 .generationTaskIndex {
@@ -1410,14 +1421,50 @@
   color: var(--text);
 }
 
-.generationTaskError {
-  flex: 1;
-  min-width: 0;
+.generationTaskErrorBlock {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+
+.generationTaskErrorLabel {
+  font-size: var(--text-xs);
+  color: var(--faint);
+}
+
+.generationTaskErrorMessage {
   font-size: var(--text-xs);
   color: var(--danger);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.generationThumbBtn {
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  cursor: pointer;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  width: 96px;
+  height: 128px;
+  justify-self: start;
+}
+
+.generationThumbBtn:hover {
+  border-color: var(--accent);
+}
+
+.generationThumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .generationTaskActions {
@@ -1430,6 +1477,47 @@
 .task-success { color: var(--success); }
 .task-needs_confirm { color: var(--warn); }
 .task-cancelled { color: var(--faint); }
+
+/* 结果图放大预览弹窗（复用全局 .modalLayer 遮罩，仅补充面板内排版） */
+.detailStudioZoomModal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: min(92vw, 1100px);
+  max-height: 90vh;
+  padding: var(--space-4);
+  box-sizing: border-box;
+}
+
+.detailStudioZoomModal header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.detailStudioZoomModal header h2 {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--text);
+}
+
+.detailStudioZoomModal header span {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  color: var(--faint);
+}
+
+.detailStudioZoomImg {
+  max-width: 100%;
+  max-height: 72vh;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
 
 /* ── 阶段 5 单屏连续编辑与版本管理面板 ── */
 .versionPanel {
