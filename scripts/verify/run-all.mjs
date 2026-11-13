@@ -361,6 +361,12 @@ const FAST_ORDER = [
   "qc-ceiling-check",
   // V209（2026-11-12）：详情创作参数链断点门禁（纯逻辑+源码静态断言、零上游，进 --fast 快速子集）。
   "planning-parameter-chain-check",
+  // V210（2026-11-12）：导演分屏链路稳定性与可观测性门禁（规划调用元数据日志零敏感字段 +
+  // 三失败场景 errorClass + max_tokens/超时分档 + 前端等待计时/置顶 banner/重试，进 --fast 快速子集）。
+  "planning-timeout-feedback-check",
+  // V210（2026-11-12）：导演分屏链路稳定性与可观测性门禁（规划调用元数据日志零敏感字段 +
+  // 三失败场景 errorClass + max_tokens/超时分档 + 前端等待计时/置顶 banner/重试，进 --fast 快速子集）。
+  "planning-timeout-feedback-check",
   // V202（2026-11-10）：阶段 3B B5 行业策略包门禁（纯逻辑、零上游，进 --fast 快速子集）。
   "industry-strategy-match-check",
   // V205（2026-11-11）：阶段 3C 专业能力内容层资产契约门禁（纯逻辑、零上游，进 --fast 快速子集）。

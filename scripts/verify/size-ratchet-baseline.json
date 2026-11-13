@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-11",
-  "reason": "V206 必要修复：src/shared/ui/cached-image.jsx +69（新增预载调度器 MAX_CONCURRENT_PRELOADS 并发上限+队列+视口门控 effect，修复一次性解码大量大图 OOM）；src/features/main-app/panels/main-canvas-board.jsx +33（visibleTail 首屏渲染限量 + 加载更多 UI，数据层零截断）。均为必要修复逻辑，非质量退化",
+  "generatedAt": "2026-11-13",
+  "reason": "V210 导演分屏可观测性与稳定性：PlanningPanel.jsx(+29 新增 DirectorErrorBanner+等待计时 UI)、use-detail-studio-state.js(+34 useDetailStudioState 新增 directorRunning/waitingSec/error 反馈状态)均为前端反馈必要逻辑，非质量退化",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -55,8 +55,8 @@
     "src/features/detail-studio/intake/ProductDataPanel.jsx": 116,
     "src/features/detail-studio/intake/ReferenceImageDropzone.jsx": 198,
     "src/features/detail-studio/intake/ReferenceImagesPanel.jsx": 71,
-    "src/features/detail-studio/planning/PlanningPanel.jsx": 282,
-    "src/features/detail-studio/state/use-detail-studio-state.js": 537,
+    "src/features/detail-studio/planning/PlanningPanel.jsx": 311,
+    "src/features/detail-studio/state/use-detail-studio-state.js": 571,
     "src/features/detail-studio/versions/VersionPanel.jsx": 374,
     "src/features/detail/detail-group.js": 391,
     "src/features/detail/detail-state.js": 654,
@@ -215,7 +215,7 @@
     "src/features/detail-studio/planning/PlanningPanel.jsx::AnalyzeSection": 64,
     "src/features/detail-studio/planning/PlanningPanel.jsx::FreezeSection": 56,
     "src/features/detail-studio/planning/PlanningPanel.jsx::QualitySection": 55,
-    "src/features/detail-studio/state/use-detail-studio-state.js::useDetailStudioState": 485,
+    "src/features/detail-studio/state/use-detail-studio-state.js::useDetailStudioState": 519,
     "src/features/detail-studio/versions/VersionPanel.jsx::VersionPanel": 310,
     "src/features/detail/detail-group.js::createDetailGroup": 266,
     "src/features/detail/detail-state.js::createDetailPromptPlan": 50,

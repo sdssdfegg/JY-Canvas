@@ -187,23 +187,47 @@ export async function analyzeProductStrategy({ project, apiKey, textModel, signa
   const controller = signal || new AbortController();
   const abortSignal = signal || controller.signal;
   let parsed;
+  let responseChars = 0;
   try {
     const result = await postChatCompletion({ baseUrl, apiKey: key, body, signal: abortSignal });
     if (!result.response.ok) {
+      const rawText = String(result.parsed && result.parsed.text ? result.parsed.text : "");
+      responseChars = rawText.length;
+      // V210：上游 HTTP 非 2xx → upstream_error（消息不含上游正文）。
       return {
         ok: false,
         status: result.response.status,
+        errorClass: "upstream_error",
         message: "上游返回 HTTP " + result.response.status,
-        upstream: String(result.parsed && result.parsed.text ? result.parsed.text : "").slice(0, 200),
+        responseChars,
+        upstreamStatus: result.response.status,
         context
       };
     }
-    parsed = extractJsonObject(responseContent(result.parsed && result.parsed.json), "商品分析");
+    const rawText = String(result.parsed && result.parsed.text ? result.parsed.text : "");
+    responseChars = rawText.length;
+    try {
+      parsed = extractJsonObject(responseContent(result.parsed && result.parsed.json), "商品分析");
+    } catch (parseError) {
+      const isEmpty = /没有返回内容/.test(parseError && parseError.message ? parseError.message : "");
+      return {
+        ok: false,
+        status: 502,
+        errorClass: isEmpty ? "no_content" : "parse_failed",
+        message: isEmpty ? "上游未返回任何内容" : "上游返回内容解析失败（可能截断或不完整）",
+        responseChars,
+        upstreamStatus: 200,
+        context
+      };
+    }
   } catch (error) {
+    const isAbort = error && error.name === "AbortError";
     return {
       ok: false,
-      status: error && error.name === "AbortError" ? 504 : 502,
-      message: error instanceof Error ? error.message : String(error),
+      status: isAbort ? 504 : 502,
+      errorClass: isAbort ? "timeout" : "parse_failed",
+      message: isAbort ? "商品分析超时：上游未在限定时间内返回" : (error instanceof Error ? error.message : String(error)),
+      responseChars: 0,
       context
     };
   }
@@ -217,6 +241,8 @@ export async function analyzeProductStrategy({ project, apiKey, textModel, signa
     appliedOptions: context.appliedOptions,
     appliedOptionsComplete: context.appliedOptionsComplete,
     completeness: analysis.completeness,
+    responseChars,
+    upstreamStatus: 200,
     context
   };
 }

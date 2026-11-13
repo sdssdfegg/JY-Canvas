@@ -33,9 +33,10 @@ import {
 } from "../features/detail-studio/store/project-store.js";
 import { parseModeCTidy } from "../features/detail-studio/intake/mode-c.js";
 import { analyzeProductStrategy } from "../features/detail-studio/planning/analyze-strategy.js";
-import { directVisualPlan } from "../features/detail-studio/planning/director-visual.js";
+import { directVisualPlan, planningTierForCount, directorTargetScreenCount } from "../features/detail-studio/planning/director-visual.js";
 import { compileScreenPlan, recompileForFreeze } from "../features/detail-studio/planning/compile-screen.js";
 import { runQualityCheck } from "../features/detail-studio/planning/qc-review.js";
+import { logPlanningCall } from "../core/planning-call-log.js";
 import { registerDetailStudioVersionRoutes } from "../features/detail-studio/versions/version-routes.js";
 
 function respondDetailStudioError(res, error, fallback) {
@@ -256,32 +257,53 @@ export function registerDetailStudioRoutes(app) {
       const payload = detailStudioPayload(req);
       const textModel = String((project.modelConfig && project.modelConfig.textModel) || payload.textModel || "").trim();
       const controller = new AbortController();
+      // V210：analyze 超时维持 60s / max_tokens 2000 不变（避免回归）。
       const timer = setTimeout(() => controller.abort(), 60000);
+      const startedAt = Date.now();
+      let result;
       try {
-        const result = await analyzeProductStrategy({ project, apiKey: payload.apiKey, textModel, signal: controller.signal });
-        if (!result.ok) {
-          return res.status(result.status || 502).json({ ok: false, message: result.message });
-        }
-        const updated = await updateDetailStudioProject(req.params.id, {
-          planning: {
-            analyze: result.analysis,
-            appliedOptions: result.appliedOptions,
-            globalLock: result.globalLock,
-            industryId: result.industryId
-          }
-        });
-        res.json({
-          ok: true,
-          analysis: result.analysis,
-          industryId: result.industryId,
-          appliedOptions: result.appliedOptions,
-          appliedOptionsComplete: result.appliedOptionsComplete,
-          completeness: result.completeness,
-          project: updated
-        });
+        result = await analyzeProductStrategy({ project, apiKey: payload.apiKey, textModel, signal: controller.signal });
       } finally {
         clearTimeout(timer);
+        // V210：无论成功/失败，均落规划调用元数据日志（绝不记 KEY/提示词/上游正文）。
+        await logPlanningCall({
+          stage: "analyze",
+          model: textModel,
+          durationMs: Date.now() - startedAt,
+          upstreamStatus: result && result.upstreamStatus !== undefined ? result.upstreamStatus : null,
+          responseChars: result ? (result.responseChars || 0) : 0,
+          outputScreenCount: null,
+          errorClass: result && !result.ok ? (result.errorClass || "unknown") : null,
+          ok: result ? result.ok === true : false
+        });
       }
+      if (!result.ok) {
+        // V210：向前端返回「类别 + 状态」，不夹带上游正文。
+        return res.status(result.status || 502).json({
+          ok: false,
+          message: result.message,
+          errorClass: result.errorClass || "unknown",
+          suggestion: result.suggestion || "",
+          upstreamStatus: result.upstreamStatus !== undefined ? result.upstreamStatus : null
+        });
+      }
+      const updated = await updateDetailStudioProject(req.params.id, {
+        planning: {
+          analyze: result.analysis,
+          appliedOptions: result.appliedOptions,
+          globalLock: result.globalLock,
+          industryId: result.industryId
+        }
+      });
+      res.json({
+        ok: true,
+        analysis: result.analysis,
+        industryId: result.industryId,
+        appliedOptions: result.appliedOptions,
+        appliedOptionsComplete: result.appliedOptionsComplete,
+        completeness: result.completeness,
+        project: updated
+      });
     } catch (error) {
       respondDetailStudioError(res, error, "商品分析失败");
     }
@@ -297,29 +319,51 @@ export function registerDetailStudioRoutes(app) {
       const payload = detailStudioPayload(req);
       const textModel = String((project.modelConfig && project.modelConfig.textModel) || payload.textModel || "").trim();
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 90000);
+      // V210：超时按目标屏数分档（20 屏档 180s）。
+      const directorTier = planningTierForCount(directorTargetScreenCount(project));
+      const timer = setTimeout(() => controller.abort(), directorTier.timeoutMs);
+      const startedAt = Date.now();
+      let result;
       try {
-        const result = await directVisualPlan({ project, apiKey: payload.apiKey, textModel, signal: controller.signal });
-        if (!result.ok) {
-          return res.status(result.status || 502).json({ ok: false, message: result.message, upstream: result.upstream });
-        }
-        const updated = await updateDetailStudioProject(req.params.id, {
-          planning: {
-            screens: result.screens,
-            narrativeSummary: result.narrativeSummary,
-            visualDNA: result.visualDNA
-          }
-        });
-        res.json({
-          ok: true,
-          screens: result.screens,
-          narrativeSummary: result.narrativeSummary,
-          visualDNA: result.visualDNA,
-          project: updated
-        });
+        result = await directVisualPlan({ project, apiKey: payload.apiKey, textModel, signal: controller.signal });
       } finally {
         clearTimeout(timer);
+        // V210：无论成功/失败/超时，均落元数据日志（绝不记 KEY/提示词/上游正文）。
+        await logPlanningCall({
+          stage: "director",
+          model: textModel,
+          durationMs: Date.now() - startedAt,
+          upstreamStatus: result && result.upstreamStatus !== undefined ? result.upstreamStatus : null,
+          responseChars: result ? (result.responseChars || 0) : 0,
+          outputScreenCount: result && result.outputScreenCount !== undefined ? result.outputScreenCount : (result && result.screens ? result.screens.length : null),
+          errorClass: result && !result.ok ? (result.errorClass || "unknown") : null,
+          ok: result ? result.ok === true : false
+        });
       }
+      if (!result.ok) {
+        // V210：向前端返回「类别 + 人话建议」，不再夹带上游正文。
+        return res.status(result.status || 502).json({
+          ok: false,
+          message: result.message,
+          errorClass: result.errorClass || "unknown",
+          suggestion: result.suggestion || "",
+          upstreamStatus: result.upstreamStatus !== undefined ? result.upstreamStatus : null
+        });
+      }
+      const updated = await updateDetailStudioProject(req.params.id, {
+        planning: {
+          screens: result.screens,
+          narrativeSummary: result.narrativeSummary,
+          visualDNA: result.visualDNA
+        }
+      });
+      res.json({
+        ok: true,
+        screens: result.screens,
+        narrativeSummary: result.narrativeSummary,
+        visualDNA: result.visualDNA,
+        project: updated
+      });
     } catch (error) {
       respondDetailStudioError(res, error, "导演分屏失败");
     }
@@ -366,30 +410,50 @@ export function registerDetailStudioRoutes(app) {
       const textModel = String((project.modelConfig && project.modelConfig.textModel) || payload.textModel || "").trim();
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 120000);
+      const startedAt = Date.now();
+      let result;
       try {
-        const result = await runQualityCheck({ project, apiKey: payload.apiKey, textModel, signal: controller.signal });
-        if (!result.ok) {
-          return res.status(result.status || 502).json({ ok: false, message: result.message });
-        }
-        let updated = project;
-        if (result.updatedScreens) {
-          const patch = { planning: { screens: result.updatedScreens } };
-          if (result.recompiled) patch.planning.frozenPrompts = result.recompiled;
-          updated = await updateDetailStudioProject(req.params.id, patch);
-        }
-        res.json({
-          ok: true,
-          findings: result.findings,
-          deterministicFindings: result.deterministicFindings,
-          llmFindings: result.llmFindings,
-          reReviewFindings: result.reReviewFindings,
-          fixedCount: result.fixedCount,
-          needsHuman: result.needsHuman,
-          project: updated
-        });
+        result = await runQualityCheck({ project, apiKey: payload.apiKey, textModel, signal: controller.signal });
       } finally {
         clearTimeout(timer);
+        // V210：无论成功/失败，均落规划调用元数据日志（绝不记 KEY/提示词/上游正文）。
+        await logPlanningCall({
+          stage: "quality",
+          model: textModel,
+          durationMs: Date.now() - startedAt,
+          upstreamStatus: result && result.upstreamStatus !== undefined ? result.upstreamStatus : null,
+          responseChars: result ? (result.responseChars || 0) : 0,
+          outputScreenCount: null,
+          errorClass: result && !result.ok ? (result.errorClass || "unknown") : null,
+          ok: result ? result.ok === true : false
+        });
       }
+      if (!result.ok) {
+        // V210：向前端返回「类别 + 状态」，不夹带上游正文。
+        return res.status(result.status || 502).json({
+          ok: false,
+          message: result.message,
+          errorClass: result.errorClass || "unknown",
+          suggestion: result.suggestion || "",
+          upstreamStatus: result.upstreamStatus !== undefined ? result.upstreamStatus : null
+        });
+      }
+      let updated = project;
+      if (result.updatedScreens) {
+        const patch = { planning: { screens: result.updatedScreens } };
+        if (result.recompiled) patch.planning.frozenPrompts = result.recompiled;
+        updated = await updateDetailStudioProject(req.params.id, patch);
+      }
+      res.json({
+        ok: true,
+        findings: result.findings,
+        deterministicFindings: result.deterministicFindings,
+        llmFindings: result.llmFindings,
+        reReviewFindings: result.reReviewFindings,
+        fixedCount: result.fixedCount,
+        needsHuman: result.needsHuman,
+        project: updated
+      });
     } catch (error) {
       respondDetailStudioError(res, error, "质量审查失败");
     }

@@ -53,21 +53,50 @@ async function callQcModel({ project, apiKey, textModel, signal, industryStrateg
     response_format: { type: "json_object" }
   };
   let parsed;
+  let responseChars = 0;
   try {
     const result = await postChatCompletion({ baseUrl, apiKey: key, body, signal });
     if (!result.response.ok) {
-      return { ok: false, status: result.response.status, message: "上游返回 HTTP " + result.response.status };
+      const rawText = String(result.parsed && result.parsed.text ? result.parsed.text : "");
+      responseChars = rawText.length;
+      // V210：上游 HTTP 非 2xx → upstream_error（消息不含上游正文）。
+      return {
+        ok: false,
+        status: result.response.status,
+        errorClass: "upstream_error",
+        message: "上游返回 HTTP " + result.response.status,
+        responseChars,
+        upstreamStatus: result.response.status
+      };
     }
-    parsed = extractJsonObject(responseContent(result.parsed && result.parsed.json), "质检");
+    const rawText = String(result.parsed && result.parsed.text ? result.parsed.text : "");
+    responseChars = rawText.length;
+    try {
+      parsed = extractJsonObject(responseContent(result.parsed && result.parsed.json), "质检");
+    } catch (parseError) {
+      const isEmpty = /没有返回内容/.test(parseError && parseError.message ? parseError.message : "");
+      return {
+        ok: false,
+        status: 502,
+        errorClass: isEmpty ? "no_content" : "parse_failed",
+        message: isEmpty ? "上游未返回任何内容" : "上游返回内容解析失败（可能截断或不完整）",
+        responseChars,
+        upstreamStatus: 200
+      };
+    }
   } catch (error) {
+    const isAbort = error && error.name === "AbortError";
     return {
       ok: false,
-      status: error && error.name === "AbortError" ? 504 : 502,
-      message: error instanceof Error ? error.message : String(error)
+      status: isAbort ? 504 : 502,
+      errorClass: isAbort ? "timeout" : "parse_failed",
+      message: isAbort ? "质量审查超时：上游未在限定时间内返回" : (error instanceof Error ? error.message : String(error)),
+      responseChars: 0,
+      upstreamStatus: isAbort ? null : 200
     };
   }
   const findings = Array.isArray(parsed.findings) ? parsed.findings : [];
-  return { ok: true, findings };
+  return { ok: true, findings, responseChars, upstreamStatus: 200 };
 }
 
 function normalizeLlmFindings(findings = []) {
@@ -112,7 +141,7 @@ export async function runQualityCheck({ project, apiKey, textModel, signal } = {
 
   // 第 1 次模型调用：独立质检（review）。
   const review = await callQcModel({ project, apiKey, textModel, signal, industryStrategy });
-  if (!review.ok) return { ok: false, status: review.status || 502, message: review.message };
+  if (!review.ok) return { ok: false, status: review.status || 502, message: review.message, errorClass: review.errorClass, responseChars: review.responseChars, upstreamStatus: review.upstreamStatus };
   const llmFindings = normalizeLlmFindings(review.findings);
 
   let findings = mergeFindings(deterministicFindings, llmFindings);

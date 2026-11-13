@@ -2,7 +2,7 @@
 // 详情创作工作区独立业务状态：项目级 truth 来自服务端，不依赖浏览器 localStorage。
 // public 首启会清 localStorage 并删 IndexedDB 库，所以工作进度一律落服务端 data/。
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getAppConfig } from "../../../api/config.js";
 import {
   analyzeDetailStudio,
@@ -67,6 +67,15 @@ export function useDetailStudioState() {
   const [modeCParse, setModeCParse] = useState(null);
   // B4 质检报告（瞬时 UI 态，不落盘；与 modeCParse 同口径）。
   const [qcReport, setQcReport] = useState(null);
+  // V210：导演分屏长耗时反馈——运行态、已等待秒数、结构化错误（类别 + 建议）。
+  const [directorRunning, setDirectorRunning] = useState(false);
+  const [directorWaitingSec, setDirectorWaitingSec] = useState(0);
+  const [directorError, setDirectorError] = useState(null);
+  const directorTimerRef = useRef(null);
+
+  useEffect(() => () => {
+    if (directorTimerRef.current) clearInterval(directorTimerRef.current);
+  }, []);
 
   // apiKey 由本 hook 统一从全局设置读取（Owner 红线：详情创作视图不出现 KEY 输入）。
   const apiKey = readDetailStudioApiKey();
@@ -390,18 +399,40 @@ export function useDetailStudioState() {
       setError("请到设置页填写 API Key（全画板只在设置页填一次，其他视图不重复输入）");
       return null;
     }
+    setDirectorError(null);
+    setDirectorWaitingSec(0);
+    setDirectorRunning(true);
     setBusy(true);
     setError("");
     setNotice("");
+    // V210：每秒累加「已等待 N 秒」，让长耗时可见（避免「转圈后无反应」）。
+    if (directorTimerRef.current) clearInterval(directorTimerRef.current);
+    directorTimerRef.current = setInterval(() => {
+      setDirectorWaitingSec((s) => s + 1);
+    }, 1000);
     try {
       const res = await directorDetailStudio(currentProject.id, { apiKey, textModel: (currentProject.modelConfig && currentProject.modelConfig.textModel) || "" });
       setCurrentProject(res.project);
       setNotice("分屏方案已生成（" + (res.screens ? res.screens.length : 0) + " 屏），可审阅后编译冻结");
       return res;
     } catch (err) {
-      setError(errorMessage(err, "导演分屏失败"));
+      // V210：捕获结构化错误（类别 + 建议），前端 banner 置顶展示 + 重试入口。
+      const payload = (err && err.payload) ? err.payload : {};
+      const message = payload.message || errorMessage(err, "导演分屏失败");
+      setDirectorError({
+        message,
+        errorClass: payload.errorClass || null,
+        suggestion: payload.suggestion || null,
+        upstreamStatus: (payload.upstreamStatus !== undefined && payload.upstreamStatus !== null) ? payload.upstreamStatus : null
+      });
+      setError(message);
       return null;
     } finally {
+      if (directorTimerRef.current) {
+        clearInterval(directorTimerRef.current);
+        directorTimerRef.current = null;
+      }
+      setDirectorRunning(false);
       setBusy(false);
     }
   }, [currentProject, hasServerKey]);
@@ -510,6 +541,9 @@ export function useDetailStudioState() {
     referenceImages,
     modeCParse,
     qcReport,
+    directorRunning,
+    directorWaitingSec,
+    directorError,
     refresh,
     createProject,
     openProject,

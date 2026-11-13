@@ -122,8 +122,33 @@ function ScreenCard({ screen }) {
   );
 }
 
+function DirectorErrorBanner({ state }) {
+  const directorError = state.directorError;
+  return (
+    <div className="dsDirectorBanner" role="alert">
+      <div className="dsDirectorBannerHead">
+        <span className="dsDirectorBannerTag">
+          {directorError.errorClass ? `分屏失败 · ${directorError.errorClass}` : "分屏失败"}
+        </span>
+        {directorError.upstreamStatus ? (
+          <span className="dsDirectorBannerStatus">上游 {directorError.upstreamStatus}</span>
+        ) : null}
+      </div>
+      <p className="dsDirectorBannerMsg">{directorError.message}</p>
+      {directorError.suggestion ? (
+        <p className="dsDirectorBannerSug">{directorError.suggestion}</p>
+      ) : null}
+      <div className="dsDirectorBannerActions">
+        <Button size="sm" tone="primary" onClick={state.directorProject}>重试</Button>
+      </div>
+    </div>
+  );
+}
+
 function DirectorSection({ state, planning }) {
   const screens = planning.screens || [];
+  const isRunning = state.directorRunning;
+  const waitSec = state.directorWaitingSec;
   return (
     <Panel>
       <ModuleHeader
@@ -131,11 +156,14 @@ function DirectorSection({ state, planning }) {
         title="② 导演分屏"
         subtitle={`结构化 ScreenSpec · ${screens.length} 屏`}
         action={
-          <Button size="sm" tone="primary" loading={state.busy} disabled={!planning.analyze} onClick={state.directorProject}>
-            生成分屏方案
+          <Button size="sm" tone="primary" loading={isRunning} disabled={!planning.analyze || isRunning} onClick={state.directorProject}>
+            {isRunning ? `生成分屏方案…已等待 ${waitSec}s` : "生成分屏方案"}
           </Button>
         }
       />
+      {isRunning ? (
+        <p className="dsPlanHint">正在生成分屏方案，已等待 {waitSec} 秒，请耐心等待（目标屏数越多越久）…</p>
+      ) : null}
       {!screens.length ? (
         <p className="dsPlanHint">先完成商品分析，再生成分屏方案（1 次模型调用，产出结构化屏数组）。</p>
       ) : (
@@ -271,6 +299,7 @@ export function PlanningPanel({ state }) {
   }
   return (
     <div className="dsPlanColumn">
+      {state.directorError ? <DirectorErrorBanner state={state} /> : null}
       <AnalyzeSection state={state} planning={planning} />
       <DirectorSection state={state} planning={planning} />
       <FreezeSection state={state} planning={planning} />

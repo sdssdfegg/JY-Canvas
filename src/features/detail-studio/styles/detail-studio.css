@@ -978,6 +978,55 @@
   font-size: var(--text-sm);
 }
 
+/* V210：导演分屏失败 banner —— 置顶（滚动可见），复用 --danger 令牌、零 hex */
+.dsDirectorBanner {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--danger);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: var(--panel-strong);
+}
+
+.dsDirectorBannerHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dsDirectorBannerTag {
+  font-weight: 700;
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+
+.dsDirectorBannerStatus {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.dsDirectorBannerMsg {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+.dsDirectorBannerSug {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.dsDirectorBannerActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
 .dsPlanBody {
   display: grid;
   gap: var(--space-3);

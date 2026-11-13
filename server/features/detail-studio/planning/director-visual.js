@@ -14,7 +14,7 @@ import { extractJsonObject, modelName, postChatCompletion, responseContent } fro
 import { resolveApiKey } from "../../../core/image-error-policy.js";
 import { channelBaseCandidates } from "../../../core/image-channel-candidates.js";
 import { DETAIL_STUDIO_MODEL_SPEC } from "../model/model-config.js";
-import { buildAnalyzeContext } from "./analyze-strategy.js";
+import { buildAnalyzeContext, extractPlanningOptions } from "./analyze-strategy.js";
 import { selectScreenModule, SCREEN_MODULE_LIBRARY } from "../../../../prompts/detail-studio/core/screen-composition.js";
 import { isPublishableGrade } from "../../../../prompts/detail-studio/core/fact-grading.js";
 import {
@@ -24,6 +24,72 @@ import {
 
 /** 屏数硬上限（任务书口径 + 阶段 0/2 已定）。 */
 export const MAX_SCREEN_COUNT = 20;
+
+// ── V210（2026-11-12）：超时 / max_tokens 按目标屏数分档，不再硬编码 90s/3000 ──
+// 20 屏结构化中文 JSON 天然慢且耗 token，90s/3000 是紧约束（执行单 §1.2）。
+// 分档只放宽上限，不改任何渠道 / 模型 / KEY 体系；analyze 的 60s/2000 不受此影响。
+export const PLANNING_TIERS = Object.freeze([
+  { max: 8, timeoutMs: 90000, maxTokens: 3000 },
+  { max: 14, timeoutMs: 120000, maxTokens: 5000 },
+  { max: 20, timeoutMs: 180000, maxTokens: 8000 }
+]);
+
+export function planningTierForCount(count) {
+  const c = Number.isFinite(Number(count)) ? Number(count) : 8;
+  return PLANNING_TIERS.find((t) => c <= t.max) || PLANNING_TIERS[PLANNING_TIERS.length - 1];
+}
+
+// 从项目解析导演目标屏数（与 buildDirectorContext 同源，避免路由与内部两套口径漂移）。
+export function directorTargetScreenCount(project = {}) {
+  const options = extractPlanningOptions(project);
+  return Math.min(MAX_SCREEN_COUNT, Number.isFinite(options.screenCount) ? options.screenCount : 8);
+}
+
+// V210：把模型调用失败统一归类为「类别 + 人话建议」，消息绝不夹带上游正文（数据红线）。
+// 纯函数、零依赖，供 directVisualPlan 与 verify 脚本共用。
+export function classifyPlanningError(kind, options = {}) {
+  switch (kind) {
+    case "timeout":
+      return {
+        status: 504,
+        errorClass: "timeout",
+        message: "规划生成超时：上游未在限定时间内返回结果",
+        suggestion: "可点击重试；目标屏数较多时生成较久属正常，请耐心等待或稍后再试"
+      };
+    case "upstream_error": {
+      const status = Number.isFinite(Number(options.status)) ? Number(options.status) : 502;
+      return {
+        status,
+        errorClass: "upstream_error",
+        message: `上游返回 HTTP ${status}`,
+        suggestion: "请检查网络与网关状态，或稍后重试"
+      };
+    }
+    case "no_content":
+      return {
+        status: 502,
+        errorClass: "no_content",
+        message: "上游未返回任何内容",
+        suggestion: "请检查网络与 KEY 是否填写正确，或重试"
+      };
+    case "parse_failed":
+    default:
+      return {
+        status: 502,
+        errorClass: "parse_failed",
+        message: "上游返回内容解析失败（可能截断或不完整）",
+        suggestion: "请重试一次；若仍失败，可减少目标屏数或检查模型/渠道"
+      };
+  }
+}
+
+// V210：空 screens（静默 0 屏）明确抛错，禁止 directVisualPlan 返回 ok:true/screens:[] 误导前端。
+export function assertNonEmptyScreens(normalized) {
+  if (!normalized || !Array.isArray(normalized.screens) || normalized.screens.length === 0) {
+    throw new Error("分屏列表为空（empty_screens）");
+  }
+  return normalized;
+}
 
 /**
  * 纯函数：从批次①结论里挑出「可发布」分级的事实（剔除 unconfirmed）。
@@ -182,6 +248,8 @@ export async function directVisualPlan({ project, apiKey, textModel, signal } = 
     return { ok: false, status: 502, message: "未配置可用网关", context };
   }
   const model = modelName({ textModel }, DETAIL_STUDIO_MODEL_SPEC);
+  // V210：max_tokens 按目标屏数分档（20 屏不再被 3000 卡死）。
+  const tier = planningTierForCount(context.screenCount);
   const body = {
     model,
     messages: [
@@ -189,40 +257,79 @@ export async function directVisualPlan({ project, apiKey, textModel, signal } = 
       { role: "user", content: userPrompt }
     ],
     temperature: 0.6,
-    max_tokens: 3000,
+    max_tokens: tier.maxTokens,
     response_format: { type: "json_object" }
   };
 
   const controller = signal || new AbortController();
   const abortSignal = signal || controller.signal;
   let parsed;
+  let responseChars = 0;
   try {
     const result = await postChatCompletion({ baseUrl, apiKey: key, body, signal: abortSignal });
     if (!result.response.ok) {
+      const rawText = String(result.parsed && result.parsed.text ? result.parsed.text : "");
+      responseChars = rawText.length;
+      // V210：上游 HTTP 非 2xx → upstream_error（消息不含上游正文）。
       return {
         ok: false,
-        status: result.response.status,
-        message: "上游返回 HTTP " + result.response.status,
-        upstream: String(result.parsed && result.parsed.text ? result.parsed.text : "").slice(0, 200),
+        ...classifyPlanningError("upstream_error", { status: result.response.status }),
+        responseChars,
+        upstreamStatus: result.response.status,
         context
       };
     }
-    parsed = extractJsonObject(responseContent(result.parsed && result.parsed.json), "导演分屏");
+    const rawText = String(result.parsed && result.parsed.text ? result.parsed.text : "");
+    responseChars = rawText.length;
+    try {
+      parsed = extractJsonObject(responseContent(result.parsed && result.parsed.json), "导演分屏");
+    } catch (parseError) {
+      const isEmpty = /没有返回内容/.test(parseError && parseError.message ? parseError.message : "");
+      // V210：解析失败 → parse_failed；空内容 → no_content（均不含上游正文）。
+      return {
+        ok: false,
+        ...classifyPlanningError(isEmpty ? "no_content" : "parse_failed"),
+        responseChars,
+        upstreamStatus: 200,
+        context
+      };
+    }
   } catch (error) {
+    const isAbort = error && error.name === "AbortError";
+    // V210：AbortError → timeout；其它（网络/IO）→ 归为 parse_failed 兜底（不含上游正文）。
     return {
       ok: false,
-      status: error && error.name === "AbortError" ? 504 : 502,
-      message: error instanceof Error ? error.message : String(error),
+      ...classifyPlanningError(isAbort ? "timeout" : "parse_failed"),
+      responseChars: 0,
       context
     };
   }
 
-  const normalized = normalizeDirectorResult(parsed);
+  // V210：空 screens 明确判红，禁止静默 ok:true/screens:[]。
+  let normalized;
+  try {
+    normalized = assertNonEmptyScreens(normalizeDirectorResult(parsed));
+  } catch (emptyError) {
+    return {
+      ok: false,
+      status: 502,
+      errorClass: "empty_screens",
+      message: "模型返回了结构，但分屏列表为空（未生成任何屏）",
+      suggestion: "请重试一次；若仍为空，请先完善商品分析，或减少目标屏数",
+      responseChars,
+      outputScreenCount: 0,
+      upstreamStatus: 200,
+      context
+    };
+  }
   return {
     ok: true,
     narrativeSummary: normalized.narrativeSummary,
     visualDNA: normalized.visualDNA,
     screens: normalized.screens,
+    outputScreenCount: normalized.screens.length,
+    responseChars,
+    upstreamStatus: 200,
     context
   };
 }
