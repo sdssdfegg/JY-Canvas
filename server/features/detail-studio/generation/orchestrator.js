@@ -22,6 +22,7 @@ import { detailStudioGenerationResultsDir } from "../../../core/app-paths.js";
 import { historyImagePath } from "../../../core/asset-urls.js";
 import {
   TASK_STATUS,
+  TERMINAL_STATES,
   MAX_SCREENS,
   MAX_ATTEMPTS,
   idempotencyKey,
@@ -400,9 +401,16 @@ export async function recordResult(projectId, taskId, { outcome, image = null, e
     throw new Error("recordResult: projectId 与任务归属不符");
   }
   // 已在终态（如重启恢复标了 needs_confirm）→ 不覆盖已完成结果，直接返回。
-  if (!canTransition(task.status, TASK_STATUS.RUNNING)) return task;
+  // 🔴 V212-R1 P0：这里**不能**用 canTransition(task.status, RUNNING) 判「是否终态」——
+  // 正常回写路径是 beginTask 已把任务置 RUNNING，而 canTransition 规定 from===to 返回 false，
+  // 旧写法会把正常的 RUNNING 当成「不可迁移」直接 return，导致 SUCCESS / resultRef /
+  // resultPath 永不落盘、前端永远「生成中」（上游却已扣费）。只按终态集合判定。
+  if (TERMINAL_STATES.has(task.status)) return task;
 
-  await generationTaskStore.updateStatus(taskId, TASK_STATUS.RUNNING);
+  // 已 RUNNING 时不重复写盘（避免刷新 updated_at 干扰 RUNNING 超时看门狗计时）。
+  if (task.status !== TASK_STATUS.RUNNING) {
+    await generationTaskStore.updateStatus(taskId, TASK_STATUS.RUNNING);
+  }
   if (outcome === "success") {
     const resultPath = await persistResult(task, image || {});
     await generationTaskStore.updateStatus(taskId, TASK_STATUS.SUCCESS, {

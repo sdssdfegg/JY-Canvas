@@ -245,6 +245,9 @@ const ORDER = [
   // TRACED_OPTION_KEYS → appliedOptions → globalLock → ScreenSpec → frozenPrompt（basicParams 优先、回退 productData.fields），
   // 改一个选项编译提示词必变；纯逻辑、零模型、零上游，进提交钩子快速子集。
   "detail-studio-basic-params-chain-check",
+  // V212-R1（2026-11-13）：生图结果回写状态机端到端门禁——registerBatch→begin→result 三终态 +
+  // 旧 canTransition guard 静态判红 + ≥7 条负向对照；沙盒 data 根、零上游，进 --fast 快速子集。
+  "detail-studio-generation-writeback-check",
   // V202（2026-11-10）：阶段 3B B5 行业策略包门禁——cleaning 不误判为 home + 三包四字段齐备 + 覆盖层不覆盖 BASE，进提交钩子快速子集。
   "industry-strategy-match-check",
   // V205（2026-11-11）：阶段 3C 专业能力内容层资产契约门禁——行业四字段/案例库/禁词表/platform/参考图角色齐备，纯逻辑零上游，进提交钩子快速子集。
@@ -367,6 +370,8 @@ const FAST_ORDER = [
   "planning-parameter-chain-check",
   // V212（2026-11-13）：基础参数面板 → 参数链 → frozenPrompt 门禁（纯逻辑、零上游，进 --fast 快速子集）。
   "detail-studio-basic-params-chain-check",
+  // V212-R1（2026-11-13）：生图结果回写状态机端到端门禁（沙盒、零上游、进 --fast 快速子集）。
+  "detail-studio-generation-writeback-check",
   // V210（2026-11-12）：导演分屏链路稳定性与可观测性门禁（规划调用元数据日志零敏感字段 +
   // 三失败场景 errorClass + max_tokens/超时分档 + 前端等待计时/置顶 banner/重试，进 --fast 快速子集）。
   "planning-timeout-feedback-check",
