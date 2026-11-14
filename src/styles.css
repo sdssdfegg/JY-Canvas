@@ -2617,6 +2617,83 @@ textarea:focus {
   padding: 18px;
 }
 
+/* V215 P0：一键详情「选择详情展示板块」弹窗专属布局类（仅布局属性，不引入 hex）。
+   与 .detailPresetModal 解耦：后者被「加载详情预设」弹窗复用，不得改动；
+   本类独立承载放大后的宽度 / 滚动 / 头部版式 / 两列分组 / 分区分隔 / 两段式 footer。
+   基础面板外观（圆角 / 背景 / 边框 / 阴影 / 弹入动画）沿用共享 var，不新增颜色。 */
+.detailSectionsModal {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--soft-border);
+  box-shadow: var(--shadow);
+  animation: modalPop 0.14s cubic-bezier(0.2, 0.8, 0.2, 1);
+  padding: 18px;
+}
+
+.detailSectionsModal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.detailSectionsModal h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.detailSectionsModal header > div:first-child span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.detailSectionsModal .detailPresetList > section + section {
+  border-top: 1px solid var(--soft-border);
+  padding-top: 12px;
+}
+
+.detailSectionsModal .detailPresetList > section .promptPresetGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  min-height: 66px;
+}
+
+.detailSectionsModal .detailSelectedHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detailSectionsModal .detailSelectedHead em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.detailSectionsModal .detailCustomHint {
+  margin: 6px 0 0;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.detailSectionsModal .directoryModalActions {
+  justify-content: space-between;
+}
+
+@media (max-width: 560px) {
+  .detailSectionsModal .detailPresetList > section .promptPresetGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .saveDirectoryModal header {
   margin-bottom: 16px;
 }

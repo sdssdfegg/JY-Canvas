@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-11-14",
-  "reason": "V214 P1 全链路条件注入：detail-sections.js 增序列化函数、detail-state.js payload 条件展开、detail-ai.js 指令与白名单、detail-middleware.js 兜底映射与每屏 text 条件行",
+  "reason": "V215 P0 弹窗放大与排版重排",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -67,7 +67,7 @@
     "src/features/detail/detail-image-form.js": 91,
     "src/features/detail/detail-sections.js": 62,
     "src/features/detail/detail-state.js": 709,
-    "src/features/detail/DetailSectionsModal.jsx": 119,
+    "src/features/detail/DetailSectionsModal.jsx": 145,
     "src/features/detail/DetailView.jsx": 628,
     "src/features/image-editor/image-editor-helpers.js": 174,
     "src/features/local-edit/AnnotationEditModal.jsx": 402,
@@ -231,7 +231,7 @@
     "src/features/detail/detail-state.js::createDetailPromptPlan": 54,
     "src/features/detail/detail-state.js::generateDetailPrompt": 93,
     "src/features/detail/detail-state.js::useDetailState": 595,
-    "src/features/detail/DetailSectionsModal.jsx::DetailSectionsModal": 107,
+    "src/features/detail/DetailSectionsModal.jsx::DetailSectionsModal": 133,
     "src/features/detail/DetailView.jsx::DetailView": 609,
     "src/features/local-edit/AnnotationEditModal.jsx::AnnotationEditModal": 281,
     "src/features/local-edit/AnnotationEditModal.jsx::AnnotationShape": 61,
