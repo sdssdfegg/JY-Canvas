@@ -18,7 +18,7 @@ function useFlowSteps(state) {
   const hasModel = Boolean(mc.textModel || mc.imageModel);
 
   return [
-    { key: "project", label: "创建项目", done: Boolean(current.id) },
+    // V213 P0：不再把「创建项目」摆成客户必经步骤 —— 项目由传图后自动创建（后台幂等）。
     { key: "product", label: "商品资料", done: Object.keys(fields).length > 0 || hasText },
     { key: "image", label: "产品图", done: hasProductImage, required: true },
     { key: "model", label: "模型与渠道", done: hasModel }

@@ -20,6 +20,17 @@ export function createDetailStudioProject(payload) {
   return postJson(BASE + "/projects", payload, "新建详情项目失败");
 }
 
+// V213/S1 P0：自动草稿项目（服务端按 clientToken 幂等）。客户不建项目直接传图时由状态层后台调用：
+// 同一 token 命中即返回既有项目，未命中才建；刷新 / 双击 / 多图并发都不会产生第二个项目。
+// nameHint 仅用于首次建项时取名（首图文件名），命中既有项目时被忽略。
+export function ensureDetailStudioDraftProject(clientToken, nameHint = "") {
+  return postJson(
+    BASE + "/projects/ensure-draft",
+    { clientToken: String(clientToken || ""), nameHint: String(nameHint || "") },
+    "准备详情创作工作区失败"
+  );
+}
+
 export function getDetailStudioProject(id) {
   return apiJson(BASE + "/projects/" + encodeURIComponent(id), {}, "读取详情项目失败");
 }

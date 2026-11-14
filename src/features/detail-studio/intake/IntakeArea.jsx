@@ -2,7 +2,6 @@
 // 创作录入区：组合 §4（商品资料 + 参考图）与 §3 模式专属录入面板。
 // 只做组合，不承载业务逻辑；模式分支由当前项目 mode 决定（A / B / C 三条独立路径）。
 
-import { PackageOpen } from "lucide-react";
 import { STUDIO_MODE_LABELS } from "../constants/workspace-contract.js";
 import { ProductDataPanel } from "./ProductDataPanel.jsx";
 import { ReferenceImagesPanel } from "./ReferenceImagesPanel.jsx";
@@ -19,10 +18,11 @@ const MODE_PANELS = {
 export function IntakeArea({ state }) {
   const current = state.currentProject;
   if (!current) {
+    // V213 P0：没有项目也要能直接传图 —— 参考图面板先渲染，上传时后台自动 ensure 草稿项目。
+    // 其余录入面板读的是项目字段（商品资料 / 模式分支），等项目就绪后再出。
     return (
-      <div className="detailStudioIntakeEmpty">
-        <PackageOpen size={16} />
-        <span>请先在左侧创建或打开一个详情项目，再录入商品资料、参考图与创作模式内容。</span>
+      <div className="detailStudioIntake">
+        <ReferenceImagesPanel state={state} />
       </div>
     );
   }

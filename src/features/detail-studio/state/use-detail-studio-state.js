@@ -12,6 +12,7 @@ import {
   compileDetailStudioPrompts,
   createDetailStudioProject,
   directorDetailStudio,
+  ensureDetailStudioDraftProject,
   freezeDetailStudioPrompts,
   getDetailStudioGenerationStatus,
   qualityDetailStudio,
@@ -30,9 +31,43 @@ import {
   updateDetailStudioProject,
   uploadDetailStudioReferenceImage
 } from "../../../api/detail-studio.js";
-import { readJsonStorage } from "../../../lib/storage/json-storage.js";
+import { readJsonStorage, writeJsonStorage } from "../../../lib/storage/json-storage.js";
 import { STORAGE_KEY } from "../../../shared/app-defaults.js";
 import { normalizeApiKeyInput } from "../../auth/api-key.js";
+
+// V213/S1 P0：自动草稿项目的幂等键（一次「开始创作」一个 token，存在本机）。
+// public 首启只清固定清单里的键，本键不在清单内 ⇒ 刷新 / 重启都拿到同一个 token，
+// 服务端据此命中既有草稿，不会每刷新一次就多一个项目。
+// 客户不可见：本 token 只在本 hook 与 api 层之间流转，界面不出现。
+const DETAIL_STUDIO_DRAFT_TOKEN_KEY = "jingyin-detail-studio-draft-token-v1";
+
+function createDraftClientToken() {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID().replace(/-/g, "").slice(0, 32);
+    }
+  } catch {
+    // 落到时间戳兜底（仍满足服务端 [A-Za-z0-9_-]{8,64} 字符集）。
+  }
+  return "ds" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
+function readDetailStudioDraftToken() {
+  const stored = readJsonStorage(DETAIL_STUDIO_DRAFT_TOKEN_KEY, "");
+  const token = typeof stored === "string" ? stored.trim() : "";
+  return /^[A-Za-z0-9_-]{8,64}$/.test(token) ? token : "";
+}
+
+// 换一个 token = 下一次自动草稿落一个新项目（手动新建 / 主动换项目时调用，避免续接到旧草稿）。
+function rotateDetailStudioDraftToken() {
+  const token = createDraftClientToken();
+  writeJsonStorage(DETAIL_STUDIO_DRAFT_TOKEN_KEY, token);
+  return token;
+}
+
+function ensureDetailStudioDraftToken() {
+  return readDetailStudioDraftToken() || rotateDetailStudioDraftToken();
+}
 
 function errorMessage(error, fallback) {
   return error && error.message ? error.message : fallback;
@@ -74,6 +109,8 @@ export function useDetailStudioState() {
   const directorTimerRef = useRef(null);
   // V212 P1：前端逐屏直调 generateImages 的后台批次进行中标记，防止重复点击导致同一屏二次扣费。
   const generatingRef = useRef(false);
+  // V213 P0：自动草稿项目的 in-flight promise（同一时刻只发一次 ensure 请求，多图并发共用）。
+  const ensureDraftRef = useRef(null);
 
   useEffect(() => () => {
     if (directorTimerRef.current) clearInterval(directorTimerRef.current);
@@ -118,6 +155,8 @@ export function useDetailStudioState() {
     try {
       const result = await createDetailStudioProject(payload);
       setCurrentProject(result.project);
+      // V213 P0：手动新建后换 token —— 下次自动草稿落新项目，不续接到旧草稿。
+      rotateDetailStudioDraftToken();
       setNotice("项目已创建并保存到服务端");
       await refresh();
       return result.project;
@@ -139,6 +178,29 @@ export function useDetailStudioState() {
       setReferenceImages([]);
     }
   }, []);
+
+  // V213/S1 P0：自动草稿项目 —— 客户不建项目、直接传图时的唯一入口。
+  // 已有项目直接复用；并发（双击 / 一次拖多张）用 in-flight ref 复用同一个请求；
+  // 刷新后的重复由服务端按 clientToken 幂等兜住（主防线在服务端，本 ref 只是补充）。
+  const ensureDraftProject = useCallback(async (nameHint = "") => {
+    if (currentProject && currentProject.id) return currentProject;
+    if (ensureDraftRef.current) return ensureDraftRef.current;
+    const pending = (async () => {
+      const res = await ensureDetailStudioDraftProject(ensureDetailStudioDraftToken(), nameHint);
+      const project = (res && res.project) || null;
+      if (project) {
+        setCurrentProject(project);
+        await refresh();
+      }
+      return project;
+    })();
+    ensureDraftRef.current = pending;
+    try {
+      return await pending;
+    } finally {
+      ensureDraftRef.current = null;
+    }
+  }, [currentProject, refresh]);
 
   const openProject = useCallback(async (id) => {
     setBusy(true);
@@ -317,15 +379,23 @@ export function useDetailStudioState() {
   }, [currentProject]);
 
   // §4 参考图：上传（带 role + label）→ 重新拉取列表（带 url）刷新本地展示。
+  // V213 P0：无项目时先 ensure 草稿项目拿 id，再拼上传 URL —— 这里是「不建项目也能直接传图」的
+  // 唯一收口处（三处 UI 硬挡已放行，最终都落到本函数）。幂等靠服务端 token 命中，刷新不会多建项目。
   const uploadReferenceImage = useCallback(async (file, role, label = "") => {
-    if (!currentProject) return null;
     if (!file) return null;
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      await uploadDetailStudioReferenceImage(currentProject.id, file, role, label);
-      const res = await listDetailStudioReferenceImages(currentProject.id);
+      const project = (currentProject && currentProject.id)
+        ? currentProject
+        : await ensureDraftProject(file.name);
+      if (!project || !project.id) {
+        setError("工作区尚未就绪，请稍后重试");
+        return null;
+      }
+      await uploadDetailStudioReferenceImage(project.id, file, role, label);
+      const res = await listDetailStudioReferenceImages(project.id);
       setReferenceImages(Array.isArray(res.referenceImages) ? res.referenceImages : []);
       setNotice("参考图已上传并按职责标注");
       return true;
@@ -335,7 +405,7 @@ export function useDetailStudioState() {
     } finally {
       setBusy(false);
     }
-  }, [currentProject]);
+  }, [currentProject, ensureDraftProject]);
 
   // §3 模式 C：保存原始提示词（rawPrompt，落库后只读）。
   const saveModeCRawPrompt = useCallback(async (rawPrompt) => {
@@ -626,6 +696,7 @@ export function useDetailStudioState() {
     directorError,
     refresh,
     createProject,
+    ensureDraftProject,
     openProject,
     loadReferenceImages,
     saveProject,

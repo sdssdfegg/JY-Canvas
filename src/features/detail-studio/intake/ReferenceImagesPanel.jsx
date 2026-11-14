@@ -27,19 +27,8 @@ export function ReferenceImagesPanel({ state }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentProject?.id]);
 
-  if (!state.currentProject) {
-    return (
-      <Panel className="detailStudioPanel">
-        <ModuleHeader
-          icon={<ImagePlus size={15} />}
-          title="参考图"
-          subtitle="商品图 / 视觉风格 / 内容结构，按职责标注"
-        />
-        <p className="detailStudioEmpty">请先在左侧创建或打开一个详情项目，再上传参考图。</p>
-      </Panel>
-    );
-  }
-
+  // V213 P0：没有项目不再拦上传 —— 客户直接传图，状态层在 uploadReferenceImage 里
+  // 自动 ensure 草稿项目拿 id。原先的空态提示（「请先在左侧创建或打开一个项目」）已移除。
   return (
     <Panel className="detailStudioPanel">
       <ModuleHeader

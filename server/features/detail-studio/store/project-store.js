@@ -142,6 +142,24 @@ function safeProjectId(value) {
   return /^[A-Za-z0-9_-]{1,80}$/.test(raw) ? raw : "";
 }
 
+// V213/S1：自动草稿项目的幂等键（客户端一次「开始创作」一个 token）。
+// 只收受限字符集：token 会进 index.json 检索、也拼进上传 URL，禁止任何路径/通配字符。
+const DRAFT_CLIENT_TOKEN_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+
+export function isValidDraftClientToken(value) {
+  return DRAFT_CLIENT_TOKEN_PATTERN.test(String(value == null ? "" : value).trim());
+}
+
+// 草稿项目名：首图文件名优先（去扩展名），拿不到就用时间。
+// 客户界面会看到这个名字，但不出现「草稿 / 项目 / clientToken」等内部概念。
+function draftProjectName(nameHint) {
+  const raw = String(nameHint == null ? "" : nameHint).trim().replace(/\.[A-Za-z0-9]{1,8}$/, "").trim();
+  if (raw) return cleanText(raw, MAX_NAME_LENGTH);
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return "详情 " + pad(now.getMonth() + 1) + "-" + pad(now.getDate()) + " " + pad(now.getHours()) + ":" + pad(now.getMinutes());
+}
+
 function cleanText(value, limit) {
   return String(value == null ? "" : value).trim().slice(0, limit);
 }
@@ -230,7 +248,10 @@ function indexEntry(project) {
     mode: project.mode,
     status: project.status,
     createdAt: project.createdAt,
-    updatedAt: project.updatedAt
+    updatedAt: project.updatedAt,
+    // V213/S1：ensure-draft 靠这一列在 index 里直接命中，避免逐个读 project.json。
+    // 存量条目没有该字段 → 按「未命中」处理（不批量回写旧 index），符合 §4.4 兼容策略。
+    draftClientToken: project.draftClientToken || ""
   };
 }
 
@@ -246,18 +267,19 @@ export async function getDetailStudioProject(id) {
   return migrateProject(project);
 }
 
-export async function createDetailStudioProject(input = {}) {
-  const name = cleanText(input.name, MAX_NAME_LENGTH);
-  if (!name) throw new Error("项目名称不能为空");
-  const mode = DETAIL_STUDIO_MODES.includes(input.mode) ? input.mode : "guided";
+// 新项目记录的唯一构造处（手动新建与自动草稿共用，避免两份字段漂移）。
+// draftClientToken 是 V213/S1 新增的顶层字段：存量项目为 undefined，读取侧一律按
+// `project.draftClientToken || ""` 兜底；不 bump schemaVersion、不触发迁移。
+function buildProjectRecord({ name, mode, note, draftClientToken }) {
   const timestamp = nowIso();
   const id = "ds_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
-  const project = {
+  return {
     schemaVersion: DETAIL_STUDIO_SCHEMA_VERSION,
     id,
     name,
     mode,
-    note: cleanText(input.note, MAX_NOTE_LENGTH),
+    note,
+    draftClientToken: draftClientToken || "",
     status: "draft",
     currentPlanRunId: null,
     modelConfig: { textModel: "", imageModel: "", channelId: "" },
@@ -279,12 +301,52 @@ export async function createDetailStudioProject(input = {}) {
     createdAt: timestamp,
     updatedAt: timestamp
   };
+}
+
+export async function createDetailStudioProject(input = {}) {
+  const name = cleanText(input.name, MAX_NAME_LENGTH);
+  if (!name) throw new Error("项目名称不能为空");
+  const mode = DETAIL_STUDIO_MODES.includes(input.mode) ? input.mode : "guided";
+  const project = buildProjectRecord({
+    name,
+    mode,
+    note: cleanText(input.note, MAX_NOTE_LENGTH),
+    draftClientToken: ""
+  });
   return withIndexWrite(async () => {
-    await writeJsonAtomic(projectFilePath(id), project);
+    await writeJsonAtomic(projectFilePath(project.id), project);
     const index = await loadIndex();
-    index.projects = [indexEntry(project), ...index.projects.filter((item) => item && item.id !== id)];
+    index.projects = [indexEntry(project), ...index.projects.filter((item) => item && item.id !== project.id)];
     await writeJsonAtomic(INDEX_FILE, index);
     return project;
+  });
+}
+
+// V213/S1：自动草稿项目（幂等）。客户打开详情创作直接传图时由前端后台调用。
+// 幂等必须落服务端——前端 in-flight 只能防并发，防不住刷新 / 双击 / 重试后的重复建项。
+// 「查 index → 建项目 → 写回 index」整段在同一写入器链内串行，两个并发请求也只会建 1 个。
+// 返回 { project, created }：created=false 表示命中既有草稿。
+export async function ensureDraftProject(clientToken, nameHint = "") {
+  const token = String(clientToken == null ? "" : clientToken).trim();
+  if (!isValidDraftClientToken(token)) throw new Error("clientToken 非法");
+  return withIndexWrite(async () => {
+    const index = await loadIndex();
+    const hit = index.projects.find((item) => item && item.draftClientToken === token && safeProjectId(item.id));
+    if (hit) {
+      const existing = migrateProject(await readJsonWithBackup(projectFilePath(hit.id), null));
+      // index 指向的项目文件丢失（脏索引）时继续新建，不把客户卡在空项目上。
+      if (existing && existing.id === hit.id) return { project: existing, created: false };
+    }
+    const project = buildProjectRecord({
+      name: draftProjectName(nameHint),
+      mode: "guided",
+      note: "",
+      draftClientToken: token
+    });
+    await writeJsonAtomic(projectFilePath(project.id), project);
+    index.projects = [indexEntry(project), ...index.projects.filter((item) => item && item.id !== project.id)];
+    await writeJsonAtomic(INDEX_FILE, index);
+    return { project, created: true };
   });
 }
 

@@ -27,7 +27,9 @@ import {
   createDetailStudioProject,
   DETAIL_STUDIO_REFERENCE_ROLES,
   detailStudioAssetsDir,
+  ensureDraftProject,
   getDetailStudioProject,
+  isValidDraftClientToken,
   listDetailStudioProjects,
   updateDetailStudioProject
 } from "../features/detail-studio/store/project-store.js";
@@ -86,6 +88,24 @@ export function registerDetailStudioRoutes(app) {
       res.json({ ok: true, project });
     } catch (error) {
       respondDetailStudioError(res, error, "新建详情项目失败");
+    }
+  });
+
+  // V213/S1 P0：自动草稿项目（幂等）。客户打开详情创作直接传图时由前端后台调用。
+  // 命中既有 token 即返回既有项目，未命中才建 draft（mode 固定 guided、status=draft）；
+  // 幂等落服务端，前端 in-flight ref 只作补充，防不住刷新后的重复建项。
+  // 🔴 客户不可见原则：项目 / 草稿 / clientToken 这些内部概念不出现在客户界面。
+  app.post("/api/detail-studio/projects/ensure-draft", async (req, res) => {
+    try {
+      const payload = detailStudioPayload(req);
+      const clientToken = String(payload.clientToken || "").trim();
+      if (!isValidDraftClientToken(clientToken)) {
+        return res.status(400).json({ ok: false, message: "clientToken 非法" });
+      }
+      const result = await ensureDraftProject(clientToken, payload.nameHint);
+      res.json({ ok: true, created: result.created === true, project: result.project });
+    } catch (error) {
+      respondDetailStudioError(res, error, "准备详情创作工作区失败");
     }
   });
 

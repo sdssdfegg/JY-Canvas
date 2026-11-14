@@ -81,7 +81,8 @@ export function ReferenceImageDropzone({ role, roleLabel, required, state, activ
   }, []);
 
   async function handleUpload() {
-    if (pending.length === 0 || !state.currentProject) return;
+    // V213 P0：不再要求已有项目 —— 状态层会在上传前自动 ensure 草稿项目。
+    if (pending.length === 0) return;
     for (const item of pending) {
       // 标签留空：角色已由块确定，无需逐图标注。
       await state.uploadReferenceImage(item.file, role, "");
@@ -103,7 +104,7 @@ export function ReferenceImageDropzone({ role, roleLabel, required, state, activ
           {required ? "必传" : "可选"}
         </span>
         {required && existing.length === 0 ? (
-          <span className="detailStudioDropzoneHint">（建议至少上传一张，不传也可继续）</span>
+          <span className="detailStudioDropzoneHint">（必传，先传产品图再继续）</span>
         ) : null}
       </div>
 
@@ -168,7 +169,7 @@ export function ReferenceImageDropzone({ role, roleLabel, required, state, activ
           size="sm"
           tone="primary"
           loading={state.busy}
-          disabled={pending.length === 0 || !state.currentProject}
+          disabled={pending.length === 0}
           onClick={(event) => {
             event.stopPropagation();
             handleUpload();
