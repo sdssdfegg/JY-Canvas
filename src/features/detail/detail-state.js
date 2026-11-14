@@ -29,7 +29,7 @@ import {
 import { saveHistoryResults } from "../storage/storage-store.js";
 // V214 P0：可选详情内容板块（会话态，不持久化、不进 detailSettings / 预设 / 发布种子）。
 import { moveItemByDrop } from "../../shared/list-order.js";
-import { validateSectionItem } from "./detail-sections.js";
+import { validateSectionItem, serializeSelectedSections } from "./detail-sections.js";
 
 // 一键详情/主图面板私有状态 + 编排收口（V60 从 src/main.jsx 迁出）。
 //
@@ -364,9 +364,13 @@ export function useDetailState({
       if (productUpload.compressedCount + referenceUpload.compressedCount > 0) {
         addEvent("图片压缩", `已压缩 ${productUpload.compressedCount + referenceUpload.compressedCount} 张素材到 4MB 内`);
       }
+      // V214 P1：可选内容板块只在「有选择」时出现；空选时 key 不存在（非 []），
+      // 保证 /api/detail-prompts 的 payload 与改造前逐字节一致。
+      const sectionPayload = serializeSelectedSections(selectedSections);
       const form = new FormData();
       form.set("payload", JSON.stringify({
         ...detailSettings,
+        ...(sectionPayload ? { selectedSections: sectionPayload } : {}),
         analysisMode: "ai",
         detailGroupIndex: detailGroups.length + 1,
         detailAnalysisModel: DETAIL_ANALYSIS_MODEL,

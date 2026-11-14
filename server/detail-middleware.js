@@ -468,11 +468,23 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   const copywriting = String(input.copywriting || "need") === "none" ? "poster" : String(input.copywriting || "need");
   const reverseScreens = clamp(input.reverseScreens, 0, 4, 0);
   const sellingList = analysis.sellingPoints.length > 0 ? analysis.sellingPoints : industrySkill.sellingAngles;
+  // V214 P1：客户可选内容板块。空选时为 null，所有条件分支不触发，输出与改造前逐字节一致。
+  const selectedSections = Array.isArray(input.selectedSections) && input.selectedSections.length > 0
+    ? input.selectedSections
+    : null;
   const fallbackScreenTitles = buildScreenTitles(count, platformSkill, industrySkill, reverseScreens);
+  // local 兜底（无 AI 分屏）时按客户顺序给前 N 屏分配方向；屏数恒由 count 决定，
+  // 板块循环复用，绝不因板块数量增加屏数。空选时直接复用原数组引用。
+  const fallbackWithSections = selectedSections
+    ? fallbackScreenTitles.map((title, index) => {
+        const section = selectedSections[index % selectedSections.length];
+        return String(section?.label || "").trim() || title;
+      })
+    : fallbackScreenTitles;
   const aiScreens = normalizeAiScreens(aiPlan, count, productImages.length, referenceImages.length);
   const screenTitles = aiScreens.length > 0
-    ? aiScreens.map((screen, index) => screen.title || SCREEN_MODULES[screen.moduleId]?.name || fallbackScreenTitles[index])
-    : fallbackScreenTitles;
+    ? aiScreens.map((screen, index) => screen.title || SCREEN_MODULES[screen.moduleId]?.name || fallbackWithSections[index])
+    : fallbackWithSections;
   const createdAt = Date.now();
 
   const globalLock = buildGlobalLock({
@@ -489,8 +501,11 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
 
   const prompts = screenTitles.map((title, index) => {
     const aiScreen = aiScreens[index] || null;
+    // V214 P1：客户板块按屏循环复用，仅作模块归类兜底；AI 已给 moduleId 时以 AI 为准。
+    const activeSection = selectedSections ? selectedSections[index % selectedSections.length] : null;
     const moduleSkill = SCREEN_MODULES[aiScreen?.moduleId]
       || Object.values(SCREEN_MODULES).find((module) => module.name === aiScreen?.moduleId)
+      || (activeSection && SCREEN_MODULES[activeSection.moduleId])
       || getScreenModule(aiScreen?.title || title, index, count);
     const mainFirstScreen = platformSkill.pageType === "主图" && index === 0;
     const screenPack = styleDecision ? (mainFirstScreen ? STYLE_PACKS.S1 : styleDecision.pack) : null;
@@ -531,6 +546,9 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     const text = [
       `第${index + 1}屏：${title}`,
       `【本屏模块】${moduleSkill.name}：${moduleSkill.purpose}`,
+      activeSection
+        ? `【客户指定内容板块】第${activeSection.order || index + 1}优先方向：${activeSection.label}（${activeSection.moduleId}${activeSection.isCustom ? "，客户自定义" : ""}）。请围绕该方向组织本屏内容，但不得虚构商品事实。`
+        : "",
       aiInsight,
       `【本次图片编号】${imageSlotText(imageSlots)}。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。`,
       `【全局一致性锁定】${globalLock}`,

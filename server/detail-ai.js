@@ -86,6 +86,11 @@ function buildDetailAnalysisContent(input, files, includeImages) {
   const productFiles = files.filter((file) => file.detailRole === "product");
   const referenceFiles = files.filter((file) => file.detailRole === "reference");
   const count = clamp(input.count, BASE_SKILL.screenCountRule.min, BASE_SKILL.screenCountRule.max, BASE_SKILL.screenCountRule.defaultCount);
+  // V214 P1：客户可选内容板块。空选时为 null，下面所有条件分支都不触发，
+  // 保证 textPayload 与改造前逐字节一致（JSON.stringify(textPayload, null, 2)）。
+  const selectedSections = Array.isArray(input.selectedSections) && input.selectedSections.length > 0
+    ? input.selectedSections
+    : null;
   const skillVersion = resolveDetailSkillVersion(input);
   const v2Context = skillVersion === "v2"
     ? buildSkillPackV2({
@@ -107,6 +112,12 @@ function buildDetailAnalysisContent(input, files, includeImages) {
         `本组视觉风格已锁定为 ${v2Context.stylePack.id}《${v2Context.stylePack.name}》：色温/色调 ${v2Context.stylePack.colorTone}；布光 ${v2Context.stylePack.lighting}；构图族 ${v2Context.stylePack.compositionFamily}；背景 ${v2Context.stylePack.background}；字体气质 ${v2Context.stylePack.fontMood}。每一屏的 composition 必须体现该风格取值，全组禁止漂移到其它风格。`,
         `每屏必须在 compositionVariants 中该屏 moduleId 的变体里选择一个，将变体字母（A/B/C/D）写入 compositionVariantId 字段。变体已规定第一落点、视线动线、文案安全区与禁忌，composition 描述必须与所选变体兼容；不要自创构图，不要更换风格包取值。`,
         ...(v2Context.platformNote ? [v2Context.platformNote] : [])
+      ] : []),
+      ...(selectedSections ? [
+        "客户已指定详情内容板块（selectedSections），按 order 作为叙事优先级组织分屏，尽可能遵循客户设定的先后顺序。",
+        "允许按内容合理性合并或拆分客户板块；禁止一个板块机械对应一张图，禁止为满足板块数量凑屏或改变屏数，屏数仍由 screenCount 决定。",
+        "不得虚构材质、参数、认证、疗效、销量、对比结果、品牌资质与品牌背书；图片中无法确认的商品事实不能当成事实输出。客户选择某板块不代表该事实存在，应改为保守表达或跳过无证据的具体断言。",
+        "自定义板块（isCustom=true / moduleId=custom）与预设板块具有同等策划输入地位，须以 label 原文组织该屏文案；可为该屏填 moduleId=custom 并在 customLabel 写回客户原文，其余字段照常。"
       ] : [])
     ],
     input: {
@@ -125,7 +136,8 @@ function buildDetailAnalysisContent(input, files, includeImages) {
       lang: input.lang,
       ratio: input.ratio,
       imageSize: input.imageSize,
-      screenCount: count
+      screenCount: count,
+      ...(selectedSections ? { selectedSections } : {})
     },
     images: {
       productImages: productFiles.map((file, index) => fileMeta(file, { index, role: "product" })),

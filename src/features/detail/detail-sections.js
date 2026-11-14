@@ -39,7 +39,20 @@ export function validateSectionItem(item) {
   return true;
 }
 
-// V214 P1 将在此加入序列化函数（空选返回 undefined），供 payload 条件注入消费。
+// 空数组返回 undefined（不是 []）：调用方据此「条件展开」，保证空选时
+// /api/detail-prompts 的 payload 与改造前逐字节一致。
+export function serializeSelectedSections(items) {
+  if (!Array.isArray(items) || items.length === 0) return undefined;
+  const valid = items.filter(validateSectionItem);
+  if (valid.length === 0) return undefined;
+  return valid.map((item, index) => ({
+    order: index + 1,
+    id: item.id,
+    label: item.label,
+    moduleId: item.moduleId,
+    isCustom: item.isCustom
+  }));
+}
 
 export function createCustomSection(label) {
   const text = String(label || "").trim().slice(0, MAX_LABEL_LENGTH);
