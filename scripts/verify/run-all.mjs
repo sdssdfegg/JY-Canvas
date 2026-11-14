@@ -241,6 +241,15 @@ const ORDER = [
   "qc-ceiling-check",
   // V209（2026-11-12）：详情创作参数链断点门禁——参考图链路 / textModel 透传 / 质检行业边界全链不丢，纯逻辑+源码静态断言，零上游，进提交钩子快速子集。
   "planning-parameter-chain-check",
+  // S0（2026-11-14）：修正 V210 遗留登记缺陷 —— 该脚本自 V210 起在 FAST_ORDER 重复两次、
+  // ORDER 零登记，导致全量 npm run test 根本不跑它、--fast 计数虚高 1。
+  "planning-timeout-feedback-check",
+  // S0（2026-11-14）：底层阻断清零四道门禁（纯逻辑 / 沙盒 data 根 / 零上游零 KEY，
+  // 每条断言带负向对照 + indexOf>=0 锚点守卫），ORDER 与 FAST_ORDER 双数组同时登记。
+  "s0-vision-input-check",
+  "s0-module-resolution-check",
+  "s0-no-recharge-check",
+  "s0-prompt-guard-baseline-check",
   // V212（2026-11-13）：基础参数面板 → 参数链 → frozenPrompt 门禁——证明左列 15 控件 + 4 文本域真进
   // TRACED_OPTION_KEYS → appliedOptions → globalLock → ScreenSpec → frozenPrompt（basicParams 优先、回退 productData.fields），
   // 改一个选项编译提示词必变；纯逻辑、零模型、零上游，进提交钩子快速子集。
@@ -381,9 +390,11 @@ const FAST_ORDER = [
   // V210（2026-11-12）：导演分屏链路稳定性与可观测性门禁（规划调用元数据日志零敏感字段 +
   // 三失败场景 errorClass + max_tokens/超时分档 + 前端等待计时/置顶 banner/重试，进 --fast 快速子集）。
   "planning-timeout-feedback-check",
-  // V210（2026-11-12）：导演分屏链路稳定性与可观测性门禁（规划调用元数据日志零敏感字段 +
-  // 三失败场景 errorClass + max_tokens/超时分档 + 前端等待计时/置顶 banner/重试，进 --fast 快速子集）。
-  "planning-timeout-feedback-check",
+  // S0（2026-11-14）：底层阻断清零四道门禁（同 ORDER，进提交前快速子集）。
+  "s0-vision-input-check",
+  "s0-module-resolution-check",
+  "s0-no-recharge-check",
+  "s0-prompt-guard-baseline-check",
   // V202（2026-11-10）：阶段 3B B5 行业策略包门禁（纯逻辑、零上游，进 --fast 快速子集）。
   "industry-strategy-match-check",
   // V205（2026-11-11）：阶段 3C 专业能力内容层资产契约门禁（纯逻辑、零上游，进 --fast 快速子集）。

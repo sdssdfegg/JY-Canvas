@@ -20,6 +20,16 @@ export const DETAIL_STUDIO_ASSETS_DIR = path.join(dataDir, "detail-studio", "ass
 export const DETAIL_STUDIO_SCHEMA_VERSION = 2;
 export const DETAIL_STUDIO_MODES = ["guided", "assisted", "direct"];
 
+// S0/B5：updateDetailStudioProject 的 planning 分支是「白名单重建」而非深合并 ——
+// 任何未列在此处的子键都会被静默丢弃（写入后回读即消失，且无任何报错）。
+// 后续阶段（S1/S2）新增状态字段（selectedModules / promptState / conversation / planningJob 等）
+// 一律放 project 顶层；若确需放 planning，必须同步扩此白名单并通过回读门禁验证。
+// 本常量对现有写入行为零改变，仅把这一事实显式化，供门禁与后续阶段引用。
+export const PLANNING_PATCH_KEYS = Object.freeze([
+  "analyze", "appliedOptions", "globalLock", "industryId",
+  "screens", "narrativeSummary", "visualDNA", "frozenPrompts"
+]);
+
 // §4 参考图职责：与前端 src/features/detail-studio/constants/workspace-contract.js#STUDIO_REFERENCE_ROLES 同源。
 // 后端 store 侧独立维护一份，避免跨树 import 破坏「零依赖叶子」约束。
 export const DETAIL_STUDIO_REFERENCE_ROLES = ["product", "visualStyle", "contentStructure"];

@@ -302,6 +302,9 @@ export function registerDetailStudioRoutes(app) {
         appliedOptions: result.appliedOptions,
         appliedOptionsComplete: result.appliedOptionsComplete,
         completeness: result.completeness,
+        // S0/B1 内部可观测字段：attached=本次实际送入模型的产品图张数，degraded=上游不支持多模态已降级为纯文本。
+        // 不落库、不改 project 结构、前端本期不展示（真机验证可直接读该字段）。
+        vision: result.vision || { attached: 0, degraded: false },
         project: updated
       });
     } catch (error) {

@@ -79,3 +79,44 @@ export function scanForbiddenWords(text = "") {
   const medical = FORBIDDEN_MEDICAL_CLAIM_WORDS.filter((w) => t.includes(w));
   return { absolute, medical };
 }
+
+/**
+ * S0/B6 轨 B：对「最终有效提示词」做确定性校验，供 S2 的 manualOverrides 写入时调用。
+ *
+ * 与轨 A（parity：generatedPrompt 与确定性重编译字节一致）严格分开：
+ * 用户手动覆盖后不要求与编译产物字节一致（否则永远判红），但必须仍受
+ * 禁词 / 事实分级 / 长度 / 必含片段约束，不能因为手动覆盖而绕过全部质量约束。
+ * 纯函数、零模型、零 IO；不修改任何持久化结构。
+ *
+ * @param {string} text 最终有效提示词全文
+ * @param {{ maxLength?: number, requiredFragments?: string[] }} [options]
+ * @returns {{ ok: boolean, findings: Array<{ code: string, message: string }> }}
+ */
+export function validateResolvedPromptText(text = "", options = {}) {
+  const value = String(text || "");
+  const findings = [];
+  if (!value.trim()) {
+    findings.push({ code: "empty", message: "提示词不能为空" });
+  }
+  const maxLength = Number.isFinite(Number(options.maxLength)) && Number(options.maxLength) > 0
+    ? Number(options.maxLength) : 60000;
+  if (value.length > maxLength) {
+    findings.push({ code: "too_long", message: `提示词超出长度上限 ${maxLength}` });
+  }
+  const hit = scanForbiddenWords(value);
+  const words = [...hit.absolute, ...hit.medical];
+  if (words.length) {
+    findings.push({ code: "forbidden_words", message: `命中禁词：${words.join("、")}` });
+  }
+  // 事实分级纪律：unconfirmed 级事实不得进入最终提示词。
+  if (/unconfirmed/i.test(value)) {
+    findings.push({ code: "unconfirmed_fact", message: "提示词残留 unconfirmed 级事实标记" });
+  }
+  const required = Array.isArray(options.requiredFragments) ? options.requiredFragments : [];
+  for (const fragment of required) {
+    if (fragment && !value.includes(String(fragment))) {
+      findings.push({ code: "missing_fragment", message: `缺少必需片段：${fragment}` });
+    }
+  }
+  return { ok: findings.length === 0, findings };
+}

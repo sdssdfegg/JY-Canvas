@@ -157,6 +157,27 @@ export function buildDirectorContext(project = {}) {
 }
 
 /**
+ * S0/B2：解析导演返回的模块 id。
+ * DIRECTOR_OUTPUT_SCHEMA 把 moduleId 定义在 screens[] 顶层
+ * （prompts/detail-studio/prompts/director-visual.js），旧实现却只读 composition.moduleId，
+ * 导致模型即使返回库内合法 id 也几乎必然走「按位置回退」，且无任何告警 ——
+ * S3 引入客户板块选择后，用户选择会被静默丢弃。这里同时兼容两条路径、优先顶层；
+ * 给了 id 但未命中库时返回 warning，由调用方显式输出（不落库、不改 ScreenSpec 结构）。
+ */
+export function resolveScreenModule(screen = {}, index = 0, count = 1) {
+  const raw = (screen && typeof screen === "object") ? screen : {};
+  const composition = (raw.composition && typeof raw.composition === "object") ? raw.composition : {};
+  const requestedId = String(raw.moduleId || composition.moduleId || "").trim();
+  const entry = requestedId ? SCREEN_MODULE_LIBRARY[requestedId] : null;
+  if (entry) return { moduleEntry: entry, requestedId, fallback: false, warning: "" };
+  const fallback = selectScreenModule(raw.role || raw.goal || "", index, count);
+  const warning = requestedId
+    ? `导演返回未命中模块库的 moduleId="${requestedId}"，屏 #${index + 1} 已回退为 ${fallback.id}`
+    : "";
+  return { moduleEntry: fallback, requestedId, fallback: true, warning };
+}
+
+/**
  * 纯函数：把模型原始 JSON 规范化为结构化 ScreenSpec[]（程序层二次剔除 unconfirmed / 补全结构）。
  * @param {Object} raw
  * @returns {{ narrativeSummary, visualDNA, screens }}
@@ -177,10 +198,12 @@ export function normalizeDirectorResult(raw = {}) {
     const composition = screen.composition && typeof screen.composition === "object" ? screen.composition : {};
     const hierarchy = composition.hierarchy && typeof composition.hierarchy === "object" ? composition.hierarchy : {};
     const copy = screen.copy && typeof screen.copy === "object" ? screen.copy : {};
-    // 模块：模型给的 moduleId 命中库则用，否则按角色/位置回退到 SCREEN_MODULE_LIBRARY 选择器。
-    const moduleEntry = (composition.moduleId && SCREEN_MODULE_LIBRARY[composition.moduleId])
-      ? SCREEN_MODULE_LIBRARY[composition.moduleId]
-      : selectScreenModule(screen.role || screen.goal || "", index, screens.length);
+    // S0/B2：兼容 schema 顶层 moduleId 与历史 composition.moduleId；未命中不再静默回退。
+    const resolvedModule = resolveScreenModule(screen, index, screens.length);
+    const moduleEntry = resolvedModule.moduleEntry;
+    if (resolvedModule.warning) {
+      console.warn("[detail-studio] " + resolvedModule.warning);
+    }
     // 单屏事实：只保留可发布分级（防御模型又把 unconfirmed 写进来）。
     const productFacts = (Array.isArray(screen.productFacts) ? screen.productFacts : [])
       .filter((f) => f && isPublishableGrade(f.grade))

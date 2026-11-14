@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-13",
-  "reason": "V212-R1 生图回写阻断修复 + RUNNING 看门狗 + deferAutoSave/form 字段同构：3 个 src 文件与 buildDetailImageForm 函数合法增长",
+  "generatedAt": "2026-11-14",
+  "reason": "S0 底层阻断清零：detail-studio-generate.js +4 行（B4 前端 begunTask.started 防二次扣费）；新增 4 道 verify 脚本不进体量记账；stale=0、duplicateCount 未变",
   "budgets": {
     "fileOverBudget": 2500,
     "functionOverBudget": 600,
@@ -46,7 +46,7 @@
     "src/features/detail-studio/components/DetailStudioView.jsx": 69,
     "src/features/detail-studio/components/FlowGuidanceBar.jsx": 80,
     "src/features/detail-studio/constants/workspace-contract.js": 54,
-    "src/features/detail-studio/generation/detail-studio-generate.js": 134,
+    "src/features/detail-studio/generation/detail-studio-generate.js": 138,
     "src/features/detail-studio/generation/GenerationPanel.jsx": 267,
     "src/features/detail-studio/generation/result-image.js": 9,
     "src/features/detail-studio/generation/StitchPreview.jsx": 99,

@@ -246,11 +246,17 @@ async function appendAttempt(ctx, id, attempt = {}) {
 }
 
 // 终态集合（用于自动补 finished_at；不做转移校验——转移逻辑属状态机层）。
-const TERMINAL_STATES = new Set(["SUCCEEDED", "FAILED", "CANCELLED", "NEEDS_REVIEW"]);
+// S0：detail-studio 生成任务使用小写状态（server/features/detail-studio/generation/task-model.js），
+// 旧换装侧使用大写状态且自洽。两套 casing 都必须能触发 finished_at 补写；
+// 旧大写值保留不变，不改变旧换装口径（该侧不 import 本文件）。
+const TERMINAL_STATES = new Set([
+  "SUCCEEDED", "FAILED", "CANCELLED", "NEEDS_REVIEW",
+  "success", "failed", "cancelled", "needs_confirm"
+]);
 
 /**
  * 更新任务状态并合并附加上下文。不存在的任务抛错。
- * 终态（SUCCEEDED/FAILED/CANCELLED/NEEDS_REVIEW）且尚无 finished_at 时自动补。
+ * 终态（大小写两套 casing 均识别）且尚无 finished_at 时自动补。
  * @param {object} ctx
  * @param {string} id
  * @param {string} status

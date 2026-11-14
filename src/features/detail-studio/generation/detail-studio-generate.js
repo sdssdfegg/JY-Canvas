@@ -70,7 +70,11 @@ async function runOneScreen(projectId, spec, apiKey, referenceFiles) {
     source: "detail-studio",
     referenceFiles
   });
-  await beginDetailStudioGenerationTask(projectId, spec.taskId);
+  const begun = await beginDetailStudioGenerationTask(projectId, spec.taskId);
+  // S0/B4 第二层防护：任务已 RUNNING / 已终态时 begin 返回 started:false，
+  // 再调 generateImages 会重复扣费；服务端 registerBatch 已挡第一层（终态不回传 spec）。
+  const begunTask = begun && begun.task ? begun.task : begun;
+  if (begunTask && begunTask.started === false) return;
   try {
     const payload = await generateImages(form);
     const image = extractResultImage(payload);

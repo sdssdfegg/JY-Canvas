@@ -340,15 +340,20 @@ export async function registerBatch(spec) {
       const existing = await generationTaskStore.readTask(existingId);
       if (existing && existing.status !== TASK_STATUS.CANCELLED) {
         skipped.push({ taskId: existingId, status: existing.status, reason: "idempotent_reuse" });
-        specs.push({
-          taskId: existingId,
-          screenIndex: screen.screenIndex,
-          frozenPrompt: fp,
-          model: screen.model,
-          channelId: screen.channelId,
-          imageSize: screen.imageSize,
-          aspectRatio: screen.aspectRatio
-        });
+        // S0/B4：只有 QUEUED（从未发起过出图，例如页面刷新后恢复）才回传 spec。
+        // RUNNING 表示已在上游出图、终态表示已完成 —— 回传 spec 会让前端再次
+        // generateImages，造成真实二次扣费（V212-R1 幂等只防「重复建任务」，未防「重复出图」）。
+        if (existing.status === TASK_STATUS.QUEUED) {
+          specs.push({
+            taskId: existingId,
+            screenIndex: screen.screenIndex,
+            frozenPrompt: fp,
+            model: screen.model,
+            channelId: screen.channelId,
+            imageSize: screen.imageSize,
+            aspectRatio: screen.aspectRatio
+          });
+        }
         continue;
       }
     }
@@ -389,9 +394,12 @@ export async function beginTask(projectId, taskId) {
   if (task.projectId && projectId && task.projectId !== String(projectId)) {
     throw new Error("beginTask: projectId 与任务归属不符");
   }
-  if (!canTransition(task.status, TASK_STATUS.RUNNING)) return task; // 已是终态则跳过
+  // S0/B4：无法由当前状态进入 RUNNING（已终态 / 已 RUNNING）时附带 started:false，
+  // 供前端跳过 generateImages；标记只存在于响应对象，不写回任务文件、不改持久化结构。
+  if (!canTransition(task.status, TASK_STATUS.RUNNING)) return { ...task, started: false };
   await generationTaskStore.updateStatus(taskId, TASK_STATUS.RUNNING);
-  return generationTaskStore.readTask(taskId);
+  const startedTask = await generationTaskStore.readTask(taskId);
+  return { ...startedTask, started: true };
 }
 
 // 前端出图完成后回写：RUNNING → SUCCESS / FAILED / NEEDS_CONFIRM。
