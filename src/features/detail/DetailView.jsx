@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Loader2, Download, CheckSquare, Square, X, RotateCcw, Copy, Sparkles, Plus, Play, Save, FolderOpen, BookOpen, Settings, FileText } from "lucide-react";
 import { StableTextarea } from "../../shared/ui/stable-textarea.jsx";
 import { DetailUploadZone } from "../../shared/ui/detail-upload-zone";
@@ -91,8 +92,42 @@ export function DetailView({
     generateDetailPrompt,
     generateDetailGroup,
     downloadDetailGroup,
+    deleteDetailGroup,
+    renameDetailGroup,
     applyDetailPromptToQuickgen
   } = detailApi;
+
+  // V215 P1：分组重命名的本地编辑态（双击组名进入，内联输入）。
+  const [editingGroupId, setEditingGroupId] = useState("");
+  const [editNameDraft, setEditNameDraft] = useState("");
+
+  function groupTabName(group, index) {
+    return group.name || `分组 #${detailGroups.length - index}`;
+  }
+
+  function startRename(group) {
+    setEditingGroupId(group.id);
+    setEditNameDraft(group.name || "");
+  }
+
+  function commitRename(groupId) {
+    renameDetailGroup(groupId, editNameDraft);
+    setEditingGroupId("");
+    setEditNameDraft("");
+  }
+
+  function cancelRename() {
+    setEditingGroupId("");
+    setEditNameDraft("");
+  }
+
+  function requestDeleteGroup(group, index) {
+    if (group.prompts.some((prompt) => prompt.status === "running")) return;
+    const name = groupTabName(group, index);
+    if (window.confirm(`确定删除分组「${name}」吗？\n该分组内的提示词与生成结果将一并移除，且不可撤销。`)) {
+      deleteDetailGroup(group.id);
+    }
+  }
 
   return (
     <section className="detailWorkbench">
@@ -350,19 +385,54 @@ export function DetailView({
             <>
               <div className="detailGroupTabs">
                 <div>
-                  {detailGroups.map((group, index) => (
-                    <button
-                      className={activeDetailGroup?.id === group.id ? "active" : ""}
-                      key={group.id}
-                      type="button"
-                      onClick={() => {
-                        setActiveDetailGroupId(group.id);
-                        setDetailInfoSelection(null);
-                      }}
-                    >
-                      分组 #{detailGroups.length - index}{group.stylePack ? `·${group.stylePack.id}` : ""}
-                    </button>
-                  ))}
+                  {detailGroups.map((group, index) => {
+                    const isActive = activeDetailGroup?.id === group.id;
+                    const isEditing = editingGroupId === group.id;
+                    const isRunning = group.prompts.some((prompt) => prompt.status === "running");
+                    return (
+                      <div
+                        className={`detailGroupTab ${isActive ? "active" : ""}`}
+                        key={group.id}
+                      >
+                        {isEditing ? (
+                          <input
+                            className="detailGroupRenameInput"
+                            value={editNameDraft}
+                            autoFocus
+                            onFocus={(event) => event.target.select()}
+                            onChange={(event) => setEditNameDraft(event.target.value)}
+                            onBlur={() => commitRename(group.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") commitRename(group.id);
+                              if (event.key === "Escape") cancelRename();
+                            }}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveDetailGroupId(group.id);
+                              setDetailInfoSelection(null);
+                            }}
+                            onDoubleClick={() => startRename(group)}
+                            title="单击切换 · 双击重命名"
+                          >
+                            {groupTabName(group, index)}
+                            {group.stylePack ? `·${group.stylePack.id}` : ""}
+                          </button>
+                        )}
+                        <button
+                          className="detailGroupDelete"
+                          type="button"
+                          title={isRunning ? "生成中暂不可删除" : "删除分组"}
+                          disabled={isRunning}
+                          onClick={() => requestDeleteGroup(group, index)}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="detailViewControls">
                   <label>
@@ -385,7 +455,7 @@ export function DetailView({
               {activeDetailGroup && (
                 <article className="detailGroup" key={activeDetailGroup.id}>
                   <ModuleHeader
-                    title={activeDetailGroup.label}
+                    title={activeDetailGroup.name || activeDetailGroup.label}
                     subtitle={
                       <>{activeDetailGroup.stylePack ? `${activeDetailGroup.stylePack.id}·${activeDetailGroup.stylePack.name} · ` : ""}
                       {activeDetailGroup.params.platform}{activeDetailGroup.params.pageType} ·

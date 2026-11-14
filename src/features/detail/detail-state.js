@@ -595,6 +595,25 @@ export function useDetailState({
     setSelectedSections([]);
   }
 
+  // V215 P1：结果分组删除。同时清掉指向该分组的结果选中态（detailInfoSelection 含 groupId）。
+  // 删除激活分组后，下方 useEffect 会把 activeDetailGroupId 重置为剩余首组。
+  function deleteDetailGroup(groupId) {
+    setDetailGroups((current) => current.filter((group) => group.id !== groupId));
+    setDetailInfoSelection((current) => (
+      current && current.groupId === groupId ? null : current
+    ));
+    addEvent("一键详情", "已删除一个详情分组");
+  }
+
+  // V215 P1：分组重命名（双击组名进入内联编辑，由 DetailView 调用）。name 为空不写。
+  function renameDetailGroup(groupId, name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return;
+    setDetailGroups((current) => current.map((group) => (
+      group.id === groupId ? { ...group, name: trimmed } : group
+    )));
+  }
+
   function openDetailSections() {
     setIsDetailSectionsOpen(true);
   }
@@ -693,6 +712,8 @@ export function useDetailState({
     addCustomDetailSection,
     removeDetailSection,
     clearDetailSections,
+    deleteDetailGroup,
+    renameDetailGroup,
     openDetailSections,
     closeDetailSections,
     // 详情独占的选项常量

@@ -2066,6 +2066,66 @@ textarea:focus {
   border-color: var(--border);
 }
 
+/* V215 P1：分组标签行 —— 组名按钮 + X 删除按钮 包裹容器（外层 .detailGroupTab 承载 active 高亮，
+   避免直接给 button 加 active 误伤「正向排序」开关）。 */
+.detailGroupTab {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 7px;
+}
+
+.detailGroupTab > button:not(.detailGroupDelete) {
+  padding-right: 6px;
+}
+
+.detailGroupTab.active > button:not(.detailGroupDelete) {
+  color: var(--text);
+  background: color-mix(in srgb, var(--panel-strong) 74%, transparent);
+  border-color: var(--border);
+}
+
+/* 组名后的 X 删除按钮：常驻、低调，悬停变红；生成中（disabled）置灰不可点。 */
+.detailGroupTabs button.detailGroupDelete {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.detailGroupTabs button.detailGroupDelete:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: var(--danger);
+}
+
+.detailGroupTabs button.detailGroupDelete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 双击组名进入的内联改名输入框。 */
+.detailGroupRenameInput {
+  height: 30px;
+  width: 140px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid var(--accent);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 750;
+  outline: none;
+}
+
 .detailViewControls {
   flex: 0 0 auto;
 }
