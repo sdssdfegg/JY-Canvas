@@ -27,6 +27,9 @@ import {
   routingFields
 } from "../../shared/routing.js";
 import { saveHistoryResults } from "../storage/storage-store.js";
+// V214 P0：可选详情内容板块（会话态，不持久化、不进 detailSettings / 预设 / 发布种子）。
+import { moveItemByDrop } from "../../shared/list-order.js";
+import { validateSectionItem } from "./detail-sections.js";
 
 // 一键详情/主图面板私有状态 + 编排收口（V60 从 src/main.jsx 迁出）。
 //
@@ -150,6 +153,8 @@ export function useDetailState({
   const [stitchPan, setStitchPan] = useState({ x: 0, y: 0 });
   const [isDetailPresetOpen, setIsDetailPresetOpen] = useState(false);
   const [stitchContextMenu, setStitchContextMenu] = useState(null);
+  const [selectedSections, setSelectedSections] = useState([]);
+  const [isDetailSectionsOpen, setIsDetailSectionsOpen] = useState(false);
   const detailProductInputRef = useRef(null);
   const detailReferenceInputRef = useRef(null);
   const stitchDragRef = useRef(null);
@@ -559,6 +564,41 @@ export function useDetailState({
     setDetailGroups((current) => hydrateDetailGroupsWithHistory(current, storedResults));
   }
 
+  // V214 P0：可选内容板块的会话态操作。数组顺序即客户设定的优先级。
+  function toggleDetailSection(section) {
+    if (!validateSectionItem(section)) return;
+    setSelectedSections((current) => (
+      current.some((item) => item.id === section.id)
+        ? current.filter((item) => item.id !== section.id)
+        : [...current, section]
+    ));
+  }
+
+  function moveDetailSection(fromId, toId, placement) {
+    setSelectedSections((current) => moveItemByDrop(current, fromId, toId, placement));
+  }
+
+  function addCustomDetailSection(item) {
+    if (!validateSectionItem(item)) return;
+    setSelectedSections((current) => [...current, item]);
+  }
+
+  function removeDetailSection(id) {
+    setSelectedSections((current) => current.filter((item) => item.id !== id));
+  }
+
+  function clearDetailSections() {
+    setSelectedSections([]);
+  }
+
+  function openDetailSections() {
+    setIsDetailSectionsOpen(true);
+  }
+
+  function closeDetailSections() {
+    setIsDetailSectionsOpen(false);
+  }
+
   return {
     // 状态
     detailSettings,
@@ -593,6 +633,10 @@ export function useDetailState({
     setIsDetailPresetOpen,
     stitchContextMenu,
     setStitchContextMenu,
+    selectedSections,
+    setSelectedSections,
+    isDetailSectionsOpen,
+    setIsDetailSectionsOpen,
     // ref
     detailProductInputRef,
     detailReferenceInputRef,
@@ -640,6 +684,13 @@ export function useDetailState({
     findDetailPromptByResult,
     openStitchContextMenu,
     hydrateDetailGroups,
+    toggleDetailSection,
+    moveDetailSection,
+    addCustomDetailSection,
+    removeDetailSection,
+    clearDetailSections,
+    openDetailSections,
+    closeDetailSections,
     // 详情独占的选项常量
     MAX_DETAIL_FILES,
     workflowOptions,

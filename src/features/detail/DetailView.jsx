@@ -75,6 +75,7 @@ export function DetailView({
     setDetailForwardSort,
     setDetailInfoSelection,
     setIsDetailPresetOpen,
+    openDetailSections,
     updateDetailSetting,
     addDetailFiles,
     removeDetailFile,
@@ -265,6 +266,17 @@ export function DetailView({
                 <span>输出语种</span>
                 <input value={detailSettings.lang} onChange={(event) => updateDetailSetting("lang", event.target.value)} />
               </label>
+            </div>
+            <div className="detailPresetRow">
+              <Button
+                size="sm"
+                type="button"
+                title="可选设置：不选择也能正常生成，AI 会按商品图片与已填资料自主规划"
+                onClick={openDetailSections}
+              >
+                <Settings size={15} />
+                <span>选择内容板块</span>
+              </Button>
             </div>
           </section>
 

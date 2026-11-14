@@ -70,6 +70,8 @@ import { useReferenceState } from "./features/reference-remix/reference-state.js
 // V60（P3-5）：一键详情/主图视图与状态抽取至 src/features/detail/
 import { DetailView } from "./features/detail/DetailView.jsx";
 import { useDetailState } from "./features/detail/detail-state.js";
+// V214 P0：一键详情「选择详情展示板块」弹窗（可选设置，不接生成链路）。
+import { DetailSectionsModal } from "./features/detail/DetailSectionsModal.jsx";
 // V61（P3-6）：快捷生成 image 模式私有状态与派生收口至 src/features/quickgen/（降级档：仅 state，JSX 留待下轮）
 import { useQuickGenState } from "./features/quickgen/quickgen-state.js";
 import { ACTIVE_VIEW_KEY, PROMPT_CATEGORIES_KEY, PROMPT_PRESETS_KEY, STORAGE_KEY, defaultState } from "./shared/app-defaults.js";
@@ -1241,6 +1243,18 @@ function App() {
               {detailApi.detailPresets.length === 0 && <p className="promptEmpty">还没有保存过详情预设</p>}
             </div>
           </Modal>
+      )}
+
+      {detailApi.isDetailSectionsOpen && (
+        <DetailSectionsModal
+          onClose={detailApi.closeDetailSections}
+          selectedSections={detailApi.selectedSections}
+          onToggle={detailApi.toggleDetailSection}
+          onMove={detailApi.moveDetailSection}
+          onAddCustom={detailApi.addCustomDetailSection}
+          onRemove={detailApi.removeDetailSection}
+          onClear={detailApi.clearDetailSections}
+        />
       )}
 
       {isSettingsOpen && (
