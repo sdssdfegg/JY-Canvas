@@ -124,11 +124,32 @@ function normalizeIndexList(value, max) {
     .slice(0, 3);
 }
 
+// S1-b：缺屏最小占位（替代 {}）。AI 返回的屏不足 count 时，剩余屏用空白占位填充，
+// 由下游标题/模块逻辑保守兜底，不引入任何模板化默认文案。
+function minimalScreenPlaceholder() {
+  return {
+    title: "",
+    moduleId: "",
+    summary: "",
+    sellingPoint: "",
+    composition: "",
+    copywriting: "",
+    referenceReason: "",
+    modelPolicyHint: "",
+    promptDirectives: [],
+    negativeConstraints: [],
+    qualityChecks: [],
+    compositionVariantId: "",
+    productFileIndexes: [],
+    referenceFileIndexes: []
+  };
+}
+
 function normalizeAiScreens(aiPlan, count, productCount, referenceCount) {
   const screens = Array.isArray(aiPlan?.screens) ? aiPlan.screens : [];
   if (screens.length === 0) return [];
   return Array.from({ length: count }, (_, index) => {
-    const found = screens.find((screen) => Number.parseInt(screen?.screen, 10) === index + 1) || screens[index] || {};
+    const found = screens.find((screen) => Number.parseInt(screen?.screen, 10) === index + 1) || screens[index] || minimalScreenPlaceholder();
     return {
       screen: index + 1,
       moduleId: asText(found.moduleId || found.module || found.moduleName),
@@ -472,19 +493,30 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   const selectedSections = Array.isArray(input.selectedSections) && input.selectedSections.length > 0
     ? input.selectedSections
     : null;
-  const fallbackScreenTitles = buildScreenTitles(count, platformSkill, industrySkill, reverseScreens);
-  // local 兜底（无 AI 分屏）时按客户顺序给前 N 屏分配方向；屏数恒由 count 决定，
-  // 板块循环复用，绝不因板块数量增加屏数。空选时直接复用原数组引用。
-  const fallbackWithSections = selectedSections
-    ? fallbackScreenTitles.map((title, index) => {
-        const section = selectedSections[index % selectedSections.length];
-        return String(section?.label || "").trim() || title;
-      })
-    : fallbackScreenTitles;
   const aiScreens = normalizeAiScreens(aiPlan, count, productImages.length, referenceImages.length);
-  const screenTitles = aiScreens.length > 0
-    ? aiScreens.map((screen, index) => screen.title || SCREEN_MODULES[screen.moduleId]?.name || fallbackWithSections[index])
-    : fallbackWithSections;
+  // S1-b 空板块 AI 自主规划：V2 风格包实际生效（styleDecision 非 null）且未选任何内容板块时，
+  // 标题由 AI screenRoles/title 驱动；首屏强制 hero 角色但不在标题文字写死；AI 缺屏/失败走最小占位，
+  // 绝不回退 seedTitles[index%len] 固定轮转。以 styleDecision 为门控（与 detail-ai.js 的 v2Context 口径一致），
+  // 保证「v2-off（stylePackId=off）== v1」的既有强不变式（detail-stylepack-off-check B7）不被破坏。
+  const v2Planning = Boolean(styleDecision) && selectedSections === null;
+  let screenTitles;
+  if (v2Planning) {
+    screenTitles = aiScreens.length > 0
+      ? aiScreens.map((screen, screenIndex) => String(screen.title || "").trim() || `第${screenIndex + 1}屏`)
+      : Array.from({ length: count }, (_, i) => `第${i + 1}屏`);
+  } else {
+    // 旧路径（V2 未启用 / 已选板块）：保持 S0 逐字节一致。
+    const fallbackScreenTitles = buildScreenTitles(count, platformSkill, industrySkill, reverseScreens);
+    const fallbackWithSections = selectedSections
+      ? fallbackScreenTitles.map((title, sectionIndex) => {
+          const section = selectedSections[sectionIndex % selectedSections.length];
+          return String(section?.label || "").trim() || title;
+        })
+      : fallbackScreenTitles;
+    screenTitles = aiScreens.length > 0
+      ? aiScreens.map((screen, screenIndex) => screen.title || SCREEN_MODULES[screen.moduleId]?.name || fallbackWithSections[screenIndex])
+      : fallbackWithSections;
+  }
   const createdAt = Date.now();
 
   const globalLock = buildGlobalLock({

@@ -9,6 +9,7 @@ import {
 } from "./detail-skills.js";
 import { clamp, extractJsonObject, fileMeta, modelName, postChatCompletion, responseContent, safeImagePart, shouldRetryWithoutImages, shouldRetryWithoutJsonFormat } from "./core/ai-chat-shared.js";
 import { buildSkillPackV2, resolveDetailSkillVersion } from "./detail-skills-v2.js";
+import { skillModuleV2 } from "../prompts/server/detail-v2-planning/index.js";
 
 const DEFAULT_DETAIL_ANALYSIS_MODEL = "gpt-5.6-luna"; // 2026-11-01 上游已下线 gpt-5.4-mini
 const DETAIL_MODEL_SPEC = { fields: ["detailAnalysisModel", "textModel"], fallback: DEFAULT_DETAIL_ANALYSIS_MODEL };
@@ -25,6 +26,10 @@ function industrySeedText(input) {
 }
 
 function compactSkillPack(input, v2Context = null) {
+  // planningActive（V2 启用且空板块）：条件注入规划 Skill。与 buildDetailAnalysisContent
+  // 内的 planningActive 口径一致——v2Context 非 null 即 V2 启用，selectedSections 为空即未选板块。
+  const planningActive = Boolean(v2Context)
+    && !(Array.isArray(input.selectedSections) && input.selectedSections.length > 0);
   const platformSkill = getPlatformSkill(input.workflow);
   const industrySeed = industrySeedText(input);
   const industrySkill = getIndustrySkillByText(industrySeed);
@@ -67,9 +72,13 @@ function compactSkillPack(input, v2Context = null) {
     })),
     quality: QUALITY_SKILL
   };
-  if (!v2Context) return pack;
+  // 自建 V2 规划 Skill：条件注入（仅 planningActive 即 V2 启用且空板块时进入 skillPack）。
+  // 保持 compactSkillPack 调用锚点不变，第三参数 planningActive 追加在锚点之后。
+  const planningSkillField = planningActive ? { planningSkill: skillModuleV2 } : {};
+  if (!v2Context) return { ...pack, ...planningSkillField };
   return {
     ...pack,
+    ...planningSkillField,
     stylePack: v2Context.stylePack,
     stylePackPool: v2Context.stylePackPool,
     stylePackPlatformNote: v2Context.platformNote,
@@ -99,6 +108,10 @@ function buildDetailAnalysisContent(input, files, includeImages) {
         industrySkill: getIndustrySkillByText(industrySeedText(input))
       })
     : null;
+  // S1-b 规划触发：V2 风格包实际生效（v2Context 非 null）且未选任何内容板块时，由 AI 在
+  // 指定屏数内自主规划（决策 #3）。以 v2Context 为门控（与 middleware 的 styleDecision 口径一致），
+  // 保证「v2-off（stylePackId=off）== v1」的既有强不变式不被破坏；条件注入：V2 关闭 / 已选板块 / 风格包关闭时为 false。
+  const planningActive = Boolean(v2Context) && selectedSections === null;
   const textPayload = {
     task: "完整 AI 详情页 Skill 分析与分屏提示词规划",
     instruction: [
@@ -118,7 +131,9 @@ function buildDetailAnalysisContent(input, files, includeImages) {
         "允许按内容合理性合并或拆分客户板块；禁止一个板块机械对应一张图，禁止为满足板块数量凑屏或改变屏数，屏数仍由 screenCount 决定。",
         "不得虚构材质、参数、认证、疗效、销量、对比结果、品牌资质与品牌背书；图片中无法确认的商品事实不能当成事实输出。客户选择某板块不代表该事实存在，应改为保守表达或跳过无证据的具体断言。",
         "自定义板块（isCustom=true / moduleId=custom）与预设板块具有同等策划输入地位，须以 label 原文组织该屏文案；可为该屏填 moduleId=custom 并在 customLabel 写回客户原文，其余字段照常。"
-      ] : [])
+      ] : []),
+      // S1-b：空板块自主规划 Skill 指令（仅 planningActive 时注入，条件注入）
+      ...(planningActive ? [...skillModuleV2.directives, ...skillModuleV2.constraints] : [])
     ],
     input: {
       workflow: input.workflow,
@@ -189,7 +204,16 @@ function buildDetailAnalysisContent(input, files, includeImages) {
         globalChecks: ["string"],
         commonFailureRisks: ["string"],
         retryAdvice: ["string"]
-      }
+      },
+      // S1-b 规划契约（仅 planningActive 时写入 outputSchema，供模型产出 planning 顶层结果）
+      ...(planningActive ? {
+        planning: {
+          narrative: { id: "string", reason: "string", confidence: "string" },
+          screenRoles: [{ index: 0, role: "hero", sectionRefs: ["string"] }],
+          facts: [{ claim: "string", level: "visible|inferred|mustNotClaim" }],
+          dedupLog: ["string"]
+        }
+      } : {})
     }
   };
 

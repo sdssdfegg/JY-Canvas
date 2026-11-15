@@ -1,13 +1,7 @@
 {
-  "generatedAt": "2026-11-15T08:07:51.320Z",
-  "reason": "V2 S1-a 门禁先行首次上线：C1-C5 为 S1-b 目标能力，当前按存量记账（Skill 自建模块 / 空板块摆脱轮转 / planning 顶层 / screenRoles / hero 角色）；A/B/N 组 42 条现行不变量与负向对照当前全绿，不记账；frozenHashes 锁定 G-2 词表与发布种子",
-  "items": [
-    "C1 自建 V2 Skill 进入 skillPack（冻结契约 marker+directives）",
-    "C2 空板块摆脱固定轮转回退（不再含 fallbackWithSections[index]）",
-    "C3 planning 为响应独立顶层字段（与 group 平级）",
-    "C4 screenRoles 结构化角色契约进服务端",
-    "C5 首屏 hero 角色显式绑定"
-  ],
+  "generatedAt": "2026-11-15T09:11:45.072Z",
+  "reason": "S1-b 落地：自建 detail-v2-planning Skill 条件注入 skillPack（marker+directives）、空板块 AI 自主规划（v2Planning 分支替代 fallbackWithSections[index] 固定轮转）、planning 顶层返回（detail.routes.js:111）；C1 按 D-12 改用带 V2 开关请求体断言并补 N6 负向对照；C2-C5 为新能力源码实证。收窄 C1-C5 出基线，frozenHashes 字节零改动。",
+  "items": [],
   "frozenHashes": {
     "prompts/server/detail-skills.js": "e799ac3d830434c749c7f4f940951e763fd111114b31d91d9cc41b72a1ee19ac",
     "seed/manifest.json": "a48d5d0a29a154b45046cce2471e92b5b13dd56a8b2aaefac5746fba10186011"

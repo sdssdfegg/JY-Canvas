@@ -166,6 +166,10 @@ const bodyA = await captureBody({ ...BASE_INPUT });
 const bodyB = await captureBody({ ...BASE_INPUT, selectedSections: CHOSEN });
 const payloadA = parseUserPayload(bodyA);
 const payloadB = parseUserPayload(bodyB);
+// D-12 修正：C1 原探针用无开关 BASE_INPUT 捕获 payloadA，而 Skill 须条件注入（V2 启用时）才进入
+// skillPack，导致 C1 永远不会成立、也不会触发 stale 收口。此处补一个带 V2 开关的请求体用于断言。
+const bodyV2 = await captureBody({ ...BASE_INPUT, detailSkillVersion: "v2" });
+const payloadV2 = parseUserPayload(bodyV2);
 
 push("B5 真实捕获模型请求 body", Boolean(bodyA && bodyB), "fetch 探针");
 push("B6 messages[1].content[0].text 可解析为 textPayload", Boolean(payloadA && payloadB), "JSON.parse");
@@ -196,11 +200,12 @@ push("B16 空选不出现客户板块行",
 
 // ---------------------------------------------------------------- C 组 · S1-b 前瞻契约（基线棘轮）
 const responseLine = lineOf(sources.routes, "res.json({ ok: true, group");
-push("C1 自建 V2 Skill 进入 skillPack（冻结契约 marker+directives）",
-  Boolean(payloadA?.skillPack) && Object.values(payloadA.skillPack).some(
+// D-12 修正：用带 V2 开关的请求体 payloadV2 断言自建 Skill 真实进入 skillPack（marker+directives）。
+push("C1 自建 V2 Skill 进入 skillPack（冻结契约 marker+directives，V2 开关请求体）",
+  Boolean(payloadV2?.skillPack) && Object.values(payloadV2.skillPack).some(
     (value) => value && typeof value === "object" && !Array.isArray(value)
       && Object.hasOwn(value, "marker") && Array.isArray(value.directives)
-  ), "按 S0 §5.1 skillModuleV2 契约检测");
+  ), "按 D-12 修正：带 V2 开关请求体断言 marker+directives");
 push("C2 空板块摆脱固定轮转回退（不再含 fallbackWithSections[index]）",
   !probe(sources.middleware, "fallbackWithSections[index]"), "S1-b 目标");
 push("C3 planning 为响应独立顶层字段（与 group 平级）",
@@ -228,6 +233,10 @@ push("N5 负向：routes 多一次模型调用必被 A19 检出",
   countOf(sources.routes, "createDetailAiPlan(") === 1
     && countOf(sources.routes + "\nawait createDetailAiPlan({", "createDetailAiPlan(") === 2,
   "唯一调用断言有效");
+// D-12 配套负向：V2 关闭时请求体不得含 planningSkill marker，证明注入是条件性的（关时不进）。
+push("N6 负向：V2 关闭时请求体不含 planningSkill marker（条件注入实证）",
+  Boolean(payloadA?.skillPack) && !JSON.stringify(payloadA.skillPack).includes("JINGYIN_DETAIL_V2_PLANNING_SKILL"),
+  "坏夹具若无条件注入会被检出");
 
 // ---------------------------------------------------------------- 冻结哈希（硬红线，不进棘轮）
 const FROZEN = [

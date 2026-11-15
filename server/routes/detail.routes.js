@@ -108,7 +108,10 @@ export function registerDetailRoutes(app) {
           aiError
         }
       );
-      res.json({ ok: true, group });
+      // S1-b：planning 作为响应独立顶层字段返回（与 group 平级），绝不挂进 group，
+      // 避免污染预设/分组/历史数据并被发布种子扩散（执行单 §5.3）。
+      const planning = aiPlan?.plan?.planning ?? null;
+      res.json({ ok: true, group, planning });
     } catch (error) {
       res.status(400).json({
         ok: false,
