@@ -494,12 +494,26 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     ? input.selectedSections
     : null;
   const aiScreens = normalizeAiScreens(aiPlan, count, productImages.length, referenceImages.length);
-  // S1-b 空板块 AI 自主规划：V2 风格包实际生效（styleDecision 非 null）且未选任何内容板块时，
-  // 标题由 AI screenRoles/title 驱动；首屏强制 hero 角色但不在标题文字写死；AI 缺屏/失败走最小占位，
-  // 绝不回退 seedTitles[index%len] 固定轮转。以 styleDecision 为门控（与 detail-ai.js 的 v2Context 口径一致），
-  // 保证「v2-off（stylePackId=off）== v1」的既有强不变式（detail-stylepack-off-check B7）不被破坏。
-  const v2Planning = Boolean(styleDecision) && selectedSections === null;
+  // R1（Owner A 裁决）：无板块 AI 自主规划为默认能力，不再以 styleDecision/V2 风格包为门控。
+  // 仅以 selectedSections === null 判定空选——默认 v1/auto 请求也走规划分支，标题由 AI screenRoles/title
+  // 驱动；首屏确定性绑定 hero 角色但不写死标题文字；AI 缺屏/失败走最小占位，绝不回退 seedTitles[index%len]。
+  // 逐字节一致口径已收窄为兼容路径（§16.2）；styleDecision 仅继续用于 17 槽位风格锁，不再参与规划门控。
+  const v2Planning = selectedSections === null;
   let screenTitles;
+  // R1：首屏确定性 hero 角色（仅规划态）。标题文字仍由 AI title/screenRoles 驱动，绝不写死；
+  // 模型 planning.screenRoles 的 sectionRefs 供下方 moduleSkill 优先级使用（§5.2 落点 4）。
+  const planningScreenRoles = v2Planning
+    ? Array.from({ length: count }, (_, i) => {
+        const fromModel = Array.isArray(aiPlan?.planning?.screenRoles)
+          ? aiPlan.planning.screenRoles.find((role) => Number(role?.index) === i)
+          : null;
+        return {
+          index: i,
+          role: i === 0 ? "hero" : String(fromModel?.role || aiScreens[i]?.role || "content"),
+          sectionRefs: Array.isArray(fromModel?.sectionRefs) ? fromModel.sectionRefs : []
+        };
+      })
+    : [];
   if (v2Planning) {
     screenTitles = aiScreens.length > 0
       ? aiScreens.map((screen, screenIndex) => String(screen.title || "").trim() || `第${screenIndex + 1}屏`)
@@ -535,10 +549,20 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     const aiScreen = aiScreens[index] || null;
     // V214 P1：客户板块按屏循环复用，仅作模块归类兜底；AI 已给 moduleId 时以 AI 为准。
     const activeSection = selectedSections ? selectedSections[index % selectedSections.length] : null;
-    const moduleSkill = SCREEN_MODULES[aiScreen?.moduleId]
-      || Object.values(SCREEN_MODULES).find((module) => module.name === aiScreen?.moduleId)
-      || (activeSection && SCREEN_MODULES[activeSection.moduleId])
-      || getScreenModule(aiScreen?.title || title, index, count);
+    // R1（§5.2 落点 4）：规划态归类优先级 = 首屏 hero 确定性绑定 > AI moduleId > sectionRefs > 客户板块 > getScreenModule。
+    // 有板块路径（selectedSections 非 null）完全沿用旧优先级，保证兼容路径逐字节一致。
+    const planningRole = v2Planning ? planningScreenRoles[index] : null;
+    const sectionRefModule = planningRole
+      ? (planningRole.sectionRefs || []).map((ref) => SCREEN_MODULES[String(ref).trim()]
+          || Object.values(SCREEN_MODULES).find((module) => module.id === String(ref).trim() || module.name === String(ref).trim())).find(Boolean)
+      : null;
+    const moduleSkill = (v2Planning && index === 0)
+      ? SCREEN_MODULES.hero
+      : SCREEN_MODULES[aiScreen?.moduleId]
+        || Object.values(SCREEN_MODULES).find((module) => module.name === aiScreen?.moduleId)
+        || sectionRefModule
+        || (activeSection && SCREEN_MODULES[activeSection.moduleId])
+        || getScreenModule(aiScreen?.title || title, index, count);
     const mainFirstScreen = platformSkill.pageType === "主图" && index === 0;
     const screenPack = styleDecision ? (mainFirstScreen ? STYLE_PACKS.S1 : styleDecision.pack) : null;
     const variant = screenPack ? variantFor(moduleSkill.id, index, screenPack, input.detailGroupIndex, aiScreen?.compositionVariantId) : null;

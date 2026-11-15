@@ -26,10 +26,9 @@ function industrySeedText(input) {
 }
 
 function compactSkillPack(input, v2Context = null) {
-  // planningActive（V2 启用且空板块）：条件注入规划 Skill。与 buildDetailAnalysisContent
-  // 内的 planningActive 口径一致——v2Context 非 null 即 V2 启用，selectedSections 为空即未选板块。
-  const planningActive = Boolean(v2Context)
-    && !(Array.isArray(input.selectedSections) && input.selectedSections.length > 0);
+  // 空板块 AI 自主规划（决策 #3，Owner A 裁决后为默认能力）：只要未选内容板块即视为规划态，
+  // 不再以 v2Context（V2 风格包）为门控。与 buildDetailAnalysisContent 内的 planningActive 口径一致。
+  const planningActive = !(Array.isArray(input.selectedSections) && input.selectedSections.length > 0);
   const platformSkill = getPlatformSkill(input.workflow);
   const industrySeed = industrySeedText(input);
   const industrySkill = getIndustrySkillByText(industrySeed);
@@ -72,8 +71,8 @@ function compactSkillPack(input, v2Context = null) {
     })),
     quality: QUALITY_SKILL
   };
-  // 自建 V2 规划 Skill：条件注入（仅 planningActive 即 V2 启用且空板块时进入 skillPack）。
-  // 保持 compactSkillPack 调用锚点不变，第三参数 planningActive 追加在锚点之后。
+  // 自建 V2 规划 Skill：条件注入（仅 planningActive 即空板块默认路径时进入 skillPack）。
+  // 保持 compactSkillPack(input, v2Context) 调用锚点不变；planningActive 在函数内部自算，非第三参数。
   const planningSkillField = planningActive ? { planningSkill: skillModuleV2 } : {};
   if (!v2Context) return { ...pack, ...planningSkillField };
   return {
@@ -95,8 +94,8 @@ function buildDetailAnalysisContent(input, files, includeImages) {
   const productFiles = files.filter((file) => file.detailRole === "product");
   const referenceFiles = files.filter((file) => file.detailRole === "reference");
   const count = clamp(input.count, BASE_SKILL.screenCountRule.min, BASE_SKILL.screenCountRule.max, BASE_SKILL.screenCountRule.defaultCount);
-  // V214 P1：客户可选内容板块。空选时为 null，下面所有条件分支都不触发，
-  // 保证 textPayload 与改造前逐字节一致（JSON.stringify(textPayload, null, 2)）。
+  // V214 P1：客户可选内容板块。空选时为 null，客户板块相关条件分支不触发；
+  // 但 A 裁决后空板块即默认规划路径，planningActive 为 true（V2 门控已解耦）。
   const selectedSections = Array.isArray(input.selectedSections) && input.selectedSections.length > 0
     ? input.selectedSections
     : null;
@@ -108,10 +107,10 @@ function buildDetailAnalysisContent(input, files, includeImages) {
         industrySkill: getIndustrySkillByText(industrySeedText(input))
       })
     : null;
-  // S1-b 规划触发：V2 风格包实际生效（v2Context 非 null）且未选任何内容板块时，由 AI 在
-  // 指定屏数内自主规划（决策 #3）。以 v2Context 为门控（与 middleware 的 styleDecision 口径一致），
-  // 保证「v2-off（stylePackId=off）== v1」的既有强不变式不被破坏；条件注入：V2 关闭 / 已选板块 / 风格包关闭时为 false。
-  const planningActive = Boolean(v2Context) && selectedSections === null;
+  // R1（Owner A 裁决）：无板块 AI 自主规划为默认能力，不再附加 V2 风格包门控。
+  // 仅以 selectedSections === null 判定空选——默认 v1/auto 请求也会注入规划 Skill 与契约。
+  // 已选板块时走客户偏好分支；逐字节一致口径已收窄为「老前端不传新字段 / 显式关闭规划」兼容路径（§16.2）。
+  const planningActive = selectedSections === null;
   const textPayload = {
     task: "完整 AI 详情页 Skill 分析与分屏提示词规划",
     instruction: [

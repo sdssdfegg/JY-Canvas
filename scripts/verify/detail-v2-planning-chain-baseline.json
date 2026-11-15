@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-15T09:11:45.072Z",
-  "reason": "S1-b 落地：自建 detail-v2-planning Skill 条件注入 skillPack（marker+directives）、空板块 AI 自主规划（v2Planning 分支替代 fallbackWithSections[index] 固定轮转）、planning 顶层返回（detail.routes.js:111）；C1 按 D-12 改用带 V2 开关请求体断言并补 N6 负向对照；C2-C5 为新能力源码实证。收窄 C1-C5 出基线，frozenHashes 字节零改动。",
+  "generatedAt": "2026-11-15T14:12:10.771Z",
+  "reason": "V216-R1（Owner A 裁决）：解耦 planningActive/v2Planning 门控为仅空选判定，默认 v1/auto 路径真正注入规划 Skill 与 outputSchema.planning；C1 改回默认 payloadA、C2 语义级分支切片、C4/C5 运行时断言（首屏 hero 真绑定），N6 反向固化修正为正默认注入+选板块不注入，新增 C1b/N7-N10 负向对照；53/53 全绿，frozenHashes 字节零改动。",
   "items": [],
   "frozenHashes": {
     "prompts/server/detail-skills.js": "e799ac3d830434c749c7f4f940951e763fd111114b31d91d9cc41b72a1ee19ac",

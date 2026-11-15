@@ -67,6 +67,16 @@ const expectAbsent = (name, source, needle) => push(name, !probe(source, needle)
 const NEEDLE_PAYLOAD = "...(sectionPayload ? { selectedSections: sectionPayload } : {})";
 const NEEDLE_SKILL = "skillPack: compactSkillPack(input, v2Context)";
 const NEEDLE_FILTER = "].filter(Boolean).join(\"\\n\");";
+const NEEDLE_DEFAULT_PLANNING = "const planningActive = selectedSections === null;";
+const NEEDLE_MIDDLEWARE_PLANNING = "const v2Planning = selectedSections === null;";
+const NEEDLE_HERO = "? SCREEN_MODULES.hero";
+const PLANNING_MARKER = "JINGYIN_DETAIL_V2_PLANNING_SKILL";
+const stripPlanningSkill = (pack) => {
+  if (!pack || typeof pack !== "object") return null;
+  const copy = { ...pack };
+  delete copy.planningSkill;
+  return copy;
+};
 
 // ---------------------------------------------------------------- A 组 · 现行不变量
 push("A0 八个证据源文件均非空（防文件被清空造成假绿）",
@@ -166,8 +176,8 @@ const bodyA = await captureBody({ ...BASE_INPUT });
 const bodyB = await captureBody({ ...BASE_INPUT, selectedSections: CHOSEN });
 const payloadA = parseUserPayload(bodyA);
 const payloadB = parseUserPayload(bodyB);
-// D-12 修正：C1 原探针用无开关 BASE_INPUT 捕获 payloadA，而 Skill 须条件注入（V2 启用时）才进入
-// skillPack，导致 C1 永远不会成立、也不会触发 stale 收口。此处补一个带 V2 开关的请求体用于断言。
+// R1（owner A 裁决）：C1 改回默认 payloadA（无手工 V2 开关、沿用真实默认 v1），
+// 断言制单 Skill 在真实默认空选请求里进入 skillPack。bodyV2 保留作附加对照，非唯一依据。
 const bodyV2 = await captureBody({ ...BASE_INPUT, detailSkillVersion: "v2" });
 const payloadV2 = parseUserPayload(bodyV2);
 
@@ -181,11 +191,15 @@ push("B9 空选时请求 input 不含 selectedSections",
 push("B10 outputSchema.screens 结构化契约存在", Boolean(payloadA?.outputSchema?.screens), "screens 定义");
 push("B11 有选时 selectedSections 真进请求 input",
   Boolean(payloadB?.input?.selectedSections), "条件注入生效");
-push("B12 代码级 A/B：板块注入改变请求体但不改 skillPack",
+// R1（A 裁决）：默认空选也注入 planningSkill，故 A/B 的 skillPack 必然不同。
+// 断言改为「剥离规划 Skill 后基础 Skill 一致 + 异 input + planningSkill 仅空选出现」，强度不降反升。
+push("B12 代码级 A/B：板块注入改变 input 但不改基础 skillPack（规划 Skill 仅空选）",
   Boolean(payloadA && payloadB)
-    && JSON.stringify(payloadA.skillPack) === JSON.stringify(payloadB.skillPack)
-    && JSON.stringify(payloadA.input) !== JSON.stringify(payloadB.input),
-  "同 Skill / 异 input");
+    && JSON.stringify(stripPlanningSkill(payloadA.skillPack)) === JSON.stringify(stripPlanningSkill(payloadB.skillPack))
+    && JSON.stringify(payloadA.input) !== JSON.stringify(payloadB.input)
+    && Object.hasOwn(payloadA.skillPack || {}, "planningSkill")
+    && !Object.hasOwn(payloadB.skillPack || {}, "planningSkill"),
+  "同基础 Skill / 异 input / planningSkill 仅空选");
 
 // ---------------------------------------------------------------- 运行时：空选逐字节一致
 const promptsOf = (group) => JSON.stringify(group.prompts);
@@ -200,20 +214,51 @@ push("B16 空选不出现客户板块行",
 
 // ---------------------------------------------------------------- C 组 · S1-b 前瞻契约（基线棘轮）
 const responseLine = lineOf(sources.routes, "res.json({ ok: true, group");
-// D-12 修正：用带 V2 开关的请求体 payloadV2 断言自建 Skill 真实进入 skillPack（marker+directives）。
-push("C1 自建 V2 Skill 进入 skillPack（冻结契约 marker+directives，V2 开关请求体）",
-  Boolean(payloadV2?.skillPack) && Object.values(payloadV2.skillPack).some(
-    (value) => value && typeof value === "object" && !Array.isArray(value)
-      && Object.hasOwn(value, "marker") && Array.isArray(value.directives)
-  ), "按 D-12 修正：带 V2 开关请求体断言 marker+directives");
-push("C2 空板块摆脱固定轮转回退（不再含 fallbackWithSections[index]）",
-  !probe(sources.middleware, "fallbackWithSections[index]"), "S1-b 目标");
+// C1：断言默认 payloadA（无手工 V2 开关、真实默认 v1）里自建 Skill 真进 skillPack（marker+directives）。
+const hasPlanningSkill = (payload) => Boolean(payload?.skillPack) && Object.values(payload.skillPack).some(
+  (value) => value && typeof value === "object" && !Array.isArray(value)
+    && Object.hasOwn(value, "marker") && value.marker === PLANNING_MARKER && Array.isArray(value.directives)
+);
+push("C1 自建规划 Skill 进入默认请求 skillPack（marker+directives，默认 payloadA）",
+  hasPlanningSkill(payloadA)
+    && countOf(sources.ai, NEEDLE_DEFAULT_PLANNING) >= 1
+    && !probe(sources.ai, "Boolean(v2Context) && selectedSections === null"),
+  "默认 v1 空选请求体断言 marker+directives；detail-ai planningActive 已解耦（两处口径一致）");
+// C1b 附加对照：显式 V2 开关路径同样含 Skill（非唯一依据，仅证明两条路径一致）。
+push("C1b 附加：显式 V2 开关请求体同样含规划 Skill（非唯一依据）",
+  hasPlanningSkill(payloadV2), "附加对照，不作为 C1 唯一依据");
+// C2 语义级：空选分支不再调用 buildScreenTitles，也不再出现 seedTitles 轮转派生标题。
+// 禁止靠变量改名让锚点消失——对 v2Planning 真值与「规划分支源码切片」做语义断言（带 >=0 守卫）。
+const planningFlagLine = lineOf(sources.middleware, NEEDLE_MIDDLEWARE_PLANNING);
+const v2BranchStart = sources.middleware.indexOf("if (v2Planning) {");
+const v2BranchEnd = v2BranchStart >= 0 ? sources.middleware.indexOf("} else {", v2BranchStart) : -1;
+const v2Branch = v2BranchStart >= 0 && v2BranchEnd > v2BranchStart
+  ? sources.middleware.slice(v2BranchStart, v2BranchEnd)
+  : "";
+push("C2 空选规划分支不回退固定轮转（语义级：v2Planning 仅判空选且分支不调 buildScreenTitles/seedTitles）",
+  planningFlagLine !== null
+    && !probe(planningFlagLine, "styleDecision")
+    && v2Branch.length > 0
+    && !probe(v2Branch, "buildScreenTitles(")
+    && !probe(v2Branch, "seedTitles"),
+  "v2Planning 门控无 styleDecision；规划分支切片无 buildScreenTitles/seedTitles");
 push("C3 planning 为响应独立顶层字段（与 group 平级）",
   responseLine !== null && probe(responseLine, "planning"), "S0 §5.2 契约");
-push("C4 screenRoles 结构化角色契约进服务端",
-  probe(sources.middleware, "screenRoles") || probe(sources.ai, "screenRoles"), "S0 §5.1 契约");
-push("C5 首屏 hero 角色显式绑定",
-  probe(sources.middleware, "role: \"hero\"") || probe(sources.ai, "role: \"hero\""), "首屏默认核心任务");
+// C4/C5 判定函数：正向断言与负向对照共用同一逻辑，证明探针能区分好坏夹具。
+const hasHeroRole = (roles) => Array.isArray(roles)
+  && roles.some((role) => role && Number(role.index) === 0 && role.role === "hero");
+const isHeroFirst = (group) => Boolean(group?.prompts?.[0]) && group.prompts[0].moduleKey === "hero";
+// C4 运行时：默认请求体 outputSchema.planning.screenRoles 含 index:0 / role:hero（不再靠 schema 示例文本）。
+const planningSchema = payloadA?.outputSchema?.planning;
+const screenRoles = planningSchema?.screenRoles;
+push("C4 运行时默认请求 outputSchema.planning.screenRoles 含 index:0/role:hero",
+  hasHeroRole(screenRoles) && hasPlanningSkill(payloadA),
+  "真实请求体断言；planningActive=true 时契约写入");
+// C5 运行时：buildDetailPromptGroup 默认空选首屏 moduleKey 为 hero（真绑定，不靠 role 文本命中）。
+push("C5 运行时默认空选首屏 moduleKey=hero（决策 #4 首屏默认核心任务）",
+  isHeroFirst(emptyA) && probe(sources.middleware, NEEDLE_HERO),
+  "真实函数输出首屏 moduleKey=" + (emptyA?.prompts?.[0]?.moduleKey ?? "缺失")
+    + "；源码含 hero 确定性绑定锚点");
 
 // ---------------------------------------------------------------- 负向对照（证明锚点非虚设）
 push("N1 负向：payload 改恒定字段必被探针判红",
@@ -233,10 +278,36 @@ push("N5 负向：routes 多一次模型调用必被 A19 检出",
   countOf(sources.routes, "createDetailAiPlan(") === 1
     && countOf(sources.routes + "\nawait createDetailAiPlan({", "createDetailAiPlan(") === 2,
   "唯一调用断言有效");
-// D-12 配套负向：V2 关闭时请求体不得含 planningSkill marker，证明注入是条件性的（关时不进）。
-push("N6 负向：V2 关闭时请求体不含 planningSkill marker（条件注入实证）",
-  Boolean(payloadA?.skillPack) && !JSON.stringify(payloadA.skillPack).includes("JINGYIN_DETAIL_V2_PLANNING_SKILL"),
-  "坏夹具若无条件注入会被检出");
+// N6（R1 反向固化修正）：默认空选请求体应含 planningSkill marker（A 裁决后默认能力生效）；
+// 负向对照 = 已选板块请求体不含 marker，证明仍是「仅空选注入」而非无条件注入。
+push("N6 默认空选请求体含 planningSkill marker（删注入必判红，条件注入实证）",
+  Boolean(payloadA?.skillPack) && JSON.stringify(payloadA.skillPack).includes(PLANNING_MARKER)
+    && Boolean(payloadB?.skillPack) && !JSON.stringify(payloadB.skillPack).includes(PLANNING_MARKER),
+  "默认注入 / 选板块不注入，双向条件实证");
+// R1 配套负向对照：每个改动锚点至少 1 条坏夹具判红。
+push("N7 负向：删默认 planningSkill 注入必被 C1 判红",
+  hasPlanningSkill(payloadA)
+    && !hasPlanningSkill({ skillPack: stripPlanningSkill(payloadA?.skillPack) }),
+  "坏夹具剥离 planningSkill 后 marker 消失");
+push("N8 负向：给 v2Planning 恢复 styleDecision 门控必被 C2 判红",
+  planningFlagLine !== null && !probe(planningFlagLine, "styleDecision")
+    && probe("const v2Planning = Boolean(styleDecision) && selectedSections === null;", "styleDecision"),
+  "坏夹具门控含 styleDecision，判定逻辑可区分");
+push("N8b 负向：给 planningActive 恢复 v2Context 门控必被 C1 判红",
+  countOf(sources.ai, NEEDLE_DEFAULT_PLANNING) >= 1
+    && !probe(sources.ai, "Boolean(v2Context) && selectedSections === null")
+    && probe("const planningActive = Boolean(v2Context) && selectedSections === null;", "Boolean(v2Context)"),
+  "坏夹具 planningActive 含 v2Context 门控，判定逻辑可区分");
+push("N9 负向：删 planning.screenRoles 或改非 hero 必被 C4 判红",
+  hasHeroRole(screenRoles)
+    && !hasHeroRole([])
+    && !hasHeroRole([{ index: 0, role: "conversionClose" }]),
+  "坏夹具无 screenRoles / 非 hero 角色均判红");
+push("N10 负向：首屏非 hero 必被 C5 判红",
+  isHeroFirst(emptyA)
+    && !isHeroFirst({ prompts: [{ moduleKey: "conversionClose" }] })
+    && !isHeroFirst({ prompts: [] }),
+  "坏夹具首屏 moduleKey 非 hero / 缺首屏均判红");
 
 // ---------------------------------------------------------------- 冻结哈希（硬红线，不进棘轮）
 const FROZEN = [
