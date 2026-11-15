@@ -257,6 +257,9 @@ const ORDER = [
   // V214（2026-11-14）：可选详情内容板块全链路门禁——前端序列化 → payload 条件注入 →
   // AI 白名单与指令 → middleware 兜底映射与每屏 text；含负向对照、运行时实证与基线棘轮。
   "detail-sections-chain-check",
+  // V2 S1-a（2026-11-15）：规划链门禁先行——A 组现行不变量 / B 组 Skill 真实进模型请求体
+  // （fetch 内存探针捕获 textPayload）/ C 组 S1-b 前瞻契约基线棘轮 / G-2 与种子字节哈希硬锁。
+  "detail-v2-planning-chain-check",
   // V212-R1（2026-11-13）：生图结果回写状态机端到端门禁——registerBatch→begin→result 三终态 +
   // 旧 canTransition guard 静态判红 + ≥7 条负向对照；沙盒 data 根、零上游，进 --fast 快速子集。
   "detail-studio-generation-writeback-check",
@@ -388,6 +391,8 @@ const FAST_ORDER = [
   "detail-studio-basic-params-chain-check",
   // V214（2026-11-14）：可选详情内容板块全链路门禁（纯逻辑、零上游、进 --fast 快速子集）。
   "detail-sections-chain-check",
+  // V2 S1-a（2026-11-15）：规划链门禁（纯逻辑、fetch 内存探针零上游、进 --fast 快速子集）。
+  "detail-v2-planning-chain-check",
   // V212-R1（2026-11-13）：生图结果回写状态机端到端门禁（沙盒、零上游、进 --fast 快速子集）。
   "detail-studio-generation-writeback-check",
   // V212-R1（2026-11-13）：form 同构 / deferAutoSave / 结果目录隔离门禁（零上游、进 --fast 快速子集）。
