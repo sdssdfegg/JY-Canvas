@@ -94,24 +94,6 @@ const modelPoseOptions = [
   { value: "special", label: "特殊姿态" }
 ];
 
-const detailSkillVersionOptions = [
-  { value: "v1", label: "V1 稳定版（现有规则）" },
-  { value: "v2", label: "V2 视觉分化（风格包轮换）" }
-];
-
-const stylePackOptions = [
-  { value: "auto", label: "自动轮换（每组不同）" },
-  { value: "off", label: "关闭视觉风格" },
-  { value: "S1", label: "S1 白底极简" },
-  { value: "S2", label: "S2 生活场景" },
-  { value: "S3", label: "S3 质感微距" },
-  { value: "S4", label: "S4 痛点对比" },
-  { value: "S5", label: "S5 促销信息" },
-  { value: "S6", label: "S6 氛围情绪" },
-  { value: "S7", label: "S7 科技理性" },
-  { value: "S8", label: "S8 自然原生" }
-];
-
 export function useDetailState({
   settings,
   config,
@@ -368,8 +350,7 @@ export function useDetailState({
       // 保证 /api/detail-prompts 的 payload 与改造前逐字节一致。
       const sectionPayload = serializeSelectedSections(selectedSections);
       const form = new FormData();
-      form.set("payload", JSON.stringify({
-        ...detailSettings,
+      form.set("payload", JSON.stringify({ ...detailSettings, detailSkillVersion: "v1", stylePackId: "auto", // R2 归一旧预设版本键，防复活旧风格锁
         ...(sectionPayload ? { selectedSections: sectionPayload } : {}),
         analysisMode: "ai",
         detailGroupIndex: detailGroups.length + 1,
@@ -723,8 +704,6 @@ export function useDetailState({
     richnessOptions,
     fontStyleOptions,
     modelModeOptions,
-    modelPoseOptions,
-    detailSkillVersionOptions,
-    stylePackOptions
+    modelPoseOptions
   };
 }

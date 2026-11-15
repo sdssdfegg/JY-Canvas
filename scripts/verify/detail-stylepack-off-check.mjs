@@ -10,7 +10,8 @@
 //      v1 + 任意 stylePackId（off/S5/垃圾值）→ 无风格包字段（v1 不受影响）。
 //   C. 源码钉桩：detail-ai.js v2 指令块带 v2Context 判空（off 不抛）；
 //      detail-middleware.js off 归一为无风格包、首屏 S1 仍随 styleDecision 判真（不单独写死）；
-//      前端归一化放行 off、选项含「关闭视觉风格」、v1 下拉仍 disabled。
+//      detail-group.js 归一化放行 off；前端「Skill 版本 / 视觉风格包」两下拉已摘除（V216-R2），
+//      detail-state.js payload 显式归一 detailSkillVersion=v1/stylePackId=auto 防旧预设复活旧 v2。
 //
 // v1 逐字节不变由提交前一次性旧码对照探针证明（git worktree 旧码 vs 新码 JSON 比对），
 // 不在本常驻门禁范围内（合入后旧码即不存在）。
@@ -148,11 +149,33 @@ const groupSource = readFileSync(path.join(ROOT, "src/features/detail/detail-gro
 check("C4 钉桩: 前端归一化放行 off（不回落 auto）",
   /stylePackId === "off" \|\| \/\^S\[1-8\]\$/.test(groupSource));
 const stateSource = readFileSync(path.join(ROOT, "src/features/detail/detail-state.js"), "utf8");
-check("C5 钉桩: 前端选项含「关闭视觉风格」",
-  /value: "off", label: "关闭视觉风格"/.test(stateSource));
 const viewSource = readFileSync(path.join(ROOT, "src/features/detail/DetailView.jsx"), "utf8");
-check("C6 钉桩: v1 下视觉风格包下拉仍 disabled",
-  /disabled=\{detailSettings\.detailSkillVersion !== "v2"\}/.test(viewSource));
+// V216-R2（Owner A 裁决）：两下拉已摘除，C5/C6 改为正向「已移除」断言（改写不删、强度不降）。
+const hasSkillVersionConst = /const detailSkillVersionOptions\s*=\s*\[/.test(stateSource);
+const hasStylePackConst = /const stylePackOptions\s*=\s*\[/.test(stateSource);
+const hasV2VisualLabel = /V2 视觉分化/.test(stateSource);
+check("C5 钉桩: detail-state.js 不再导出两个选项常量且不含「V2 视觉分化」",
+  !hasSkillVersionConst && !hasStylePackConst && !hasV2VisualLabel,
+  `versionConst=${hasSkillVersionConst} packConst=${hasStylePackConst} v2Label=${hasV2VisualLabel}`);
+const hasVersionBinding = /detailSettings\.detailSkillVersion/.test(viewSource);
+const hasPackBinding = /detailSettings\.stylePackId/.test(viewSource);
+const hasSkillVersionLabel = /<span>Skill 版本<\/span>/.test(viewSource);
+const hasStylePackLabel = /<span>视觉风格包<\/span>/.test(viewSource);
+check("C6 钉桩: DetailView.jsx 无两下拉标签与 detailSkillVersion/stylePackId 字段绑定",
+  !hasVersionBinding && !hasPackBinding && !hasSkillVersionLabel && !hasStylePackLabel,
+  `verBind=${hasVersionBinding} packBind=${hasPackBinding} verLabel=${hasSkillVersionLabel} packLabel=${hasStylePackLabel}`);
+// C5b（§18.4 旧预设兼容）：payload 显式归一为 v1/auto，防旧预设 v2/S6 经服务端 env 兜底复活风格锁。
+const hasV1Normalize = /detailSkillVersion:\s*"v1"/.test(stateSource);
+const hasAutoNormalize = /stylePackId:\s*"auto"/.test(stateSource);
+check("C5b 钉桩: payload 显式归一 detailSkillVersion=v1 / stylePackId=auto（旧预设不复活）",
+  hasV1Normalize && hasAutoNormalize, `v1=${hasV1Normalize} auto=${hasAutoNormalize}`);
+// 负向对照：把被删的常量/标签塞回坏夹具，断言 C5/C6 的检测式确实能判红（护栏非虚设）。
+const badState = `${stateSource}\nconst detailSkillVersionOptions = [{ value: "v2", label: "V2 视觉分化（风格包轮换）" }];`;
+const badView = `${viewSource}\n<label><span>Skill 版本</span><select value={detailSettings.detailSkillVersion} /></label>`;
+check("C5N 负向对照·常量塞回坏夹具必须判红", /const detailSkillVersionOptions\s*=\s*\[/.test(badState)
+  && /V2 视觉分化/.test(badState), "坏夹具应命中两常量特征");
+check("C6N 负向对照·下拉塞回坏夹具必须判红", /detailSettings\.detailSkillVersion/.test(badView)
+  && /<span>Skill 版本<\/span>/.test(badView), "坏夹具应命中标签与绑定");
 check("C7 钉桩: 分组 tab 角标随 stylePack 缺省为空（off 时不显示 ·S1）",
   /\{group\.stylePack \? `·\$\{group\.stylePack\.id\}` : ""\}/.test(viewSource));
 check("C8 钉桩: 分组头角标随 stylePack 缺省为空（off 时不显示 S1·白底极简）",

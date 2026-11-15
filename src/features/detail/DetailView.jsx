@@ -69,8 +69,6 @@ export function DetailView({
     fontStyleOptions,
     modelModeOptions,
     modelPoseOptions,
-    detailSkillVersionOptions,
-    stylePackOptions,
     setActiveDetailGroupId,
     setDetailColumns,
     setDetailForwardSort,
@@ -279,22 +277,6 @@ export function DetailView({
                   {Array.from({ length: 5 }, (_, index) => index).map((count) => (
                     <option key={count} value={count}>{count}</option>
                   ))}
-                </select>
-              </label>
-              <label>
-                <span>Skill 版本</span>
-                <select className="ui-select" value={detailSettings.detailSkillVersion} onChange={(event) => updateDetailSetting("detailSkillVersion", event.target.value)}>
-                  {detailSkillVersionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>视觉风格包</span>
-                <select className="ui-select"
-                  value={detailSettings.stylePackId}
-                  disabled={detailSettings.detailSkillVersion !== "v2"}
-                  onChange={(event) => updateDetailSetting("stylePackId", event.target.value)}
-                >
-                  {stylePackOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label>

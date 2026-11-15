@@ -46,6 +46,8 @@ prompts/
 | 一键详情/主图 v2 视觉规则（风格包/构图变体/轮换） | `prompts/server/detail-skills-v2/` | `server/detail-skills-v2.js` |
 | 视觉风格包「关闭（off）」语义：v2 下 off = 不注入任何风格包（主图首屏强制 S1 一并关闭），分组无风格锁行、`stylePack` 字段缺省；v1 输出不变 | `prompts/server/detail-skills-v2/index.js`（`stylePackForGroup` off 分支） | 无 |
 
+> **V216-R2（Owner A 裁决）**：前端「Skill 版本 / 视觉风格包」两个下拉已从一键详情基础参数区摘除（15→13 项），用户不再手动切换版本。但 v2 视觉规则三文件与 `server/detail-skills-v2.js` 转发壳作为**底层资产保留**（服务端仍可复用、且是 ESM 启动链活壳，不可删）。`JINGYIN_DETAIL_SKILL_VERSION` 环境变量与请求级 `detailSkillVersion` 字段仅作**兼容 / 运维通道**，不再是前端暴露的用户选项；前端 payload 在生成时显式归一为 v1/auto，防历史预设里的 v2 值复活旧风格锁。
+
 旧兼容入口只负责转发，方便现有代码继续运行；以后真实修改请进 `prompts/`。
 
 ## 仍待逐步迁移的前端默认提示词
@@ -67,7 +69,7 @@ prompts/
    结构化选择（换装 = `src/shared/outfit-intent.js`；精修 = `src/shared/retouch-intent.js`），或让用户自己写。
    如果将来要重新引入"整块通用规则"，请先单独确认，不要用旧字段偷偷接回来。
 2. 如果要改"用户一打开页面看到的默认提示词"，改 `prompts/frontend/` 中对应文件；尚未迁移的先按上表到当前位置修改。
-3. 一键详情/主图仍然有后端规则集（`prompts/server/detail-skills.js`），改它时注意前后端同步检查。v2 规则集在 `prompts/server/detail-skills-v2/`，由 `JINGYIN_DETAIL_SKILL_VERSION`（默认 v1）与请求级 `detailSkillVersion` 切换；改 v2 不得改动 v1 文件与 v1 输出。
+3. 一键详情/主图仍然有后端规则集（`prompts/server/detail-skills.js`），改它时注意前后端同步检查。v2 规则集在 `prompts/server/detail-skills-v2/`，由 `JINGYIN_DETAIL_SKILL_VERSION`（默认 v1）与请求级 `detailSkillVersion` 切换（此二者现为兼容/运维通道，前端已不暴露切换入口，见上文 V216-R2 注）；改 v2 不得改动 v1 文件与 v1 输出。
 4. 前端默认提示词负责让用户看得懂、可编辑；换装/精修的结构化意图由共享编译器统一落成提示词，不要在页面里另拼一份。
 5. 不要把 API Key、渠道商地址、价格、账号信息写进任何提示词文件。
 

@@ -1,10 +1,9 @@
-// 详情 v2 视觉风格包「关闭（off）」选项的浏览器实测（真实浏览器，不打上游、不扣费）。
+// 详情页「Skill 版本 / 视觉风格包」两下拉摘除的浏览器实测（V216-R2 改写；不打上游、不扣费）。
 //
-// 覆盖执行单「详情v2-1b」§5.5/§5.6：
-//   1. v1 默认下视觉风格包下拉禁用（行为不变）
-//   2. 切 v2 后下拉可用，且含「关闭视觉风格」选项（auto + off + S1–S8 = 10 项）
-//   3. 选中 off → 保存预设 → 刷新页面 → 加载预设：stylePackId 仍为 off（:289 归一闸门不放行回落 auto）
-//   4. 切回 v1 下拉仍禁用；再切 v2 off 仍在
+// 覆盖执行单 V216 §18：
+//   1. 详情页基础参数区不再出现「Skill 版本 / 视觉风格包」两个下拉
+//   2. 用「输出语种(lang)」改值 → 保存预设 → 刷新 → 加载预设：lang 回载持久化（预设链未断）
+//   3. 参数区两列网格不破、参数项数回落到 13；加载预设后两下拉仍不出现
 // 分组头角标（·S1）随 stylePack 缺省为空的断言在 detail-stylepack-off-check.mjs（C7/C8 源码钉桩
 // + B1 中间件实测 stylePack 缺省），浏览器侧不重复造分组（生成需打上游）。
 //
@@ -139,27 +138,28 @@ return { phase1, phase2 };
 
 if (selectFacts) {
   const f = selectFacts;
-  check("浏览器：详情页找到 Skill 版本 / 视觉风格包 两个下拉", f.foundBothSelects === true, f.error || "");
-  check("浏览器：v1 默认下视觉风格包下拉禁用（行为不变）", f.v1DefaultDisabled === true, String(f.v1DefaultDisabled));
-  check("浏览器：切 v2 后下拉可用", f.v2Enabled === true, String(f.v2Enabled));
-  check("浏览器：下拉含「关闭视觉风格」选项", f.offOption === true, String(f.offOption));
-  check("浏览器：选项共 10 项（auto + off + S1–S8）", f.optionCount === 10, String(f.optionCount));
-  check("浏览器：选中「关闭视觉风格」生效", f.offSelected === true, String(f.offSelected));
-  check("浏览器：含 off 的设置已存入预设（localStorage 持久化）", f.presetSaved === true, String(f.presetSaved));
+  check("浏览器：Skill 版本下拉已摘除", f.versionSelectGone === true, f.error || "");
+  check("浏览器：视觉风格包下拉已摘除", f.packSelectGone === true, String(f.packSelectGone));
+  check("浏览器：两下拉均已移除", f.bothSelectsRemoved === true, String(f.bothSelectsRemoved));
+  check("浏览器：输出语种(lang) 输入框仍在（参数区结构完整）", f.foundLangInput === true, String(f.foundLangInput));
+  check("浏览器：lang 值修改生效", f.langChanged === true, String(f.langChanged));
+  check("浏览器：测试 lang 已生成", typeof f.testLang === "string" && f.testLang.length > 0, String(f.testLang));
+  check("浏览器：含新 lang 的设置已存入预设（localStorage 持久化）", f.presetSaved === true, String(f.presetSaved));
 } else {
-  check("浏览器探针（选择 off 阶段）未执行", false, browserReason || "未知原因");
+  check("浏览器探针（摘除+保存阶段）未执行", false, browserReason || "未知原因");
 }
 
 if (verifyFacts) {
   const f = verifyFacts;
   check("浏览器：刷新后找到「加载预设」按钮", f.foundLoadButton === true, f.error || "");
-  check("浏览器：预设列表非空（含刚保存的 off 预设）", f.presetItemCount >= 1, String(f.presetItemCount));
-  check("浏览器：加载预设后 stylePackId 仍为 off（:289 未回落 auto）",
-    f.afterLoadStylePackId === "off", String(f.afterLoadStylePackId));
-  check("浏览器：加载预设后 Skill 版本随预设回 v2 且下拉可用",
-    f.afterLoadVersion === "v2" && f.afterLoadEnabled === true, `${f.afterLoadVersion} enabled=${f.afterLoadEnabled}`);
-  check("浏览器：切回 v1 视觉风格包下拉仍禁用", f.v1DisabledAfterOff === true, String(f.v1DisabledAfterOff));
-  check("浏览器：再切 v2 off 选择仍在", f.stillOffAfterToggle === true, String(f.stillOffAfterToggle));
+  check("浏览器：预设列表非空（含刚保存的预设）", f.presetItemCount >= 1, String(f.presetItemCount));
+  check("浏览器：加载预设后 lang 回载持久化（预设链未断）",
+    typeof f.afterLoadLang === "string" && f.afterLoadLang.startsWith("R2-persist-"), String(f.afterLoadLang));
+  check("浏览器：加载预设后输出语种输入框仍在", f.foundLangInputAfterReload === true, String(f.foundLangInputAfterReload));
+  check("浏览器：加载预设后两下拉仍不出现", f.bothSelectsStillRemoved === true,
+    `ver=${f.versionStillGone} pack=${f.packStillGone}`);
+  check("浏览器：基础参数区两列网格存在", f.paramGridExists === true, String(f.paramGridExists));
+  check("浏览器：基础参数项回落到 13 项（两下拉已摘除）", f.labelCount === 13, String(f.labelCount));
 } else {
   check("浏览器探针（刷新回载阶段）未执行", false, browserReason || "未知原因");
 }
