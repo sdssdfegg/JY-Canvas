@@ -466,6 +466,7 @@ export function DetailView({
                           size="md"
                           tone="primary"
                           type="button"
+                          disabled={detailRunningCount > 0 || detailStatus === "generating"}
                           onClick={() => void generateDetailGroup(activeDetailGroup.id)}
                         >
                           {detailRunningCount > 0 ? <Loader2 className="spin" size={16} /> : <Play size={16} />}

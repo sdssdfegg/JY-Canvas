@@ -283,11 +283,12 @@ export function postJson(url, body = {}, fallbackMessage = "请求失败") {
   }, fallbackMessage);
 }
 
-export function postForm(url, form, fallbackMessage = "请求失败") {
+export function postForm(url, form, fallbackMessage = "请求失败", options = {}) {
   const requestId = requestIdFromFormPayload(form);
   return apiJson(url, {
     method: "POST",
     body: form,
-    ...(requestId ? { requestId } : {})
+    ...(requestId ? { requestId } : {}),
+    ...(options.signal ? { signal: options.signal } : {})
   }, fallbackMessage);
 }

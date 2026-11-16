@@ -14,7 +14,7 @@ import { DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, defaultState, detailDefaults } f
 import { writeJsonStorage } from "../../lib/storage/json-storage.js";
 import { addFilesByRole, removeFilesByRole } from "../../shared/image-input.js";
 import { prepareImageFilesForChannel, referenceMetaFromFiles } from "../upload/reference-upload.js";
-import { generateImages } from "../../api/images.js";
+import { generateImages as apiGenerateImages } from "../../api/images.js";
 import { saveImageRequest } from "../../api/save.js";
 import { createDetailPrompts } from "../../api/prompts.js";
 import { isAuthErrorMessage, normalizeApiKeyInput } from "../auth/api-key.js";
@@ -49,6 +49,11 @@ import { validateSectionItem, serializeSelectedSections } from "./detail-section
 //      （findDetailPromptByResult）⇒ 留 App 并经 detailApi.findDetailPromptByResult / detailApi.generateDetailPrompt 调用。
 
 const MAX_DETAIL_FILES = 6;
+
+// V218 P0：一键详情生图的前端兜底超时。实测服务端 IMAGE_REQUEST_TIMEOUT_MS = 900000ms
+//（15min，server/core/runtime-config.js:16），前端取 +30s 缓冲 = 930000ms。
+// 仅兜「服务端未回响应」的网络僵死，不替代服务端超时、不误杀正常长任务。
+const DETAIL_IMAGE_TIMEOUT_MS = 930000;
 
 const workflowOptions = [
   { value: "taobao-main", label: "淘宝 / 主图" },
@@ -143,6 +148,8 @@ export function useDetailState({
   const detailProductInputRef = useRef(null);
   const detailReferenceInputRef = useRef(null);
   const stitchDragRef = useRef(null);
+  // V218 P0：组级生成 in-flight 锁，挡住异步 setState 窗口内的重复提交。
+  const detailGroupInFlightRef = useRef(false);
 
   const detailModel = models.find((item) => item.value === detailSettings.model) || models[0];
   const detailRatios = detailModel.ratios || ["1:1", "3:4", "16:9"];
@@ -330,6 +337,8 @@ export function useDetailState({
   }
 
   async function createDetailPromptPlan() {
+    // V218 P0：planning 中重复提交直接返回，防异步窗口内二次规划。
+    if (detailStatus === "planning") return;
     if (detailProductFiles.length === 0) {
       addEvent("一键详情", "请至少上传一张产品图");
       return;
@@ -388,6 +397,15 @@ export function useDetailState({
       const message = normalizeGenerationErrorMessage(err);
       setDetailStatus("failed");
       addEvent("一键详情失败", message);
+      // V218 P0：catch 路径补一次延迟历史补拉，兜住「上游已出图/扣费但前端未收到响应」的漂移。
+      // 与生图成功路径同口径（2400ms），失败也不让结果图永久缺失。
+      window.setTimeout(() => {
+        void syncHistoryFromServer();
+      }, 2400);
+    } finally {
+      // V218 P0：任何路径都要把 planning 复位，避免 detailStatus 停在死值导致按钮永久禁用。
+      // 用函数式更新，只在仍是 planning 时回 idle，不覆盖成功/失败分支已落定的状态。
+      setDetailStatus((current) => (current === "planning" ? "idle" : current));
     }
   }
 
@@ -416,6 +434,15 @@ export function useDetailState({
     const runModel = models.find((item) => item.value === group.params.model) || models[0];
     const started = performance.now();
     updateDetailPrompt(group.id, prompt.screen, { status: "running", error: "", generationMs: null });
+
+    // V218 P0：复用 src/api/assets.js:9-24 的 AbortController + 定时器模式。
+    // 只兜「服务端未回响应」的网络僵死，阈值 930000ms（服务端 900000 + 30s 缓冲）。
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = controller ? window.setTimeout(() => controller.abort(), DETAIL_IMAGE_TIMEOUT_MS) : null;
+    let settled = false;
+    // 保留 `generateImages(form)` 调用字面（detail-studio-image-form-parity 门禁以它为
+    // form 构造段结束锚点），signal 经局部包装透传，不新增第二套模型调用/端点。
+    const generateImages = (f) => apiGenerateImages(f, controller ? { signal: controller.signal } : {});
 
     const form = new FormData();
     form.set("baseUrl", config.defaultBaseUrl || settings.baseUrl || defaultState.baseUrl);
@@ -473,10 +500,15 @@ export function useDetailState({
         generationMs: totalMs,
         results: nextResults
       });
+      settled = true;
       addEvent("一键详情", `第${prompt.screen}屏完成，用时 ${formatMs(totalMs)}`);
       return nextResults;
     } catch (err) {
-      const message = normalizeGenerationErrorMessage(err);
+      // V218 P0：AbortError 经 apiJson 会被包成 ApiError(cause=原始 AbortError)，两者都要认。
+      const isAbortError = err?.name === "AbortError" || err?.cause?.name === "AbortError";
+      const message = isAbortError
+        ? `第${prompt.screen}屏生图请求超时（已等待超过 ${Math.round(DETAIL_IMAGE_TIMEOUT_MS / 60000)} 分钟），可能网络僵死，请刷新历史或重试，切勿重复提交造成二次扣费`
+        : normalizeGenerationErrorMessage(err);
       if (isAuthErrorMessage(message)) {
         setIsSettingsOpen(true);
         setError("API Key 无效，请检查后在设置里重新保存。");
@@ -487,11 +519,26 @@ export function useDetailState({
         generationMs: performance.now() - started
       });
       addEvent(`第${prompt.screen}屏失败`, message);
+      // V218 P0：catch 路径补一次延迟历史补拉，与成功路径同口径（2400ms），
+      // 兜住「上游已出图/扣费但前端未收到响应」导致的结果不回写。
+      window.setTimeout(() => {
+        void syncHistoryFromServer();
+      }, 2400);
+      settled = true;
       throw err;
+    } finally {
+      // V218 P0：清掉兜底定时器；任何未走到成功/失败分支的异常路径，强制 status 落 idle，
+      // 杜绝 prompt.status 停在 running 造成「永远生成中」。
+      if (timer) window.clearTimeout(timer);
+      if (!settled) {
+        updateDetailPrompt(group.id, prompt.screen, { status: "idle", error: "", generationMs: null });
+      }
     }
   }
 
   async function generateDetailGroup(groupId) {
+    // V218 P0：同步 in-flight 锁，挡住 setState 异步窗口内的重复提交（连点只发起一次）。
+    if (detailGroupInFlightRef.current) return;
     const group = detailGroups.find((item) => item.id === groupId);
     if (!group) return;
     if (!normalizeApiKeyInput(settings.apiKey) && !config.hasServerKey) {
@@ -506,28 +553,39 @@ export function useDetailState({
       return;
     }
 
+    detailGroupInFlightRef.current = true;
     setDetailStatus("generating");
     setDetailGroups((current) => current.map((item) => (
       item.id === groupId ? { ...item, status: "generating" } : item
     )));
     addEvent("一键详情", `并发提交 ${enabledPrompts.length} 个分屏任务`);
-    const settled = await Promise.allSettled(
-      enabledPrompts.map((prompt, index) => generateDetailPrompt(group, prompt, index))
-    );
-    const failed = settled.filter((item) => item.status === "rejected").length;
-    const hasAuthFailure = settled.some((item) => (
-      item.status === "rejected" && isAuthErrorMessage(item.reason instanceof Error ? item.reason.message : String(item.reason))
-    ));
-    if (hasAuthFailure) {
-      setIsSettingsOpen(true);
-      setError("API Key 无效，请检查后在设置里重新保存。");
-      addEvent("一键详情", "有分屏返回 API Key 无效，请检查 KEY");
+    try {
+      const settled = await Promise.allSettled(
+        enabledPrompts.map((prompt, index) => generateDetailPrompt(group, prompt, index))
+      );
+      const failed = settled.filter((item) => item.status === "rejected").length;
+      const hasAuthFailure = settled.some((item) => (
+        item.status === "rejected" && isAuthErrorMessage(item.reason instanceof Error ? item.reason.message : String(item.reason))
+      ));
+      if (hasAuthFailure) {
+        setIsSettingsOpen(true);
+        setError("API Key 无效，请检查后在设置里重新保存。");
+        addEvent("一键详情", "有分屏返回 API Key 无效，请检查 KEY");
+      }
+      setDetailGroups((current) => current.map((item) => (
+        item.id === groupId ? { ...item, status: failed ? "partial" : "success" } : item
+      )));
+      setDetailStatus(failed ? "failed" : "ready");
+      addEvent("一键详情", failed ? `完成，${failed} 屏失败` : "全部屏幕生成完成");
+    } finally {
+      // V218 P0：任何路径都释放 in-flight 锁并把 detailStatus / group.status 从 generating 复位，
+      // 杜绝 Promise.allSettled 之外的同步异常导致「永远生成中」。函数式更新不覆盖已落定的终态。
+      detailGroupInFlightRef.current = false;
+      setDetailStatus((current) => (current === "generating" ? "ready" : current));
+      setDetailGroups((current) => current.map((item) => (
+        item.id === groupId && item.status === "generating" ? { ...item, status: "failed" } : item
+      )));
     }
-    setDetailGroups((current) => current.map((item) => (
-      item.id === groupId ? { ...item, status: failed ? "partial" : "success" } : item
-    )));
-    setDetailStatus(failed ? "failed" : "ready");
-    addEvent("一键详情", failed ? `完成，${failed} 屏失败` : "全部屏幕生成完成");
   }
 
   function findDetailPromptByResult(resultId) {
