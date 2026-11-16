@@ -8,6 +8,14 @@ import { sanitizeStoredImage } from "../storage/storage-store.js";
 // deps 解构保持同名 ⇒ main.jsx 调用点零改动；函数体内部互相调用直接引用闭包局部函数 ⇒ 不改签名。
 // bitmapFromBlob / orderedPromptsForGroup 只在工厂内部被调用，故不进返回值。
 
+// V217 S1-c：分组顶层持久化白名单。未知键（含 V2 中间态 planning / planningContext /
+// 规划 Skill marker）一律在写 DETAIL_GROUPS_KEY 前剥离，防扩散到预设 / 分组 / 发布种子。
+// 下列均为既有键：id/label/name/createdAt/status 为分组身份，params/prompts 为业务主体，
+// stylePack 供详情头部展示，productFiles/referenceFiles 写盘清空，results 为旧数据兼容槽位。
+const DETAIL_GROUP_STORAGE_KEYS = [
+  "id", "label", "name", "createdAt", "status", "params", "prompts",
+  "stylePack", "productFiles", "referenceFiles", "results"
+];
 
 export function createDetailGroup(deps) {
   const {
@@ -278,7 +286,12 @@ export function createDetailGroup(deps) {
 
 
 export function normalizeDetailSettings(settings = {}) {
-  const next = { ...detailDefaults, ...(settings || {}) };
+  // V217 S1-c：以 detailDefaults 键集为白名单过滤未知顶层键（V2 中间态不得透传进预设）。
+  const source = settings || {};
+  const next = { ...detailDefaults };
+  Object.keys(detailDefaults).forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(source, key)) next[key] = source[key];
+  });
   next.analysisMode = "ai";
   if (next.copywriting === "light") next.copywriting = "blank";
   if (next.copywriting === "none") next.copywriting = "poster";
@@ -311,15 +324,22 @@ export function sanitizeDetailResultForStorage(result) {
 }
 
 export function sanitizeDetailGroupsForStorage(groups) {
-  return (Array.isArray(groups) ? groups : []).map((group) => ({
-    ...group,
-    productFiles: [],
-    referenceFiles: [],
-    prompts: (group.prompts || []).map((prompt) => ({
-      ...prompt,
-      results: (prompt.results || []).map(sanitizeDetailResultForStorage)
-    }))
-  })).slice(0, 20);
+  return (Array.isArray(groups) ? groups : []).map((group) => {
+    const source = group || {};
+    const next = {};
+    DETAIL_GROUP_STORAGE_KEYS.forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(source, key)) next[key] = source[key];
+    });
+    return {
+      ...next,
+      productFiles: [],
+      referenceFiles: [],
+      prompts: (source.prompts || []).map((prompt) => ({
+        ...prompt,
+        results: (prompt.results || []).map(sanitizeDetailResultForStorage)
+      }))
+    };
+  }).slice(0, 20);
 }
 
 export function loadDetailGroups() {

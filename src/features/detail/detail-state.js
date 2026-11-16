@@ -137,6 +137,9 @@ export function useDetailState({
   const [stitchContextMenu, setStitchContextMenu] = useState(null);
   const [selectedSections, setSelectedSections] = useState([]);
   const [isDetailSectionsOpen, setIsDetailSectionsOpen] = useState(false);
+  // V217 S1-c：服务端 planning 只进独立会话态——不挂 group、不进 detailSettings、不写任何 localStorage 键。
+  // screens / instruction / history 为后续阶段预留槽位，S1-c 不实现多轮上下文。
+  const [detailPlanningContext, setDetailPlanningContext] = useState(null);
   const detailProductInputRef = useRef(null);
   const detailReferenceInputRef = useRef(null);
   const stitchDragRef = useRef(null);
@@ -363,6 +366,14 @@ export function useDetailState({
       productUpload.files.forEach((file) => form.append("productImage", file, file.name));
       referenceUpload.files.forEach((file) => form.append("referenceImage", file, file.name));
       const payload = await createDetailPrompts(form);
+      // V217 S1-c：planning 是响应独立顶层字段（与 group 平级），只接进会话态；
+      // group 构造与 setDetailGroups 保持原样，禁止把 planning / planningContext 挂上去。
+      setDetailPlanningContext({
+        planning: payload?.planning ?? null,
+        screens: [],
+        instruction: "",
+        history: []
+      });
       const group = {
         ...payload.group,
         productFiles: [...productUpload.files],
@@ -615,6 +626,8 @@ export function useDetailState({
     setDetailReferenceFiles,
     detailGroups,
     setDetailGroups,
+    detailPlanningContext,
+    setDetailPlanningContext,
     detailStatus,
     setDetailStatus,
     activeDetailGroupId,
