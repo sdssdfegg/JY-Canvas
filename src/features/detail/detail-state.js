@@ -55,6 +55,32 @@ const MAX_DETAIL_FILES = 6;
 // 仅兜「服务端未回响应」的网络僵死，不替代服务端超时、不误杀正常长任务。
 const DETAIL_IMAGE_TIMEOUT_MS = 930000;
 
+// V218 P1：通用会话态空槽位契约（工程容器，不含任何专业规则）。
+// planning 内部 schema / instruction 改写 / history 多轮与质检回流语义均不在此定义，留给外部顾问方案。
+export const DETAIL_PLANNING_CONTEXT_VERSION = 1;
+const DETAIL_PLANNING_CONTEXT_KEYS = ["version", "planning", "groupId", "screens", "instruction", "history"];
+
+export function createEmptyPlanningContext(planning, groupId) {
+  return {
+    version: DETAIL_PLANNING_CONTEXT_VERSION,
+    planning: planning ?? null,
+    groupId: groupId || "",
+    screens: [],
+    instruction: "",
+    history: []
+  };
+}
+
+// 序列化边界：仅产出内存 JSON 快照；本契约永不写 detailSettings / group / 任何 localStorage 键 / seed。
+export function serializePlanningContext(context) {
+  const source = context || {};
+  const next = {};
+  DETAIL_PLANNING_CONTEXT_KEYS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(source, key)) next[key] = source[key];
+  });
+  return next;
+}
+
 const workflowOptions = [
   { value: "taobao-main", label: "淘宝 / 主图" },
   { value: "taobao-detail", label: "淘宝 / 详情页" },
@@ -202,6 +228,13 @@ export function useDetailState({
   useEffect(() => {
     writeJsonStorage(DETAIL_GROUPS_KEY, sanitizeDetailGroupsForStorage(detailGroups));
   }, [detailGroups]);
+
+  // V218 P1：会话态按 groupId 关联，切到别的分组立刻清空，杜绝跨组串值。
+  useEffect(() => {
+    if (detailPlanningContext?.groupId && detailPlanningContext.groupId !== activeDetailGroupId) {
+      setDetailPlanningContext(null);
+    }
+  }, [activeDetailGroupId, detailPlanningContext]);
 
   useEffect(() => {
     if (detailGroups.length === 0) {
@@ -376,18 +409,14 @@ export function useDetailState({
       referenceUpload.files.forEach((file) => form.append("referenceImage", file, file.name));
       const payload = await createDetailPrompts(form);
       // V217 S1-c：planning 是响应独立顶层字段（与 group 平级），只接进会话态；
+      // V218 P1：用通用空槽位工厂落盘前内存快照，groupId 与本组绑定，切组自动清空。
       // group 构造与 setDetailGroups 保持原样，禁止把 planning / planningContext 挂上去。
-      setDetailPlanningContext({
-        planning: payload?.planning ?? null,
-        screens: [],
-        instruction: "",
-        history: []
-      });
       const group = {
         ...payload.group,
         productFiles: [...productUpload.files],
         referenceFiles: [...referenceUpload.files]
       };
+      setDetailPlanningContext(serializePlanningContext(createEmptyPlanningContext(payload?.planning ?? null, group.id)));
       setDetailGroups((current) => [group, ...current].slice(0, 20));
       setActiveDetailGroupId(group.id);
       setDetailInfoSelection(null);
@@ -672,6 +701,11 @@ export function useDetailState({
     setIsDetailSectionsOpen(false);
   }
 
+  // V218 P1：显式清空会话态；只动内存 state，不触碰任何持久化路径。
+  function resetPlanningContext() {
+    setDetailPlanningContext(null);
+  }
+
   return {
     // 状态
     detailSettings,
@@ -686,6 +720,7 @@ export function useDetailState({
     setDetailGroups,
     detailPlanningContext,
     setDetailPlanningContext,
+    resetPlanningContext,
     detailStatus,
     setDetailStatus,
     activeDetailGroupId,

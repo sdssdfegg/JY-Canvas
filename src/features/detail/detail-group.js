@@ -17,6 +17,16 @@ const DETAIL_GROUP_STORAGE_KEYS = [
   "stylePack", "productFiles", "referenceFiles", "results"
 ];
 
+// V218 P1：prompt 层持久化白名单。键集实测自 server/detail-middleware.js 的 prompt 构造体
+// 与前端运行期补丁（updateDetailPrompt 的 status/error/generationMs/results/text）两处，
+// 共 19 个既有键，全部保留；未知键（含 V2 规划中间态 / 规划 Skill marker）写盘前一律剥离。
+const DETAIL_PROMPT_STORAGE_KEYS = [
+  "screen", "title", "summary", "intervention", "referenceStrategy",
+  "productFileIndexes", "referenceFileIndexes", "imageSlots",
+  "moduleKey", "moduleName", "qualityChecklist", "aiScreen", "analysisMode",
+  "text", "enabled", "status", "error", "generationMs", "results"
+];
+
 export function createDetailGroup(deps) {
   const {
     blobFromImageItem,
@@ -334,10 +344,17 @@ export function sanitizeDetailGroupsForStorage(groups) {
       ...next,
       productFiles: [],
       referenceFiles: [],
-      prompts: (source.prompts || []).map((prompt) => ({
-        ...prompt,
-        results: (prompt.results || []).map(sanitizeDetailResultForStorage)
-      }))
+      prompts: (source.prompts || []).map((prompt) => {
+        const sourcePrompt = prompt || {};
+        const nextPrompt = {};
+        DETAIL_PROMPT_STORAGE_KEYS.forEach((key) => {
+          if (Object.prototype.hasOwnProperty.call(sourcePrompt, key)) nextPrompt[key] = sourcePrompt[key];
+        });
+        return {
+          ...nextPrompt,
+          results: (sourcePrompt.results || []).map(sanitizeDetailResultForStorage)
+        };
+      })
     };
   }).slice(0, 20);
 }
