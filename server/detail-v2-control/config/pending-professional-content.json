@@ -1,0 +1,42 @@
+{
+  "$schemaNote": "四层控制框架的专业内容待接入占位配置。本文件只提供结构槽位与状态标记，不含任何正式专业规则；所有内容必须由 ChatGPT 交付后经接入流程替换，禁止把本占位内容当作正式专业内容或固化到运行时规则。",
+  "placeholderPolicy": {
+    "status": "pending_professional_content",
+    "owner": "ChatGPT（专业线）",
+    "consumedBy": "总控工程线按数据契约接入",
+    "mustNotBeTreatedAs": ["正式专业内容", "质量标准", "已验收的模型输出"],
+    "replaceOnlyBy": "Owner 接收 ChatGPT 交付并确认后的正式内容文件",
+    "engineeringUseOnly": true
+  },
+  "skillDirectives": {
+    "status": "pending_professional_content",
+    "note": "8 个基础 Skill 的正式职责与推理规则由 ChatGPT 交付；当前运行时的 V2_SKILL_DIRECTIVES 是 V219/V220 已复核资产，不在本占位文件内改写。",
+    "slots": [
+      "product-understanding",
+      "industry-routing",
+      "consumer-marketing-strategy",
+      "detail-story-planning",
+      "visual-art-direction",
+      "ecommerce-copy-layout",
+      "cross-screen-coherence",
+      "detail-quality-control"
+    ]
+  },
+  "industryPacks": {
+    "status": "pending_professional_content",
+    "note": "首个清洁日化包（cleaning）的目录与加载机制为工程骨架；INDUSTRY.md 专业正文待 ChatGPT 交付。",
+    "slots": ["cleaning"]
+  },
+  "taskRegistry": {
+    "status": "pending_professional_content",
+    "note": "内容任务与视觉任务的 allowedIndustries/requiredFacts/excludedConditions 等专业值待 ChatGPT 填；本框架只提供字段结构与空的安全集合。",
+    "contentTasks": [],
+    "visualTasks": []
+  },
+  "qualityStandards": {
+    "status": "pending_professional_content",
+    "note": "六维质量评分口径、严重错误判定与最终提示词质量标准待 ChatGPT 交付；当前不得据本文件判定模型质量通过。",
+    "sixDimensions": [],
+    "criticalRules": []
+  }
+}
