@@ -309,6 +309,100 @@ push("N10 负向：首屏非 hero 必被 C5 判红",
     && !isHeroFirst({ prompts: [] }),
   "坏夹具首屏 moduleKey 非 hero / 缺首屏均判红");
 
+// ---------------------------------------------------------------- V 组 · V220/S2-B 注册表注入与结构化契约
+// 本组为 S2-B 新增断言；既有 A/B/C/负向对照 54 条一条未删、锚点未动（NEEDLE_SKILL /
+// NEEDLE_DEFAULT_PLANNING / PLANNING_MARKER 原样命中），断言强度不降。
+const REGISTRY_REL = "prompts/server/detail-v2-planning/index.js";
+const registrySource = read(REGISTRY_REL);
+// 独立预期清单（不取自被测源码，避免自证）：8 个 marker 与注册表一一对应。
+const V2B_MARKERS = [
+  "JINGYIN_DETAIL_V2_SKILL_PRODUCT_UNDERSTANDING",
+  "JINGYIN_DETAIL_V2_SKILL_INDUSTRY_ROUTING",
+  "JINGYIN_DETAIL_V2_SKILL_CONSUMER_MARKETING_STRATEGY",
+  "JINGYIN_DETAIL_V2_SKILL_DETAIL_STORY_PLANNING",
+  "JINGYIN_DETAIL_V2_SKILL_VISUAL_ART_DIRECTION",
+  "JINGYIN_DETAIL_V2_SKILL_ECOMMERCE_COPY_LAYOUT",
+  "JINGYIN_DETAIL_V2_SKILL_CROSS_SCREEN_COHERENCE",
+  "JINGYIN_DETAIL_V2_SKILL_DETAIL_QUALITY_CONTROL"
+];
+// 每项 directive 的关键短语逐字取自对应 SKILL.md 规则段；注入指令须含该短语，
+// 且源码 directive 文本亦须含该短语——证明注入内容源自冻结专业资产而非凭空改写。
+const V2B_PHRASES = {
+  "product-understanding": "不得虚构材质、参数、认证、疗效、销量、品牌背书",
+  "industry-routing": "禁止把清洗剂判为服装",
+  "consumer-marketing-strategy": "空洞参数罗列不算营销表达",
+  "detail-story-planning": "禁止固定标题轮转",
+  "visual-art-direction": "禁止仅背景/颜色变化",
+  "ecommerce-copy-layout": "相邻屏文案不做语义复述",
+  "cross-screen-coherence": "不能期待图片模型记住首屏",
+  "detail-quality-control": "严重错误不可被高分抵消"
+};
+const V2B_TOP_KEYS = ["schemaVersion", "product", "industryProfile", "consumerInsights", "marketingStrategy", "screens", "globalVisualDNA", "planning", "qc"];
+const V2B_CALIBRATIONS = ["事实分级映射", "内容角色映射", "风险等级映射", "Schema 顶层归并"];
+
+const regSkillsOf = (payload) => payload?.skillPack?.planningSkill?.registeredSkills;
+const markersOf = (list) => Array.isArray(list) ? list.map((item) => item && item.marker).filter(Boolean) : [];
+const hasAllMarkers = (payload) => {
+  const found = markersOf(regSkillsOf(payload));
+  return found.length === V2B_MARKERS.length && V2B_MARKERS.every((marker) => found.includes(marker));
+};
+const hasAllTopKeys = (payload) => V2B_TOP_KEYS.every((key) => Object.hasOwn(payload?.outputSchema || {}, key));
+const instructionText = (payload) => Array.isArray(payload?.instruction) ? payload.instruction.join("\n") : "";
+const hasAllPhrases = (payload) => Object.values(V2B_PHRASES).every((phrase) => instructionText(payload).includes(phrase));
+const hasAllCalibrations = (payload) => V2B_CALIBRATIONS.every((key) => instructionText(payload).includes(key));
+
+expectIncludes("V1 detail-ai.js 导入注册表 detailV2SkillRegistry", sources.ai, "detailV2SkillRegistry");
+expectIncludes("V2 注入视图由注册表派生（V2_REGISTERED_SKILLS = detailV2SkillRegistry.map）", sources.ai, "V2_REGISTERED_SKILLS = detailV2SkillRegistry.map");
+push("V3 注册表 8 个专业 Skill marker 齐全",
+  V2B_MARKERS.every((marker) => probe(registrySource, marker)) && countOf(registrySource, "marker: \"JINGYIN_DETAIL_V2_SKILL_") === 8,
+  "注册表 marker 唯一且 8 项");
+for (const [id, phrase] of Object.entries(V2B_PHRASES)) {
+  const skillRel = `prompts/server/detail-v2-planning/skills/${id}/SKILL.md`;
+  push(`V4-${id} 关键 directive 回链冻结 SKILL.md（源码 phrase 与资产 phrase 双命中）`,
+    existsSync(path.join(ROOT, skillRel)) && probe(sources.ai, phrase) && probe(read(skillRel), phrase),
+    "phrase=" + phrase);
+}
+push("V5 默认 payloadA 的 skillPack 含注册表 8 Skill 全部 marker", hasAllMarkers(payloadA),
+  "markers=" + markersOf(regSkillsOf(payloadA)).join(","));
+push("V6 条件注入：已选板块 payloadB 不含 registeredSkills（未无条件全塞）",
+  !Object.hasOwn(regSkillsOf(payloadB) || {}, "marker")
+    && markersOf(regSkillsOf(payloadB)).length === 0
+    && !Object.hasOwn(payloadB?.skillPack || {}, "planningSkill"),
+  "空选注入 / 已选板块不注入");
+push("V7 默认 payloadA instruction 含 8 Skill 关键 directive（回链短语全命中）", hasAllPhrases(payloadA),
+  "8 phrase 全命中");
+push("V8 outputSchema 含 V219 planning-result.schema.json 的 9 顶层键", hasAllTopKeys(payloadA),
+  "keys=" + V2B_TOP_KEYS.filter((key) => Object.hasOwn(payloadA?.outputSchema || {}, key)).join(","));
+push("V9 instruction 含 V219 §11.3 四项收窄偏差双向映射说明", hasAllCalibrations(payloadA),
+  V2B_CALIBRATIONS.join("/"));
+push("V10 旧枚举值未改：facts.level 三级 + moduleId 词表仍为原字节",
+  probe(sources.ai, "level: \"visible|inferred|mustNotClaim\"")
+    && probe(sources.ai, "hero|painReverse|coreSellingPoint|materialDetail|useScenario|specInfo|trustProof|conversionClose|fitStructure"),
+  "不改旧枚举，仅加映射说明");
+
+// V 组负向对照（坏夹具→判红，证明上述断言非虚设、非恒真）
+const badDropMarker = {
+  skillPack: { planningSkill: { registeredSkills: (regSkillsOf(payloadA) || []).slice(1) } }
+};
+push("VN1 负向：删 1 个 Skill marker 必被 V5 判红",
+  hasAllMarkers(payloadA) && !hasAllMarkers(badDropMarker), "坏夹具少一 marker");
+const badNoTopKey = { outputSchema: { ...(payloadA?.outputSchema || {}) } };
+delete badNoTopKey.outputSchema.industryProfile;
+push("VN2 负向：删 industryProfile 顶层键必被 V8 判红",
+  hasAllTopKeys(payloadA) && !hasAllTopKeys(badNoTopKey), "坏夹具少一顶层键");
+push("VN3 负向：删任一 Skill 关键 directive 必被 V7 判红",
+  hasAllPhrases(payloadA)
+    && Object.values(V2B_PHRASES).every((phrase) => instructionText({ ...payloadA, instruction: payloadA.instruction.filter((line) => !line.includes(phrase)) }).includes(phrase)) === false,
+  "坏夹具缺一 phrase");
+push("VN4 负向：已选板块若塞入 registeredSkills 必被 V6 判红",
+  !Object.hasOwn(payloadB?.skillPack || {}, "planningSkill")
+    && Object.hasOwn({ planningSkill: regSkillsOf(payloadA) }, "planningSkill"),
+  "坏夹具在 payloadB 注入规划 Skill，条件断言可区分");
+push("VN5 负向：删校准映射说明必被 V9 判红",
+  hasAllCalibrations(payloadA)
+    && !hasAllCalibrations({ instruction: payloadA.instruction.filter((line) => !line.includes("Schema 顶层归并")) }),
+  "坏夹具缺一映射");
+
 // ---------------------------------------------------------------- 冻结哈希（硬红线，不进棘轮）
 const FROZEN = [
   { rel: REL.skillWords, label: "G-2 禁改词表" },
