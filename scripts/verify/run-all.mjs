@@ -260,6 +260,9 @@ const ORDER = [
   // V2 S1-a（2026-11-15）：规划链门禁先行——A 组现行不变量 / B 组 Skill 真实进模型请求体
   // （fetch 内存探针捕获 textPayload）/ C 组 S1-b 前瞻契约基线棘轮 / G-2 与种子字节哈希硬锁。
   "detail-v2-planning-chain-check",
+  // V219 / S2-A（2026-11-17）：阶段 A 专业资产门禁——8 Skill + Agent 三件套 + 2 Schema + 注册表 +
+  // 测试集齐备、G-2/v2/活壳/skillModuleV2 字节哈希硬锁、≥3 负向对照，纯静态零上游，双数组登记。
+  "detail-v2-assets-check",
   // V218（2026-11-16）：一键详情工程线 P0/P1 固化门禁——Vite mock React hooks 真实驱动
   // useDetailState（并发连点锁 / abort 复位 / catch 补拉）+ postForm parity + prompt 白名单 +
   // 会话态契约 + 4 条负向对照，零上游零 KEY，ORDER 与 FAST_ORDER 双数组同时登记。
@@ -397,6 +400,8 @@ const FAST_ORDER = [
   "detail-sections-chain-check",
   // V2 S1-a（2026-11-15）：规划链门禁（纯逻辑、fetch 内存探针零上游、进 --fast 快速子集）。
   "detail-v2-planning-chain-check",
+  // V219 / S2-A（2026-11-17）：阶段 A 专业资产门禁（纯静态、零上游、进 --fast 快速子集）。
+  "detail-v2-assets-check",
   // V218（2026-11-16）：一键详情工程线 P0/P1 固化门禁（Vite mock hooks 真运行时、零上游、进 --fast）。
   "detail-v2-engineering-chain-check",
   // V212-R1（2026-11-13）：生图结果回写状态机端到端门禁（沙盒、零上游、进 --fast 快速子集）。

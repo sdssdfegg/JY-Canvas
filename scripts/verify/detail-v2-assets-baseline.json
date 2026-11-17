@@ -1,0 +1,13 @@
+{
+  "generatedAt": "2026-11-17T00:22:48.146Z",
+  "reason": "V219/S2-A 阶段 A 资产门禁首次上线：8 Skill+Agent三件套+2 Schema+注册表+测试集齐备，36/36 全绿，items 存量 0；固化 G-2 词表/v2 三文件/活壳/skillModuleV2 本体段 6 份冻结哈希。",
+  "items": [],
+  "frozenHashes": {
+    "prompts/server/detail-skills.js": "e799ac3d830434c749c7f4f940951e763fd111114b31d91d9cc41b72a1ee19ac",
+    "prompts/server/detail-skills-v2/composition-variants.js": "1da4b5f88b21ccd43284172fed0b262bb425165a709e4afdce05641aba64c93a",
+    "prompts/server/detail-skills-v2/index.js": "96ade7f4d465d5ff94b9e5bb239eab2f64a2d1c87a81959f1ed678d52019d60e",
+    "prompts/server/detail-skills-v2/style-packs.js": "dd14ef2b926384252f75ef484af6b4e01a037c5e3d5163c9c9c49762f980fcac",
+    "server/detail-skills-v2.js": "62865917ceada82a5cc3db693376064de25fad3cd7a08f4b17e35d2efd461b13",
+    "prompts/server/detail-v2-planning/index.js#skillModuleV2": "32e44ad5cbc0f8eb6037e5ca853a683ed7850e6306173200b971f08d6bf553fc"
+  }
+}

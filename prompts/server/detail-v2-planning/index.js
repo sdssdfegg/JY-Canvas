@@ -36,3 +36,58 @@ export const skillModuleV2 = {
 };
 
 export default skillModuleV2;
+
+// V219 / S2-A：8 个专业 Skill 注册入口（与 skillModuleV2 并列，仅作资产登记）。
+// 本常量是阶段 A 的纯声明资产清单，S2-B 才消费它去接模型调用链；本批不接运行时、
+// 不改 skillModuleV2 本体，也不改 marker（门禁 C1/N6/N7 与 S1-a 规划链门禁锁这些锚点）。
+// 每项：{ id, version, path（相对本目录）, marker（稳定唯一，供门禁断言）}。
+export const detailV2SkillRegistry = [
+  {
+    id: "product-understanding",
+    version: "1.0.0",
+    path: "./skills/product-understanding/SKILL.md",
+    marker: "JINGYIN_DETAIL_V2_SKILL_PRODUCT_UNDERSTANDING"
+  },
+  {
+    id: "industry-routing",
+    version: "1.0.0",
+    path: "./skills/industry-routing/SKILL.md",
+    marker: "JINGYIN_DETAIL_V2_SKILL_INDUSTRY_ROUTING"
+  },
+  {
+    id: "consumer-marketing-strategy",
+    version: "1.0.0",
+    path: "./skills/consumer-marketing-strategy/SKILL.md",
+    marker: "JINGYIN_DETAIL_V2_SKILL_CONSUMER_MARKETING_STRATEGY"
+  },
+  {
+    id: "detail-story-planning",
+    version: "1.0.0",
+    path: "./skills/detail-story-planning/SKILL.md",
+    marker: "JINGYIN_DETAIL_V2_SKILL_DETAIL_STORY_PLANNING"
+  },
+  {
+    id: "visual-art-direction",
+    version: "1.0.0",
+    path: "./skills/visual-art-direction/SKILL.md",
+    marker: "JINGYIN_DETAIL_V2_SKILL_VISUAL_ART_DIRECTION"
+  },
+  {
+    id: "ecommerce-copy-layout",
+    version: "1.0.0",
+    path: "./skills/ecommerce-copy-layout/SKILL.md",
+    marker: "JINGYIN_DETAIL_V2_SKILL_ECOMMERCE_COPY_LAYOUT"
+  },
+  {
+    id: "cross-screen-coherence",
+    version: "1.0.0",
+    path: "./skills/cross-screen-coherence/SKILL.md",
+    marker: "JINGYIN_DETAIL_V2_SKILL_CROSS_SCREEN_COHERENCE"
+  },
+  {
+    id: "detail-quality-control",
+    version: "1.0.0",
+    path: "./skills/detail-quality-control/SKILL.md",
+    marker: "JINGYIN_DETAIL_V2_SKILL_DETAIL_QUALITY_CONTROL"
+  }
+];

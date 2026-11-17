@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jingyin.local/schemas/detail-v2/planning-result.schema.json",
+  "title": "一键详情 V2 · 策划结果契约（阶段 A · 不接运行时）",
+  "description": "总策划 Agent 单次模型调用的结构化输出契约。含 schemaVersion 与 8 个业务顶层字段（现有 outputSchema 可映射 4：product/screens/planning/qc；方案新增 4：industryProfile/consumerInsights/marketingStrategy/globalVisualDNA），与 D-PLAN-12『4/8 字段可映射』一致。仅为契约文档：planning 作响应独立顶层、不挂 group、前端 detailPlanningContext 会话态承接、不落盘、不进 detailSettings/group/seed。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "product",
+    "industryProfile",
+    "consumerInsights",
+    "marketingStrategy",
+    "screens",
+    "globalVisualDNA",
+    "planning",
+    "qc"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "契约版本号；固定 1.0.0，变更须走版本升级与兼容映射复核。"
+    },
+    "product": {
+      "$ref": "#/$defs/product",
+      "description": "商品事实与分级（映射现有 detail-ai.js outputSchema.product；增补分级字段，旧字段保留）。"
+    },
+    "industryProfile": {
+      "$ref": "#/$defs/industryProfile",
+      "description": "方案新增顶层：行业识别与单一决策结果（展示行业=规则行业）。"
+    },
+    "consumerInsights": {
+      "$ref": "#/$defs/consumerInsights",
+      "description": "方案新增顶层：消费者需求与洞察。"
+    },
+    "marketingStrategy": {
+      "$ref": "#/$defs/marketingStrategy",
+      "description": "方案新增顶层：事实→需求→利益→营销表达四层策划（吸收现有 strategy 的 globalStyle/copywritingTone 语义）。"
+    },
+    "screens": {
+      "$ref": "#/$defs/screens",
+      "description": "逐屏内容/视觉任务（映射现有 outputSchema.screens）；长度必须等于用户指定 count，不增不减。"
+    },
+    "globalVisualDNA": {
+      "$ref": "#/$defs/globalVisualDNA",
+      "description": "方案新增顶层：整组视觉基因（吸收现有 strategy 的 consistencyRules 语义）；整组只声明一次。"
+    },
+    "planning": {
+      "$ref": "#/$defs/planning",
+      "description": "规划顶层（映射现有 outputSchema.planning）；含叙事/角色/事实分级/dedupLog，uncertainties 亦由本字段承载。"
+    },
+    "qc": {
+      "$ref": "#/$defs/qc",
+      "description": "质检与风险（映射现有 outputSchema.qc）；独立可选、只给建议、不自动覆盖用户提示词。"
+    }
+  },
+  "$defs": {
+    "factLevel": {
+      "type": "string",
+      "enum": ["visible", "inferred", "mustNotClaim"],
+      "description": "事实分级：图片可见 / 有依据但不可全确认 / 禁止作为确定事实断言。"
+    },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "industryId"],
+      "properties": {
+        "name": { "type": "string", "maxLength": 120 },
+        "industryId": { "type": "string", "maxLength": 40 },
+        "industryName": { "type": "string", "maxLength": 120 },
+        "targetAudience": { "type": "string", "maxLength": 200 },
+        "materials": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 80 } },
+        "colors": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 80 } },
+        "structureLocks": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 120 } },
+        "realSellingPoints": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 160 } },
+        "riskNotes": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 160 } },
+        "styleDirection": { "type": "string", "maxLength": 200 },
+        "uncertainties": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["claim", "reason"],
+            "properties": {
+              "claim": { "type": "string", "maxLength": 160 },
+              "reason": { "type": "string", "maxLength": 200 }
+            }
+          },
+          "description": "图片无法确认的事项；不得作为确定事实进入 realSellingPoints 或 screens.sellingPoint。"
+        }
+      }
+    },
+    "industryProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["industryId", "industryName", "decisionLogic"],
+      "properties": {
+        "industryId": { "type": "string", "maxLength": 40 },
+        "industryName": { "type": "string", "maxLength": 120 },
+        "evidence": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 160 }, "description": "只能引用 product 中 level=visible|inferred 的事实。" },
+        "decisionLogic": { "type": "string", "maxLength": 400, "description": "强特征优先 / 弱语境词不越权的判定依据。" },
+        "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+        "uncertaintyNote": { "type": "string", "maxLength": 200 }
+      }
+    },
+    "consumerInsights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["audience"],
+      "properties": {
+        "audience": { "type": "string", "maxLength": 200 },
+        "needs": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["need", "evidenceRef"],
+            "properties": {
+              "need": { "type": "string", "maxLength": 160 },
+              "evidenceRef": { "type": "string", "maxLength": 160, "description": "引用 product 事实，不得引用 mustNotClaim。" }
+            }
+          }
+        }
+      }
+    },
+    "marketingStrategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["valueLadder"],
+      "properties": {
+        "valueLadder": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["fact", "need", "benefit", "expression"],
+            "properties": {
+              "fact": { "type": "string", "maxLength": 160 },
+              "need": { "type": "string", "maxLength": 160 },
+              "benefit": { "type": "string", "maxLength": 160 },
+              "expression": { "type": "string", "maxLength": 200 }
+            }
+          },
+          "description": "事实→需求→利益→营销表达四层链；每层须可回溯到 product 事实。"
+        },
+        "tone": { "type": "string", "maxLength": 120, "description": "吸收现有 strategy.copywritingTone 语义。" },
+        "boundaries": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 160 }, "description": "行业禁忌与真实性边界。" }
+      }
+    },
+    "screens": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "description": "count 硬约束：长度必须等于用户指定 count（1–12，默认 8）；缺屏/多屏由工程判红，模型不增不减。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["screen", "moduleId", "title"],
+        "properties": {
+          "screen": { "type": "integer", "minimum": 1, "maximum": 12 },
+          "moduleId": { "type": "string", "maxLength": 60 },
+          "title": { "type": "string", "maxLength": 120, "description": "由屏序与内容任务决定，禁止固定标题轮转；首屏不写死标题文字。" },
+          "summary": { "type": "string", "maxLength": 300 },
+          "sellingPoint": { "type": "string", "maxLength": 300, "description": "不得引用 mustNotClaim 事实；相邻屏不得语义复述。" },
+          "composition": { "type": "string", "maxLength": 400 },
+          "copywriting": { "type": "string", "maxLength": 400 },
+          "referenceReason": { "type": "string", "maxLength": 200 },
+          "promptDirectives": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 200 } },
+          "negativeConstraints": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 200 } },
+          "compositionVariantId": { "type": "string", "maxLength": 60, "description": "可选：沿用现有 moduleId 变体值域；不新建第二套。" }
+        }
+      }
+    },
+    "globalVisualDNA": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["palette", "lighting"],
+      "properties": {
+        "palette": { "type": "string", "maxLength": 160 },
+        "texture": { "type": "string", "maxLength": 160 },
+        "lighting": { "type": "string", "maxLength": 160 },
+        "cameraLanguage": { "type": "string", "maxLength": 160 },
+        "ratio": { "type": "string", "maxLength": 40 },
+        "tone": { "type": "string", "maxLength": 160 },
+        "integrityLocks": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 160 }, "description": "整组主体/中文标签/行业禁忌锁；每屏精简约束须保留，不因分层加载丢失。" }
+      }
+    },
+    "planning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["narrative", "screenRoles", "facts", "dedupLog"],
+      "properties": {
+        "narrative": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "reason", "confidence"],
+          "properties": {
+            "id": { "type": "string", "maxLength": 80 },
+            "reason": { "type": "string", "maxLength": 400 },
+            "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+          }
+        },
+        "screenRoles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "description": "index 从 0 起、与 screens 一一对应；首屏 role=hero。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["index", "role"],
+            "properties": {
+              "index": { "type": "integer", "minimum": 0, "maximum": 11 },
+              "role": { "type": "string", "maxLength": 60 },
+              "sectionRefs": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 80 } }
+            }
+          }
+        },
+        "facts": {
+          "type": "array",
+          "maxItems": 40,
+          "description": "facts 引用校验：level=mustNotClaim 的 claim 不得出现在 product 确定事实或 screens.sellingPoint。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["claim", "level"],
+            "properties": {
+              "claim": { "type": "string", "maxLength": 200 },
+              "level": { "$ref": "#/$defs/factLevel" }
+            }
+          }
+        },
+        "dedupLog": {
+          "type": "array",
+          "maxItems": 40,
+          "items": { "type": "string", "maxLength": 200 },
+          "description": "去重动作与理由；工程门禁消费（本批只落契约、不改运行时消费代码）。"
+        }
+      }
+    },
+    "qc": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "globalChecks": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 200 } },
+        "commonFailureRisks": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 200 } },
+        "retryAdvice": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 200 } }
+      }
+    }
+  }
+}

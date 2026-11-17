@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jingyin.local/schemas/detail-v2/quality-result.schema.json",
+  "title": "一键详情 V2 · 质检结果契约（阶段 A · 不接运行时）",
+  "description": "独立可选质检的输出契约（v1.1 §10.3-C 接口返回 + D-PLAN-12 §8 风险分级 + V219 §4.3 六维评价）。质检只给建议、不自动覆盖用户已确认提示词；本批只落契约文档，不接 UI/接口/模型调用。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "findings", "summary", "scores", "criticalFlags"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "契约版本号；固定 1.0.0。"
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 60,
+      "description": "质检发现项；按屏任务与整组检查都要进入结果，不得被固定 slice 截断（D-PLAN-11 §2.6 根因）。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["screenIndex", "type", "severity", "evidence", "suggestion", "source"],
+        "properties": {
+          "screenIndex": {
+            "type": "integer",
+            "minimum": -1,
+            "maximum": 12,
+            "description": "-1 表示整组级问题，>=0 为对应屏序。"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "事实越界",
+              "跨屏重复",
+              "板块覆盖缺失",
+              "首屏缺失",
+              "DNA 冲突",
+              "平台合规",
+              "文案语气不一致"
+            ],
+            "description": "沿用 v1.1 §10.3-C type 覆盖集合。"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "major", "minor"],
+            "description": "风险分级；严重错误（事实错误/虚假功效/行业错误）一律 critical。"
+          },
+          "evidence": { "type": "string", "maxLength": 300, "description": "引用具体字段或值，必须可复核。" },
+          "suggestion": { "type": "string", "maxLength": 300, "description": "可执行修正建议；用户点击才写回 prompt.text。" },
+          "source": { "type": "string", "enum": ["local", "model"], "description": "local=本地确定性规则；model=模型质检（是否启用/费用为 C-4 待裁决）。" }
+        }
+      }
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 600,
+      "description": "质检结论摘要；质检不可用时应返回『质检不可用 + 本地规则结果』，不阻断生图。"
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "六项评价维度逐项 1–5 分（V219 §4.3）；不得以结构正确代替真实模型质量验证。",
+      "required": ["商品理解", "营销策划", "叙事逻辑", "视觉创意", "提示词质量", "真实性"],
+      "properties": {
+        "商品理解": { "$ref": "#/$defs/score" },
+        "营销策划": { "$ref": "#/$defs/score" },
+        "叙事逻辑": { "$ref": "#/$defs/score" },
+        "视觉创意": { "$ref": "#/$defs/score" },
+        "提示词质量": { "$ref": "#/$defs/score" },
+        "真实性": { "$ref": "#/$defs/score" }
+      }
+    },
+    "criticalFlags": {
+      "type": "array",
+      "maxItems": 20,
+      "items": { "type": "string", "maxLength": 200 },
+      "description": "严重错误标记（商品事实错误/虚假功效/行业错误）；一旦非空，整组判不合格，不可被其它高分抵消。"
+    }
+  },
+  "$defs": {
+    "score": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "单项 1–5 分；独立于严重错误标记，严重错误另记 criticalFlags。"
+    }
+  }
+}
