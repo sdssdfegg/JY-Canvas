@@ -3,7 +3,7 @@
 // 🔴 明确边界：本门禁证明的是工程验证，不代表专业模型质量验收通过；不检查任何专业内容正确性。
 // 负向对照：真实篡改源码后必须判红（删控制报告 / 改占位固化 / 删字段证据 / 删单一决策源字段）。
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -433,6 +433,39 @@ const skill05Prompt = mwForProbe.buildDetailPromptGroup(
 push("P15 SKILL05全文未注入提示词", !skill05Prompt.includes(skill05.slice(0, 60)) && skill05Prompt.length < skill05.length);
 push("P16 SKILL05内部词未污染", !/(辅助说明与专业转译|当前屏文案结果|质量验收 20 条)/.test(skill05Prompt));
 
+// ---------- Q 组 · SKILL 06 正式正文接入（人物与使用场景·条件能力·capability_module 落点） ----------
+let skillsCfgQ = null;
+try { skillsCfgQ = JSON.parse(read("server/detail-v2-control/config/professional-skills-v1.json")); } catch { skillsCfgQ = null; }
+const figureContract = skillsCfgQ?.activationContracts?.["figure-usage-scene"];
+const figureFormal = figureContract?.formal_professional_contract_v1;
+push("Q1 SKILL06正式正文落地配置", Boolean(figureFormal) && probe(JSON.stringify(figureFormal), "SKILL 06｜人物与使用场景 V1.0"));
+push("Q2 SKILL06 capability_module落点标注", probe(JSON.stringify(figureFormal), "capability_module 映射") && probe(JSON.stringify(figureFormal), "不新建重复Skill文件"));
+push("Q3 未新建第9个SKILL.md（8文件不变）", (() => { const list = readdirSync(path.join(ROOT, "prompts/server/detail-v2-planning/skills")); return list.length === 8 && !list.some((d) => /figure|person|scene|usage/i.test(d)); })());
+push("Q4 SKILL06七条正式触发", figureFormal?.activation_conditions_formal?.length === 7);
+push("Q5 SKILL06七条正式排除", figureFormal?.exclusion_conditions_formal?.length === 7);
+push("Q6 SKILL06决策/执行/输出/注入规则齐",
+  figureFormal?.decision_rules_formal?.length >= 6 && figureFormal?.execution_rules_formal?.length >= 2
+  && figureFormal?.output_contract_formal?.length >= 10 && figureFormal?.prompt_injection_policy_formal?.length > 20);
+push("Q7 SKILL06冲突优先级与降级齐", probe(JSON.stringify(figureFormal), "全局事实边界") && figureFormal?.failure_fallback_formal?.length >= 7);
+push("Q8 SKILL06验收24条", figureFormal?.acceptance_criteria_count === 24 && figureFormal?.task_value_rules?.length >= 3);
+push("Q9 SKILL06契约12字段仍齐", ["activation_conditions", "exclusion_conditions", "required_context", "optional_context", "execution_mode", "decision_rules", "execution_rules", "output_contract", "downstream_usage", "prompt_injection_policy", "conflict_priority", "failure_fallback"].every((k) => k in (figureContract || {})));
+// 触发：条件能力正负 + 防误触发（仅旧键不触发，正式键齐才触发）
+const figOff = activationMod.evaluateAllActivations({ contextKeys: [] }).results.find((x) => x.id === "figure-usage-scene");
+const figLegacy = activationMod.evaluateAllActivations({ contextKeys: ["user_requires_model", "explicit_figure_task"] }).results.find((x) => x.id === "figure-usage-scene");
+const figOn = activationMod.evaluateAllActivations({ contextKeys: ["screen_needs_figure", "user_requires_figure", "explicit_figure_task"] }).results.find((x) => x.id === "figure-usage-scene");
+push("Q10 人物条件能力无需求不触发", figOff?.decision === "inactive");
+push("Q11 仅旧键不足以触发（防误触发）", figLegacy?.decision === "inactive");
+push("Q12 正式键齐触发conditional", figOn?.decision === "conditional" && figOn?.active === true && figOn?.authoritySource === "formal_professional_contract");
+push("Q13 SKILL06契约仍conditional", figureContract?.execution_mode === "conditional");
+// 污染：未触发人物能力时提示词无人物/场景污染
+const figurePrompt = mwForProbe.buildDetailPromptGroup(
+  { count: 1, workflow: "taobao-detail", productName: "血渍清洗剂", modelMode: "use-model" },
+  [], { aiPlan: { ...probePlan, screens: [{ screen: 1, title: "首屏", moduleId: "hero" }] } }
+);
+push("Q14 未触发人物能力不进提示词", !figurePrompt.prompts[0].skillActivation?.activeIds?.includes("model-pose"));
+push("Q15 清洁产品提示词无生活场景污染", !/(客厅|厨房|浴室|家庭成员|宠物)/.test(figurePrompt.prompts[0].text));
+push("Q16 契约正文未进提示词", !figurePrompt.prompts[0].text.includes(figureFormal?.task_value_rules?.[0] || "__none__"));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -466,6 +499,8 @@ neg("N25 SKILL04回链phrase被删后判红", skill04.split("禁止仅背景/颜
 neg("N26 SKILL04正式标记被删后判红", skill04.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
 neg("N27 SKILL05回链phrase被删后判红", skill05.split("相邻屏文案不做语义复述").join(""), "相邻屏文案不做语义复述");
 neg("N28 SKILL05正式标记被删后判红", skill05.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
+const skillsCfgNStr = read("server/detail-v2-control/config/professional-skills-v1.json");
+neg("N29 SKILL06正式正文契约被删后判红", skillsCfgNStr.split('"formal_professional_contract_v1"').join('"formal_contract_removed"'), '"formal_professional_contract_v1"');
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {

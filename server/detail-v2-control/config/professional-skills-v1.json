@@ -151,14 +151,41 @@
       "conflict_priority": 3, "failure_fallback": "无需文字的屏不生成文案指令"
     },
     "figure-usage-scene": {
-      "activation_conditions": ["screen_needs_figure", "user_requires_figure"], "exclusion_conditions": ["static_product_screen", "no_figure_requirement"], "required_context": ["explicit_figure_task"], "optional_context": ["industry_apparel"],
+      "activation_conditions": ["screen_needs_figure", "user_requires_figure"], "exclusion_conditions": ["static_product_screen", "no_figure_requirement"], "required_context": ["explicit_figure_task"], "optional_context": ["industry_apparel", "user_figure_style", "user_scene", "reference_images", "confirmed_usage", "global_visual_dna"],
       "execution_mode": "conditional",
-      "decision_rules": ["当前屏需要人物/人体/手部/操作/生活情境，或用户明确提出时触发", "静物/纯产品/信息图/结构细节不触发", "不得默认所有产品需要模特"],
-      "execution_rules": ["人物指令服务当前屏内容任务", "不引入无关人物身份"],
-      "output_contract": "generation_instruction 人物/场景指令",
-      "downstream_usage": "当前屏人物画面",
-      "prompt_injection_policy": "未触发完全不进入提示词",
-      "conflict_priority": 4, "failure_fallback": "无人物任务时输出本屏无模特的正向约束"
+      "decision_rules": [
+        "触发依据必须是当前屏真实的表达任务，不是商品所属行业、商品名称或整套详情是否存在人物",
+        "仅当本屏确需：人物身份/状态/情绪/生活情境共鸣，或人体局部/手部说明使用方式，或人与商品互动解释功能流程体验，或真实生活环境建立使用场景，或人物场景证明生活语境，或用户明确要求增改删人物/手部/动作/场景，或视觉概念必须依赖人物场景才成立",
+        "不触发：纯产品展示/结构材质包装图形文字抽象视觉/纯数据参数规格信息整理/纯静物特写组合概念场景图形视觉即可表达/人物场景仅装饰无表达价值/用户明确不要人物手部场景/仅改颜色构图背景排版",
+        "只需要手部不得扩展为完整人物；只需要环境不得强行加人物；需要人物不得默认完整身体正脸特定身份；需要互动必须确认互动关系与本屏任务一致"
+      ],
+      "execution_rules": [
+        "只执行当前屏被授权的人物与场景规划任务",
+        "不得重新制定营销策略、重写叙事结构或擅自改变本屏内容任务",
+        "人物与场景属服务内容表达的视觉资源，非详情页固定组成部分；目标不是让画面尽可能出现人物"
+      ],
+      "output_contract": "当前屏人物与场景规划：是否需要人物/人体局部/手部/生活场景，表现方式，动作与商品互动关系，环境与商品关系，视觉优先级，事实真实性限制，最终可使用的人物及场景生成指令；不需要项明确为空不生成",
+      "downstream_usage": "供当前屏视觉方案与提示词编译器使用；只有本屏真正需要的人物动作场景及必要约束可进入最终提示词",
+      "prompt_injection_policy": "仅注入本屏最终确认的人物与场景指令及必要的真实性动作关系约束；不注入本Skill全文/内部判断/无关人物设定/备选方案/其他屏人物场景内容",
+      "conflict_priority": 4, "failure_fallback": "依据不足时优先中性人物/手部或局部/不露脸动作；无法确认操作不生成具体动作；无法确认适用对象不安排特定人群；场景不足用中性环境；无法安全成立则退回纯产品展示/静物/图形表达",
+      "formal_professional_contract_v1": {
+        "source": "ChatGPT《SKILL 06｜人物与使用场景 V1.0》正式正文（2026-11-18 交付）",
+        "landing": "capability_module 映射：现有8文件无独立人物Skill，按 V2-PRO-003 映射落到本能力契约，不新建重复Skill文件",
+        "activation_conditions_formal": ["人物身份状态情绪生活情境共鸣", "人体局部手部动作说明使用方式", "人与商品互动解释功能流程体验", "真实生活环境建立使用场景代入", "人物场景证明生活语境", "用户明确增改删人物手部动作场景", "视觉概念必须依赖人物场景才成立"],
+        "exclusion_conditions_formal": ["纯产品展示", "结构材质包装图形文字抽象视觉即可表达", "纯数据参数规格信息整理", "纯静物特写组合概念场景图形视觉", "人物场景仅装饰无表达价值", "用户明确不要人物手部场景", "仅改颜色构图背景排版"],
+        "required_context_formal": "当前屏任务、商品理解结果、当前屏视觉方案、已确认使用方式及必要事实约束；缺失不阻止判断但执行须保守，不得自行创造商品事实",
+        "optional_context_formal": ["用户指定人物年龄性别风格形象", "用户指定环境地点生活场景", "用户参考图", "本屏文案及相邻屏", "真实使用动作步骤已确认适用对象", "整套视觉DNA", "平台画幅比例生图约束"],
+        "execution_mode": "conditional",
+        "decision_rules_formal": ["先判断本屏是否需要人物或场景再判断用哪一种", "不因能力已注册已加载可用或行业常见就自动添加", "只要手部不扩完整人物", "只要环境不强加人物", "需要人物不默认完整身体正脸特定身份", "需要互动必须确认关系与本屏任务一致"],
+        "execution_rules_formal": ["只执行本屏授权的人物场景规划", "不重制营销不重写叙事不改本屏任务"],
+        "output_contract_formal": ["是否需要人物", "是否需要人体局部", "是否需要手部", "是否需要生活场景", "人物或局部表现方式", "动作与商品互动关系", "环境与商品关系", "人物和场景视觉优先级", "真实性与事实限制", "本屏最终可使用的人物及场景生成指令", "不需要项明确为空不强行填充"],
+        "downstream_usage_formal": "供本屏视觉方案与提示词编译器使用；只有本屏真正需要的人物动作场景及必要约束进入最终提示词；不注入完整分析/所有人物方案/未选方案/其他屏场景规划",
+        "prompt_injection_policy_formal": "仅注入本屏最终确认的人物与场景指令及必要真实性动作关系约束；不注入全文/内部判断/无关设定/备选方案/其他屏内容",
+        "conflict_priority_formal": "遵循全局事实边界>用户明确要求>本屏授权任务>商品真实使用逻辑>整套视觉约束>本屏视觉方案；人物场景不得突破事实边界、不得为画面效果改变商品身份使用方式或本屏任务",
+        "failure_fallback_formal": ["使用方式不明确：不创造操作，用商品展示/局部动作/中性视觉", "适用对象不明确：不指定人群不暗示适用范围", "动作难成立：简化动作缩小范围必要时取消人物", "场景关系不明确：中性环境/简化背景/纯产品展示", "人物遮挡主体：调整占比景别位置动作或取消", "场景信息过多：删无关道具人物环境", "用户要求与事实冲突：遵循事实边界"],
+        "task_value_rules": ["人物场景须有明确表达价值：帮助理解实际使用情境/让使用方式直观/建立生活代入/解释人与商品关系/让本屏更易理解/为视觉概念提供环境支持/强化已授权消费者利益", "无额外理解信息视觉价值应删除", "不以画面太空/丰富画面/详情页要有生活感等模糊理由增加"],
+        "acceptance_criteria_count": 24
+      }
     },
     "product-specialty-expression": {
       "activation_conditions": ["specialty_condition_met"], "exclusion_conditions": ["specialty_condition_unmet"], "required_context": ["specialty_evidence"], "optional_context": ["product_facts"],
