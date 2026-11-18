@@ -466,6 +466,43 @@ push("Q14 未触发人物能力不进提示词", !figurePrompt.prompts[0].skillA
 push("Q15 清洁产品提示词无生活场景污染", !/(客厅|厨房|浴室|家庭成员|宠物)/.test(figurePrompt.prompts[0].text));
 push("Q16 契约正文未进提示词", !figurePrompt.prompts[0].text.includes(figureFormal?.task_value_rules?.[0] || "__none__"));
 
+// ---------- R 组 · 人物任务信号派生缺陷修复（真实 Middleware → 正式信号 → 契约 → 提示词） ----------
+const deriveMod = await import(pathToFileURL(path.join(ROOT, "server", "detail-middleware.js")).href);
+const deriveFigure = deriveMod.deriveFigureTaskContextKeys;
+function figureScenario({ productName, industryId, materials, userInstruction, modelMode, modelUsage, screen = {} }) {
+  const aiPlan = {
+    product: { industryId, industryName: industryId, name: productName, materials },
+    planning: { facts: materials.map((c) => ({ claim: c, level: "visible" })) },
+    industryProfile: { industryId }, consumerInsights: { audience: "用户" }, marketingStrategy: { valueLadder: [] },
+    globalVisualDNA: { palette: "素色" }, screens: [{ screen: 1, title: "首屏", moduleId: "hero", ...screen }]
+  };
+  const input = { count: 1, workflow: "taobao-detail", productName, userInstruction, modelMode, modelUsage };
+  const group = deriveMod.buildDetailPromptGroup(input, [], { aiPlan });
+  const prompt = group.prompts[0];
+  const derived = deriveFigure({ input, aiScreen: { composition: screen.composition, sellingPoint: screen.sellingPoint }, moduleSkill: { name: "首屏主视觉", id: "hero" } });
+  const figResult = prompt.skillActivation?.results?.find((x) => x.id === "figure-usage-scene");
+  return { prompt, derived, figResult, active: Boolean(prompt.skillActivation?.activeIds?.includes("model-pose")) };
+}
+const figA = figureScenario({ productName: "T恤", industryId: "apparel", materials: ["棉"], userInstruction: "需要模特展示穿着效果", modelMode: "use-model", modelUsage: 2 });
+push("R1 用户明确要求模特展示穿着→触发", figA.active === true && figA.figResult?.decision === "conditional" && figA.derived.includes("screen_needs_figure"));
+const figB = figureScenario({ productName: "清洗剂", industryId: "cleaning", materials: ["白色泵瓶"], userInstruction: "画面需要手部按压泵头操作演示", modelMode: "use-model", modelUsage: 1 });
+push("R2 用户明确要求手部操作→触发", figB.active === true && figB.derived.includes("screen_needs_figure"));
+const figC = figureScenario({ productName: "清洗剂", industryId: "cleaning", materials: ["白色泵瓶"], userInstruction: "", modelMode: "no-model", screen: { composition: "人物在洗手台旁的生活场景中使用产品" } });
+push("R3 本屏任务需要生活场景→触发", figC.active === true && figC.derived.includes("screen_needs_figure"));
+const figD = figureScenario({ productName: "血渍清洗剂", industryId: "cleaning", materials: ["白色泵瓶"], userInstruction: "生成商品静物图", modelMode: "no-model" });
+push("R4 清洁剂静物屏→不触发", figD.active === false && figD.derived.length === 0);
+const figE = figureScenario({ productName: "T恤", industryId: "apparel", materials: ["棉"], userInstruction: "不要人物，纯产品展示", modelMode: "use-model", modelUsage: 2 });
+push("R5 用户明确不要人物→不触发", figE.active === false && figE.derived.includes("no_figure_requirement"));
+push("R6 仅旧键缺正式依据→不触发", activationMod.evaluateAllActivations({ contextKeys: ["user_requires_model", "explicit_figure_task"] }).results.find((x) => x.id === "figure-usage-scene")?.decision === "inactive");
+const figFormal = activationMod.evaluateAllActivations({ contextKeys: ["screen_needs_figure", "user_requires_figure", "explicit_figure_task"] }).results.find((x) => x.id === "figure-usage-scene");
+push("R7 正式键齐→conditional且权威=正式契约", figFormal?.decision === "conditional" && figFormal?.authoritySource === "formal_professional_contract");
+push("R8 行业不自动触发（服装无人物依据）", figureScenario({ productName: "T恤", industryId: "apparel", materials: ["棉"], userInstruction: "", modelMode: "no-model" }).active === false);
+push("R9 modelMode旧参数不自动触发", figureScenario({ productName: "清洗剂", industryId: "cleaning", materials: ["白色泵瓶"], userInstruction: "", modelMode: "use-model", modelUsage: 3 }).active === false);
+// 污染：未触发不注入人物、触发不注入Skill正文全文
+const figureCfgText = JSON.stringify(skillsCfgQ?.activationContracts?.["figure-usage-scene"]?.formal_professional_contract_v1 || {});
+push("R10 未触发时提示词为无模特正向约束", figD.prompt.text.includes("本屏无模特") && !/展示穿着效果/.test(figD.prompt.text));
+push("R11 触发时仅必要人物指令、无Skill正文污染", figA.prompt.text.includes("模特") && !figA.prompt.text.includes("人物与使用场景"));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -501,6 +538,8 @@ neg("N27 SKILL05回链phrase被删后判红", skill05.split("相邻屏文案不�
 neg("N28 SKILL05正式标记被删后判红", skill05.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
 const skillsCfgNStr = read("server/detail-v2-control/config/professional-skills-v1.json");
 neg("N29 SKILL06正式正文契约被删后判红", skillsCfgNStr.split('"formal_professional_contract_v1"').join('"formal_contract_removed"'), '"formal_professional_contract_v1"');
+neg("N30 人物信号派生调用被删后判红", middleware.replace("triggerCtxKeys.push(...deriveFigureTaskContextKeys({ input, aiScreen, moduleSkill }));", ""), "triggerCtxKeys.push(...deriveFigureTaskContextKeys({ input, aiScreen, moduleSkill }))");
+neg("N31 人物正向关键词被删后判红", middleware.split("模特|真人|人物|人手|手部|手持|握持|穿着|佩戴").join(""), "模特|真人|人物|人手|手部|手持|握持|穿着|佩戴");
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {

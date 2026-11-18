@@ -562,6 +562,36 @@ function buildV2ControlReport(aiPlan, resolvedIndustryId) {
   };
 }
 
+// V2-PRO-003 缺陷修复：当前屏「人物任务信号」派生（纯函数、只传信号、不绕过契约）。
+// 🔴 边界：只从用户明确要求与本屏任务语义派生正式键 screen_needs_figure / user_requires_figure /
+//    explicit_figure_task；绝不凭商品行业、商品类型、modelMode 旧参数或历史旧键自动触发。
+//    Middleware 只负责正确传递当前屏任务信号，是否激活仍由正式 Activation Contract 判断。
+const FIGURE_POSITIVE_PATTERN = /(模特|真人|人物|人手|手部|手持|握持|穿着|佩戴|使用演示|操作演示|生活场景|使用场景|人物互动|人在使用|手持产品)/;
+const FIGURE_NEGATIVE_PATTERN = /(不要人物|不出现人物|无人物|不使用模特|不要模特|纯静物|纯产品|仅商品|禁止人物|避免人物|无人像)/;
+
+export function deriveFigureTaskContextKeys({ input = {}, aiScreen = null, moduleSkill = null } = {}) {
+  const userText = String(input.userInstruction || input.userRequirement || "");
+  const screenText = [
+    aiScreen?.composition,
+    aiScreen?.sellingPoint,
+    aiScreen?.copywriting,
+    aiScreen?.modelPolicyHint,
+    moduleSkill?.name,
+    moduleSkill?.id
+  ].filter(Boolean).map((v) => String(v)).join(" ");
+
+  // 用户明确不要人物 → 最高优先，返回排除信号（不派生任何正向人物键）。
+  if (FIGURE_NEGATIVE_PATTERN.test(userText)) return ["no_figure_requirement"];
+
+  // 正向依据只认两类：① 用户明确要求；② 当前屏任务语义本身需要人物/手部/生活场景。
+  const userExplicit = FIGURE_POSITIVE_PATTERN.test(userText);
+  const screenTaskNeeds = FIGURE_POSITIVE_PATTERN.test(screenText);
+  if (!userExplicit && !screenTaskNeeds) return [];
+
+  // 派生正式三键，交给 evaluateAllActivations 按正式契约判定（本函数不直接激活）。
+  return ["screen_needs_figure", "user_requires_figure", "explicit_figure_task"];
+}
+
 function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   const count = clamp(input.count, BASE_SKILL.screenCountRule.min, BASE_SKILL.screenCountRule.max, DEFAULT_COUNT);
   const workflow = String(input.workflow || "taobao-detail").trim();
@@ -706,12 +736,9 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       facts.forEach((f) => triggerCtxKeys.push(`fact_${f?.level || "unknown"}`));
       visibleFacts.forEach((claim) => triggerCtxKeys.push(`visible:${claim}`));
       triggerCtxKeys.push(`industry_${industrySkill.id}`);
-      // 人物任务只在用户显式要求且非清洁日化时才声明；清洁产品默认无人物任务。
-      const hasExplicitFigureTask = String(input.userInstruction || "").includes("模特")
-        || String(input.modelUsage || "") !== "" && input.modelMode === "use-model" && industrySkill.id !== "cleaning";
-      if (input.modelMode === "use-model" && hasExplicitFigureTask) {
-        triggerCtxKeys.push("user_requires_model", "explicit_figure_task");
-      }
+      // V2-PRO-003 缺陷修复：人物任务信号只由当前屏任务语义派生（用户明确要求 / 本屏任务需要），
+      // 不凭行业、商品类型或 modelMode 旧参数自动触发；是否激活仍由正式 Activation Contract 判断。
+      triggerCtxKeys.push(...deriveFigureTaskContextKeys({ input, aiScreen, moduleSkill }));
       if (visibleFacts.some((c) => /结构|泵头|喷头|卡扣/.test(c))) triggerCtxKeys.push("confirmed_structure_fact");
       if (facts.some((f) => f?.level === "visible" && /效果|去除率|测试/.test(String(f.claim || "")))) {
         triggerCtxKeys.push("reliable_effect_evidence", "effect_evidence");
