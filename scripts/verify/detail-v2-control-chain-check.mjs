@@ -96,7 +96,8 @@ push("F5 内容任务 10 项", professional.taskRegistry?.contentTasks?.length =
 push("F6 视觉任务 8 项", professional.taskRegistry?.visualTasks?.length === 8);
 push("F7 cleaning 行业包存在", Boolean(professional.industryPacks?.cleaning?.industryId));
 push("F8 禁止泛化规则齐", (professional.industryPacks?.cleaning?.noGeneralization || []).length >= 5);
-push("F9 第六节截断标注待补", professional.regressionCases?.status === "pending_source_completion" && probe(proMd, "截断"));
+push("F9 第六节补全已接入（非截断待补）",
+  professional.regressionCases?.status === "professional_content" && probe(proMd, "PRO-014") && probe(proMd, "七、接入与验收要求"));
 push("F10 编译器禁止清单齐", (professional.compilerConstraints?.mustNot || []).length >= 6);
 
 // F 组运行时：准入判定符合专业规则（真实调用控制层纯函数）。
@@ -137,6 +138,27 @@ push("F16 血渍清洗剂含包装→cleaning覆盖", Boolean(cleaningHit && cle
 push("F17 清洗剂不带服装观察点", Boolean(cleaningHit && !cleaningHit.analyzeAttributes.some((a) => /袖口|领口|纽扣|版型|面料/.test(a))));
 push("F18 T恤不误判 cleaning", controlMod.detectIndustryOverride("T恤 纯棉 短袖 版型") === null);
 
+// ---------- G 组 · V2-PRO-001 补充交付（第六/七节验收基线） ----------
+const testCases = read("prompts/server/detail-v2-planning/tests/product-cases.md");
+const regression = professional.regressionCases || {};
+push("G1 14 个 PRO 案例 ID 齐备", (regression.caseIds || []).length === 14
+  && ["PRO-001", "PRO-007", "PRO-014"].every((id) => (regression.caseIds || []).includes(id)));
+push("G2 五档验收分级 G1–G5 齐", (regression.acceptanceLevels || []).map((x) => x.level).join(",") === "G1,G2,G3,G4,G5");
+push("G3 G4/G5 标待验收（非 Mock 非 PASS）",
+  (regression.acceptanceLevels || []).filter((x) => x.level === "G4" || x.level === "G5")
+    .every((x) => String(x.status).includes("待验收")));
+push("G4 工程/真实模型测试分离标注齐",
+  (regression.separation?.engineeringTestCases || []).length >= 6
+  && (regression.separation?.realModelTestCases || []).length === 10);
+push("G5 真实模型禁止项含不得冒充原始结果",
+  (regression.separation?.forbidden || []).some((x) => String(x).includes("冒充")));
+push("G6 优先真实模型案例为 PRO-001", regression.priorityRealModelCase?.caseId === "PRO-001");
+push("G7 PRO 案例纳入唯一测试库（非第二套）",
+  ["PRO-001", "PRO-014"].every((id) => probe(testCases, id)) && probe(testCases, "唯一测试库纪律"));
+push("G8 测试库保留 A–F 与未跑留白",
+  ["案例 A", "案例 F"].every((k) => probe(testCases, k)) && probe(testCases, "未跑") && probe(testCases, "不标 PASS"));
+push("G9 原文含接入要求八条", ["不新增 Agent", "不修改冻结", "不重复建立"].every((k) => probe(proMd, k)));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -146,6 +168,8 @@ neg("N4 占位改 admitted 后判红", control.replace("禁止用占位值判 ad
 neg("N5 质检截断复活后判红", middleware.replace("【质检自查】${qualityChecklist.join", "【质检自查】${qualityChecklist.slice(0, 8).join"), "【质检自查】${qualityChecklist.join");
 neg("N6 正式内容状态标记被删后判红", professionalRaw.split('"status": "professional_content"').join(""), '"status": "professional_content"');
 neg("N7 行业覆盖层调用被删后判红", middleware.replace("const override = detectIndustryOverride(`${aiText} ${inputText}`);", ""), "detectIndustryOverride(`${aiText} ${inputText}`)");
+neg("N8 14 案例 ID 被删后判红", professionalRaw.split('"PRO-014"').join(""), '"PRO-014"');
+neg("N9 验收分级 G5 被删后判红", professionalRaw.split('"level": "G5"').join(""), '"level": "G5"');
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {
