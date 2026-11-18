@@ -573,6 +573,40 @@ push("T13 结构未触发时专项正文未进提示词", (() => { const s = str
 push("T14 结构事实未触发时仅作视觉保护", /结构锁定|真实结构/.test(structScenario({ facts: ["泵头结构"], userInstruction: "商品静物展示" }).text));
 push("T15 六类专项定义未被修改", (() => { const f = skillsCfgQ?.activationContracts?.["product-specialty-expression"]?.formal_professional_contract_v1; return f?.six_specialties?.length === 6 && f?.acceptance_criteria_count === 30; })());
 
+// ---------- U 组 · SKILL 08 正式正文接入（详情质量审查·optional·用户主动触发） ----------
+const skill08Rel = "prompts/server/detail-v2-planning/skills/detail-quality-control/SKILL.md";
+const skill08 = read(skill08Rel);
+push("U1 SKILL08正式正文V1标记", probe(skill08, "正式专业正文 V1.0") && probe(skill08, "SKILL 08"));
+push("U2 SKILL08九要素保留", ["职责", "触发", "输入", "判断方法", "规则", "输出字段", "边界", "冲突处理", "测试案例"].every((s) => probe(skill08, `## ${s}\n`)));
+push("U3 SKILL08回链phrase逐字保留", probe(skill08, "严重错误不可被高分抵消"));
+push("U4 SKILL08只诊断不创作原则", probe(skill08, "审查不等于创作") && probe(skill08, "只有审查权限、无默认修改权限"));
+push("U5 SKILL08用户主动触发与排除", probe(skill08, "用户主动触发") && probe(skill08, "不得把 QC 变成生图前强制门槛"));
+push("U6 SKILL08八审查维度", probe(skill08, "商品事实与身份") && probe(skill08, "生图提示词完整性与可执行性") && probe(skill08, "平台与规范"));
+push("U7 SKILL08三级分级与证据", probe(skill08, "P0 必须修复") && probe(skill08, "问题证据规则"));
+push("U8 SKILL08结论与信息不足", probe(skill08, "不得将信息不足描述成质量通过") && probe(skill08, "暂不建议通过"));
+push("U9 SKILL08隔离与边界", probe(skill08, "QC 与正常生图提示词完全隔离") && probe(skill08, "QC 不改变其他 Skill 激活状态"));
+push("U10 SKILL08验收30条", probe(skill08, "质量验收 30 条"));
+push("U11 SKILL08旧规则合并保留", ["critical", "六项评价维度", "不阻断生图", "案例 A/B", "案例 E"].every((s) => probe(skill08, s)));
+push("U12 SKILL08注册路径可读正式正文", (() => { const s = regMod.detailV2SkillRegistry.find((x) => x.id === "detail-quality-control"); return Boolean(s) && read(path.join("prompts/server/detail-v2-planning", s.path.replace("./", ""))).includes("正式专业正文 V1.0"); })());
+push("U13 SKILL08 marker未变", regMod.detailV2SkillRegistry.find((x) => x.id === "detail-quality-control")?.marker === "JINGYIN_DETAIL_V2_SKILL_DETAIL_QUALITY_CONTROL");
+// optional 触发：无请求 inactive；两键齐 conditional（契约当前为 AND 语义，单键偏差已挂账待裁决）
+const qcOff = activationMod.evaluateAllActivations({ contextKeys: [] }).results.find((x) => x.id === "detail-quality-control");
+const qcOn = activationMod.evaluateAllActivations({ contextKeys: ["user_clicks_qc", "user_requests_review"] }).results.find((x) => x.id === "detail-quality-control");
+push("U14 QC无请求保持inactive", qcOff?.decision === "inactive");
+push("U15 QC正式触发键齐conditional权威=正式契约", qcOn?.decision === "conditional" && qcOn?.authoritySource === "formal_professional_contract");
+push("U16 QC契约仍optional", skillsCfgQ?.activationContracts?.["detail-quality-control"]?.execution_mode === "optional");
+// 污染：QC正文不进正常生图提示词
+const qcPrompt = mwForProbe.buildDetailPromptGroup(
+  { count: 1, workflow: "taobao-detail", productName: "血渍清洗剂" },
+  [], { aiPlan: { ...probePlan, screens: [{ screen: 1, title: "首屏", moduleId: "hero" }] } }
+).prompts[0].text;
+push("U17 QC正文未污染生图提示词", !qcPrompt.includes(skill08.slice(0, 60)) && skill08.length > qcPrompt.length);
+push("U18 QC内部词未进提示词", !/(质量验收 30 条|审查覆盖情况|问题清单)/.test(qcPrompt));
+push("U19 八项Skill正式正文全部接入", ["product-understanding", "consumer-marketing-strategy", "detail-story-planning", "visual-art-direction", "ecommerce-copy-layout"].every((id) => probe(read(`prompts/server/detail-v2-planning/skills/${id}/SKILL.md`), "正式专业正文 V1.0"))
+  && skillsCfgQ?.activationContracts?.["figure-usage-scene"]?.formal_professional_contract_v1
+  && skillsCfgQ?.activationContracts?.["product-specialty-expression"]?.formal_professional_contract_v1
+  && probe(skill08, "正式专业正文 V1.0"));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -614,6 +648,8 @@ neg("N32 SKILL07正式正文契约被删后判红", skillsCfgNStr.split('"six_sp
 neg("N33 SKILL07正式标记被删后判红", JSON.stringify(specFormal || {}).replace("SKILL 07｜产品专项表达 V1.0", ""), "SKILL 07｜产品专项表达 V1.0");
 neg("N34 结构任务信号派生调用被删后判红", middleware.replace("triggerCtxKeys.push(...deriveStructureTaskContextKeys({ input, aiScreen, moduleSkill }));", ""), "triggerCtxKeys.push(...deriveStructureTaskContextKeys({ input, aiScreen, moduleSkill }))");
 neg("N35 结构任务归一化被删后判红", activationSrc.replace('structure_task_required: "specialty_condition_met",', ""), 'structure_task_required: "specialty_condition_met"');
+neg("N36 SKILL08回链phrase被删后判红", skill08.split("严重错误不可被高分抵消").join(""), "严重错误不可被高分抵消");
+neg("N37 SKILL08正式标记被删后判红", skill08.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {
