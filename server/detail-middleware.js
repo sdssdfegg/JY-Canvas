@@ -479,7 +479,11 @@ function buildRounds(platformSkill, industrySkill, analysis, count, reverseScree
 function buildV2ControlReport(aiPlan, resolvedIndustryId) {
   const status = professionalContentStatus();
   const registry = createTaskRegistry();
-  const industryId = String(resolvedIndustryId || aiPlan?.industryProfile?.industryId || "generic").trim() || "generic";
+  // 单一决策源工程验证：模型 industryProfile 行业为展示行业，运行时词表行业为规则行业，
+  // 两者一致性作为可验证证据（不在此处改写 17 槽位文本，避免占位态固化临时规则）。
+  const modelIndustryId = String(aiPlan?.industryProfile?.industryId || "").trim();
+  const runtimeIndustryId = String(resolvedIndustryId || "generic").trim() || "generic";
+  const industryId = modelIndustryId || runtimeIndustryId;
   const pack = loadIndustryPack(industryId);
   const confirmedFacts = (Array.isArray(aiPlan?.planning?.facts)
     ? aiPlan.planning.facts.filter((f) => f?.level === "visible").map((f) => String(f.claim || ""))
@@ -502,6 +506,9 @@ function buildV2ControlReport(aiPlan, resolvedIndustryId) {
     controlStatus: "engineering_verification_only",
     professionalContentStatus: status.status,
     isPlaceholder: status.isPlaceholder,
+    modelIndustryId,
+    runtimeIndustryId,
+    industrySingleSourceConsistent: modelIndustryId ? modelIndustryId === runtimeIndustryId : null,
     activeIndustryId: pack.activeIndustryId,
     loadedIndustryPackIds: pack.loadedIndustryPackIds,
     fallbackMode: pack.fallbackMode,
