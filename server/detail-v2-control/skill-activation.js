@@ -207,7 +207,11 @@ export const LEGACY_CONTEXT_KEY_MAP = Object.freeze({
   // 与效果路径共用 specialty_condition_met 是为了不改单一聚合契约、不动其他五类专项。
   structure_task_required: "specialty_condition_met",
   confirmed_structure_fact: "specialty_evidence",
-  ordinary_packaging: "specialty_condition_unmet"
+  ordinary_packaging: "specialty_condition_unmet",
+  // PRO-003 QC纠偏：两个独立主动入口（按钮/用户明确请求）的输入侧旧别名统一归一化到 qc_requested。
+  // 单键 activation 经 conditionsMet.every 等价 OR；两入口同时成立只产生一个键，不重复执行。
+  user_clicks_qc: "qc_requested",
+  user_requests_review: "qc_requested"
 });
 
 export function normalizeContextKeys(contextKeys = []) {

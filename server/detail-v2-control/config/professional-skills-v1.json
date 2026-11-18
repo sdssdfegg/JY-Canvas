@@ -234,8 +234,9 @@
       }
     },
     "detail-quality-control": {
-      "activation_conditions": ["user_clicks_qc", "user_requests_review"], "exclusion_conditions": ["no_qc_request"], "required_context": [], "optional_context": ["full_plan"],
+      "activation_conditions": ["qc_requested"], "exclusion_conditions": ["no_qc_request"], "required_context": [], "optional_context": ["full_plan", "qc_scope"],
       "execution_mode": "optional",
+      "activation_logic_note": "PRO-003 QC纠偏：两入口（QC按钮点击 / 用户明确审查请求）任一成立即派生统一信号 qc_requested；单键 activation 经 conditionsMet.every 等价 OR；user_clicks_qc/user_requests_review 作为输入侧旧别名归一化到 qc_requested，不参与契约判定；两者同时成立只派生一次、不重复执行。",
       "decision_rules": ["用户主动点击质检或明确要求审查时执行", "默认不阻塞生图", "未经用户确认不得覆盖已确认提示词"],
       "execution_rules": ["审查商品事实/营销真实性/内容完整/叙事/视觉差异/文案/画面逻辑/跨屏一致"],
       "output_contract": "audit_rules 审查结果",

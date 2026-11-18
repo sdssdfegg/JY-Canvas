@@ -624,6 +624,25 @@ export function deriveStructureTaskContextKeys({ input = {}, aiScreen = null, mo
   return ["structure_task_required"];
 }
 
+// PRO-003 QC 主动触发纠偏：两个独立入口任一成立即返回统一信号 qc_requested（OR 语义）。
+// 🔴 边界：QC 是独立可选能力——只在用户主动触发时派生；其他 Skill/系统自检/普通生成或修改请求
+//    一律不派生；不绕过正式契约；不同时成立两次、不重复执行（返回单一键）。
+// 入口① 用户点击独立 QC 按钮：显式入参 qcTrigger/runQC/qcRequested（不依赖自然语言）。
+// 入口② 对话中用户明确要求质量审查：userInstruction/userRequirement 命中明确审查语义。
+const QC_EXPLICIT_REQUEST_PATTERN = /(质量审查|质检|审查这套|审查详情|检查这套详情|检查详情|检查当前屏|检查第[一二三四五六七八九十\d]+屏|审查第[一二三四五六七八九十\d]+屏|有没有问题|是否存在问题|检查.{0,12}画面是否合理|诊断.{0,12}详情|评估.{0,12}详情质量|找.{0,12}问题)/;
+const QC_PLAIN_EDIT_PATTERN = /^(把|改|将|请改|帮我改).*(文案|标题|卖点|颜色|构图|背景|图片|这一屏|第[一二三四五六七八九十\d]+屏)/;
+
+export function deriveQCTaskContextKeys({ input = {} } = {}) {
+  // 入口①：独立 QC 按钮点击（显式入参信号）。
+  const buttonClicked = input.qcTrigger === "button" || input.runQC === true || input.qcRequested === true;
+  // 入口②：用户明确审查请求；纯修改请求不视为审查。
+  const userText = String(input.userInstruction || input.userRequirement || "");
+  const explicitRequest = QC_EXPLICIT_REQUEST_PATTERN.test(userText) && !QC_PLAIN_EDIT_PATTERN.test(userText);
+  if (!buttonClicked && !explicitRequest) return [];
+  // 两个入口同时成立也只返回一个统一键——Activation Contract 只判定一次、不重复执行。
+  return ["qc_requested"];
+}
+
 function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   const count = clamp(input.count, BASE_SKILL.screenCountRule.min, BASE_SKILL.screenCountRule.max, DEFAULT_COUNT);
   const workflow = String(input.workflow || "taobao-detail").trim();
@@ -774,6 +793,8 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       // V2-PRO-003 结构专项修复：结构事实仍只作 specialty_evidence；结构"任务信号"单独派生
       // （当前屏确实需要结构表达时才派生 specialty_condition_met），不用效果证据键冒充结构触发。
       triggerCtxKeys.push(...deriveStructureTaskContextKeys({ input, aiScreen, moduleSkill }));
+      // PRO-003 QC纠偏：只由两个主动入口派生统一 qc_requested 信号（OR）；其他能力/系统自检不派生。
+      triggerCtxKeys.push(...deriveQCTaskContextKeys({ input }));
       if (visibleFacts.some((c) => /结构|泵头|喷头|卡扣/.test(c))) triggerCtxKeys.push("confirmed_structure_fact");
       if (facts.some((f) => f?.level === "visible" && /效果|去除率|测试/.test(String(f.claim || "")))) {
         triggerCtxKeys.push("reliable_effect_evidence", "effect_evidence");

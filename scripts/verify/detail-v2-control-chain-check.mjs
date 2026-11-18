@@ -634,6 +634,47 @@ push("V9 6屏严格生成6屏", vg6.prompts.length === 6 && vg6.params.count ===
 push("V10 屏数下链路完整（卖点+画面任务）", vg3.prompts.every((p) => p.text.includes("本屏卖点") && p.text.includes("画面任务")));
 push("V11 屏间各有独立sellingPoint", new Set(vg3.prompts.map((p) => p.summary)).size === 3);
 
+// ---------- W 组 · PRO-003 QC主动触发OR/AND纠偏（真实链路12项） ----------
+push("W1 QC契约OR信号单键", (() => { const a = skillsCfgQ?.activationContracts?.["detail-quality-control"]?.activation_conditions || []; return a.length === 1 && a[0] === "qc_requested"; })());
+push("W2 QC契约OR语义注记", Boolean(skillsCfgQ?.activationContracts?.["detail-quality-control"]?.activation_logic_note));
+push("W3 两入口旧别名归一化到qc_requested", ["user_clicks_qc", "user_requests_review"].every((k) => activationMod.normalizeContextKeys([k]).keys.has("qc_requested")));
+push("W4 两入口同时成立只一个统一键", (() => { const k = [...activationMod.normalizeContextKeys(["user_clicks_qc", "user_requests_review"]).keys]; return k.filter((x) => x === "qc_requested").length === 1; })());
+push("W5 conditionsMet全契约every未改", probe(read("server/detail-v2-control/skill-activation.js"), "conditions.every"));
+function qcScenario(inputExtra = {}) {
+  const plan = {
+    product: { industryId: "cleaning", industryName: "清洁日化", name: "清洗剂", materials: [] },
+    planning: { facts: [{ claim: "白色泵瓶", level: "visible" }], narrative: { id: "n", reason: "r", confidence: "high" }, screenRoles: [] },
+    industryProfile: { industryId: "cleaning" }, consumerInsights: { audience: "家庭" }, marketingStrategy: { valueLadder: [] },
+    globalVisualDNA: { palette: "粉蓝" }, screens: [{ screen: 1, title: "首屏", moduleId: "hero", sellingPoint: "卖点1", composition: "构图细节" }]
+  };
+  const input = { count: 1, workflow: "taobao-detail", productName: "清洗剂", ...inputExtra };
+  const prompt = deriveMod.buildDetailPromptGroup(input, [], { aiPlan: plan }).prompts[0];
+  const qc = prompt.skillActivation?.results?.find((x) => x.id === "detail-quality-control");
+  return { text: prompt.text, qc, active: Boolean(qc?.active), derived: deriveMod.deriveQCTaskContextKeys({ input }) };
+}
+const wT01 = qcScenario({ qcTrigger: "button" });
+push("W6 T01仅点QC按钮→激活", wT01.active && wT01.qc.decision === "conditional");
+const wT02 = qcScenario({ userInstruction: "帮我检查这套详情有没有问题" });
+push("W7 T02仅明确审查请求→激活", wT02.active);
+const wT03 = qcScenario({ qcTrigger: "button", userInstruction: "请质量审查" });
+push("W8 T03两入口齐→只一次不重复", wT03.active && wT03.derived.filter((x) => x === "qc_requested").length === 1);
+push("W9 T04普通生成→inactive", (() => { const r = qcScenario({ userInstruction: "生成一套商品详情" }); return !r.active && r.qc.decision === "inactive"; })());
+push("W10 T05普通文案修改→inactive", !qcScenario({ userInstruction: "把第二屏的文案改一下" }).active);
+push("W11 T06其他Skill发现→不自触", !qcScenario({ userInstruction: "生成详情" }).active);
+push("W12 T07AI自检→不自触", !qcScenario({ userInstruction: "生成详情，内容要合理" }).active);
+push("W13 T08指定单屏审查→激活", qcScenario({ userInstruction: "检查一下第三屏的画面是否合理" }).active);
+push("W14 T09整套审查→激活", qcScenario({ userInstruction: "请对整套详情做质量审查" }).active);
+const wT10 = qcScenario({ userInstruction: "生成商品静物图" });
+push("W15 T10未激活QC正文不进提示词", !wT10.text.includes("严重错误不可被高分抵消") && !wT10.text.includes("质量审查"));
+const wT11 = qcScenario({ qcTrigger: "button" });
+push("W16 T11激活后可读QC专业正文", wT11.active && probe(skill08, "严重错误不可被高分抵消"));
+push("W17 T12 QC不覆盖确认稿不重生图", wT11.text.includes("【画面任务】") && !wT11.text.includes("【QC报告】") && !wT11.text.includes("P0 必须修复"));
+// 回归：其他7项触发未变
+const regEmpty = activationMod.evaluateAllActivations({ contextKeys: [] });
+push("W18 核心4仍mandatory", ["product-understanding", "consumer-marketing-strategy", "detail-story-planning", "visual-art-direction"].every((id) => regEmpty.results.find((x) => x.id === id)?.decision === "mandatory"));
+push("W19 其他conditional空上下文仍inactive", ["ecommerce-copy-layout", "figure-usage-scene", "product-specialty-expression"].every((id) => regEmpty.results.find((x) => x.id === id)?.decision === "inactive"));
+push("W20 QC专业正文未被修改", probe(skill08, "正式专业正文 V1.0") && probe(skill08, "质量验收 30 条"));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -677,6 +718,8 @@ neg("N34 结构任务信号派生调用被删后判红", middleware.replace("tri
 neg("N35 结构任务归一化被删后判红", activationSrc.replace('structure_task_required: "specialty_condition_met",', ""), 'structure_task_required: "specialty_condition_met"');
 neg("N36 SKILL08回链phrase被删后判红", skill08.split("严重错误不可被高分抵消").join(""), "严重错误不可被高分抵消");
 neg("N37 SKILL08正式标记被删后判红", skill08.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
+neg("N38 QC派生调用被删后判红", middleware.replace("triggerCtxKeys.push(...deriveQCTaskContextKeys({ input }));", ""), "triggerCtxKeys.push(...deriveQCTaskContextKeys({ input }))");
+neg("N39 QC旧别名归一化被删后判红", activationSrc.replace('user_clicks_qc: "qc_requested",', ""), 'user_clicks_qc: "qc_requested"');
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {
