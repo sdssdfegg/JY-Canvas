@@ -11,6 +11,7 @@ import path from "node:path";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PENDING_CONFIG_REL = "server/detail-v2-control/config/pending-professional-content.json";
+const PROFESSIONAL_CONFIG_REL = "server/detail-v2-control/config/professional-content-v1.json";
 
 // 准入四态（裁决 D-PLAN-14-02）——与事实三级独立，不得混用。
 export const ADMISSION = Object.freeze({
@@ -36,22 +37,49 @@ function readPendingConfig() {
   }
 }
 
-// 专业内容接入状态：占位 / 已接入。工程验证可见；不得据占位状态判质量通过。
+// 正式专业内容配置（ChatGPT 交付后接入）。存在且 status=professional_content 时优先使用。
+function readProfessionalConfig() {
+  try {
+    const cfg = JSON.parse(readFileSync(path.join(HERE, "config", "professional-content-v1.json"), "utf8"));
+    return cfg?.status === "professional_content" && cfg?.isPlaceholder === false ? cfg : null;
+  } catch {
+    return null;
+  }
+}
+
+// 活动配置：正式内容优先，缺失/损坏时回退占位。
+// 🔴 回退占位时仍守住"占位不固化"：加载器/准入不会因占位产生 admitted 或加载行业包。
+export function activeConfig() {
+  return readProfessionalConfig() || readPendingConfig();
+}
+
+// 专业内容接入状态：占位 / 已接入。工程验证可见；不得据状态判质量通过。
 export function professionalContentStatus() {
+  const professional = readProfessionalConfig();
+  if (professional) {
+    return {
+      status: professional.status,
+      source: professional.$source || PROFESSIONAL_CONFIG_REL,
+      version: professional.$version || "",
+      note: "正式专业内容已接入；工程验证≠真实模型质量验收。",
+      configRel: PROFESSIONAL_CONFIG_REL,
+      isPlaceholder: false
+    };
+  }
   const cfg = readPendingConfig();
   return {
     status: cfg?.placeholderPolicy?.status || "pending_professional_content",
     engineeringUseOnly: cfg?.placeholderPolicy?.engineeringUseOnly !== false,
     note: cfg?.placeholderPolicy?.note || "",
     configRel: PENDING_CONFIG_REL,
-    isPlaceholder: (cfg?.placeholderPolicy?.status || "pending_professional_content") === "pending_professional_content"
+    isPlaceholder: true
   };
 }
 
 // ---------- 注册表结构（只给字段骨架，不给专业值） ----------
 // 每项任务：{ taskId, taskType, professionalValues: {...}|null, status }
 // professionalValues 为 null 表示该任务尚无 ChatGPT 交付的专业配置，只能走占位。
-export function createTaskRegistry(config = readPendingConfig()) {
+export function createTaskRegistry(config = activeConfig()) {
   const slots = config?.taskRegistry || {};
   const toSkeleton = (list) => (Array.isArray(list) ? list : []).map((item) => ({
     taskId: String(item?.taskId || ""),
@@ -78,21 +106,81 @@ export function createTaskRegistry(config = readPendingConfig()) {
 }
 
 // ---------- 行业包加载接口（单一主行业 / 按需加载 / generic 回退） ----------
-// loadIndustryPack 只做工程判定：传入的 industryId 是否在允许集合内、是否已有正式内容。
-// 本骨架不含任何行业专业规则；cleaning 包正文待 ChatGPT 交付。
-export function loadIndustryPack(industryId, config = readPendingConfig()) {
+// 正式内容接入后：industryPacks.cleaning 是带规则的对象，命中即真正加载该包（单一、按需）。
+// 占位态：industryPacks.slots 是字符串数组，命中也只标记 pending、不加载任何规则。
+export function loadIndustryPack(industryId, config = activeConfig()) {
   const id = String(industryId || "generic").trim() || "generic";
-  const slots = Array.isArray(config?.industryPacks?.slots) ? config.industryPacks.slots : [];
+  const packs = config?.industryPacks || {};
+
+  // 正式专业内容分支：包为带规则对象。
+  const formalPack = packs[id] && typeof packs[id] === "object" && !Array.isArray(packs[id]) ? packs[id] : null;
+  if (formalPack) {
+    return {
+      requestedIndustryId: id,
+      activeIndustryId: id,
+      loadedIndustryPackIds: [id],
+      matchedButProfessionalContentPending: false,
+      fallbackMode: "professional_pack_loaded",
+      status: "professional_content",
+      isPlaceholder: false,
+      packSource: formalPack.source || "",
+      pack: {
+        industryId: formalPack.industryId,
+        industryName: formalPack.industryName,
+        weakContextWordsMustNotOverride: formalPack.weakContextWordsMustNotOverride || [],
+        positiveSignals: formalPack.positiveSignals || [],
+        negativeSignals: formalPack.negativeSignals || [],
+        noGeneralization: formalPack.noGeneralization || []
+      }
+    };
+  }
+
+  // 占位分支：仅识别 slot 存在与否，不加载规则、不判 admitted。
+  const slots = Array.isArray(packs.slots) ? packs.slots : [];
   const matched = slots.includes(id);
   return {
     requestedIndustryId: id,
     activeIndustryId: matched ? id : "generic",
-    loadedIndustryPackIds: [], // 专业正文未交付前恒不加载真实规则包。
+    loadedIndustryPackIds: [],
     matchedButProfessionalContentPending: matched,
     fallbackMode: matched ? "matched_pending_professional_content" : "generic_no_pack",
     status: config?.industryPacks?.status || "pending_professional_content",
+    isPlaceholder: true,
     engineeringUseOnly: true
   };
+}
+
+// ---------- 行业强特征覆盖层（正式 cleaning 包，不改 G-2 词表） ----------
+// 输入文本先按正式包的 positiveSignals / weakContextWords 做强特征判定。
+// 命中清洁强特征且不含服装强特征时，返回 cleaning 覆盖结果；否则 null 交给既有词表逻辑。
+// 🔴 服装强特征词来自"使用对象≠行业"原则的外延保护，不新增行业知识，仅防止弱语境词越权。
+const APPAREL_STRONG_SIGNALS = ["衬衫", "T恤", "T 恤", "连衣裙", "裙", "裤", "外套", "毛衣", "版型", "袖口", "领口", "纽扣", "拉链", "穿搭", "模特"];
+
+export function detectIndustryOverride(textInput, config = activeConfig()) {
+  const text = String(textInput || "");
+  const cleaningPack = config?.industryPacks?.cleaning;
+  if (!cleaningPack || typeof cleaningPack !== "object" || Array.isArray(cleaningPack)) return null;
+
+  const positives = Array.isArray(cleaningPack.positiveSignals) ? cleaningPack.positiveSignals : [];
+  const negatives = Array.isArray(cleaningPack.negativeSignals) ? cleaningPack.negativeSignals : [];
+  const hitPositive = positives.filter((word) => text.includes(word));
+  const hitNegative = negatives.filter((word) => text.includes(word));
+  const hitApparel = APPAREL_STRONG_SIGNALS.filter((word) => text.includes(word));
+
+  // 清洁强特征命中、无个人护理/化妆/食品负向信号、无服装强特征 → cleaning 覆盖。
+  if (hitPositive.length > 0 && hitNegative.length === 0 && hitApparel.length === 0) {
+    return {
+      industryId: cleaningPack.industryId || "cleaning",
+      industryName: cleaningPack.industryName || "清洁日化",
+      isOverride: true,
+      source: cleaningPack.source || "§3",
+      evidence: { positive: hitPositive, negative: hitNegative, apparel: hitApparel },
+      // 规则属性由调用方用通用 home 底座 + 清洁语义装配；本函数只给判定，不造专业规则正文。
+      analyzeAttributes: ["清洁对象", "处理问题", "使用方式", "适用范围", "使用条件", "效果依据"],
+      taboos: ["不得跨品类串规则", "不得把使用对象材质写成商品包装材质", "不得虚构适用范围与功效"]
+    };
+  }
+  return null;
 }
 
 // ---------- 任务准入接口（四态判定骨架） ----------
@@ -108,7 +196,11 @@ export function admitTask(task, ctx = {}) {
   if (!values) {
     return { ...base, admission: ADMISSION.PENDING, reason: "professional_content_pending:ChatGPT 尚未交付该任务的专业准入规则，禁止用占位值判 admitted" };
   }
-  if (Array.isArray(values.allowedIndustries) && values.allowedIndustries.length > 0 && !values.allowedIndustries.includes(industryId)) {
+  const industryAllowed = Array.isArray(values.allowedIndustries)
+    && (values.allowedIndustries.length === 0
+      || values.allowedIndustries.includes("*")
+      || values.allowedIndustries.includes(industryId));
+  if (Array.isArray(values.allowedIndustries) && values.allowedIndustries.length > 0 && !industryAllowed) {
     return { ...base, admission: ADMISSION.REJECTED, reason: "industry_not_allowed:当前行业不在 allowedIndustries" };
   }
   if (Array.isArray(values.excludedConditions) && values.excludedConditions.some((cond) => ctx.factKeys?.includes?.(cond))) {
@@ -175,8 +267,10 @@ export default {
   ADMISSION,
   FACT_LEVEL,
   professionalContentStatus,
+  activeConfig,
   createTaskRegistry,
   loadIndustryPack,
+  detectIndustryOverride,
   admitTask,
   admitTasks,
   createCompilerAudit

@@ -19,7 +19,8 @@ import {
   loadIndustryPack,
   admitTasks,
   createCompilerAudit,
-  professionalContentStatus
+  professionalContentStatus,
+  detectIndustryOverride
 } from "./detail-v2-control/index.js";
 
 const DEFAULT_COUNT = BASE_SKILL.screenCountRule.defaultCount;
@@ -105,6 +106,22 @@ function inferIndustry(input, productImages) {
     input.sellingPoints,
     ...productImages.map((item) => item.name)
   ].join(" ");
+  // V2-PRO-001：无 aiPlan 的兼容路径同样走清洁日化覆盖层，避免"包装"误判服装。
+  const override = detectIndustryOverride(text);
+  if (override) {
+    return {
+      id: override.industryId,
+      name: override.industryName,
+      analyzeAttributes: override.analyzeAttributes,
+      sellingAngles: ["清洁对象与问题匹配", "明确适用与使用方式", "有依据的效果表达"],
+      recommendedScreens: ["首屏主视觉", "核心卖点", "使用场景", "参数说明", "信任背书", "收尾转化"],
+      visualAnchors: ["商品主体清晰", "真实使用对象", "干净光线", "无跨品类元素"],
+      taboos: override.taboos,
+      qcRules: ["检查行业是否串到服装/厨具/卫浴", "检查包装材质是否与使用对象材质混淆", "检查适用范围是否超证据"],
+      isIndustryOverride: true,
+      overrideSource: override.source
+    };
+  }
   return getIndustrySkillByText(text);
 }
 
@@ -116,6 +133,24 @@ function aiIndustry(input, productImages, aiPlan) {
     ...(Array.isArray(aiPlan?.product?.realSellingPoints) ? aiPlan.product.realSellingPoints : []),
     ...(Array.isArray(aiPlan?.product?.materials) ? aiPlan.product.materials : [])
   ].join(" ");
+  // V2-PRO-001 / 第一层+第二层：正式清洁日化包强特征覆盖层（不改 G-2 词表）。
+  // 命中清洗剂/去渍等强特征且无服装强特征时，直接用清洁日化规则属性，杜绝"包装"的"包"误判服装。
+  const inputText = [input?.productName, input?.productFeature, input?.userInstruction, ...(Array.isArray(input?.sellingPoints) ? input.sellingPoints : [])].join(" ");
+  const override = detectIndustryOverride(`${aiText} ${inputText}`);
+  if (override) {
+    return {
+      id: override.industryId,
+      name: override.industryName,
+      analyzeAttributes: override.analyzeAttributes,
+      sellingAngles: ["清洁对象与问题匹配", "明确适用与使用方式", "有依据的效果表达"],
+      recommendedScreens: ["首屏主视觉", "核心卖点", "使用场景", "参数说明", "信任背书", "收尾转化"],
+      visualAnchors: ["商品主体清晰", "真实使用对象", "干净光线", "无跨品类元素"],
+      taboos: override.taboos,
+      qcRules: ["检查行业是否串到服装/厨具/卫浴", "检查包装材质是否与使用对象材质混淆", "检查适用范围是否超证据"],
+      isIndustryOverride: true,
+      overrideSource: override.source
+    };
+  }
   const skill = getIndustrySkillByText(aiText);
   return skill.id !== "generic" ? skill : inferIndustry(input, productImages);
 }

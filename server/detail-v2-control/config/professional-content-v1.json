@@ -1,0 +1,113 @@
+{
+  "$source": "prompts/server/detail-v2-planning/professional-content/V2-PRO-001-通用准入基线与清洁日化行业包-V1.0.md",
+  "$version": "V2-PRO-001 / 1.0",
+  "$authority": "ChatGPT 专业线正式交付 V1.0；总控仅做逐字转写为机器可读，不新增专业判断。",
+  "$integrity": "本文件的规则值必须可回溯到 $source 的章节号；第六节回归案例原文截断未交付，不在此配置内。",
+  "status": "professional_content",
+  "isPlaceholder": false,
+  "factLevels": {
+    "L1": { "runtimeEnum": "visible", "source": "§2.2", "meaning": "已确认：用户提供/标签可读/用户确认/可靠验证资料" },
+    "L2": { "runtimeEnum": "inferred", "source": "§2.2", "meaning": "有限依据：图片可直接观察/上下文有限支持，不得扩为功效" },
+    "L3": { "runtimeEnum": "mustNotClaim", "source": "§2.2", "meaning": "未确认：无法读取/未经证实，不得进确定事实或提示词" }
+  },
+  "factDimensions": {
+    "source": "§2.1",
+    "keys": ["product_identity", "packaging_info", "use_object", "target_problem", "application_scope", "usage_method"],
+    "invariants": [
+      "包装材质不等于使用对象材质",
+      "使用对象不等于产品所属行业",
+      "作用目标不等于完整适用范围",
+      "场景物品不自动成为适用对象",
+      "图片可观察事实不自动等于产品功效"
+    ]
+  },
+  "industryPacks": {
+    "cleaning": {
+      "source": "§3",
+      "industryId": "cleaning",
+      "industryName": "清洁日化",
+      "weakContextWordsMustNotOverride": ["衣物", "面料", "棉", "厨房", "卫浴", "包装"],
+      "positiveSignals": ["清洗剂", "清洁剂", "去渍", "去油", "除垢", "水垢", "血渍", "果渍", "重油污"],
+      "negativeSignals": ["个人护理", "化妆", "护肤", "食品", "饮料"],
+      "recognitionExamples": [
+        { "input": "衣物血渍清洗剂", "industry": "cleaning", "forbidden": "apparel" },
+        { "input": "衣物果渍清洗剂", "industry": "cleaning", "forbidden": "apparel" },
+        { "input": "厨房重油污清洁剂", "industry": "cleaning", "forbidden": "厨具" },
+        { "input": "浴室水垢清洁剂", "industry": "cleaning", "forbidden": "卫浴产品" },
+        { "input": "T 恤", "industry": "apparel", "forbidden": "cleaning" }
+      ],
+      "coverage": ["衣物清洁与去渍", "厨房清洁", "浴室及卫生间清洁", "玻璃及多表面清洁", "地面及家居清洁", "其他明确清洁用途日化"],
+      "noGeneralization": [
+        "血渍清洗剂不得扩为奶渍/蛋白质污渍",
+        "衣物清洁剂不得扩为所有织物/材质",
+        "厨房清洁剂不得扩为所有设备/材质",
+        "浴室清洁剂不得扩为所有卫浴材质",
+        "去油/清洁名称不得推导杀菌/除菌/消毒",
+        "颜色/包装形态不得推导成分/配方/安全性"
+      ],
+      "professionalValues": {
+        "allowedIndustries": ["cleaning"],
+        "requiredAttributes": [],
+        "requiredFacts": [],
+        "evidenceRequirements": [],
+        "excludedConditions": [],
+        "userOverridePolicy": "使用场景词不得覆盖产品本身行业判定",
+        "outputRequirements": "行业段只输出清洁日化观察点与禁忌，禁止服装版型/袖口/领口/纽扣/模特规则"
+      }
+    }
+  },
+  "taskRegistry": {
+    "source": "§4.2 / §4.4",
+    "status": "professional_content",
+    "contentTasks": [
+      { "taskId": "product_identity", "taskType": "content", "label": "产品身份与定位", "source": "§4.2", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["product_identity_identifiable"], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "所有可识别产品优先考虑", "outputRequirements": "围绕产品身份与有依据核心价值" } },
+      { "taskId": "core_value", "taskType": "content", "label": "核心价值与主要购买理由", "source": "§4.2", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["product_value_basis"], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "无价值依据时不安排", "outputRequirements": "价值须有依据，不夸大" } },
+      { "taskId": "problem_context", "taskType": "content", "label": "消费者问题与使用场景", "source": "§4.2", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["product_problem_link"], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "产品与问题需明确关联", "outputRequirements": "问题与产品作用目标一致，不扩大适用范围" } },
+      { "taskId": "usage_method", "taskType": "content", "label": "产品使用方式", "source": "§4.2", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["usage_method_confirmed"], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "使用方式未确认不得自行编造", "outputRequirements": "不添加时长/用量/稀释/冲洗步骤" } },
+      { "taskId": "application_scope", "taskType": "content", "label": "适用对象与范围", "source": "§4.2", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["application_scope_confirmed"], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "无明确依据时不安排", "outputRequirements": "不因画面材质推断适用范围，不扩相似对象" } },
+      { "taskId": "product_structure", "taskType": "content", "label": "产品自身结构与设计", "source": "§4.2", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["real_structure_feature"], "evidenceRequirements": [], "excludedConditions": ["ordinary_packaging"], "userOverridePolicy": "普通瓶身/瓶盖不自动成屏", "outputRequirements": "须存在值得展示的真实结构特征" } },
+      { "taskId": "effect_evidence", "taskType": "content", "label": "效果表现与证明", "source": "§4.2 / §4.3-C", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["reliable_effect_evidence"], "evidenceRequirements": ["可靠效果依据"], "excludedConditions": [], "userOverridePolicy": "无可靠依据时状态为 pending/rejected，不自动准入", "outputRequirements": "前后对比对象/材质/光线/拍摄条件一致，不把视觉修饰伪装成功效" } },
+      { "taskId": "ingredient_mechanism", "taskType": "content", "label": "成分或作用原理", "source": "§4.2", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["ingredient_source_confirmed"], "evidenceRequirements": ["成分/配方/可靠资料"], "excludedConditions": [], "userOverridePolicy": "无成分资料不安排", "outputRequirements": "不得虚构成分、反应机制、技术名称" } },
+      { "taskId": "usage_attention", "taskType": "content", "label": "使用注意事项", "source": "§4.2", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["attention_info_confirmed"], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "无特殊注意事项不凑屏", "outputRequirements": "须为已确认的必要注意信息" } },
+      { "taskId": "purchase_reassurance", "taskType": "content", "label": "购买顾虑与决策辅助", "source": "§4.2", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["real_consumer_concern"], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "无真实顾虑不安排", "outputRequirements": "须有真实相关消费者顾虑可解决" } }
+    ],
+    "visualTasks": [
+      { "taskId": "product_hero", "taskType": "visual", "label": "产品主体与环境构图", "source": "§4.4", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": [], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "", "outputRequirements": "表达产品身份、定位和核心价值" } },
+      { "taskId": "problem_scene", "taskType": "visual", "label": "问题场景呈现", "source": "§4.4", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["real_target_problem"], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "", "outputRequirements": "场景必须与真实作用目标一致" } },
+      { "taskId": "usage_demonstration", "taskType": "visual", "label": "使用过程展示", "source": "§4.4", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["usage_method_confirmed"], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "", "outputRequirements": "动作/对象/工具/步骤必须合理" } },
+      { "taskId": "before_after_comparison", "taskType": "visual", "label": "前后对比", "source": "§4.4", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["reliable_effect_evidence"], "evidenceRequirements": ["可靠效果依据"], "excludedConditions": [], "userOverridePolicy": "无可靠依据不得准入", "outputRequirements": "不把视觉修饰伪装成功效证明" } },
+      { "taskId": "product_structure_closeup", "taskType": "visual", "label": "产品结构局部展示", "source": "§4.4", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["real_structure_feature"], "evidenceRequirements": [], "excludedConditions": ["ordinary_packaging"], "userOverridePolicy": "不能因有能力就给所有产品安排", "outputRequirements": "必须存在真实且有价值的结构细节" } },
+      { "taskId": "application_scene", "taskType": "visual", "label": "适用对象或环境展示", "source": "§4.4", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["application_scope_confirmed"], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "", "outputRequirements": "必须有适用范围依据" } },
+      { "taskId": "ingredient_visualization", "taskType": "visual", "label": "成分或原理可视化", "source": "§4.4", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": ["ingredient_source_confirmed"], "evidenceRequirements": ["成分/原理依据"], "excludedConditions": [], "userOverridePolicy": "", "outputRequirements": "必须有成分或原理依据" } },
+      { "taskId": "information_layout", "taskType": "visual", "label": "信息图文排版", "source": "§4.4", "professionalValues": { "allowedIndustries": ["*"], "requiredAttributes": [], "requiredFacts": [], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "", "outputRequirements": "适合承载已确认的说明信息" } }
+    ],
+    "note": "来源 §4.2 内容任务 10 项 + §4.4 视觉任务 8 项；候选能力，非固定模板。available task ≠ 每产品都用。"
+  },
+  "compilerConstraints": {
+    "source": "§5.3 / §5.4",
+    "mustNot": [
+      "新增内容任务",
+      "新增视觉任务",
+      "将 rejected 或 pending 任务写进最终提示词",
+      "把 L2 观察信息升级为 L1 产品事实",
+      "把 L3 未确认信息转化为卖点",
+      "将其他行业结构/术语/表现方式带入当前产品",
+      "为画面丰富擅自添加产品功效或适用范围",
+      "将内部策划分析和消费者洞察原文直接输出给生图模型"
+    ],
+    "qualityGoals": [
+      "产品主体明确", "画面构图明确", "视觉表达与内容任务一致", "场景道具符合真实逻辑",
+      "文案围绕消费者理解和购买决策", "产品事实没有被扩大", "屏幕间合理信息分工",
+      "不出现与行业无关结构描述", "不出现策划分析/内部判断/无效形容词堆砌"
+    ]
+  },
+  "fallback": {
+    "source": "§5.2",
+    "genericPreferred": ["产品是什么", "可观察外观特征", "用户提供的核心价值", "有依据的使用对象或场景", "已确认使用方式", "有证据的购买决策信息"],
+    "mustNot": ["加载其他行业包凑数", "使用与产品无关专业任务", "编造行业术语/材质/结构/成分/功效", "堆砌产品细节/品质展示/科技原理等空泛内容"]
+  },
+  "regressionCases": {
+    "status": "pending_source_completion",
+    "note": "原文第六节在『以下案例是专业规则验收基线，不是』处截断，案例基线未完整交付；不猜测、不在此配置内伪造。"
+  }
+}
