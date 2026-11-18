@@ -152,9 +152,9 @@ function resolveActivationTable(config = activeConfig()) {
       table[formalId] = contract;
       if (FORMAL_TO_ENGINE_ID[formalId]) {
         const engineId = FORMAL_TO_ENGINE_ID[formalId];
-        // 保留 V2-PRO-002 引擎既有触发条件的兼容：别名沿用 BASE_ACTIVATION 的条件键，
-        // 正式契约挂在 _formalContract 供审计回溯，不改引擎判定语义。
-        table[engineId] = { ...(BASE_ACTIVATION[engineId] || contract), _formalId: formalId, _formalContract: contract };
+        // Owner 裁决：正式专业触发定义是唯一权威。旧引擎 ID 只是别名，直接指向同一份正式契约，
+        // 判定条件不掺入 BASE_ACTIVATION 的旧键——旧机制不得覆盖正式定义、不得造成误触发。
+        table[engineId] = { ...contract, _formalId: formalId, _legacyAlias: engineId };
       }
     }
     // 保留引擎既有能力 ID（V2-PRO-002 门禁依赖），缺省时从正式专项契约派生。
@@ -193,6 +193,34 @@ function contractsReport(results) {
   };
 }
 
+// Owner 裁决：旧触发键可以兼容，但必须在输入侧映射到正式键；正式定义权威。
+// 映射是"归一化输入"，不是"另起判定源"——旧键只有翻译成正式键后才参与正式条件判定，
+// 翻译不到的旧键一律忽略，绝不让旧机制绕过正式条件造成误触发。
+export const LEGACY_CONTEXT_KEY_MAP = Object.freeze({
+  user_requires_model: "user_requires_figure",
+  explicit_figure_task: "explicit_figure_task",
+  industry_id_cleaning: "industry_cleaning_active",
+  reliable_effect_evidence: "specialty_condition_met",
+  effect_evidence: "specialty_evidence",
+  confirmed_structure_fact: "specialty_evidence",
+  ordinary_packaging: "specialty_condition_unmet"
+});
+
+export function normalizeContextKeys(contextKeys = []) {
+  const normalized = new Set();
+  const legacyHits = [];
+  for (const raw of (Array.isArray(contextKeys) ? contextKeys : [])) {
+    const key = String(raw || "");
+    normalized.add(key); // 正式键原样保留
+    if (Object.hasOwn(LEGACY_CONTEXT_KEY_MAP, key)) {
+      const formal = LEGACY_CONTEXT_KEY_MAP[key];
+      normalized.add(formal);
+      legacyHits.push({ legacy: key, formal });
+    }
+  }
+  return { keys: normalized, legacyHits };
+}
+
 // 判断某个上下文事实集合是否满足条件：
 // - 条件字符串以 "!" 开头表示要求该 key 不存在；否则要求存在。
 function conditionsMet(conditions, ctxKeys) {
@@ -206,8 +234,13 @@ function conditionsMet(conditions, ctxKeys) {
 
 // 对单个能力做触发判定，返回四态之一 + 原因（可审计）
 export function evaluateActivation(id, contract, ctx = {}) {
-  const ctxKeys = new Set(Array.isArray(ctx.contextKeys) ? ctx.contextKeys : []);
+  const normalized = normalizeContextKeys(ctx.contextKeys || []);
+  const ctxKeys = normalized.keys;
   const mode = contract?.execution_mode || EXECUTION_MODE.INACTIVE;
+  // 权威来源：正式契约优先；仅在正式配置缺失时才用工程基线（baseline），并显式标注。
+  const authoritySource = contract?._formalId || contract?._legacyAlias
+    ? "formal_professional_contract"
+    : (readProfessionalSkills() ? "formal_professional_contract" : "engineering_baseline");
   const reason = {
     id,
     mode,
@@ -226,10 +259,12 @@ export function evaluateActivation(id, contract, ctx = {}) {
 
   return {
     ...reason,
+    authoritySource,
+    legacyHits: normalized.legacyHits,
     decision,
     active: decision === EXECUTION_MODE.MANDATORY || decision === EXECUTION_MODE.CONDITIONAL,
     injectToPrompt: Boolean(contract?.prompt_injection_policy) && decision !== EXECUTION_MODE.INACTIVE,
-    auditReason: `mode=${mode}; activation=${reason.activationMet}; exclusion=${reason.exclusionHit}; required=${reason.requiredContextMet}`
+    auditReason: `authority=${authoritySource}; mode=${mode}; activation=${reason.activationMet}; exclusion=${reason.exclusionHit}; required=${reason.requiredContextMet}`
   };
 }
 
@@ -325,6 +360,8 @@ export function buildScreenVisual({ moduleName = "", contentTask = "", compositi
 export default {
   EXECUTION_MODE,
   CONTRACT_FIELDS,
+  LEGACY_CONTEXT_KEY_MAP,
+  normalizeContextKeys,
   professionalSkillsConfig,
   validateActivationContracts,
   evaluateActivation,

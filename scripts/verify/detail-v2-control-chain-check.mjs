@@ -172,8 +172,9 @@ const cleaningActivation = activationMod.evaluateAllActivations({ contextKeys: [
 push("H3 清洁产品模特能力不激活", !cleaningActivation.activeIds.includes("model-pose"));
 push("H4 清洁产品模特指令不注入", !cleaningActivation.injectedIds.includes("model-pose"));
 push("H5 商品真实性强制激活", cleaningActivation.activeIds.includes("product-authenticity"));
-const apparelActivation = activationMod.evaluateAllActivations({ contextKeys: ["industry_id_apparel", "user_requires_model", "explicit_figure_task"] });
-push("H6 有明确人物任务时模特可触发", apparelActivation.activeIds.includes("model-pose") && apparelActivation.injectedIds.includes("model-pose"));
+// Owner 裁决：正式专业触发定义权威。H6 改用正式条件键；旧键仅做输入归一化。
+const apparelActivation = activationMod.evaluateAllActivations({ contextKeys: ["industry_id_apparel", "screen_needs_figure", "user_requires_figure", "explicit_figure_task"] });
+push("H6 有明确人物任务时模特可触发（正式条件）", apparelActivation.activeIds.includes("model-pose") && apparelActivation.injectedIds.includes("model-pose"));
 const effectActivation = activationMod.evaluateAllActivations({ contextKeys: ["reliable_effect_evidence", "effect_evidence"] });
 push("H7 有效果证据时效果能力可触发", effectActivation.activeIds.includes("effect-evidence"));
 const noEffectActivation = activationMod.evaluateAllActivations({ contextKeys: [] });
@@ -263,6 +264,34 @@ const visualLine = visualGroup.prompts[0].text.split("\n").find((x) => x.include
 push("I18 端到端画面任务非套话", !/商品主体清晰居中|一屏只讲一个主要卖点|画面简洁、有结束感/.test(visualLine));
 push("I19 端到端screenVisual审计存在", Boolean(visualGroup.prompts[0].screenVisual));
 
+// ---------- J 组 · SKILL.md 授权：正式触发权威 + 旧键兼容映射 + 防误触发 ----------
+push("J1 旧键映射表存在且含关键旧键",
+  Object.keys(activationMod.LEGACY_CONTEXT_KEY_MAP || {}).includes("user_requires_model")
+  && Object.keys(activationMod.LEGACY_CONTEXT_KEY_MAP || {}).includes("reliable_effect_evidence"));
+const norm = activationMod.normalizeContextKeys(["user_requires_model", "explicit_figure_task", "formal_only_key"]);
+push("J2 旧键归一化为正式键且正式键原样保留",
+  norm.keys.has("user_requires_figure") && norm.keys.has("explicit_figure_task") && norm.keys.has("formal_only_key"));
+push("J3 归一化记录旧→正式映射审计", norm.legacyHits.some((h) => h.legacy === "user_requires_model" && h.formal === "user_requires_figure"));
+
+// 防误触发：仅旧人物键、缺正式 screen_needs_figure → 能力不得激活。
+const legacyOnly = activationMod.evaluateAllActivations({ contextKeys: ["user_requires_model", "explicit_figure_task"] });
+const figLegacyOnly = legacyOnly.results.find((x) => x.id === "figure-usage-scene");
+push("J4 仅旧键不足以触发人物能力（正式条件不全）", figLegacyOnly?.decision === "inactive");
+push("J5 判定权威来源标注为正式契约", figLegacyOnly?.authoritySource === "formal_professional_contract");
+push("J6 别名沿用正式判定非旧基线",
+  activationMod.evaluateAllActivations({ contextKeys: [] }).results.find((x) => x.id === "model-pose")?.authoritySource === "formal_professional_contract");
+
+// 正式条件齐 → 可触发；旧键+正式键 → 可触发（兼容但不越权）。
+const formalFull = activationMod.evaluateAllActivations({ contextKeys: ["screen_needs_figure", "user_requires_figure", "explicit_figure_task"] });
+push("J7 正式条件齐可触发", formalFull.activeIds.includes("figure-usage-scene"));
+const mixed = activationMod.evaluateAllActivations({ contextKeys: ["screen_needs_figure", "user_requires_model", "explicit_figure_task"] });
+push("J8 旧键+正式键可触发（兼容不越权）", mixed.activeIds.includes("figure-usage-scene"));
+
+// 专项：旧证据键翻译后仍需正式 required_context 才触发。
+const specialtyLegacy = activationMod.evaluateAllActivations({ contextKeys: ["reliable_effect_evidence"] });
+push("J9 仅旧证据键不足以触发专项（缺正式required）",
+  specialtyLegacy.results.find((x) => x.id === "product-specialty-expression")?.decision === "inactive");
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -283,6 +312,8 @@ const skillsSrc = read("server/detail-v2-control/config/professional-skills-v1.j
 neg("N13 正式Skill状态标记被删后判红", skillsSrc.replace('"status": "professional_content"', ""), '"status": "professional_content"');
 neg("N14 视觉模板回退整改被删后判红", skillsSrc.replace('"fixedTemplateFallback"', ""), '"fixedTemplateFallback"');
 neg("N15 视觉组装调用被删后判红", middleware.replace("const screenVisual = v2Planning\n      ? buildScreenVisual({", "const screenVisual = v2Planning\n      ? null && buildScreenVisual({"), "const screenVisual = v2Planning\n      ? buildScreenVisual({");
+neg("N16 旧键映射表被删后判红", activationSrc.replace('"user_requires_model": "user_requires_figure"', ""), '"user_requires_model": "user_requires_figure"');
+neg("N17 输入归一化被删后判红", activationSrc.replace("const normalized = normalizeContextKeys(ctx.contextKeys || []);", "const normalized = { keys: new Set(ctx.contextKeys || []), legacyHits: [] };"), "normalizeContextKeys(ctx.contextKeys || [])");
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {
