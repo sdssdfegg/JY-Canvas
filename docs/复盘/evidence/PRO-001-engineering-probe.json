@@ -1,0 +1,364 @@
+{
+  "note": "PRO-001 工程探针原始输出。构造 aiPlan 验证编译链，非真实模型输出；G4 真实模型验收仍待验收。",
+  "generatedAt": "2026-11-18T01:47:56.042Z",
+  "input": {
+    "count": 3,
+    "workflow": "taobao-detail",
+    "productName": "衣物血渍清洗剂",
+    "productFeature": "白色按压泵瓶 包装材质 产品包装结构",
+    "userInstruction": "生成3屏商品详情，突出血渍清洁",
+    "sellingPoints": [
+      "针对血渍",
+      "按压取用"
+    ],
+    "lang": "中文",
+    "ratio": "9:16",
+    "imageSize": "2K"
+  },
+  "constructedAiPlan": {
+    "product": {
+      "name": "衣物血渍清洗剂",
+      "industryId": "",
+      "industryName": "",
+      "materials": [
+        "棉"
+      ],
+      "realSellingPoints": [
+        "针对血渍清洁"
+      ]
+    },
+    "industryProfile": {
+      "industryId": "cleaning",
+      "industryName": "清洁日化"
+    },
+    "consumerInsights": {
+      "audience": "有衣物血渍清洁需求的家庭用户"
+    },
+    "marketingStrategy": {
+      "valueLadder": []
+    },
+    "globalVisualDNA": {
+      "palette": "粉蓝清洁感",
+      "lighting": "柔和棚拍光"
+    },
+    "planning": {
+      "facts": [
+        {
+          "claim": "白色按压泵瓶",
+          "level": "visible"
+        },
+        {
+          "claim": "棉",
+          "level": "mustNotClaim"
+        }
+      ],
+      "screenRoles": [
+        {
+          "index": 0,
+          "role": "hero"
+        }
+      ],
+      "dedupLog": []
+    },
+    "screens": []
+  },
+  "params": {
+    "workflow": "taobao-detail",
+    "platform": "淘宝",
+    "pageType": "详情页",
+    "model": "gpt-image",
+    "ratio": "9:16",
+    "imageSize": "2K",
+    "count": 3,
+    "lang": "中文",
+    "copywriting": "need",
+    "richness": "simple",
+    "fontStyle": "soft",
+    "modelMode": "no-model",
+    "modelPose": "regular",
+    "modelUsage": 4,
+    "reverseScreens": 0,
+    "analysisMode": "ai-vision",
+    "industry": "清洁日化",
+    "productName": "衣物血渍清洗剂",
+    "productImageNames": [],
+    "referenceImageNames": []
+  },
+  "v2Control": {
+    "controlStatus": "engineering_verification_only",
+    "professionalContentStatus": "professional_content",
+    "isPlaceholder": false,
+    "modelIndustryId": "cleaning",
+    "runtimeIndustryId": "cleaning",
+    "industrySingleSourceConsistent": true,
+    "activeIndustryId": "cleaning",
+    "loadedIndustryPackIds": [
+      "cleaning"
+    ],
+    "fallbackMode": "professional_pack_loaded",
+    "fieldsPresent": {
+      "industryProfile": true,
+      "consumerInsights": true,
+      "marketingStrategy": true,
+      "globalVisualDNA": true
+    },
+    "admission": {
+      "admissionStatus": "engineering_verification_only",
+      "admittedTaskIds": [
+        "product_hero",
+        "information_layout"
+      ],
+      "rejectedTaskIds": [],
+      "pendingTaskIds": [
+        "product_identity",
+        "core_value",
+        "problem_context",
+        "usage_method",
+        "application_scope",
+        "product_structure",
+        "effect_evidence",
+        "ingredient_mechanism",
+        "usage_attention",
+        "purchase_reassurance",
+        "problem_scene",
+        "usage_demonstration",
+        "before_after_comparison",
+        "product_structure_closeup",
+        "application_scene",
+        "ingredient_visualization"
+      ],
+      "genericFallbackTaskIds": [],
+      "results": [
+        {
+          "taskId": "product_identity",
+          "taskType": "content",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "product_identity_identifiable"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "core_value",
+          "taskType": "content",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "product_value_basis"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "problem_context",
+          "taskType": "content",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "product_problem_link"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "usage_method",
+          "taskType": "content",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "usage_method_confirmed"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "application_scope",
+          "taskType": "content",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "application_scope_confirmed"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "product_structure",
+          "taskType": "content",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "real_structure_feature"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "effect_evidence",
+          "taskType": "content",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "reliable_effect_evidence"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "ingredient_mechanism",
+          "taskType": "content",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "ingredient_source_confirmed"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "usage_attention",
+          "taskType": "content",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "attention_info_confirmed"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "purchase_reassurance",
+          "taskType": "content",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "real_consumer_concern"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "product_hero",
+          "taskType": "visual",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": true,
+          "missingFacts": [],
+          "admission": "admitted",
+          "reason": "all_conditions_satisfied"
+        },
+        {
+          "taskId": "problem_scene",
+          "taskType": "visual",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "real_target_problem"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "usage_demonstration",
+          "taskType": "visual",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "usage_method_confirmed"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "before_after_comparison",
+          "taskType": "visual",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "reliable_effect_evidence"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "product_structure_closeup",
+          "taskType": "visual",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "real_structure_feature"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "application_scene",
+          "taskType": "visual",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "application_scope_confirmed"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "ingredient_visualization",
+          "taskType": "visual",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": false,
+          "missingFacts": [
+            "ingredient_source_confirmed"
+          ],
+          "admission": "pending",
+          "reason": "required_facts_missing"
+        },
+        {
+          "taskId": "information_layout",
+          "taskType": "visual",
+          "industryId": "cleaning",
+          "requiredFactsSatisfied": true,
+          "missingFacts": [],
+          "admission": "admitted",
+          "reason": "all_conditions_satisfied"
+        }
+      ]
+    },
+    "auditBase": {
+      "auditStatus": "engineering_verification_only",
+      "plannedTaskIds": [],
+      "usedTaskIds": [],
+      "unusedTaskIds": [],
+      "segments": [],
+      "unauthorizedAdded": false,
+      "unauthorizedSegments": [],
+      "factBoundaryBroken": false,
+      "note": "审计仅证明指令来源可追溯（工程验证），不代表专业模型质量验收通过。"
+    },
+    "note": "工程验证报告，不代表专业模型质量验收通过；占位态不含正式专业内容。"
+  },
+  "promptTexts": [
+    "第1屏：第1屏\n【本屏模块】首屏主视觉：承接主图点击，让用户第一眼确认商品、风格和购买兴趣。\n【AI商品洞察】目标人群：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；真实材质/颜色：棉；结构锁定：保持商品图真实结构。\n【本次图片编号】本屏没有可用图片附件，请根据文字描述生成，但必须保持商品真实性约束。。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「衣物血渍清洗剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：清洁日化；重点观察：清洁对象、处理问题、使用方式、适用范围、使用条件、效果依据。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：棉。\n全局风格：商品主体清晰、真实使用对象、干净光线、无跨品类元素；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：柔和女性字体气质，笔画圆润、字重中等、排版轻盈，适合女装/美妆/生活方式。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不得跨品类串规则；不得把使用对象材质写成商品包装材质；不得虚构适用范围与功效。\n【本屏卖点】针对血渍清洁\n【画面任务】商品主体清晰居中或略偏黄金分割，保留呼吸感，首屏标题区域不压住产品。\n【模块指令】强化第一眼质感；产品轮廓完整；背景干净；标题层级明确。\n【参考图使用】锁商品主图，可轻参考运营参考图的配色和氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览；检查行业是否串到服装/厨具/卫浴；检查包装材质是否与使用对象材质混淆；检查适用范围是否超证据；主商品是否完整；第一眼是否清楚；是否过曝；文案是否压住商品。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+    "第2屏：第2屏\n【本屏模块】核心卖点：解释最主要的购买理由，建立产品价值感。\n【AI商品洞察】目标人群：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；真实材质/颜色：棉；结构锁定：保持商品图真实结构。\n【本次图片编号】本屏没有可用图片附件，请根据文字描述生成，但必须保持商品真实性约束。。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「衣物血渍清洗剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：清洁日化；重点观察：清洁对象、处理问题、使用方式、适用范围、使用条件、效果依据。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：棉。\n全局风格：商品主体清晰、真实使用对象、干净光线、无跨品类元素；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：柔和女性字体气质，笔画圆润、字重中等、排版轻盈，适合女装/美妆/生活方式。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不得跨品类串规则；不得把使用对象材质写成商品包装材质；不得虚构适用范围与功效。\n【本屏卖点】针对血渍\n【画面任务】一屏只讲一个主要卖点，标题、辅助说明和产品画面形成清楚层级。\n【模块指令】一屏一卖点；文案短而清楚；视觉和卖点一致；保留产品细节。\n【参考图使用】锁商品图，可参考版式和信息层级。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览；检查行业是否串到服装/厨具/卫浴；检查包装材质是否与使用对象材质混淆；检查适用范围是否超证据；卖点是否对应商品；信息是否拥挤；是否出现虚假能力；产品是否变形。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。",
+    "第3屏：第3屏\n【本屏模块】收尾转化：总结核心理由，给出温和行动引导，形成详情页完整闭环。\n【AI商品洞察】目标人群：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；真实材质/颜色：棉；结构锁定：保持商品图真实结构。\n【本次图片编号】本屏没有可用图片附件，请根据文字描述生成，但必须保持商品真实性约束。。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。\n【全局一致性锁定】目标平台：淘宝详情页；输出语言：中文；比例：9:16；分辨率：2K。\n目标商品：只以商品图里的「衣物血渍清洗剂」为准，商品图是唯一商品事实来源，生成时不得擅自改变颜色、结构、材质、五金、logo、纹理、比例和关键细节。 参考图只用于理解氛围、配色、构图、场景或版式，不得把参考图中的其它商品、品牌、人物身份、文字水印混入目标商品。 多张人物图、多张商品图同时出现时，身份和商品必须分离，禁止把不同人物五官、身形、服装和商品结构互相融合。 当提示词与商品图冲突时，以商品图为准；当提示词与平台规则冲突时，以合规和真实性为准。\n行业识别：清洁日化；重点观察：清洁对象、处理问题、使用方式、适用范围、使用条件、效果依据。\n受众：电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由；材质线索：棉。\n全局风格：商品主体清晰、真实使用对象、干净光线、无跨品类元素；同一组详情页保持统一色彩体系、字体层级、光线方向、边距节奏和背景质感。 首屏负责吸引，后续屏幕负责解释，收尾负责转化，不能每屏像不同店铺的独立海报。 产品大小和透视要连贯，细节屏可以近景但不得改变商品结构。\n平台规则：适合手机端长图阅读，单屏信息密度中等，节奏从吸引到解释再到转化。 中文电商短句，卖点直接，留白明确，避免夸张极限词。\n文案规则：需要文案：生成清晰可读的电商文案，标题、卖点和辅助说明层级分明，文字必须无错字乱码。；字体规则：柔和女性字体气质，笔画圆润、字重中等、排版轻盈，适合女装/美妆/生活方式。；信息密度：画面保持精简，一屏只表达一个重点，文案少、留白充足。。\n行业禁忌：不得跨品类串规则；不得把使用对象材质写成商品包装材质；不得虚构适用范围与功效。\n【本屏卖点】按压取用\n【画面任务】画面简洁、有结束感，产品再次清楚出现，文案短促有力但不硬卖。\n【模块指令】总结卖点；回到产品；留出行动区域；风格承接首屏。\n【参考图使用】商品主图和首屏风格为主，可轻参考运营图氛围。；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。\n【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。\n【构图与光线】主体清晰、边缘干净、柔和四面光、低反差、无生硬黑影；细节屏可以近景，但必须保留产品真实结构。\n【质检自查】商品是否变形、缺失、被错误替换或与原图不一致。；文案是否出现错字、乱码、伪英文、伪品牌、水印或无法阅读的小字。；是否出现虚假卖点、虚假认证、绝对化承诺、医疗疗效或无法证明的数据。；一组详情页的颜色、光线、版式、字体层级和产品比例是否统一。；输出是否符合所选平台的页面节奏、文案风格、图片规范和转化特点。；平台规范：商品清晰；平台规范：文案不遮挡主体；平台规范：适合无线端竖向浏览；检查行业是否串到服装/厨具/卫浴；检查包装材质是否与使用对象材质混淆；检查适用范围是否超证据；是否和首屏风格一致；是否过度促销；产品是否清楚；文案是否合规。\n【负面约束】不要低清晰度、不要破碎拼贴、不要过曝、不要脏乱背景、不要错误 logo、不要错字乱码、不要虚假认证、不要多余肢体、不要畸形手、不要改变商品结构、不要混入参考图商品。"
+  ],
+  "checks": {
+    "PRO-001-1 主行业清洁日化": true,
+    "PRO-001-2 衣物不作服装行业": true,
+    "PRO-001-3 血渍为作用目标": true,
+    "PRO-001-4 未自动扩奶渍/蛋白类": true,
+    "PRO-001-5 未确认材质不作确定声明": false,
+    "PRO-001-8 无效果证据不规划效果证明": true,
+    "PRO-001-10 严格3屏": true,
+    "G3-a 四字段贯通": true,
+    "G3-b cleaning包按需加载": true,
+    "G3-c 准入四态可枚举": true
+  },
+  "gapEvidence": {
+    "编译文本引用admittedTaskIds": false,
+    "编译文本引用v2Control": false,
+    "控制报告isPlaceholder": false,
+    "行业覆盖层生效": true
+  }
+}
