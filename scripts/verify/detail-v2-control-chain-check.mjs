@@ -607,6 +607,33 @@ push("U19 八项Skill正式正文全部接入", ["product-understanding", "consu
   && skillsCfgQ?.activationContracts?.["product-specialty-expression"]?.formal_professional_contract_v1
   && probe(skill08, "正式专业正文 V1.0"));
 
+// ---------- V 组 · 用户指定屏数与完整叙事策划补充规则（SKILL 03） ----------
+const storySkill = read(skill03Rel);
+push("V1 屏数补充规则已并入SKILL03", probe(storySkill, "屏数是生成数量约束") && probe(storySkill, "完整策划必须先于屏数取舍"));
+push("V2 屏数非截取与不塞屏规则", probe(storySkill, "3 屏≠更多屏方案的前三屏") && probe(storySkill, "强行塞进一屏"));
+push("V3 少屏不套三段式与省略仍属事实", probe(storySkill, "首屏主视觉—核心卖点—收尾转化") && probe(storySkill, "被省略内容仍属商品事实"));
+push("V4 策划与结果分离+屏间关系", probe(storySkill, "完整策划与最终生成结果分离") && probe(storySkill, "不突破用户指定屏数"));
+push("V5 屏数对照验收条款", probe(storySkill, "屏数对照验收") && probe(storySkill, "最终生成数量严格符合用户选择"));
+push("V6 SKILL03回链phrase仍逐字", probe(storySkill, "禁止固定标题轮转"));
+push("V7 count硬约束代码未改", probe(middleware, "clamp(input.count, BASE_SKILL.screenCountRule.min") && probe(read("server/detail-ai.js"), "count 硬约束"));
+// 工程层：count 严格 + 链路完整（真实 middleware；3屏非截取属G4真实模型验收，不在此冒充通过）
+function screenCountScenario(n) {
+  const plan = {
+    product: { industryId: "cleaning", industryName: "清洁日化", name: "清洗剂", materials: [] },
+    planning: { facts: [{ claim: "白色泵瓶", level: "visible" }], narrative: { id: "n", reason: "r", confidence: "high" }, screenRoles: [] },
+    industryProfile: { industryId: "cleaning" }, consumerInsights: { audience: "家庭" }, marketingStrategy: { valueLadder: [] },
+    globalVisualDNA: { palette: "粉蓝" },
+    screens: Array.from({ length: n }, (_, i) => ({ screen: i + 1, title: "屏" + (i + 1), moduleId: i === 0 ? "hero" : "coreSellingPoint", sellingPoint: "卖点" + (i + 1), composition: "第" + (i + 1) + "屏具体构图场景" }))
+  };
+  const g = deriveMod.buildDetailPromptGroup({ count: n, workflow: "taobao-detail", productName: "清洗剂" }, [], { aiPlan: plan });
+  return g;
+}
+const vg3 = screenCountScenario(3); const vg6 = screenCountScenario(6);
+push("V8 3屏严格生成3屏", vg3.prompts.length === 3 && vg3.params.count === 3);
+push("V9 6屏严格生成6屏", vg6.prompts.length === 6 && vg6.params.count === 6);
+push("V10 屏数下链路完整（卖点+画面任务）", vg3.prompts.every((p) => p.text.includes("本屏卖点") && p.text.includes("画面任务")));
+push("V11 屏间各有独立sellingPoint", new Set(vg3.prompts.map((p) => p.summary)).size === 3);
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
