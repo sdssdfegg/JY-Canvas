@@ -292,6 +292,39 @@ const specialtyLegacy = activationMod.evaluateAllActivations({ contextKeys: ["re
 push("J9 仅旧证据键不足以触发专项（缺正式required）",
   specialtyLegacy.results.find((x) => x.id === "product-specialty-expression")?.decision === "inactive");
 
+// ---------- K 组 · SKILL 01 正式正文接入（商品理解与事实边界） ----------
+const skill01Rel = "prompts/server/detail-v2-planning/skills/product-understanding/SKILL.md";
+const skill01 = read(skill01Rel);
+push("K1 SKILL01正式正文V1标记", probe(skill01, "正式专业正文 V1.0") && probe(skill01, "SKILL 01"));
+push("K2 SKILL01九要素保留",
+  ["职责", "触发", "输入", "判断方法", "规则", "输出字段", "边界", "冲突处理", "测试案例"].every((s) => probe(skill01, `## ${s}\n`)));
+push("K3 SKILL01五类来源分类", ["A 用户明确提供", "B 商品图片可直接观察", "C 图片文字识别", "D 已确认的项目上下文", "E 专业推断"].every((s) => probe(skill01, s)));
+push("K4 SKILL01 L1/L2/L3 齐", ["L1 明确确认", "L2 有限依据", "L3 未确认"].every((s) => probe(skill01, s)));
+push("K5 SKILL01八信息维度", ["5.1 商品身份", "5.2 包装信息", "5.3 使用对象", "5.4 作用目标", "5.5 适用范围", "5.6 使用方式", "5.7 成分与原理", "5.8 效果与证明"].every((s) => probe(skill01, s)));
+push("K6 SKILL01四条事实保护", ["禁止信息扩展", "禁止行业惯例代替商品事实", "禁止场景元素变商品属性", "禁止跨商品污染"].every((s) => probe(skill01, s)));
+push("K7 SKILL01输出契约与注入边界", probe(skill01, "不得使用信息") && probe(skill01, "禁止传递"));
+push("K8 SKILL01质量验收14条", probe(skill01, "14 条") && probe(skill01, "验收不得仅依赖关键词过滤"));
+push("K9 SKILL01不删改旧有价值规则",
+  ["mustNotClaim", "product.uncertainties", "JINGYIN_DETAIL_V2_SKILL_PRODUCT_UNDERSTANDING"].every((s) => probe(skill01, s)));
+push("K10 正式覆盖图片唯一来源旧表述", probe(skill01, "证据来源不唯一") && probe(skill01, "图片为必选输入是工程约束"));
+// 运行时读取：注册表路径真实可读且 marker 未变
+const regMod = await import(pathToFileURL(path.join(ROOT, "prompts", "server", "detail-v2-planning", "index.js")).href);
+const skill01Reg = regMod.detailV2SkillRegistry.find((x) => x.id === "product-understanding");
+push("K11 注册表路径可读正式正文", Boolean(skill01Reg) && read(path.join("prompts/server/detail-v2-planning", skill01Reg.path.replace("./", ""))).includes("正式专业正文 V1.0"));
+push("K12 marker与冻结本体未变", skill01Reg?.marker === "JINGYIN_DETAIL_V2_SKILL_PRODUCT_UNDERSTANDING" && regMod.skillModuleV2.marker === "JINGYIN_DETAIL_V2_PLANNING_SKILL");
+// 触发：mandatory 空上下文也触发、权威来源正式契约
+const puActivation = activationMod.evaluateAllActivations({ contextKeys: [] }).results.find((x) => x.id === "product-understanding");
+push("K13 商品理解mandatory空上下文触发", puActivation?.decision === "mandatory" && puActivation?.active === true);
+push("K14 判定权威=正式契约", puActivation?.authoritySource === "formal_professional_contract");
+// 污染测试：SKILL全文不进提示词
+const skillGroup = mwForProbe.buildDetailPromptGroup(
+  { count: 1, workflow: "taobao-detail", productName: "血渍清洗剂" },
+  [], { aiPlan: { ...probePlan, screens: [{ screen: 1, title: "首屏", moduleId: "hero" }] } }
+);
+const skillPrompt = skillGroup.prompts[0].text;
+push("K15 SKILL全文未注入提示词", !skillPrompt.includes(skill01.slice(0, 60)) && skillPrompt.length < skill01.length);
+push("K16 内部章节词未污染提示词", !/(来源分类与可信度|禁止信息扩展|质量验收14条)/.test(skillPrompt));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -314,6 +347,9 @@ neg("N14 视觉模板回退整改被删后判红", skillsSrc.replace('"fixedTemp
 neg("N15 视觉组装调用被删后判红", middleware.replace("const screenVisual = v2Planning\n      ? buildScreenVisual({", "const screenVisual = v2Planning\n      ? null && buildScreenVisual({"), "const screenVisual = v2Planning\n      ? buildScreenVisual({");
 neg("N16 旧键映射表被删后判红", activationSrc.replace('"user_requires_model": "user_requires_figure"', ""), '"user_requires_model": "user_requires_figure"');
 neg("N17 输入归一化被删后判红", activationSrc.replace("const normalized = normalizeContextKeys(ctx.contextKeys || []);", "const normalized = { keys: new Set(ctx.contextKeys || []), legacyHits: [] };"), "normalizeContextKeys(ctx.contextKeys || [])");
+neg("N18 SKILL01正式标记被删后判红", skill01.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
+neg("N19 SKILL01事实分级被删后判红", skill01.split("L3 未确认").join(""), "L3 未确认");
+neg("N20 SKILL01注入边界被删后判红", skill01.replace("禁止传递：", ""), "禁止传递：");
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {
