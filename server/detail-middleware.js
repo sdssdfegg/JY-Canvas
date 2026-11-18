@@ -629,15 +629,20 @@ export function deriveStructureTaskContextKeys({ input = {}, aiScreen = null, mo
 //    一律不派生；不绕过正式契约；不同时成立两次、不重复执行（返回单一键）。
 // 入口① 用户点击独立 QC 按钮：显式入参 qcTrigger/runQC/qcRequested（不依赖自然语言）。
 // 入口② 对话中用户明确要求质量审查：userInstruction/userRequirement 命中明确审查语义。
-const QC_EXPLICIT_REQUEST_PATTERN = /(质量审查|质检|审查这套|审查详情|检查这套详情|检查详情|检查当前屏|检查第[一二三四五六七八九十\d]+屏|审查第[一二三四五六七八九十\d]+屏|有没有问题|是否存在问题|检查.{0,12}画面是否合理|诊断.{0,12}详情|评估.{0,12}详情质量|找.{0,12}问题)/;
+// QC 否定意图排除（2026-11-18 补修）：否定词必须紧邻 QC 动作词（中间只允许 做/进行/先/一次/一下 等连接），
+// 避免误伤「不要修改，先帮我检查一下」——那里「不要」否定的是修改、不是 QC 本身。
+const QC_NEGATION_PATTERN = /(?:不要|不用|不必|不需要|无需|别|请勿|暂不|先不|这次不|取消|不做|不再)(?:做|进行|执行|来|再|先)?(?:一次|一下)?(?:质量审查|质检|审查|检查.{0,4}详情|检查这套|检查当前屏|检查第[一二三四五六七八九十\d]+屏)/;
+const QC_EXPLICIT_REQUEST_PATTERN = /(质量审查|质检|审查这套|审查详情|检查.{0,4}详情|检查当前屏|检查第[一二三四五六七八九十\d]+屏|审查第[一二三四五六七八九十\d]+屏|有没有问题|是否存在问题|检查.{0,12}画面是否合理|诊断.{0,12}详情|评估.{0,12}详情质量|找.{0,12}问题|帮我检查(一下)?(这套)?详情|先.{0,4}检查(一下)?(详情|这套)?)/;
 const QC_PLAIN_EDIT_PATTERN = /^(把|改|将|请改|帮我改).*(文案|标题|卖点|颜色|构图|背景|图片|这一屏|第[一二三四五六七八九十\d]+屏)/;
 
 export function deriveQCTaskContextKeys({ input = {} } = {}) {
-  // 入口①：独立 QC 按钮点击（显式入参信号）。
+  // 入口①：独立 QC 按钮点击（显式入参信号）——最高优先，不受自然语言否定排除影响。
   const buttonClicked = input.qcTrigger === "button" || input.runQC === true || input.qcRequested === true;
-  // 入口②：用户明确审查请求；纯修改请求不视为审查。
+  // 入口②：用户明确审查请求；纯修改请求、明确拒绝QC（否定紧邻QC动作词）都不视为审查。
   const userText = String(input.userInstruction || input.userRequirement || "");
-  const explicitRequest = QC_EXPLICIT_REQUEST_PATTERN.test(userText) && !QC_PLAIN_EDIT_PATTERN.test(userText);
+  const explicitRequest = QC_EXPLICIT_REQUEST_PATTERN.test(userText)
+    && !QC_PLAIN_EDIT_PATTERN.test(userText)
+    && !QC_NEGATION_PATTERN.test(userText);
   if (!buttonClicked && !explicitRequest) return [];
   // 两个入口同时成立也只返回一个统一键——Activation Contract 只判定一次、不重复执行。
   return ["qc_requested"];

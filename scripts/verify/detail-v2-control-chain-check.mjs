@@ -675,6 +675,41 @@ push("W18 核心4仍mandatory", ["product-understanding", "consumer-marketing-st
 push("W19 其他conditional空上下文仍inactive", ["ecommerce-copy-layout", "figure-usage-scene", "product-specialty-expression"].every((id) => regEmpty.results.find((x) => x.id === id)?.decision === "inactive"));
 push("W20 QC专业正文未被修改", probe(skill08, "正式专业正文 V1.0") && probe(skill08, "质量验收 30 条"));
 
+// ---------- X 组 · QC 否定表达误触发补修（真实链路 A-F 组） ----------
+push("X1 QC否定排除常量存在", probe(middleware, "QC_NEGATION_PATTERN"));
+function qcReal(instruction = "", extra = {}) {
+  const plan = {
+    product: { industryId: "cleaning", industryName: "清洁日化", name: "清洗剂", materials: [] },
+    planning: { facts: [{ claim: "白色泵瓶", level: "visible" }], narrative: { id: "n", reason: "r", confidence: "high" }, screenRoles: [] },
+    industryProfile: { industryId: "cleaning" }, consumerInsights: { audience: "家庭" }, marketingStrategy: { valueLadder: [] },
+    globalVisualDNA: { palette: "粉蓝" }, screens: [{ screen: 1, title: "首屏", moduleId: "hero", sellingPoint: "卖点1", composition: "构图细节" }]
+  };
+  const input = { count: 1, workflow: "taobao-detail", productName: "清洗剂", userInstruction: instruction, ...extra };
+  const prompt = deriveMod.buildDetailPromptGroup(input, [], { aiPlan: plan }).prompts[0];
+  const qc = prompt.skillActivation?.results?.find((x) => x.id === "detail-quality-control");
+  return { active: Boolean(qc?.active), decision: qc?.decision, text: prompt.text };
+}
+[
+  ["不要质检", false], ["别做质检了，直接生成", false], ["不用检查详情，直接出图", false], ["不需要审查", false],
+  ["无需质检，直接生成图片", false], ["取消质检", false], ["这次先不做质量审查", false]
+].forEach(([t, exp], i) => push(`X-A${i + 1} 否定表达不触发:${t}`, qcReal(t).active === exp));
+[
+  ["检查这套详情有没有问题", true], ["做一次质量审查", true], ["找找详情里的问题", true],
+  ["帮我检查一下详情，重点看文案", true], ["不要修改，先帮我检查一下", true]
+].forEach(([t, exp], i) => push(`X-B${i + 1} 主动审查仍触发:${t}`, qcReal(t).active === exp));
+[
+  ["把第二屏检查一下文案是否合理", false], ["画面调得合理些", false], ["检查背景改成蓝色", false], ["修改第二屏的文字", false]
+].forEach(([t, exp], i) => push(`X-C${i + 1} 普通修改不误触:${t}`, qcReal(t).active === exp));
+push("X-D1 按钮单独→conditional", qcReal("", { qcTrigger: "button" }).active === true);
+push("X-D2 按钮+不要质检→按钮优先", qcReal("不要质检", { qcTrigger: "button" }).active === true);
+push("X-D3 按钮+普通修改→按钮优先", qcReal("把第二屏文案改一下", { qcTrigger: "button" }).active === true);
+push("X-D4 runQC显式信号→conditional", qcReal("", { runQC: true }).active === true);
+push("X-E1 旧键均归一到qc_requested", ["user_clicks_qc", "user_requests_review"].every((k) => activationMod.normalizeContextKeys([k]).keys.has("qc_requested")));
+push("X-E2 两旧键只产生一个统一键", [...activationMod.normalizeContextKeys(["user_clicks_qc", "user_requests_review"]).keys].filter((x) => x === "qc_requested").length === 1);
+push("X-F1 否定请求QC正文不进提示词", (() => { const r = qcReal("不要质检"); return !r.text.includes("严重错误不可被高分抵消") && !r.text.includes("质量审查"); })());
+push("X-F2 未激活不注入QC全文", (() => { const r = qcReal("生成商品静物图"); return !r.text.includes("质量验收 30 条") && !r.text.includes("【QC报告】"); })());
+push("X-F3 激活也不把QC正文写入提示词", (() => { const r = qcReal("检查这套详情有没有问题"); return r.active && !r.text.includes("质量验收 30 条"); })());
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -720,6 +755,7 @@ neg("N36 SKILL08回链phrase被删后判红", skill08.split("严重错误不可�
 neg("N37 SKILL08正式标记被删后判红", skill08.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
 neg("N38 QC派生调用被删后判红", middleware.replace("triggerCtxKeys.push(...deriveQCTaskContextKeys({ input }));", ""), "triggerCtxKeys.push(...deriveQCTaskContextKeys({ input }))");
 neg("N39 QC旧别名归一化被删后判红", activationSrc.replace('user_clicks_qc: "qc_requested",', ""), 'user_clicks_qc: "qc_requested"');
+neg("N40 QC否定排除被删后判红", middleware.replace("&& !QC_NEGATION_PATTERN.test(userText)", ""), "&& !QC_NEGATION_PATTERN.test(userText)");
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {
