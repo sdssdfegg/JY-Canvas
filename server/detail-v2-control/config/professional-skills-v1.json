@@ -1,0 +1,224 @@
+{
+  "$source": "V2-PRO-003｜八项基础 Skill 正式专业规则接入任务书 V1.0",
+  "$version": "V2-PRO-003 / 1.0",
+  "$authority": "ChatGPT 专业线正式交付 V1.0；总控逐字转写为机器可读并建映射，不新增能力框架、不发明专业规则。",
+  "$integrity": "现有 8 个 Skill 文件/注册表/marker 冻结不删改；本配置只覆盖临时触发值与占位，通过映射关联现有资产。",
+  "status": "professional_content",
+  "isPlaceholder": false,
+  "contractFields": [
+    "activation_conditions", "exclusion_conditions", "required_context", "optional_context",
+    "execution_mode", "decision_rules", "execution_rules", "output_contract",
+    "downstream_usage", "prompt_injection_policy", "conflict_priority", "failure_fallback"
+  ],
+  "executionModes": {
+    "mandatory": "当前工作流必需",
+    "conditional": "只有触发条件成立时执行",
+    "optional": "用户主动要求时执行",
+    "inactive": "当前任务不需要，不得执行或注入内容"
+  },
+  "outputChannels": ["internal_analysis", "planning_output", "generation_instruction", "audit_rules"],
+  "skillMapping": [
+    {
+      "formalId": "product-understanding",
+      "formalName": "商品理解 Skill",
+      "existingId": "product-understanding",
+      "existingPath": "prompts/server/detail-v2-planning/skills/product-understanding/SKILL.md",
+      "mappingType": "direct",
+      "note": "正式①核心必需；现有同名资产直接复用，保留文件/注册表/marker。"
+    },
+    {
+      "formalId": "consumer-marketing-strategy",
+      "formalName": "营销策划 Skill",
+      "existingId": "consumer-marketing-strategy",
+      "existingPath": "prompts/server/detail-v2-planning/skills/consumer-marketing-strategy/SKILL.md",
+      "mappingType": "direct",
+      "note": "正式②核心必需；现有同名资产直接复用。"
+    },
+    {
+      "formalId": "detail-story-planning",
+      "formalName": "详情叙事 Skill",
+      "existingId": "detail-story-planning",
+      "existingPath": "prompts/server/detail-v2-planning/skills/detail-story-planning/SKILL.md",
+      "mappingType": "direct",
+      "note": "正式③整套规划必需；现有同名资产直接复用。"
+    },
+    {
+      "formalId": "visual-art-direction",
+      "formalName": "视觉导演 Skill",
+      "existingId": "visual-art-direction",
+      "existingPath": "prompts/server/detail-v2-planning/skills/visual-art-direction/SKILL.md",
+      "mappingType": "direct",
+      "note": "正式④每实际生成画面必需；现有同名资产直接复用。"
+    },
+    {
+      "formalId": "ecommerce-copy-layout",
+      "formalName": "文案策划 Skill",
+      "existingId": "ecommerce-copy-layout",
+      "existingPath": "prompts/server/detail-v2-planning/skills/ecommerce-copy-layout/SKILL.md",
+      "mappingType": "direct",
+      "note": "正式⑤条件能力；现有同名资产直接复用。"
+    },
+    {
+      "formalId": "figure-usage-scene",
+      "formalName": "人物与使用场景 Skill",
+      "existingId": "model-pose",
+      "existingPath": "server/detail-v2-control/skill-activation.js#model-pose",
+      "mappingType": "capability_module",
+      "note": "正式⑥条件能力；现有8文件无独立人物Skill，映射到 V2-PRO-002 已建的 model-pose 能力模块，不新建重复Skill文件。"
+    },
+    {
+      "formalId": "product-specialty-expression",
+      "formalName": "产品专项表达 Skill",
+      "existingId": "product-structure|ingredient-mechanism|effect-evidence",
+      "existingPath": "server/detail-v2-control/skill-activation.js#specialty-capabilities",
+      "mappingType": "capability_module_cluster",
+      "note": "正式⑦条件能力；映射到 V2-PRO-002 已建的结构/成分/效果/材质/用法专项能力簇，各专项分别判断。不新建重复Skill文件。"
+    },
+    {
+      "formalId": "detail-quality-control",
+      "formalName": "详情质量审查 Skill",
+      "existingId": "detail-quality-control",
+      "existingPath": "prompts/server/detail-v2-planning/skills/detail-quality-control/SKILL.md",
+      "mappingType": "direct",
+      "note": "正式⑧条件（用户主动质检）能力；现有同名资产直接复用。"
+    },
+    {
+      "formalId": "industry-routing-retained",
+      "formalName": "行业路由（已有能力，保留兼容）",
+      "existingId": "industry-routing",
+      "existingPath": "prompts/server/detail-v2-planning/skills/industry-routing/SKILL.md",
+      "mappingType": "retained_compat",
+      "note": "正式8项无独立行业路由Skill；现有文件/注册表保留兼容，职责并入商品理解与事实控制。"
+    },
+    {
+      "formalId": "cross-screen-coherence-retained",
+      "formalName": "跨屏一致（已有能力，保留兼容）",
+      "existingId": "cross-screen-coherence",
+      "existingPath": "prompts/server/detail-v2-planning/skills/cross-screen-coherence/SKILL.md",
+      "mappingType": "retained_compat",
+      "note": "正式8项无独立跨屏一致Skill；现有文件/注册表保留兼容，职责并入详情叙事与视觉导演。"
+    }
+  ],
+  "activationContracts": {
+    "product-understanding": {
+      "activation_conditions": [], "exclusion_conditions": [], "required_context": [], "optional_context": ["product_images", "user_materials", "product_labels"],
+      "execution_mode": "mandatory",
+      "decision_rules": ["每次创作必需", "用户资料/标签/图片均纳入证据，图片非唯一来源"],
+      "execution_rules": ["建立六类事实档案：产品身份/包装信息/使用对象/作用目标/适用范围/使用方式", "事实分已确认/有限依据/未确认", "未确认事实不得转确定性卖点"],
+      "output_contract": "internal_analysis 事实档案 + planning_output 事实边界",
+      "downstream_usage": "行业路由/营销/叙事/视觉/编译的事实底座",
+      "prompt_injection_policy": "仅已确认事实以简洁指令进入，不注入分析全文",
+      "conflict_priority": 0, "failure_fallback": "事实不足时标未确认，不用模板补事实"
+    },
+    "consumer-marketing-strategy": {
+      "activation_conditions": [], "exclusion_conditions": [], "required_context": ["product_facts"], "optional_context": ["consumer_insights"],
+      "execution_mode": "mandatory",
+      "decision_rules": ["每次创作必需"],
+      "execution_rules": ["据产品事实与消费者需求定营销主线/核心价值/内容优先级", "不虚构痛点/功效/场景/优势"],
+      "output_contract": "internal_analysis 策略分析 + planning_output 主线与优先级",
+      "downstream_usage": "叙事/文案/视觉的价值表达（受事实边界约束）",
+      "prompt_injection_policy": "内部策略分析不得全文进入生图提示词",
+      "conflict_priority": 1, "failure_fallback": "无足够依据时用保守事实陈述，不堆营销话术"
+    },
+    "detail-story-planning": {
+      "activation_conditions": [], "exclusion_conditions": [], "required_context": ["screen_count"], "optional_context": ["selected_sections", "marketing_strategy"],
+      "execution_mode": "mandatory",
+      "decision_rules": ["整套生成或整套重新规划时必需", "空选择=AI自主规划，不解释为空"],
+      "execution_rules": ["按产品/营销/用户选择/屏数规划每屏内容任务与信息推进", "禁固定套用首屏-痛点-效果-收尾模板", "禁重复/凑屏/无消费者价值屏"],
+      "output_contract": "planning_output 每屏内容任务/顺序/屏间关系",
+      "downstream_usage": "视觉导演/文案/编译的屏任务来源",
+      "prompt_injection_policy": "仅当前屏已批准任务进入提示词",
+      "conflict_priority": 1, "failure_fallback": "信息不足时规划有依据的合理内容，不凑屏不虚构"
+    },
+    "visual-art-direction": {
+      "activation_conditions": [], "exclusion_conditions": [], "required_context": ["screen_content_task"], "optional_context": ["global_visual_dna", "product_facts"],
+      "execution_mode": "mandatory",
+      "decision_rules": ["每个实际生成画面均必需"],
+      "execution_rules": ["为当前屏策划具体视觉概念/环境/主体/道具/光影/色彩/构图/镜头/信息布局/元素关系", "禁通用套话", "视觉方案与当前屏内容任务匹配", "缺有效视觉策划时补全而非回退固定模板"],
+      "output_contract": "planning_output 视觉方案 + generation_instruction 画面指令",
+      "downstream_usage": "当前屏最终提示词的画面描述",
+      "prompt_injection_policy": "仅当前屏视觉方案转成的简洁可执行指令进入",
+      "conflict_priority": 2, "failure_fallback": "见 fixed_template_fallback 整改：不使用固定模板冒充策划"
+    },
+    "ecommerce-copy-layout": {
+      "activation_conditions": ["screen_needs_text"], "exclusion_conditions": ["screen_no_text"], "required_context": ["screen_content_task"], "optional_context": ["approved_facts"],
+      "execution_mode": "conditional",
+      "decision_rules": ["当前屏确实需要文字时触发"],
+      "execution_rules": ["输出当前屏最终文案/层级/位置/表达方式", "不机械套标题+三卖点", "不生成无依据功效/虚假承诺/参数堆砌/无意义口号"],
+      "output_contract": "planning_output 文案 + generation_instruction 文字指令",
+      "downstream_usage": "当前屏文案",
+      "prompt_injection_policy": "仅当前屏最终文案进入",
+      "conflict_priority": 3, "failure_fallback": "无需文字的屏不生成文案指令"
+    },
+    "figure-usage-scene": {
+      "activation_conditions": ["screen_needs_figure", "user_requires_figure"], "exclusion_conditions": ["static_product_screen", "no_figure_requirement"], "required_context": ["explicit_figure_task"], "optional_context": ["industry_apparel"],
+      "execution_mode": "conditional",
+      "decision_rules": ["当前屏需要人物/人体/手部/操作/生活情境，或用户明确提出时触发", "静物/纯产品/信息图/结构细节不触发", "不得默认所有产品需要模特"],
+      "execution_rules": ["人物指令服务当前屏内容任务", "不引入无关人物身份"],
+      "output_contract": "generation_instruction 人物/场景指令",
+      "downstream_usage": "当前屏人物画面",
+      "prompt_injection_policy": "未触发完全不进入提示词",
+      "conflict_priority": 4, "failure_fallback": "无人物任务时输出本屏无模特的正向约束"
+    },
+    "product-specialty-expression": {
+      "activation_conditions": ["specialty_condition_met"], "exclusion_conditions": ["specialty_condition_unmet"], "required_context": ["specialty_evidence"], "optional_context": ["product_facts"],
+      "execution_mode": "conditional",
+      "decision_rules": ["结构：真实特殊结构且具解释价值", "成分原理：可靠资料且当前任务需要", "效果证明：可信证据+明确对象条件范围", "前后对比：真实效果依据", "材质：已确认且任务需要", "使用方法：步骤可靠且本屏承担操作说明", "各专项分别判断，不整体加载"],
+      "execution_rules": ["仅已触发且通过准入的专项进入当前屏", "不跨屏复制专项指令"],
+      "output_contract": "generation_instruction 专项画面指令",
+      "downstream_usage": "当前屏专项表达",
+      "prompt_injection_policy": "未触发专项不进入",
+      "conflict_priority": 4, "failure_fallback": "证据不足专项判 pending/rejected，不注入"
+    },
+    "detail-quality-control": {
+      "activation_conditions": ["user_clicks_qc", "user_requests_review"], "exclusion_conditions": ["no_qc_request"], "required_context": [], "optional_context": ["full_plan"],
+      "execution_mode": "optional",
+      "decision_rules": ["用户主动点击质检或明确要求审查时执行", "默认不阻塞生图", "未经用户确认不得覆盖已确认提示词"],
+      "execution_rules": ["审查商品事实/营销真实性/内容完整/叙事/视觉差异/文案/画面逻辑/跨屏一致"],
+      "output_contract": "audit_rules 审查结果",
+      "downstream_usage": "用户可见质检建议",
+      "prompt_injection_policy": "默认不将完整审查清单注入生图提示词",
+      "conflict_priority": 5, "failure_fallback": "不执行时不影响生图"
+    },
+    "industry-routing-retained": {
+      "activation_conditions": [], "exclusion_conditions": [], "required_context": [], "optional_context": [],
+      "execution_mode": "mandatory",
+      "decision_rules": ["保留兼容，职责并入商品理解与事实控制"],
+      "execution_rules": ["展示行业与规则行业同一决策"],
+      "output_contract": "planning_output 行业ID",
+      "downstream_usage": "行业包加载",
+      "prompt_injection_policy": "仅行业观察点/禁忌精简进入",
+      "conflict_priority": 1, "failure_fallback": "不明时 generic"
+    },
+    "cross-screen-coherence-retained": {
+      "activation_conditions": [], "exclusion_conditions": [], "required_context": [], "optional_context": [],
+      "execution_mode": "mandatory",
+      "decision_rules": ["保留兼容，职责并入详情叙事与视觉导演"],
+      "execution_rules": ["跨屏去重与一致性"],
+      "output_contract": "audit_rules 去重与一致性",
+      "downstream_usage": "规划质检",
+      "prompt_injection_policy": "不整份注入",
+      "conflict_priority": 5, "failure_fallback": "不阻塞生图"
+    }
+  },
+  "promptAssembly": {
+    "A_global": ["商品身份与商品保护", "已确认的全局视觉DNA", "用户明确平台/比例/语言", "必要跨屏一致性"],
+    "A_mustNotInclude": ["人物", "服装", "成分", "结构", "效果对比", "材质", "参考图等专项规则无条件包含"],
+    "B_screen": ["当前屏具体内容任务", "消费者需理解什么", "当前屏核心表达", "实际文案", "具体视觉主题", "场景/主体/道具/构图/空间关系", "当前屏专属约束"],
+    "C_conditional": ["仅当前屏已触发+已准入+与画面相关的专项", "不得复制其他屏专项"]
+  },
+  "internalAuditSeparation": {
+    "auditItems": ["行业识别", "事实来源", "专项准入", "营销真实性", "内容质量", "文案合规", "画面逻辑", "跨屏一致", "图像质量"],
+    "mustNotInjectFull": true,
+    "onlyConvertAffecting": ["商品瓶身不得改变", "真实标签尽量保持"]
+  },
+  "fixedTemplateFallback": {
+    "currentProblem": "AI 无有效 composition 时回退 SCREEN_MODULES 固定套话（商品居中/标题上方/卖点两侧）",
+    "requirement": ["不允许回退固定套话", "按当前屏内容任务+商品事实+整套视觉方向补全", "补全须具体场景/构图/元素关系", "不改变已定内容任务", "不引入未授权事实或专项"],
+    "minFeasiblePlan": "工程层用当前屏已批准任务+已确认事实+globalVisualDNA 组装确定性视觉骨架（非固定模板）；若仍缺有效策划，明确标注视觉策划缺失、只输出商品真实性约束，不冒充专业策划。真正专业视觉补全待正式视觉内容接入。"
+  },
+  "userConstraintsPriority": {
+    "preserved": ["内容选择", "屏数", "排序", "删除", "自定义约束"],
+    "emptySelection": "用户未选板块时 AI 仍自主规划，不解释为空"
+  }
+}

@@ -27,7 +27,8 @@ import {
   evaluateAllActivations,
   assemblePromptLayers,
   compileWithAuthorization,
-  checkSellingPointBoundary
+  checkSellingPointBoundary,
+  buildScreenVisual
 } from "./detail-v2-control/skill-activation.js";
 
 const DEFAULT_COUNT = BASE_SKILL.screenCountRule.defaultCount;
@@ -672,6 +673,20 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     const sellingForPrompt = sellingBoundary.allowed
       ? selling
       : "围绕已确认的商品事实与该屏任务表达，不扩展未经确认的污渍、材质、适用范围或功效。";
+    // V2-PRO-003 第七节：视觉方案缺失不回退固定模板——用本屏任务+已确认事实+视觉DNA 组装。
+    const screenVisual = v2Planning
+      ? buildScreenVisual({
+          moduleName: moduleSkill.name,
+          contentTask: String(sellingForPrompt || "").slice(0, 60),
+          composition: aiScreen?.composition || "",
+          confirmedFacts: (Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [])
+            .filter((f) => f?.level === "visible").map((f) => String(f.claim || "")),
+          visualDNA: aiPlan?.globalVisualDNA || {}
+        })
+      : null;
+    const visualForPrompt = v2Planning
+      ? (screenVisual ? screenVisual.text : "本屏视觉策划缺失：仅保持商品真实结构与清晰呈现，不套用固定模板，不引入未授权元素。")
+      : (aiScreen?.composition || moduleSkill.composition);
     const rulePlan = referencePlanForScreen(index, count, productImages, referenceImages, moduleSkill);
     const plan = aiScreen
       ? {
@@ -748,7 +763,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       styleLockLine,
       `【本屏卖点】${sellingForPrompt}`,
       aiScreen?.copywriting ? `【本屏文案】${aiScreen.copywriting}` : "",
-      `【画面任务】${aiScreen?.composition || moduleSkill.composition}`,
+      `【画面任务】${visualForPrompt}`,
       variantLine,
       `【模块指令】${promptDirectives.join("；")}。`,
       `【参考图使用】${aiScreen?.referenceReason || moduleSkill.referenceNeed}；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。`,
@@ -790,9 +805,10 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       ...(v2Planning ? {
         skillActivation: activation,
         sellingBoundary,
+        screenVisual,
         promptLayers: assemblePromptLayers({
           globalLines: [globalLock],
-          screenLines: [`【本屏卖点】${sellingForPrompt}`, `【画面任务】${aiScreen?.composition || moduleSkill.composition}`],
+          screenLines: [`【本屏卖点】${sellingForPrompt}`, `【画面任务】${visualForPrompt}`],
           conditionalLines: activation?.injectedIds?.includes("model-pose") ? [`【模特与镜头】${aiScreen?.modelPolicyHint || modelPolicy(input, index, count)}`] : [],
           internalAudit: qualityChecklist
         })

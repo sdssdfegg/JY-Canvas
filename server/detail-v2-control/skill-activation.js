@@ -4,6 +4,7 @@
 //    未配置时按 inactive / 保守处理，绝不用工程默认值冒充专业规则。
 // 保持单 Planner、单次调用；不新增 Provider / KEY / 生图链路；不改 G-2 与冻结模块。
 
+import { readFileSync } from "node:fs";
 import { activeConfig, createCompilerAudit, ADMISSION } from "./index.js";
 
 // V2-PRO-002：卖点事实边界校验（消费正式配置的 noGeneralization，不自行发明规则）。
@@ -44,11 +45,15 @@ const CONTRACT_FIELDS = [
   "activation_conditions",
   "exclusion_conditions",
   "required_context",
+  "optional_context",
   "execution_mode",
+  "decision_rules",
+  "execution_rules",
   "output_contract",
   "downstream_usage",
   "prompt_injection_policy",
-  "conflict_priority"
+  "conflict_priority",
+  "failure_fallback"
 ];
 
 // 默认触发表（工程基线，非专业内容）：只声明"哪些能力在缺配置时必须 inactive"。
@@ -116,16 +121,60 @@ const BASE_ACTIVATION = {
   }
 };
 
-// 读取正式配置的触发表（若 ChatGPT 已交付 skillActivation），否则用工程基线。
+// 读取正式 professional-skills 配置（V2-PRO-003 八项正式专业规则），映射到评估引擎的现有能力 ID。
+// 映射只取"已有能力 ID"作为 key，正式契约 12 字段原样透传；正式配置缺失时回退工程基线。
+const PROFESSIONAL_SKILLS_REL = "./config/professional-skills-v1.json";
+const FORMAL_TO_ENGINE_ID = {
+  // 仅把正式"条件能力"映射到 V2-PRO-002 已建的引擎能力 ID，供既有触发断言消费。
+  // 核心强制能力以正式 ID 独立存在，不映射到 industry-cleaning 等语义不同的键。
+  "figure-usage-scene": "model-pose",
+  "product-specialty-expression": "product-structure"
+};
+function readProfessionalSkills() {
+  try {
+    const cfg = JSON.parse(readFileSync(new URL(PROFESSIONAL_SKILLS_REL, import.meta.url), "utf8"));
+    return cfg?.status === "professional_content" ? cfg : null;
+  } catch {
+    return null;
+  }
+}
+
+export function professionalSkillsConfig() {
+  return readProfessionalSkills();
+}
+
 function resolveActivationTable(config = activeConfig()) {
+  const skillsCfg = readProfessionalSkills();
+  if (skillsCfg?.activationContracts) {
+    const table = {};
+    for (const [formalId, contract] of Object.entries(skillsCfg.activationContracts)) {
+      // 用正式 ID 作 key，同时为引擎已知的能力 ID 建别名（不新建能力，仅映射）。
+      table[formalId] = contract;
+      if (FORMAL_TO_ENGINE_ID[formalId]) {
+        const engineId = FORMAL_TO_ENGINE_ID[formalId];
+        // 保留 V2-PRO-002 引擎既有触发条件的兼容：别名沿用 BASE_ACTIVATION 的条件键，
+        // 正式契约挂在 _formalContract 供审计回溯，不改引擎判定语义。
+        table[engineId] = { ...(BASE_ACTIVATION[engineId] || contract), _formalId: formalId, _formalContract: contract };
+      }
+    }
+    // 保留引擎既有能力 ID（V2-PRO-002 门禁依赖），缺省时从正式专项契约派生。
+    for (const key of Object.keys(BASE_ACTIVATION)) {
+      if (!table[key]) table[key] = BASE_ACTIVATION[key];
+    }
+    return table;
+  }
+  // 回退：旧 skillActivation 或工程基线。
   const formal = config?.skillActivation && typeof config.skillActivation === "object" ? config.skillActivation : null;
   return formal && Object.keys(formal).length > 0 ? formal : BASE_ACTIVATION;
 }
 
-// 校验触发表每项八字段齐备（门禁可调用）
-export function validateActivationContracts(table = resolveActivationTable()) {
+// 校验正式 Skill 触发表每项十二字段齐备（门禁可调用）。
+// 默认校验正式 professional-skills 配置的 activationContracts；合并表含 V2-PRO-002 工程基线能力（8 字段），
+// 不作为正式契约校验对象（它们不是正式 Skill，只是能力模块）。
+export function validateActivationContracts(table = null) {
+  const source = table || readProfessionalSkills()?.activationContracts || {};
   const results = [];
-  for (const [id, contract] of Object.entries(table)) {
+  for (const [id, contract] of Object.entries(source)) {
     const missing = CONTRACT_FIELDS.filter((f) => !(f in (contract || {})));
     const modeOk = Object.values(EXECUTION_MODE).includes(contract?.execution_mode);
     results.push({ id, ok: missing.length === 0 && modeOk, missing, mode: contract?.execution_mode || null });
@@ -244,13 +293,44 @@ export function compileWithAuthorization(entries = [], admittedTaskIds = []) {
   };
 }
 
+// V2-PRO-003 第七节：视觉方案缺失时不得回退固定模板。
+// 用当前屏内容任务 + 已确认事实 + 整套视觉DNA 组装确定性视觉骨架（非"商品居中/标题上方"套话）。
+// 若三项皆缺，返回 null 表示"视觉策划缺失"，由调用方只输出商品真实性约束、不冒充专业策划。
+export function buildScreenVisual({ moduleName = "", contentTask = "", composition = "", confirmedFacts = [], visualDNA = {} } = {}) {
+  const comp = String(composition || "").trim();
+  // 固定套话识别（任务书第七节点名的模板）：命中即视为无有效视觉策划，不用模板冒充。
+  const templatePattern = /(主体清晰|商品居中|产品居中|居中或略偏黄金分割|一屏只讲|一个主要卖点|画面简洁|有结束感|背景干净|标题层级明确|标题上方|卖点两侧|突出产品|保留呼吸感)/;
+  const isTemplate = templatePattern.test(comp) || comp.length < 12;
+  const hasComposition = comp.length >= 8 && !isTemplate;
+  if (hasComposition) return { text: comp, source: "ai_composition", isTemplateFallback: false };
+
+  // 用已确认事实与视觉DNA 组装具体骨架；每条都来自真实上下文，不是固定句库。
+  const facts = (Array.isArray(confirmedFacts) ? confirmedFacts : []).filter(Boolean).slice(0, 4);
+  const palette = String(visualDNA.palette || "").trim();
+  const lighting = String(visualDNA.lighting || "").trim();
+  const camera = String(visualDNA.cameraLanguage || "").trim();
+  const parts = [];
+  if (moduleName) parts.push(`围绕「${moduleName}」任务组织画面`);
+  if (contentTask) parts.push(`本屏信息目标：${contentTask}`);
+  if (facts.length) parts.push(`画面须呈现已确认事实：${facts.join("、")}`);
+  if (palette) parts.push(`色调遵循整套 DNA：${palette}`);
+  if (lighting) parts.push(`布光：${lighting}`);
+  if (camera) parts.push(`镜头语言：${camera}`);
+  parts.push("场景、主体与文字关系须服务本屏任务，不得引入未授权事实或专项");
+
+  if (parts.length <= 1 && !palette && !lighting) return null; // 无可依据内容 → 视觉策划缺失，不冒充。
+  return { text: parts.join("；") + "。", source: "context_assembly", isTemplateFallback: false };
+}
+
 export default {
   EXECUTION_MODE,
   CONTRACT_FIELDS,
+  professionalSkillsConfig,
   validateActivationContracts,
   evaluateActivation,
   evaluateAllActivations,
   assemblePromptLayers,
   compileWithAuthorization,
-  checkSellingPointBoundary
+  checkSellingPointBoundary,
+  buildScreenVisual
 };

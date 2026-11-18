@@ -163,7 +163,8 @@ push("G9 原文含接入要求八条", ["不新增 Agent", "不修改冻结", "�
 // ---------- H 组 · V2-PRO-002 Skill 按需触发与提示词净化 ----------
 const activationMod = await import(pathToFileURL(path.join(ROOT, "server", "detail-v2-control", "skill-activation.js")).href);
 const contracts = activationMod.validateActivationContracts();
-push("H1 触发契约八字段齐备", contracts.fieldCount === 8 && contracts.passed === contracts.total);
+// V2-PRO-003：正式 Skill 触发契约从 8 字段扩到 12 字段。
+push("H1 触发契约十二字段齐备", contracts.fieldCount === 12 && contracts.passed === contracts.total && contracts.total >= 8);
 push("H2 四种执行模式语义齐",
   ["mandatory", "conditional", "optional", "inactive"].every((m) => probe(read("server/detail-v2-control/skill-activation.js"), m)));
 
@@ -223,6 +224,45 @@ push("H21 全局规则仅在分层A出现一次（不逐屏重复注入D层）",
 push("H22 无结构证据不触发产品结构能力",
   !activationMod.evaluateAllActivations({ contextKeys: [] }).activeIds.includes("product-structure"));
 
+// ---------- I 组 · V2-PRO-003 八项正式专业 Skill 接入 ----------
+let skillsCfg = null;
+try { skillsCfg = JSON.parse(read("server/detail-v2-control/config/professional-skills-v1.json")); } catch { skillsCfg = null; }
+push("I1 正式Skill配置已接入", skillsCfg?.status === "professional_content" && skillsCfg?.isPlaceholder === false);
+push("I2 十二字段契约定义齐", (skillsCfg?.contractFields || []).length === 12
+  && ["optional_context", "decision_rules", "execution_rules", "failure_fallback"].every((f) => (skillsCfg?.contractFields || []).includes(f)));
+push("I3 四执行模式定义齐", ["mandatory", "conditional", "optional", "inactive"].every((m) => m in (skillsCfg?.executionModes || {})));
+push("I4 四类输出通道齐", ["internal_analysis", "planning_output", "generation_instruction", "audit_rules"].every((c) => (skillsCfg?.outputChannels || []).includes(c)));
+const coreMandatory = ["product-understanding", "consumer-marketing-strategy", "detail-story-planning", "visual-art-direction"];
+push("I5 核心四能力 mandatory", coreMandatory.every((id) => skillsCfg?.activationContracts?.[id]?.execution_mode === "mandatory"));
+push("I6 文案能力 conditional", skillsCfg?.activationContracts?.["ecommerce-copy-layout"]?.execution_mode === "conditional");
+push("I7 人物/专项能力 conditional", skillsCfg?.activationContracts?.["figure-usage-scene"]?.execution_mode === "conditional"
+  && skillsCfg?.activationContracts?.["product-specialty-expression"]?.execution_mode === "conditional");
+push("I8 质检能力 optional", skillsCfg?.activationContracts?.["detail-quality-control"]?.execution_mode === "optional");
+push("I9 映射含直接复用与能力模块映射", (skillsCfg?.skillMapping || []).some((m) => m.mappingType === "direct")
+  && (skillsCfg?.skillMapping || []).some((m) => m.mappingType === "capability_module"));
+push("I10 兼容保留industry-routing/cross-screen", ["industry-routing-retained", "cross-screen-coherence-retained"]
+  .every((id) => (skillsCfg?.skillMapping || []).some((m) => m.formalId === id && m.mappingType === "retained_compat")));
+push("I11 视觉模板回退整改条款齐", (skillsCfg?.fixedTemplateFallback?.requirement || []).some((r) => r.includes("固定套话")));
+push("I12 内部审查分离9项齐", (skillsCfg?.internalAuditSeparation?.auditItems || []).length === 9 && skillsCfg?.internalAuditSeparation?.mustNotInjectFull === true);
+push("I13 用户约束保留6项", ["内容选择", "屏数", "排序", "删除", "自定义约束"].every((k) => (skillsCfg?.userConstraintsPriority?.preserved || []).some((p) => p.includes(k))));
+
+// I 组运行时：视觉非模板回退（真实调用 buildScreenVisual）
+const visualTemplate = activationMod.buildScreenVisual({ moduleName: "核心卖点", contentTask: "血渍清洁", composition: "商品主体清晰居中", confirmedFacts: ["白色泵瓶"], visualDNA: { palette: "粉蓝", lighting: "柔光" } });
+push("I14 套话composition不回退模板", visualTemplate?.source === "context_assembly" && !/^(商品主体清晰居中)$/.test(visualTemplate?.text || ""));
+push("I15 组装视觉含具体事实与DNA", visualTemplate?.text?.includes("白色泵瓶") && visualTemplate?.text?.includes("粉蓝"));
+const visualConcrete = activationMod.buildScreenVisual({ composition: "白色泵瓶置于浅灰台面，左侧水渍污布，右侧喷雾动作，俯拍45度" });
+push("I16 具体composition直接采用", visualConcrete?.source === "ai_composition");
+push("I17 无依据时不冒充专业策划", activationMod.buildScreenVisual({}) === null);
+
+// I 组端到端：AI 无 composition 时提示词用组装视觉、非模块套话
+const visualGroup = mwForProbe.buildDetailPromptGroup(
+  { count: 1, workflow: "taobao-detail", productName: "血渍清洗剂" },
+  [], { aiPlan: { ...probePlan, screens: [{ screen: 1, title: "首屏", moduleId: "hero" }] } }
+);
+const visualLine = visualGroup.prompts[0].text.split("\n").find((x) => x.includes("【画面任务】")) || "";
+push("I18 端到端画面任务非套话", !/商品主体清晰居中|一屏只讲一个主要卖点|画面简洁、有结束感/.test(visualLine));
+push("I19 端到端screenVisual审计存在", Boolean(visualGroup.prompts[0].screenVisual));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -239,6 +279,10 @@ neg("N10 Skill触发判定被删后判红", middleware.replace("const activation
 neg("N11 卖点边界校验被删后判红", middleware.replace("const sellingBoundary = v2Planning\n      ? checkSellingPointBoundary(selling, industrySkill.id)", "const sellingBoundary = v2Planning\n      ? { allowed: true, reason: \"bypass\", hits: [] }"), "checkSellingPointBoundary(selling, industrySkill.id)");
 const activationSrc = read("server/detail-v2-control/skill-activation.js");
 neg("N12 触发契约八字段被删后判红", activationSrc.replace('"conflict_priority"', ""), '"conflict_priority"');
+const skillsSrc = read("server/detail-v2-control/config/professional-skills-v1.json");
+neg("N13 正式Skill状态标记被删后判红", skillsSrc.replace('"status": "professional_content"', ""), '"status": "professional_content"');
+neg("N14 视觉模板回退整改被删后判红", skillsSrc.replace('"fixedTemplateFallback"', ""), '"fixedTemplateFallback"');
+neg("N15 视觉组装调用被删后判红", middleware.replace("const screenVisual = v2Planning\n      ? buildScreenVisual({", "const screenVisual = v2Planning\n      ? null && buildScreenVisual({"), "const screenVisual = v2Planning\n      ? buildScreenVisual({");
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {
