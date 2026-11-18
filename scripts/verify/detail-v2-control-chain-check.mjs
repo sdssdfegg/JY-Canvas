@@ -379,6 +379,33 @@ const skill03Prompt = mwForProbe.buildDetailPromptGroup(
 push("M14 SKILL03全文未注入提示词", !skill03Prompt.includes(skill03.slice(0, 60)) && skill03Prompt.length < skill03.length);
 push("M15 SKILL03内部词未污染", !/(内容板块的定义|输出契约|质量验收 20 条)/.test(skill03Prompt));
 
+// ---------- O 组 · SKILL 04 正式正文接入（视觉导演与画面创意规划） ----------
+const skill04Rel = "prompts/server/detail-v2-planning/skills/visual-art-direction/SKILL.md";
+const skill04 = read(skill04Rel);
+push("O1 SKILL04正式正文V1标记", probe(skill04, "正式专业正文 V1.0") && probe(skill04, "SKILL 04"));
+push("O2 SKILL04九要素保留", ["职责", "触发", "输入", "判断方法", "规则", "输出字段", "边界", "冲突处理", "测试案例"].every((s) => probe(skill04, `## ${s}\n`)));
+push("O3 SKILL04回链phrase逐字保留", probe(skill04, "禁止仅背景/颜色变化"));
+push("O4 SKILL04启动规则与不取消", probe(skill04, "不得因商品事实不完整") && probe(skill04, "不能伪装成商品事实"));
+push("O5 SKILL04具体创意与禁模板", probe(skill04, "设计必须有具体创意") && probe(skill04, "不追求无意义复杂"));
+push("O6 SKILL04主体保护与构图", probe(skill04, "商品主体与产品保护") && probe(skill04, "构图与空间"));
+push("O7 SKILL04三协同与隔离", probe(skill04, "营销策划负责需求价值卖点优先级表达方向") && probe(skill04, "详情叙事负责屏级任务") && probe(skill04, "禁止污染"));
+push("O8 SKILL04输出契约17项", probe(skill04, "当前屏最终视觉执行指令") && probe(skill04, "不能只输出"));
+push("O9 SKILL04验收26条", probe(skill04, "质量验收 26 条"));
+push("O10 SKILL04旧规则合并保留", ["globalVisualDNA", "composition-variants.js", "variantFor", "六维差异", "案例 E", "案例 C"].every((s) => probe(skill04, s)));
+push("O11 SKILL04注册路径可读正式正文", (() => { const s = regMod.detailV2SkillRegistry.find((x) => x.id === "visual-art-direction"); return Boolean(s) && read(path.join("prompts/server/detail-v2-planning", s.path.replace("./", ""))).includes("正式专业正文 V1.0"); })());
+push("O12 SKILL04 marker未变", regMod.detailV2SkillRegistry.find((x) => x.id === "visual-art-direction")?.marker === "JINGYIN_DETAIL_V2_SKILL_VISUAL_ART_DIRECTION");
+const visualEval = activationMod.evaluateAllActivations({ contextKeys: [] }).results.find((x) => x.id === "visual-art-direction");
+push("O13 视觉导演mandatory空上下文触发", visualEval?.decision === "mandatory" && visualEval?.active === true && visualEval?.authoritySource === "formal_professional_contract");
+const skill04Prompt = mwForProbe.buildDetailPromptGroup(
+  { count: 1, workflow: "taobao-detail", productName: "血渍清洗剂" },
+  [], { aiPlan: { ...probePlan, screens: [{ screen: 1, title: "首屏", moduleId: "hero" }] } }
+).prompts[0].text;
+push("O14 SKILL04全文未注入提示词", !skill04Prompt.includes(skill04.slice(0, 60)) && skill04Prompt.length < skill04.length);
+push("O15 SKILL04内部词未污染", !/(视觉概念与创意方向|输出契约|质量验收 26 条)/.test(skill04Prompt));
+// 核心4 全部正式正文接入完成
+push("O16 核心4 Skill全部正式正文接入", coreMandatory.every((id) =>
+  probe(read(`prompts/server/detail-v2-planning/skills/${id}/SKILL.md`), "正式专业正文 V1.0")));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -408,6 +435,8 @@ neg("N21 SKILL02回链phrase被删后判红", skill02.split("空洞参数罗列�
 neg("N22 SKILL02正式标记被删后判红", skill02.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
 neg("N23 SKILL03回链phrase被删后判红", skill03.split("禁止固定标题轮转").join(""), "禁止固定标题轮转");
 neg("N24 SKILL03正式标记被删后判红", skill03.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
+neg("N25 SKILL04回链phrase被删后判红", skill04.split("禁止仅背景/颜色变化").join(""), "禁止仅背景/颜色变化");
+neg("N26 SKILL04正式标记被删后判红", skill04.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {
