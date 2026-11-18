@@ -46,8 +46,9 @@ push("B5 单一决策源字段存在",
 // ---------- C 组 · 四字段贯通证据 ----------
 push("C1 四顶层字段贯通证据齐",
   ["industryProfile", "consumerInsights", "marketingStrategy", "globalVisualDNA"].every((k) => probe(middleware, `${k}: Boolean(aiPlan?.${k})`)));
-push("C2 质检去截断（slice 0,8 不再用于质检自查）",
-  probe(middleware, "【质检自查】${qualityChecklist.join") && !probe(middleware, "qualityChecklist.slice(0, 8)"));
+// V2-PRO-002：质检清单已从生图提示词内部化（画面自检精简指令），不再整份注入。
+push("C2 质检清单内部化（不再整份注入生图提示词）",
+  probe(middleware, "【画面自检】商品与标签保持原样") && !probe(middleware, "【质检自查】${qualityChecklist.join"));
 
 // ---------- D 组 · 运行时探针（真实调用，不 mock） ----------
 let runtimeReport = null;
@@ -159,17 +160,85 @@ push("G8 测试库保留 A–F 与未跑留白",
   ["案例 A", "案例 F"].every((k) => probe(testCases, k)) && probe(testCases, "未跑") && probe(testCases, "不标 PASS"));
 push("G9 原文含接入要求八条", ["不新增 Agent", "不修改冻结", "不重复建立"].every((k) => probe(proMd, k)));
 
+// ---------- H 组 · V2-PRO-002 Skill 按需触发与提示词净化 ----------
+const activationMod = await import(pathToFileURL(path.join(ROOT, "server", "detail-v2-control", "skill-activation.js")).href);
+const contracts = activationMod.validateActivationContracts();
+push("H1 触发契约八字段齐备", contracts.fieldCount === 8 && contracts.passed === contracts.total);
+push("H2 四种执行模式语义齐",
+  ["mandatory", "conditional", "optional", "inactive"].every((m) => probe(read("server/detail-v2-control/skill-activation.js"), m)));
+
+const cleaningActivation = activationMod.evaluateAllActivations({ contextKeys: ["industry_id_cleaning"] });
+push("H3 清洁产品模特能力不激活", !cleaningActivation.activeIds.includes("model-pose"));
+push("H4 清洁产品模特指令不注入", !cleaningActivation.injectedIds.includes("model-pose"));
+push("H5 商品真实性强制激活", cleaningActivation.activeIds.includes("product-authenticity"));
+const apparelActivation = activationMod.evaluateAllActivations({ contextKeys: ["industry_id_apparel", "user_requires_model", "explicit_figure_task"] });
+push("H6 有明确人物任务时模特可触发", apparelActivation.activeIds.includes("model-pose") && apparelActivation.injectedIds.includes("model-pose"));
+const effectActivation = activationMod.evaluateAllActivations({ contextKeys: ["reliable_effect_evidence", "effect_evidence"] });
+push("H7 有效果证据时效果能力可触发", effectActivation.activeIds.includes("effect-evidence"));
+const noEffectActivation = activationMod.evaluateAllActivations({ contextKeys: [] });
+push("H8 无效果证据时效果能力不激活", !noEffectActivation.activeIds.includes("effect-evidence"));
+
+const boundary = activationMod.checkSellingPointBoundary("适用于血渍、奶渍等蛋白类污渍", "cleaning");
+push("H9 奶渍蛋白类卖点被拦截", boundary.allowed === false && boundary.hits.some((h) => h.includes("奶渍")));
+const boundary2 = activationMod.checkSellingPointBoundary("可水洗内衣、棉、化纤、布艺沙发、窗帘、床垫", "cleaning");
+push("H10 未确认材质对象卖点被拦截", boundary2.allowed === false);
+const boundaryOk = activationMod.checkSellingPointBoundary("针对衣物血渍清洁", "cleaning");
+push("H11 合规卖点放行", boundaryOk.allowed === true);
+
+const layers = activationMod.assemblePromptLayers({
+  globalLines: ["全局商品锁定"], screenLines: ["本屏画面"], conditionalLines: [], internalAudit: ["整份质检清单"]
+});
+push("H12 质检清单隔离不进提示词", !layers.finalInstruction.includes("质检清单") && layers.auditIsolated === true);
+push("H13 未触发条件指令不注入", layers.finalInstruction.split("\n").length === 2);
+
+const compiled = activationMod.compileWithAuthorization(
+  [{ text: "合法指令", sourceField: "product", sourceTaskId: "product_identity" }, { text: "未授权指令", sourceTaskId: "rejected_task" }, { text: "无来源指令" }],
+  ["product_identity"]
+);
+push("H14 未授权任务被编译丢弃", compiled.kept.length === 1 && compiled.dropped.length === 2);
+push("H15 编译保留项含来源", compiled.audit.usedTaskIds.includes("product_identity"));
+
+// H16-H17：真实 middleware 编译文本净化（端到端）
+const mwForProbe = await import(pathToFileURL(path.join(ROOT, "server", "detail-middleware.js")).href);
+const probePlan = {
+  product: { industryId: "cleaning", industryName: "清洁日化", name: "血渍清洗剂", materials: ["棉"] },
+  planning: { facts: [{ claim: "棉", level: "mustNotClaim" }, { claim: "白色泵瓶", level: "visible" }] },
+  industryProfile: { industryId: "cleaning" }, consumerInsights: { audience: "家庭用户" }, marketingStrategy: { valueLadder: [] }, globalVisualDNA: { palette: "粉蓝" },
+  screens: [{ screen: 1, title: "首屏", moduleId: "hero", sellingPoint: "血渍、奶渍等蛋白类污渍，适用于布艺沙发窗帘床垫" }]
+};
+const probeGroup = mwForProbe.buildDetailPromptGroup({ count: 1, workflow: "taobao-detail", productName: "血渍清洗剂", modelMode: "use-model" }, [], { aiPlan: probePlan });
+const probeText = probeGroup.prompts[0].text;
+push("H16 端到端：棉/奶渍/沙发不进提示词", !/真实材质[^\n]*棉|奶渍|布艺沙发/.test(probeText));
+push("H17 端到端：模特不激活且质检清单内部化",
+  probeText.includes("本屏无模特") && !probeText.includes("【质检自查】") && probeText.includes("【画面自检】"));
+push("H18 端到端：卖点边界拦截留痕", probeGroup.prompts[0].sellingBoundary?.allowed === false);
+
+// H19-H22：任务书阶段八 14 项回归的补充覆盖
+const skincare = activationMod.evaluateAllActivations({ contextKeys: ["industry_id_beauty"] });
+push("H19 护肤品不触发清洁日化能力", !skincare.activeIds.includes("industry-cleaning"));
+push("H20 未知产品走generic（无行业包激活）",
+  !activationMod.evaluateAllActivations({ contextKeys: [] }).activeIds.includes("industry-cleaning"));
+push("H21 全局规则仅在分层A出现一次（不逐屏重复注入D层）",
+  layers.internalAudit.includes("整份质检清单") && !layers.finalInstruction.includes("整份质检清单"));
+push("H22 无结构证据不触发产品结构能力",
+  !activationMod.evaluateAllActivations({ contextKeys: [] }).activeIds.includes("product-structure"));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
 neg("N2 删四字段证据后判红", middleware.replace("industryProfile: Boolean(aiPlan?.industryProfile)", ""), "industryProfile: Boolean(aiPlan?.industryProfile)");
 neg("N3 删单一决策源字段后判红", middleware.replace("industrySingleSourceConsistent: modelIndustryId ? modelIndustryId === runtimeIndustryId : null,", ""), "industrySingleSourceConsistent:");
 neg("N4 占位改 admitted 后判红", control.replace("禁止用占位值判 admitted", ""), "禁止用占位值判 admitted");
-neg("N5 质检截断复活后判红", middleware.replace("【质检自查】${qualityChecklist.join", "【质检自查】${qualityChecklist.slice(0, 8).join"), "【质检自查】${qualityChecklist.join");
+// V2-PRO-002：质检清单已内部化（【画面自检】精简指令），不再注入整份清单。
+neg("N5 质检内部化被撤销后判红", middleware.replace("【画面自检】商品与标签保持原样", ""), "【画面自检】商品与标签保持原样");
 neg("N6 正式内容状态标记被删后判红", professionalRaw.split('"status": "professional_content"').join(""), '"status": "professional_content"');
 neg("N7 行业覆盖层调用被删后判红", middleware.replace("const override = detectIndustryOverride(`${aiText} ${inputText}`);", ""), "detectIndustryOverride(`${aiText} ${inputText}`)");
 neg("N8 14 案例 ID 被删后判红", professionalRaw.split('"PRO-014"').join(""), '"PRO-014"');
 neg("N9 验收分级 G5 被删后判红", professionalRaw.split('"level": "G5"').join(""), '"level": "G5"');
+neg("N10 Skill触发判定被删后判红", middleware.replace("const activation = v2Planning ? evaluateAllActivations({ contextKeys: triggerCtxKeys }) : null;", ""), "evaluateAllActivations({ contextKeys: triggerCtxKeys })");
+neg("N11 卖点边界校验被删后判红", middleware.replace("const sellingBoundary = v2Planning\n      ? checkSellingPointBoundary(selling, industrySkill.id)", "const sellingBoundary = v2Planning\n      ? { allowed: true, reason: \"bypass\", hits: [] }"), "checkSellingPointBoundary(selling, industrySkill.id)");
+const activationSrc = read("server/detail-v2-control/skill-activation.js");
+neg("N12 触发契约八字段被删后判红", activationSrc.replace('"conflict_priority"', ""), '"conflict_priority"');
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {

@@ -22,6 +22,13 @@ import {
   professionalContentStatus,
   detectIndustryOverride
 } from "./detail-v2-control/index.js";
+// V2-PRO-002：Skill 按需触发 + 提示词分层组装 + 编译授权（工程机制）。
+import {
+  evaluateAllActivations,
+  assemblePromptLayers,
+  compileWithAuthorization,
+  checkSellingPointBoundary
+} from "./detail-v2-control/skill-activation.js";
 
 const DEFAULT_COUNT = BASE_SKILL.screenCountRule.defaultCount;
 
@@ -657,6 +664,14 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     const screenPack = styleDecision ? (mainFirstScreen ? STYLE_PACKS.S1 : styleDecision.pack) : null;
     const variant = screenPack ? variantFor(moduleSkill.id, index, screenPack, input.detailGroupIndex, aiScreen?.compositionVariantId) : null;
     const selling = aiScreen?.sellingPoint || aiScreen?.summary || sellingList[index % sellingList.length] || moduleSkill.name;
+    // V2-PRO-002：卖点进提示词前做事实边界校验（消费正式配置的禁止泛化规则）。
+    // 命中未确认扩展（奶渍/蛋白类/所有材质等）时不注入原卖点，改用保守表达并记入控制报告。
+    const sellingBoundary = v2Planning
+      ? checkSellingPointBoundary(selling, industrySkill.id)
+      : { allowed: true, reason: "legacy_path", hits: [] };
+    const sellingForPrompt = sellingBoundary.allowed
+      ? selling
+      : "围绕已确认的商品事实与该屏任务表达，不扩展未经确认的污渍、材质、适用范围或功效。";
     const rulePlan = referencePlanForScreen(index, count, productImages, referenceImages, moduleSkill);
     const plan = aiScreen
       ? {
@@ -666,6 +681,30 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       : rulePlan;
     if (plan.productFileIndexes.length === 0 && productImages.length > 0) plan.productFileIndexes = [0];
     const imageSlots = buildImageSlots(productImages, referenceImages, plan);
+
+    // V2-PRO-002：本屏 Skill 触发上下文（仅规划态生效；旧路径不触发、逐字节兼容）。
+    // contextKeys 由当前产品事实/行业/用户要求推导，不预置任何"默认激活"能力。
+    const triggerCtxKeys = [];
+    if (v2Planning) {
+      const facts = Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [];
+      const visibleFacts = facts.filter((f) => f?.level === "visible").map((f) => String(f.claim || ""));
+      facts.forEach((f) => triggerCtxKeys.push(`fact_${f?.level || "unknown"}`));
+      visibleFacts.forEach((claim) => triggerCtxKeys.push(`visible:${claim}`));
+      triggerCtxKeys.push(`industry_${industrySkill.id}`);
+      // 人物任务只在用户显式要求且非清洁日化时才声明；清洁产品默认无人物任务。
+      const hasExplicitFigureTask = String(input.userInstruction || "").includes("模特")
+        || String(input.modelUsage || "") !== "" && input.modelMode === "use-model" && industrySkill.id !== "cleaning";
+      if (input.modelMode === "use-model" && hasExplicitFigureTask) {
+        triggerCtxKeys.push("user_requires_model", "explicit_figure_task");
+      }
+      if (visibleFacts.some((c) => /结构|泵头|喷头|卡扣/.test(c))) triggerCtxKeys.push("confirmed_structure_fact");
+      if (facts.some((f) => f?.level === "visible" && /效果|去除率|测试/.test(String(f.claim || "")))) {
+        triggerCtxKeys.push("reliable_effect_evidence", "effect_evidence");
+      }
+    }
+    const activation = v2Planning ? evaluateAllActivations({ contextKeys: triggerCtxKeys }) : null;
+    const activeSkillIds = new Set(activation?.activeIds || []);
+
     const qualityChecklist = uniqueList([
       ...buildQualityChecklist(platformSkill, industrySkill, moduleSkill),
       ...(aiScreen?.qualityChecks || [])
@@ -678,8 +717,16 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       ...QUALITY_SKILL.negativePrompt,
       ...(aiScreen?.negativeConstraints || [])
     ]);
+    // V2-PRO-002 / F-1：材质事实按 L1/L2/L3 分级——L3(mustNotClaim) 不进"真实材质/颜色"，
+    // L2(inferred) 只作图片观察标注；避免把使用对象材质（棉）误写成商品包装材质。
+    const gradedVisible = (Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [])
+      .filter((f) => f?.level === "visible" && /材质|棉|化纤|混纺|颜色|瓶身|泵头/.test(String(f.claim || "")))
+      .map((f) => String(f.claim || ""));
+    const materialText = v2Planning
+      ? (gradedVisible.length > 0 ? gradedVisible.slice(0, 8).join("、") : "以商品图为准确认，未确认材质不作断言")
+      : ([...(analysis.materialHints || []), ...(analysis.colors || [])].slice(0, 8).join("、") || "以商品图为准");
     const aiInsight = aiPlan
-      ? `【AI商品洞察】目标人群：${analysis.targetAudience}；真实材质/颜色：${[...(analysis.materialHints || []), ...(analysis.colors || [])].slice(0, 8).join("、") || "以商品图为准"}；结构锁定：${(analysis.productLocks || []).slice(0, 6).join("、") || "保持商品图真实结构"}。`
+      ? `【AI商品洞察】目标人群：${analysis.targetAudience}；真实材质/颜色：${materialText}；结构锁定：${(analysis.productLocks || []).slice(0, 6).join("、") || "保持商品图真实结构"}。`
       : "";
     const styleLockLine = screenPack
       ? (mainFirstScreen
@@ -699,17 +746,22 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       `【本次图片编号】${imageSlotText(imageSlots)}。生成时严格按此编号理解图片，禁止引用未列入本屏的其它素材。`,
       `【全局一致性锁定】${globalLock}`,
       styleLockLine,
-      `【本屏卖点】${selling}`,
+      `【本屏卖点】${sellingForPrompt}`,
       aiScreen?.copywriting ? `【本屏文案】${aiScreen.copywriting}` : "",
       `【画面任务】${aiScreen?.composition || moduleSkill.composition}`,
       variantLine,
       `【模块指令】${promptDirectives.join("；")}。`,
       `【参考图使用】${aiScreen?.referenceReason || moduleSkill.referenceNeed}；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。`,
-      `【模特与镜头】${aiScreen?.modelPolicyHint || modelPolicy(input, index, count)}`,
+      // V2-PRO-002：模特指令按触发判定——未激活的人物能力不进入提示词（清洁产品默认无模特）。
+      activation && !activeSkillIds.has("model-pose")
+        ? `【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。画面主体为商品与使用对象。`
+        : `【模特与镜头】${aiScreen?.modelPolicyHint || modelPolicy(input, index, count)}`,
       screenPack
         ? `【构图与光线】${[screenPack.lighting, variant?.lighting].filter(Boolean).join("；")}；${V2_LIGHT_TAIL}`
         : `【构图与光线】${V1_LIGHT_LINE}`,
-      `【质检自查】${qualityChecklist.join("；")}。`,
+      // V2-PRO-002：质检清单内部化——全文保留在 qualityChecklist 数据层供审计，
+      // 生图提示词只保留影响画面的精简约束，不注入整份清单。
+      `【画面自检】商品与标签保持原样、文案清晰可读、不出现与当前任务无关的元素。`,
       `【负面约束】${negativeConstraints.join("、")}。`
     ].filter(Boolean).join("\n");
 
@@ -734,6 +786,17 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       } : null,
       analysisMode: analysis.mode,
       text,
+      // V2-PRO-002：按需触发/事实边界/编译分层的工程审计证据（不进生图提示词）。
+      ...(v2Planning ? {
+        skillActivation: activation,
+        sellingBoundary,
+        promptLayers: assemblePromptLayers({
+          globalLines: [globalLock],
+          screenLines: [`【本屏卖点】${sellingForPrompt}`, `【画面任务】${aiScreen?.composition || moduleSkill.composition}`],
+          conditionalLines: activation?.injectedIds?.includes("model-pose") ? [`【模特与镜头】${aiScreen?.modelPolicyHint || modelPolicy(input, index, count)}`] : [],
+          internalAudit: qualityChecklist
+        })
+      } : {}),
       enabled: true,
       status: "pending",
       generationMs: null,
