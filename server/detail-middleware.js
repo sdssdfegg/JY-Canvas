@@ -592,6 +592,38 @@ export function deriveFigureTaskContextKeys({ input = {}, aiScreen = null, modul
   return ["screen_needs_figure", "user_requires_figure", "explicit_figure_task"];
 }
 
+// V2-PRO-003 缺陷修复：当前屏「结构专项任务信号」派生（纯函数、只传信号、不绕过契约）。
+// 🔴 边界（Owner 裁决）：结构事实只能作为 specialty_evidence，不能单独代替专项触发条件；
+//    本函数只派生「当前屏确实需要结构表达」的任务信号 structure_task_required，
+//    归一化后命中六类专项共用的聚合 activation 键 specialty_condition_met；
+//    绝不使用 reliable_effect_evidence（效果证据语义）作结构触发键，避免语义混淆。
+//    是否触发仍由正式 Activation Contract 与 SKILL 07 六类独立定义决定。
+const STRUCTURE_TASK_PATTERN = /(结构|组成|内部构造|部件关系|拆解|爆炸图|构造细节|接口|卡扣|泵头结构|设计细节)/;
+const STRUCTURE_NO_TASK_PATTERN = /(不要结构|无需结构|不展示结构|纯静物|纯产品展示|仅包装|不需要拆解)/;
+
+export function deriveStructureTaskContextKeys({ input = {}, aiScreen = null, moduleSkill = null } = {}) {
+  const userText = String(input.userInstruction || input.userRequirement || "");
+  const screenText = [
+    aiScreen?.composition,
+    aiScreen?.sellingPoint,
+    aiScreen?.copywriting,
+    aiScreen?.moduleId,
+    moduleSkill?.name,
+    moduleSkill?.id
+  ].filter(Boolean).map((v) => String(v)).join(" ");
+
+  // 用户明确不要结构展示 → 不派生结构任务信号。
+  if (STRUCTURE_NO_TASK_PATTERN.test(userText)) return [];
+
+  // 只认「当前屏明确的结构表达任务」：用户明确要求 或 本屏画面任务本身需要结构表达。
+  const userExplicit = STRUCTURE_TASK_PATTERN.test(userText);
+  const screenTaskNeeds = STRUCTURE_TASK_PATTERN.test(screenText);
+  if (!userExplicit && !screenTaskNeeds) return [];
+
+  // 任务信号键（非事实）；事实键 confirmed_structure_fact 由调用方单独派生为 specialty_evidence。
+  return ["structure_task_required"];
+}
+
 function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   const count = clamp(input.count, BASE_SKILL.screenCountRule.min, BASE_SKILL.screenCountRule.max, DEFAULT_COUNT);
   const workflow = String(input.workflow || "taobao-detail").trim();
@@ -739,6 +771,9 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       // V2-PRO-003 缺陷修复：人物任务信号只由当前屏任务语义派生（用户明确要求 / 本屏任务需要），
       // 不凭行业、商品类型或 modelMode 旧参数自动触发；是否激活仍由正式 Activation Contract 判断。
       triggerCtxKeys.push(...deriveFigureTaskContextKeys({ input, aiScreen, moduleSkill }));
+      // V2-PRO-003 结构专项修复：结构事实仍只作 specialty_evidence；结构"任务信号"单独派生
+      // （当前屏确实需要结构表达时才派生 specialty_condition_met），不用效果证据键冒充结构触发。
+      triggerCtxKeys.push(...deriveStructureTaskContextKeys({ input, aiScreen, moduleSkill }));
       if (visibleFacts.some((c) => /结构|泵头|喷头|卡扣/.test(c))) triggerCtxKeys.push("confirmed_structure_fact");
       if (facts.some((f) => f?.level === "visible" && /效果|去除率|测试/.test(String(f.claim || "")))) {
         triggerCtxKeys.push("reliable_effect_evidence", "effect_evidence");

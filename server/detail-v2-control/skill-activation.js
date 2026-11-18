@@ -202,6 +202,10 @@ export const LEGACY_CONTEXT_KEY_MAP = Object.freeze({
   industry_id_cleaning: "industry_cleaning_active",
   reliable_effect_evidence: "specialty_condition_met",
   effect_evidence: "specialty_evidence",
+  // V2-PRO-003 结构专项修复：结构"任务信号"（非事实）归一化到六类专项共用的聚合 activation 键；
+  // 结构事实 confirmed_structure_fact 仍只作 specialty_evidence，不冒充触发条件。
+  // 与效果路径共用 specialty_condition_met 是为了不改单一聚合契约、不动其他五类专项。
+  structure_task_required: "specialty_condition_met",
   confirmed_structure_fact: "specialty_evidence",
   ordinary_packaging: "specialty_condition_unmet"
 });

@@ -545,6 +545,34 @@ const specPromptNo = deriveMod.buildDetailPromptGroup(
 ).prompts[0].text;
 push("S18 未触发专项正文未进提示词", !specPromptNo.includes("产品专项表达") && !specPromptNo.includes("six_specialties"));
 
+// ---------- T 组 · 结构专项信号缺口修复（真实链路 7 项验收 + 防回归） ----------
+const deriveStruct = deriveMod.deriveStructureTaskContextKeys;
+push("T1 结构任务信号函数存在", typeof deriveStruct === "function");
+push("T2 结构任务信号归一化到聚合条件", activationMod.normalizeContextKeys(["structure_task_required"]).keys.has("specialty_condition_met"));
+push("T3 结构事实仍只作specialty_evidence", (() => { const k = activationMod.normalizeContextKeys(["confirmed_structure_fact"]).keys; return k.has("specialty_evidence") && !k.has("specialty_condition_met"); })());
+push("T4 效果键未被用作结构触发键", probe(middleware, "structure_task_required") && !middleware.includes("reliable_effect_evidence: \"structure_task_required\""));
+function structScenario({ facts = [], userInstruction = "", screen = {}, industryId = "cleaning", productName = "清洗剂" }) {
+  const aiPlan = {
+    product: { industryId, industryName: industryId, name: productName, materials: [] },
+    planning: { facts: facts.map((f) => ({ claim: f, level: "visible" })) },
+    industryProfile: { industryId }, consumerInsights: { audience: "用户" }, marketingStrategy: { valueLadder: [] },
+    globalVisualDNA: { palette: "素色" }, screens: [{ screen: 1, title: "首屏", moduleId: "hero", ...screen }]
+  };
+  const prompt = deriveMod.buildDetailPromptGroup({ count: 1, workflow: "taobao-detail", productName, userInstruction }, [], { aiPlan }).prompts[0];
+  return { active: Boolean(prompt.skillActivation?.activeIds?.includes("product-structure")), text: prompt.text };
+}
+push("T5 ①结构任务+结构事实→conditional", structScenario({ facts: ["泵头结构"], userInstruction: "展示产品泵头内部结构拆解" }).active === true);
+push("T6 ②有结构事实无结构任务→inactive", structScenario({ facts: ["泵头结构"], userInstruction: "生成商品静物图" }).active === false);
+push("T7 ③有结构要求无结构事实→降级inactive", structScenario({ facts: ["白色泵瓶"], userInstruction: "展示内部结构拆解" }).active === false);
+push("T8 ④效果证据任务→效果专项仍触发", structScenario({ facts: ["测试去除率"], userInstruction: "展示效果证据" }).active === true);
+push("T9 ⑤普通静物→不自动触发", structScenario({ facts: ["白色泵瓶"], userInstruction: "商品静物展示" }).active === false);
+push("T10 ⑥服装行业有事实无任务→不自动触发", structScenario({ facts: ["棉", "圆领"], industryId: "apparel", productName: "T恤", userInstruction: "产品静物" }).active === false);
+push("T11 ⑦用户不要结构→不触发", structScenario({ facts: ["泵头结构"], userInstruction: "不要结构展示，纯产品" }).active === false);
+push("T12 ⑧仅旧键缺正式依据→inactive", activationMod.evaluateAllActivations({ contextKeys: ["ordinary_packaging"] }).results.find((x) => x.id === "product-specialty-expression")?.decision === "inactive");
+push("T13 结构未触发时专项正文未进提示词", (() => { const s = structScenario({ facts: ["泵头结构"], userInstruction: "商品静物展示" }); return !s.text.includes("six_specialties") && !s.text.includes("产品专项表达"); })());
+push("T14 结构事实未触发时仅作视觉保护", /结构锁定|真实结构/.test(structScenario({ facts: ["泵头结构"], userInstruction: "商品静物展示" }).text));
+push("T15 六类专项定义未被修改", (() => { const f = skillsCfgQ?.activationContracts?.["product-specialty-expression"]?.formal_professional_contract_v1; return f?.six_specialties?.length === 6 && f?.acceptance_criteria_count === 30; })());
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -584,6 +612,8 @@ neg("N30 人物信号派生调用被删后判红", middleware.replace("triggerCt
 neg("N31 人物正向关键词被删后判红", middleware.split("模特|真人|人物|人手|手部|手持|握持|穿着|佩戴").join(""), "模特|真人|人物|人手|手部|手持|握持|穿着|佩戴");
 neg("N32 SKILL07正式正文契约被删后判红", skillsCfgNStr.split('"six_specialties"').join('"six_removed"'), '"six_specialties"');
 neg("N33 SKILL07正式标记被删后判红", JSON.stringify(specFormal || {}).replace("SKILL 07｜产品专项表达 V1.0", ""), "SKILL 07｜产品专项表达 V1.0");
+neg("N34 结构任务信号派生调用被删后判红", middleware.replace("triggerCtxKeys.push(...deriveStructureTaskContextKeys({ input, aiScreen, moduleSkill }));", ""), "triggerCtxKeys.push(...deriveStructureTaskContextKeys({ input, aiScreen, moduleSkill }))");
+neg("N35 结构任务归一化被删后判红", activationSrc.replace('structure_task_required: "specialty_condition_met",', ""), 'structure_task_required: "specialty_condition_met"');
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {
