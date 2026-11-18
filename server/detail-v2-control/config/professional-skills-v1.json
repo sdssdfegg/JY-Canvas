@@ -111,7 +111,7 @@
       "conflict_priority": 0, "failure_fallback": "事实不足时标未确认，不用模板补事实"
     },
     "consumer-marketing-strategy": {
-      "activation_conditions": [], "exclusion_conditions": [], "required_context": ["product_facts"], "optional_context": ["consumer_insights"],
+      "activation_conditions": [], "exclusion_conditions": [], "required_context": [], "optional_context": ["consumer_insights", "product_facts"],
       "execution_mode": "mandatory",
       "decision_rules": ["每次创作必需"],
       "execution_rules": ["据产品事实与消费者需求定营销主线/核心价值/内容优先级", "不虚构痛点/功效/场景/优势"],
@@ -121,7 +121,7 @@
       "conflict_priority": 1, "failure_fallback": "无足够依据时用保守事实陈述，不堆营销话术"
     },
     "detail-story-planning": {
-      "activation_conditions": [], "exclusion_conditions": [], "required_context": ["screen_count"], "optional_context": ["selected_sections", "marketing_strategy"],
+      "activation_conditions": [], "exclusion_conditions": [], "required_context": [], "optional_context": ["selected_sections", "marketing_strategy", "screen_count"],
       "execution_mode": "mandatory",
       "decision_rules": ["整套生成或整套重新规划时必需", "空选择=AI自主规划，不解释为空"],
       "execution_rules": ["按产品/营销/用户选择/屏数规划每屏内容任务与信息推进", "禁固定套用首屏-痛点-效果-收尾模板", "禁重复/凑屏/无消费者价值屏"],
@@ -131,7 +131,7 @@
       "conflict_priority": 1, "failure_fallback": "信息不足时规划有依据的合理内容，不凑屏不虚构"
     },
     "visual-art-direction": {
-      "activation_conditions": [], "exclusion_conditions": [], "required_context": ["screen_content_task"], "optional_context": ["global_visual_dna", "product_facts"],
+      "activation_conditions": [], "exclusion_conditions": [], "required_context": [], "optional_context": ["global_visual_dna", "product_facts", "screen_content_task"],
       "execution_mode": "mandatory",
       "decision_rules": ["每个实际生成画面均必需"],
       "execution_rules": ["为当前屏策划具体视觉概念/环境/主体/道具/光影/色彩/构图/镜头/信息布局/元素关系", "禁通用套话", "视觉方案与当前屏内容任务匹配", "缺有效视觉策划时补全而非回退固定模板"],

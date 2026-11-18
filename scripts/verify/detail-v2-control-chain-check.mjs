@@ -325,6 +325,36 @@ const skillPrompt = skillGroup.prompts[0].text;
 push("K15 SKILL全文未注入提示词", !skillPrompt.includes(skill01.slice(0, 60)) && skillPrompt.length < skill01.length);
 push("K16 内部章节词未污染提示词", !/(来源分类与可信度|禁止信息扩展|质量验收14条)/.test(skillPrompt));
 
+// ---------- L 组 · SKILL 02 正式正文接入 + 核心Mandatory契约修正 ----------
+const skill02Rel = "prompts/server/detail-v2-planning/skills/consumer-marketing-strategy/SKILL.md";
+const skill02 = read(skill02Rel);
+push("L1 SKILL02正式正文V1标记", probe(skill02, "正式专业正文 V1.0") && probe(skill02, "SKILL 02"));
+push("L2 SKILL02九要素保留", ["职责", "触发", "输入", "判断方法", "规则", "输出字段", "边界", "冲突处理", "测试案例"].every((s) => probe(skill02, `## ${s}\n`)));
+push("L3 SKILL02回链phrase逐字保留", probe(skill02, "空洞参数罗列不算营销表达"));
+push("L4 SKILL02四层法与消费者分析", probe(skill02, "事实 → 消费者需求 → 利益 → 营销表达") && probe(skill02, "禁虚构消费者调研"));
+push("L5 SKILL02营销原则与模板禁令", probe(skill02, "内容敢于删除无价值内容") && probe(skill02, "避免营销模板化"));
+push("L6 SKILL02输出契约与注入规则", probe(skill02, "下游授权信息") && probe(skill02, "完整营销 Skill 正文"));
+push("L7 SKILL02验收20条", probe(skill02, "质量验收 20 条"));
+push("L8 SKILL02旧规则合并保留", ["mustNotClaim", "copywritingTone", "案例 F", "案例 B"].every((s) => probe(skill02, s)));
+push("L9 SKILL02注册路径可读正式正文", (() => { const s = regMod.detailV2SkillRegistry.find((x) => x.id === "consumer-marketing-strategy"); return Boolean(s) && read(path.join("prompts/server/detail-v2-planning", s.path.replace("./", ""))).includes("正式专业正文 V1.0"); })());
+push("L10 SKILL02 marker未变", regMod.detailV2SkillRegistry.find((x) => x.id === "consumer-marketing-strategy")?.marker === "JINGYIN_DETAIL_V2_SKILL_CONSUMER_MARKETING_STRATEGY");
+// 核心4 Mandatory 契约：不得有 required_context（正式正文"每次必需"）
+const coreCfg = skillsCfg?.activationContracts || {};
+push("L11 核心4均mandatory", coreMandatory.every((id) => coreCfg[id]?.execution_mode === "mandatory"));
+push("L12 核心4无required_context（正式定义权威）", coreMandatory.every((id) => (coreCfg[id]?.required_context || []).length === 0));
+const coreEval = activationMod.evaluateAllActivations({ contextKeys: [] });
+push("L13 核心4空上下文全触发", coreMandatory.every((id) => {
+  const r = coreEval.results.find((x) => x.id === id);
+  return r?.decision === "mandatory" && r?.active === true && r?.authoritySource === "formal_professional_contract";
+}));
+// 污染：SKILL全文不进提示词
+const skill02Prompt = mwForProbe.buildDetailPromptGroup(
+  { count: 1, workflow: "taobao-detail", productName: "血渍清洗剂" },
+  [], { aiPlan: { ...probePlan, screens: [{ screen: 1, title: "首屏", moduleId: "hero" }] } }
+).prompts[0].text;
+push("L14 SKILL02全文未注入提示词", !skill02Prompt.includes(skill02.slice(0, 60)) && skill02Prompt.length < skill02.length);
+push("L15 SKILL02内部词未污染", !/(消费者调研结果|购买决策障碍|质量验收 20 条)/.test(skill02Prompt));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -350,6 +380,8 @@ neg("N17 输入归一化被删后判红", activationSrc.replace("const normalize
 neg("N18 SKILL01正式标记被删后判红", skill01.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
 neg("N19 SKILL01事实分级被删后判红", skill01.split("L3 未确认").join(""), "L3 未确认");
 neg("N20 SKILL01注入边界被删后判红", skill01.replace("禁止传递：", ""), "禁止传递：");
+neg("N21 SKILL02回链phrase被删后判红", skill02.split("空洞参数罗列不算营销表达").join(""), "空洞参数罗列不算营销表达");
+neg("N22 SKILL02正式标记被删后判红", skill02.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {
