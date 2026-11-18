@@ -12,6 +12,15 @@ import {
 } from "./detail-skills.js";
 import { buildStylePackRound, resolveDetailSkillVersion, stylePackForGroup, variantFor, STYLE_PACKS } from "./detail-skills-v2.js";
 import { asText, clamp } from "./core/ai-chat-shared.js";
+// S2-C / V2-ARCH：四层控制框架工程机制层（注册表 / 行业包加载 / 任务准入 / 编译审计）。
+// 只消费"工程机制"；专业内容由 ChatGPT 交付，未接入前一律占位态，不输出正式规则。
+import {
+  createTaskRegistry,
+  loadIndustryPack,
+  admitTasks,
+  createCompilerAudit,
+  professionalContentStatus
+} from "./detail-v2-control/index.js";
 
 const DEFAULT_COUNT = BASE_SKILL.screenCountRule.defaultCount;
 
@@ -464,6 +473,45 @@ function buildRounds(platformSkill, industrySkill, analysis, count, reverseScree
   ];
 }
 
+// S2-C / V2-ARCH：四层控制框架的"工程验证"辅助。
+// 只证明数据贯通 / 行业包按需加载 / 任务准入拒绝 / 编译来源可追溯；不输出正式专业规则到提示词。
+// 占位态（ChatGPT 专业内容未接入）下：loadedIndustryPackIds 恒空、任务恒 pending、审计恒 unauthorizedAdded=false。
+function buildV2ControlReport(aiPlan, resolvedIndustryId) {
+  const status = professionalContentStatus();
+  const registry = createTaskRegistry();
+  const industryId = String(resolvedIndustryId || aiPlan?.industryProfile?.industryId || "generic").trim() || "generic";
+  const pack = loadIndustryPack(industryId);
+  const confirmedFacts = (Array.isArray(aiPlan?.planning?.facts)
+    ? aiPlan.planning.facts.filter((f) => f?.level === "visible").map((f) => String(f.claim || ""))
+    : []);
+  const admission = admitTasks([...registry.contentTasks, ...registry.visualTasks], {
+    industryId: pack.activeIndustryId,
+    confirmedFacts,
+    factKeys: [],
+    noIndustryPack: pack.loadedIndustryPackIds.length === 0
+  });
+  const audit = createCompilerAudit();
+  // 四个契约顶层字段是否由模型产出——字段贯通的工程证据（不判断内容质量）。
+  const fieldsPresent = {
+    industryProfile: Boolean(aiPlan?.industryProfile),
+    consumerInsights: Boolean(aiPlan?.consumerInsights),
+    marketingStrategy: Boolean(aiPlan?.marketingStrategy),
+    globalVisualDNA: Boolean(aiPlan?.globalVisualDNA)
+  };
+  return {
+    controlStatus: "engineering_verification_only",
+    professionalContentStatus: status.status,
+    isPlaceholder: status.isPlaceholder,
+    activeIndustryId: pack.activeIndustryId,
+    loadedIndustryPackIds: pack.loadedIndustryPackIds,
+    fallbackMode: pack.fallbackMode,
+    fieldsPresent,
+    admission,
+    auditBase: audit.report({ plannedTaskIds: [], usedTaskIds: [] }),
+    note: "工程验证报告，不代表专业模型质量验收通过；占位态不含正式专业内容。"
+  };
+}
+
 function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   const count = clamp(input.count, BASE_SKILL.screenCountRule.min, BASE_SKILL.screenCountRule.max, DEFAULT_COUNT);
   const workflow = String(input.workflow || "taobao-detail").trim();
@@ -619,7 +667,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       screenPack
         ? `【构图与光线】${[screenPack.lighting, variant?.lighting].filter(Boolean).join("；")}；${V2_LIGHT_TAIL}`
         : `【构图与光线】${V1_LIGHT_LINE}`,
-      `【质检自查】${qualityChecklist.slice(0, 8).join("；")}。`,
+      `【质检自查】${qualityChecklist.join("；")}。`,
       `【负面约束】${negativeConstraints.join("、")}。`
     ].filter(Boolean).join("\n");
 
@@ -655,6 +703,11 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     ? [...buildRounds(platformSkill, industrySkill, analysis, count, reverseScreens), buildStylePackRound(styleDecision)]
     : buildRounds(platformSkill, industrySkill, analysis, count, reverseScreens);
 
+  // S2-C / V2-ARCH：工程验证控制报告。占位态不注入任何正式专业规则到 17 槽位文本，
+  // 仅把"字段是否贯通 / 行业包是否按需加载 / 任务是否可准入拒绝 / 审计基线"作为可验证证据挂在 group 上。
+  // 🔴 这是工程验证，不代表专业模型质量验收通过；专业内容由 ChatGPT 交付后另行接入与验收。
+  const v2Control = v2Planning ? buildV2ControlReport(aiPlan, industrySkill.id) : null;
+
   return {
     id: `detail_${createdAt}_${Math.random().toString(36).slice(2, 8)}`,
     label: `${new Date(createdAt).toLocaleTimeString("zh-CN", { hour12: false, hour: "2-digit", minute: "2-digit" })} | ${productName}`,
@@ -684,6 +737,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       ...(styleDecision ? { detailSkillVersion: "v2", stylePackId: styleDecision.pack.id } : {})
     },
     analysis,
+    ...(v2Control ? { v2Control } : {}),
     ...(styleDecision ? {
       skillVersion: "v2",
       stylePack: {

@@ -43,7 +43,7 @@ const V2_REGISTERED_SKILLS = detailV2SkillRegistry.map((skill) => ({
 // V219 §11.3 四项收窄偏差的双向映射说明（校准进 instruction，不改 outputSchema 既有枚举值）。
 // 每项均给出"运行时值 ←→ 原文值"映射与不改枚举的声明，作为策划语义证据进入模型上下文。
 const V2_CALIBRATION_DIRECTIVES = [
-  "[事实分级映射] 运行时三级 visible|inferred|mustNotClaim 对应原文六级 observed/user_provided/verified → visible（其中 user_provided 视资料可靠度记 visible/inferred），inferred → inferred，unknown → inferred（须标注不可确认），prohibited → mustNotClaim；输出仍只用三级枚举，不改 schema 既有值。",
+  "[事实分级映射] 运行时三级 visible|inferred|mustNotClaim 对应原文六级 observed/user_provided/verified → visible（其中 user_provided 视资料可靠度记 visible/inferred），inferred → inferred，unknown → inferred（须标注不可确认），prohibited → mustNotClaim；输出仍只用三级枚举，不改 schema 既有值。[四层框架口径] 裁决 D-PLAN-14-02 事实三级 L1已确认=visible、L2有限依据=inferred、L3未确认=mustNotClaim；L1/L2/L3 是专业证据口径，运行时仍只输出三枚举，二者不另起枚举、不与任务准入四态混用。",
   "[内容角色映射] 原文十二角色 hero/problem/benefit/mechanism/usage/scenario/detail/comparison/evidence/trust/faq/conversion 为可扩展、可跳过、可调序的策划位，统一映射到现有 9 个 moduleId（hero|painReverse|coreSellingPoint|materialDetail|useScenario|specInfo|trustProof|conversionClose|fitStructure）：problem→painReverse、benefit→coreSellingPoint、mechanism/detail→materialDetail、usage/scenario→useScenario、evidence→specInfo、trust→trustProof、conversion/faq→conversionClose；角色可增可跳可调序，不新增 moduleId 枚举。",
   "[风险等级映射] 运行时三级 critical|major|minor 对应原文四级 critical|high|medium/low：critical→critical，high→major，medium/low→minor；输出仍只用三级枚举，不改 schema 既有值。",
   "[Schema 顶层归并] 原文 productProfile/uncertainties/groupQuality 三顶层归并承载于本契约既有顶层：productProfile→product，uncertainties→product.uncertainties 与 planning.facts[level=inferred|mustNotClaim]，groupQuality→qc；按 agent/output-contract.md 映射层转换，不新造第 10 个顶层键。"
