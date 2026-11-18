@@ -406,6 +406,33 @@ push("O15 SKILL04内部词未污染", !/(视觉概念与创意方向|输出契�
 push("O16 核心4 Skill全部正式正文接入", coreMandatory.every((id) =>
   probe(read(`prompts/server/detail-v2-planning/skills/${id}/SKILL.md`), "正式专业正文 V1.0")));
 
+// ---------- P 组 · SKILL 05 正式正文接入（文案策划与图文表达·条件能力） ----------
+const skill05Rel = "prompts/server/detail-v2-planning/skills/ecommerce-copy-layout/SKILL.md";
+const skill05 = read(skill05Rel);
+push("P1 SKILL05正式正文V1标记", probe(skill05, "正式专业正文 V1.0") && probe(skill05, "SKILL 05"));
+push("P2 SKILL05九要素保留", ["职责", "触发", "输入", "判断方法", "规则", "输出字段", "边界", "冲突处理", "测试案例"].every((s) => probe(skill05, `## ${s}\n`)));
+push("P3 SKILL05回链phrase逐字保留", probe(skill05, "相邻屏文案不做语义复述"));
+push("P4 SKILL05条件能力语义对齐", probe(skill05, "条件能力 Conditional") && probe(skill05, "不得因为详情通常需标题卖点就强制每屏生成文案"));
+push("P5 SKILL05创意不造事实", probe(skill05, "文案创意不能成为新增商品事实的来源") && probe(skill05, "先明确表达目的"));
+push("P6 SKILL05文案原则与合规", probe(skill05, "不追求每屏固定文案组合") && probe(skill05, "事实与合规") && probe(skill05, "图文协同"));
+push("P7 SKILL05输出契约与隔离", probe(skill05, "当前屏文案结果") && probe(skill05, "完整文案策略不得注入"));
+push("P8 SKILL05验收20条", probe(skill05, "质量验收 20 条"));
+push("P9 SKILL05旧规则合并保留", ["copywriting", "richness", "mustNotClaim", "lang", "案例 F", "案例 B"].every((s) => probe(skill05, s)));
+push("P10 SKILL05注册路径可读正式正文", (() => { const s = regMod.detailV2SkillRegistry.find((x) => x.id === "ecommerce-copy-layout"); return Boolean(s) && read(path.join("prompts/server/detail-v2-planning", s.path.replace("./", ""))).includes("正式专业正文 V1.0"); })());
+push("P11 SKILL05 marker未变", regMod.detailV2SkillRegistry.find((x) => x.id === "ecommerce-copy-layout")?.marker === "JINGYIN_DETAIL_V2_SKILL_ECOMMERCE_COPY_LAYOUT");
+// 条件能力：无文字需求 inactive、有需求 conditional（与核心4 mandatory 相反）
+const copyOff = activationMod.evaluateAllActivations({ contextKeys: [] }).results.find((x) => x.id === "ecommerce-copy-layout");
+const copyOn = activationMod.evaluateAllActivations({ contextKeys: ["screen_needs_text", "screen_content_task"] }).results.find((x) => x.id === "ecommerce-copy-layout");
+push("P12 文案条件能力无需求不触发", copyOff?.decision === "inactive");
+push("P13 文案条件能力有需求conditional", copyOn?.decision === "conditional" && copyOn?.active === true && copyOn?.authoritySource === "formal_professional_contract");
+push("P14 SKILL05契约仍是conditional", skillsCfg?.activationContracts?.["ecommerce-copy-layout"]?.execution_mode === "conditional");
+const skill05Prompt = mwForProbe.buildDetailPromptGroup(
+  { count: 1, workflow: "taobao-detail", productName: "血渍清洗剂" },
+  [], { aiPlan: { ...probePlan, screens: [{ screen: 1, title: "首屏", moduleId: "hero" }] } }
+).prompts[0].text;
+push("P15 SKILL05全文未注入提示词", !skill05Prompt.includes(skill05.slice(0, 60)) && skill05Prompt.length < skill05.length);
+push("P16 SKILL05内部词未污染", !/(辅助说明与专业转译|当前屏文案结果|质量验收 20 条)/.test(skill05Prompt));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -437,6 +464,8 @@ neg("N23 SKILL03回链phrase被删后判红", skill03.split("禁止固定标题�
 neg("N24 SKILL03正式标记被删后判红", skill03.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
 neg("N25 SKILL04回链phrase被删后判红", skill04.split("禁止仅背景/颜色变化").join(""), "禁止仅背景/颜色变化");
 neg("N26 SKILL04正式标记被删后判红", skill04.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
+neg("N27 SKILL05回链phrase被删后判红", skill05.split("相邻屏文案不做语义复述").join(""), "相邻屏文案不做语义复述");
+neg("N28 SKILL05正式标记被删后判红", skill05.replace("正式专业正文 V1.0", ""), "正式专业正文 V1.0");
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {
