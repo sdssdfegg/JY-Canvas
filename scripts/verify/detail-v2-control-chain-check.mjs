@@ -503,6 +503,48 @@ const figureCfgText = JSON.stringify(skillsCfgQ?.activationContracts?.["figure-u
 push("R10 未触发时提示词为无模特正向约束", figD.prompt.text.includes("本屏无模特") && !/展示穿着效果/.test(figD.prompt.text));
 push("R11 触发时仅必要人物指令、无Skill正文污染", figA.prompt.text.includes("模特") && !figA.prompt.text.includes("人物与使用场景"));
 
+// ---------- S 组 · SKILL 07 正式正文接入（产品专项表达·六类独立·capability_module_cluster） ----------
+const specContract = skillsCfgQ?.activationContracts?.["product-specialty-expression"];
+const specFormal = specContract?.formal_professional_contract_v1;
+push("S1 SKILL07正式正文落地配置", Boolean(specFormal) && probe(JSON.stringify(specFormal), "SKILL 07｜产品专项表达 V1.0"));
+push("S2 SKILL07 capability_module_cluster落点", probe(JSON.stringify(specFormal), "capability_module_cluster 映射") && probe(JSON.stringify(specFormal), "不新建重复Skill文件"));
+push("S3 未新建第9个SKILL.md", (() => { const list = readdirSync(path.join(ROOT, "prompts/server/detail-v2-planning/skills")); return list.length === 8 && !list.some((d) => /specialty|ingredient|material|texture|usage_step/i.test(d)); })());
+const sixSpecs = specFormal?.six_specialties || [];
+push("S4 六类专项齐备", sixSpecs.length === 6 && ["product_structure", "ingredient_principle", "effect_evidence", "before_after", "material_texture", "usage_steps"].every((id) => sixSpecs.some((s) => s.id === id)));
+push("S5 六类各自独立触发排除输出", sixSpecs.every((s) => s.activation?.length && s.exclusion?.length && s.output?.length && s.decision?.length));
+push("S6 六类无固定模板", sixSpecs.every((s) => s.no_fixed_template === true));
+push("S7 路由与组合规则", specFormal?.routing_principles?.length === 3 && probe(JSON.stringify(specFormal), "一个专项触发不自动加载其他"));
+push("S8 跨行业隔离六类", Object.keys(specFormal?.industry_isolation || {}).length >= 6 && probe(JSON.stringify(specFormal), "不得用于自动触发"));
+push("S9 事实控制与边界", probe(JSON.stringify(specFormal), "行业惯例不能替代商品资料") && specFormal?.boundaries?.output_isolation && specFormal?.boundaries?.copywriter);
+push("S10 验收30条与降级", specFormal?.acceptance_criteria_count === 30 && specFormal?.failure_fallback?.length >= 10);
+push("S11 SKILL07契约12字段齐", ["activation_conditions", "exclusion_conditions", "required_context", "optional_context", "execution_mode", "decision_rules", "execution_rules", "output_contract", "downstream_usage", "prompt_injection_policy", "conflict_priority", "failure_fallback"].every((k) => k in (specContract || {})));
+// 契约层：条件能力正负
+const specOff = activationMod.evaluateAllActivations({ contextKeys: [] }).results.find((x) => x.id === "product-specialty-expression");
+const specOn = activationMod.evaluateAllActivations({ contextKeys: ["specialty_condition_met", "specialty_evidence"] }).results.find((x) => x.id === "product-specialty-expression");
+push("S12 专项能力无需求不触发", specOff?.decision === "inactive");
+push("S13 正式键齐触发conditional权威=正式契约", specOn?.decision === "conditional" && specOn?.authoritySource === "formal_professional_contract");
+push("S14 SKILL07契约仍conditional", specContract?.execution_mode === "conditional");
+// 真实链路（Middleware→信号→契约→提示词）：效果证据触发、静物不触发、无行业自动触发
+function specialtyScenario(facts, industryId = "cleaning") {
+  const aiPlan = {
+    product: { industryId, industryName: industryId, name: "清洗剂", materials: [] },
+    planning: { facts: facts.map((f) => ({ claim: f, level: "visible" })) },
+    industryProfile: { industryId }, consumerInsights: { audience: "用户" }, marketingStrategy: { valueLadder: [] },
+    globalVisualDNA: { palette: "素色" }, screens: [{ screen: 1, title: "首屏", moduleId: "hero" }]
+  };
+  const prompt = deriveMod.buildDetailPromptGroup({ count: 1, workflow: "taobao-detail", productName: "清洗剂" }, [], { aiPlan }).prompts[0];
+  return Boolean(prompt.skillActivation?.activeIds?.includes("product-structure"));
+}
+push("S15 真实链路效果证据→触发", specialtyScenario(["测试去除率", "效果测试"]) === true);
+push("S16 真实链路静物无专项→不触发", specialtyScenario(["白色泵瓶"]) === false);
+push("S17 行业不自动触发专项", specialtyScenario(["棉", "圆领"], "apparel") === false);
+// 污染：未触发不注入专项正文
+const specPromptNo = deriveMod.buildDetailPromptGroup(
+  { count: 1, workflow: "taobao-detail", productName: "清洗剂" }, [],
+  { aiPlan: { ...probePlan, screens: [{ screen: 1, title: "首屏", moduleId: "hero" }] } }
+).prompts[0].text;
+push("S18 未触发专项正文未进提示词", !specPromptNo.includes("产品专项表达") && !specPromptNo.includes("six_specialties"));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -540,6 +582,8 @@ const skillsCfgNStr = read("server/detail-v2-control/config/professional-skills-
 neg("N29 SKILL06正式正文契约被删后判红", skillsCfgNStr.split('"formal_professional_contract_v1"').join('"formal_contract_removed"'), '"formal_professional_contract_v1"');
 neg("N30 人物信号派生调用被删后判红", middleware.replace("triggerCtxKeys.push(...deriveFigureTaskContextKeys({ input, aiScreen, moduleSkill }));", ""), "triggerCtxKeys.push(...deriveFigureTaskContextKeys({ input, aiScreen, moduleSkill }))");
 neg("N31 人物正向关键词被删后判红", middleware.split("模特|真人|人物|人手|手部|手持|握持|穿着|佩戴").join(""), "模特|真人|人物|人手|手部|手持|握持|穿着|佩戴");
+neg("N32 SKILL07正式正文契约被删后判红", skillsCfgNStr.split('"six_specialties"').join('"six_removed"'), '"six_specialties"');
+neg("N33 SKILL07正式标记被删后判红", JSON.stringify(specFormal || {}).replace("SKILL 07｜产品专项表达 V1.0", ""), "SKILL 07｜产品专项表达 V1.0");
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {
