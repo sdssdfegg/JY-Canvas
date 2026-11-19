@@ -84,7 +84,7 @@
 - `server/detail-middleware.js`（+160/-7）：expandLocalTasksForFixed、LOCAL_TASK_MODULE 扩 usageStep/ingredient、cognitionGoal 去重、leftover token 判重、fixed 调用分支。
 - `server/detail-ai.js`（+10）：countMode 入参 + fixed/auto 深度策划指令。
 - `scripts/verify/detail-v2-control-chain-check.mjs`（+40）：AF 组 12 项；Y/ad 组显式 auto 保留原测试意图；AE6 适配动态有效屏数。
-- Commit：（提交后回填）
+- Commit：`c8bd36d`（4 文件 +305/-7，含本报告）；pre-commit 86/86。
 - 测试：控制链 **438/438**（原426+AF12）、planning 76/76、sections 25/25、assets 冻结未破、**全量 86/86**、build EXIT=0。
 - 请求体探针：fixed 请求体 25177 字节含"形成9个具有独立消费者认知任务的屏幕"；auto 请求体 25046 字节含"AI自主屏数模式"，两模式互斥正确。
 
