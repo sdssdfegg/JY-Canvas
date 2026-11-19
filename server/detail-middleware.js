@@ -754,6 +754,67 @@ export function deriveQCTaskContextKeys({ input = {} } = {}) {
   return ["qc_requested"];
 }
 
+// V2-AGENT-EXECUTION-CLOSURE P0：按屏条件指令的真实授权编译。
+// 把当前屏的 Conditional 生成指令构造为带来源的 entries，经 compileWithAuthorization 按
+// 【本屏 activeIds】过滤——未触发/未授权/QC(optional) 的指令不得进入最终生图 text。
+// 🔴 Mandatory 不在此列（它们已由 17 槽位的全局/屏级文本承载，恒执行、不当条件指令过滤）；
+//    QC 是 optional 且注入策略禁止进生图提示词，永不进入 kept。
+const NON_INJECTABLE_SKILLS = new Set(["detail-quality-control"]);
+function compileScreenConditionalInstructions({ activation = null, input = {}, index = 0, count = 1, aiScreen = null } = {}) {
+  if (!activation) return { lines: [], trace: [], compiled: false };
+  const activeSkillIds = new Set(activation.activeIds || []);
+  const entries = [];
+  // 唯一当前存在的屏级 Conditional 生成指令：人物与使用场景（正式ID figure-usage-scene / 引擎ID model-pose）。
+  // 人物行沿用 modelPolicy（已按 index<modelUsage 授权）；此处只决定"授权通过时是否获得注入资格"。
+  const modelLine = activeSkillIds.has("model-pose") && !NON_INJECTABLE_SKILLS.has("model-pose")
+    ? `【模特与镜头】${aiScreen?.modelPolicyHint || modelPolicy(input, index, count)}`
+    : "";
+  if (modelLine) {
+    entries.push({
+      text: modelLine,
+      sourceField: "screen.skill.figure-usage-scene",
+      sourceTaskId: "model-pose",
+      activationId: "figure-usage-scene"
+    });
+  }
+  // 未触发的 Conditional 能力不构造 entry → 自然不会进入 kept；同时记录原因供追踪。
+  const trace = [];
+  const formalToEngine = { "figure-usage-scene": "model-pose", "product-specialty-expression": "product-structure" };
+  for (const id of ["figure-usage-scene", "product-specialty-expression", "ecommerce-copy-layout"]) {
+    const result = activation.results?.find((r) => r.id === id || r.id === formalToEngine[id]);
+    const active = activeSkillIds.has(id) || activeSkillIds.has(formalToEngine[id]);
+    const hasNewInstruction = entries.some((e) => e.activationId === id);
+    // 文案策划的生成指令由既有【本屏文案】槽承载（17槽位之一），授权通过后不重复新增行。
+    const carriedByExistingSlot = id === "ecommerce-copy-layout" && active;
+    trace.push({
+      skillId: id,
+      screen: index + 1,
+      decision: result?.decision || "inactive",
+      activated: Boolean(active),
+      authorized: Boolean(active),
+      hasGenerationInstruction: hasNewInstruction || carriedByExistingSlot,
+      injectedToPrompt: hasNewInstruction,
+      carriedByExistingSlot,
+      reason: active
+        ? (carriedByExistingSlot ? "已授权；生成指令由既有【本屏文案】槽承载，不重复注入" : "已授权且经授权编译进入本屏提示词")
+        : (result?.auditReason || "当前屏未满足触发条件")
+    });
+  }
+  // QC optional：显式记录不进入生图 text 的原因（内部审查层隔离）。
+  trace.push({
+    skillId: "detail-quality-control",
+    screen: index + 1,
+    decision: activation.results?.find((r) => r.id === "detail-quality-control")?.decision || "inactive",
+    activated: activeSkillIds.has("detail-quality-control"),
+    hasGenerationInstruction: false,
+    injectedToPrompt: false,
+    reason: "optional 且 prompt_injection_policy 禁止审查清单进入生图提示词；仅走内部审查层"
+  });
+  const admitted = [...activeSkillIds].filter((id) => !NON_INJECTABLE_SKILLS.has(id));
+  const compiled = compileWithAuthorization(entries, admitted);
+  return { lines: compiled.kept.map((entry) => entry.text), trace, compiled, dropped: compiled.dropped };
+}
+
 function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   const count = clamp(input.count, BASE_SKILL.screenCountRule.min, BASE_SKILL.screenCountRule.max, DEFAULT_COUNT);
   const workflow = String(input.workflow || "taobao-detail").trim();
@@ -960,6 +1021,11 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       triggerCtxKeys.push(...deriveStructureTaskContextKeys({ input, aiScreen, moduleSkill }));
       // PRO-003 QC纠偏：只由两个主动入口派生统一 qc_requested 信号（OR）；其他能力/系统自检不派生。
       triggerCtxKeys.push(...deriveQCTaskContextKeys({ input }));
+      // V2-AGENT-EXECUTION-CLOSURE：文案策划（SKILL05）按屏任务信号——本屏确有文案产出需求时派生，
+      // 仅在 aiScreen.copywriting/文案任务存在时触发，不凭行业或整套设置扩散到其他屏。
+      const screenHasCopyTask = Boolean(String(aiScreen?.copywriting || "").trim())
+        || /(标题|文案|卖点短语|广告语)/.test(String(aiScreen?.composition || input.userInstruction || ""));
+      if (screenHasCopyTask) triggerCtxKeys.push("screen_needs_text", "screen_content_task");
       if (visibleFacts.some((c) => /结构|泵头|喷头|卡扣/.test(c))) triggerCtxKeys.push("confirmed_structure_fact");
       if (facts.some((f) => f?.level === "visible" && /效果|去除率|测试/.test(String(f.claim || "")))) {
         triggerCtxKeys.push("reliable_effect_evidence", "effect_evidence");
@@ -967,6 +1033,9 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     }
     const activation = v2Planning ? evaluateAllActivations({ contextKeys: triggerCtxKeys }) : null;
     const activeSkillIds = new Set(activation?.activeIds || []);
+    // P0：按屏授权编译——activeIds 经 compileWithAuthorization 真实决定条件指令能否进入本屏 text。
+    const conditionalCompilation = compileScreenConditionalInstructions({ activation, input, index, count, aiScreen });
+    const authorizedModelLine = conditionalCompilation.lines.find((line) => line.startsWith("【模特与镜头】")) || "";
 
     const qualityChecklist = uniqueList([
       ...buildQualityChecklist(platformSkill, industrySkill, moduleSkill),
@@ -1017,10 +1086,10 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       variantLine,
       `【模块指令】${promptDirectives.join("；")}。`,
       `【参考图使用】${aiScreen?.referenceReason || moduleSkill.referenceNeed}；参考图只吸收允许的场景、构图、配色或版式，不复制品牌、水印、人物身份和无关商品。`,
-      // V2-PRO-002：模特指令按触发判定——未激活的人物能力不进入提示词（清洁产品默认无模特）。
-      activation && !activeSkillIds.has("model-pose")
-        ? `【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。画面主体为商品与使用对象。`
-        : `【模特与镜头】${aiScreen?.modelPolicyHint || modelPolicy(input, index, count)}`,
+      // V2-AGENT-EXECUTION-CLOSURE：模特指令必须经 compileWithAuthorization 授权编译；
+      // 未授权屏保留明确禁人物/手部约束（不无条件禁手——授权屏走 modelPolicy 特殊姿势）。
+      authorizedModelLine
+        || `【模特与镜头】本屏无模特，禁止出现真人、人体局部、手持穿着或模特影子。画面主体为商品与使用对象。`,
       screenPack
         ? `【构图与光线】${[screenPack.lighting, variant?.lighting].filter(Boolean).join("；")}；${V2_LIGHT_TAIL}`
         : `【构图与光线】${V1_LIGHT_LINE}`,
@@ -1063,12 +1132,15 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       // V2-PRO-002：按需触发/事实边界/编译分层的工程审计证据（不进生图提示词）。
       ...(v2Planning ? {
         skillActivation: activation,
+        // P0 授权追踪：每条条件指令的来源Skill/屏/激活依据/授权结果/是否进入提示词。
+        authorizationTrace: conditionalCompilation.trace,
+        authorizationDropped: conditionalCompilation.dropped,
         sellingBoundary,
         screenVisual,
         promptLayers: assemblePromptLayers({
           globalLines: [globalLock],
           screenLines: [`【本屏卖点】${sellingForPrompt}`, `【画面任务】${visualForPrompt}`],
-          conditionalLines: activation?.injectedIds?.includes("model-pose") ? [`【模特与镜头】${aiScreen?.modelPolicyHint || modelPolicy(input, index, count)}`] : [],
+          conditionalLines: conditionalCompilation.lines,
           internalAudit: qualityChecklist
         })
       } : {}),

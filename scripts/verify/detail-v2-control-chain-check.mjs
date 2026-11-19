@@ -761,6 +761,34 @@ push("Z10 服装资料不足屏不重复卖点（诚实标注）", zApparel.prom
 push("Z11 服装人物仍按屏授权", JSON.stringify(zApparel.prompts.map((p) => Boolean(p.skillActivation?.activeIds?.includes("model-pose")))) === JSON.stringify([true, true, false, false, false]));
 push("Z12 结构化事实仍保留来源等级", zFactsApparel.every((f) => f.source === "user_provided" && f.level === "visible"));
 
+// ---------- AB 组 · V2-AGENT-EXECUTION-CLOSURE 执行闭环 A-J ----------
+const AB_BASE = { count: 3, workflow: "taobao-detail", productName: "保温杯", productFeature: "材质：304不锈钢。容量：500ml。", userInstruction: "生成详情" };
+const AB_PLAN = {
+  product: { name: "保温杯" },
+  planning: { facts: [], narrative: { id: "n", reason: "r", confidence: "high" }, screenRoles: [] },
+  industryProfile: { industryId: "generic" }, consumerInsights: {}, marketingStrategy: {}, globalVisualDNA: {},
+  screens: [1, 2, 3].map((i) => ({ screen: i, moduleId: i === 1 ? "hero" : "coreSellingPoint", title: "", composition: "", copywriting: i === 2 ? "标题：保温更持久" : "", productFileIndexes: [0], referenceFileIndexes: [] }))
+};
+const abRun = (extra = {}, opts = {}) => deriveMod.buildDetailPromptGroup({ ...AB_BASE, ...extra }, [], opts);
+const abA = abRun();
+push("AB-A 普通屏无Conditional注入", abA.prompts.every((p) => (p.authorizationTrace || []).every((t) => !t.injectedToPrompt)));
+const abB = abRun({}, { aiPlan: AB_PLAN });
+push("AB-B 文案Skill按屏授权且不重复注入", (() => {
+  const t = abB.prompts.map((p) => p.authorizationTrace?.find((x) => x.skillId === "ecommerce-copy-layout"));
+  return t[0]?.decision === "inactive" && t[1]?.authorized === true && t[1]?.carriedByExistingSlot === true && t[1]?.injectedToPrompt === false && t[2]?.decision === "inactive";
+})());
+const abC = abRun({ count: 4, modelMode: "use-model", modelUsage: 1, userInstruction: "模特展示穿着" });
+push("AB-C 人物仅首屏授权且不扩散", JSON.stringify(abC.prompts.map((p) => Boolean(p.skillActivation?.activeIds?.includes("model-pose")))) === JSON.stringify([true, false, false, false])
+  && abC.prompts[0].text.includes("模特") && abC.prompts.slice(1).every((p) => p.text.includes("本屏无模特")));
+push("AB-D 未触发专项不注入", abA.prompts.every((p) => (p.authorizationTrace || []).find((t) => t.skillId === "product-specialty-expression")?.injectedToPrompt === false));
+push("AB-E 多能力trace隔离不重复", abB.prompts[1].authorizationTrace.length === 4 && new Set(abB.prompts[1].authorizationTrace.map((t) => t.skillId)).size === 4);
+push("AB-F Mandatory恒执行(activeIds含四项)", ["product-understanding", "consumer-marketing-strategy", "detail-story-planning", "visual-art-direction"].every((id) => abA.prompts[0].skillActivation.activeIds.includes(id)));
+push("AB-G QC普通生成不触发", abA.prompts.every((p) => !p.skillActivation.activeIds.includes("detail-quality-control")));
+const abH = abRun({ qcTrigger: "button" });
+push("AB-H QC主动触发但不进生图text", abH.prompts[0].skillActivation.activeIds.includes("detail-quality-control") && !abH.prompts[0].text.includes("质量验收 30 条") && abH.prompts[0].authorizationTrace.find((t) => t.skillId === "detail-quality-control")?.injectedToPrompt === false);
+push("AB-I compileWithAuthorization已进生产链路", probe(middleware, "compileScreenConditionalInstructions({ activation") && probe(middleware, "compileWithAuthorization(entries, admitted)"));
+push("AB-J 授权trace含来源屏依据与结果", ["skillId", "screen", "decision", "activated", "injectedToPrompt", "reason"].every((k) => Object.hasOwn(abA.prompts[0].authorizationTrace[0] || {}, k)));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
