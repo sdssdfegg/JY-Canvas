@@ -123,19 +123,158 @@ export function buildLocalScreenTasks(structuredFacts = [], providedSelling = []
     .map((def) => ({
       sellingPoint: `${def.label}：${def.parts.join("；")}`,
       taskCategory: def.category,
-      compositionHint: def.hint
+      compositionHint: def.hint,
+      cognitionGoal: def.hint,
+      sourceFacts: def.parts.slice()
     }));
   // 任务不足 count 时不硬凑重复卖点：返回实际任务数，由上层按"无独立任务则整合未用事实"处理。
   return tasks.slice(0, count);
+}
+
+// V2-FIXED-COUNT-DEPTH：固定屏数下的深度策划——把粗粒度任务按真实事实细分为多个有独立认知价值的任务。
+// 🔴 只做"合理细分"不做"机械拆分"：每一步/每组对象必须带独立认知目标，且基于真实内容，
+//    不编造、不把同一句话换说法。仅 fixed 模式调用；auto 保持粗粒度不被强行扩屏。
+const USAGE_STEP_HINT = {
+  "出液": "展示按压取用动作与用量控制，建立正确取用认知",
+  "涂抹": "展示清洁剂与污渍部位的接触关系，建立针对性处理认知",
+  "刷洗": "展示清洁刷反复刷洗的操作逻辑，建立物理去渍过程认知",
+  "擦拭": "展示干净毛巾擦拭残留污渍的动作，建立收尾清洁认知",
+  "干燥": "展示自然干燥的收尾状态，建立完整流程闭环认知"
+};
+function splitUsageSteps(content = "") {
+  return String(content || "")
+    .split(/[，,；;、]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 4);
+}
+function stepCognitionGoal(step = "") {
+  // 顺序要点：涂抹/表面优先于挤压——"挤压出清洁剂涂抹于表面"的核心是涂抹接触，不是取液。
+  if (/涂抹|抹于|涂于|表面/.test(step)) return USAGE_STEP_HINT["涂抹"];
+  if (/按压|挤压|挤出|海绵头/.test(step)) return USAGE_STEP_HINT["出液"];
+  if (/刷|反复/.test(step)) return USAGE_STEP_HINT["刷洗"];
+  if (/擦拭|毛巾/.test(step)) return USAGE_STEP_HINT["擦拭"];
+  if (/干燥|晾干|自然/.test(step)) return USAGE_STEP_HINT["干燥"];
+  return "";
+}
+// 适用范围按对象类别分组（衣物类 vs 家居织物类），不同对象对应不同使用需求，属合理细分。
+function splitApplicableGroups(content = "") {
+  const items = String(content || "").split(/[、,，]/).map((s) => s.trim()).filter(Boolean);
+  const clothing = items.filter((s) => /衣|服|被/.test(s));
+  const home = items.filter((s) => /窗帘|沙发|家居|地毯/.test(s));
+  const groups = [];
+  if (clothing.length) groups.push({ items: clothing, label: "适用衣物织物", goal: "建立对衣物类织物的适用范围认知" });
+  if (home.length) groups.push({ items: home, label: "适用家居织物", goal: "建立对家居类织物的适用范围认知" });
+  return groups;
+}
+export function expandLocalTasksForFixed(tasks = [], structuredFacts = [], targetCount = 9) {
+  const expanded = [];
+  const byCategory = {};
+  for (const fact of (Array.isArray(structuredFacts) ? structuredFacts : [])) {
+    (byCategory[fact.category] = byCategory[fact.category] || []).push(fact.content);
+  }
+  for (const task of (Array.isArray(tasks) ? tasks : [])) {
+    // 使用方法：按真实步骤细分，每步带独立认知目标（不是换说法）。
+    if (task.taskCategory === "usage" && byCategory.usage?.length) {
+      const steps = byCategory.usage.flatMap(splitUsageSteps);
+      const detailSteps = steps.filter((s) => stepCognitionGoal(s)); // 只保留有独立认知价值的步骤
+      if (detailSteps.length > 1) {
+        for (const step of detailSteps) {
+          expanded.push({
+            sellingPoint: `使用步骤：${step}`,
+            taskCategory: "usageStep",
+            compositionHint: stepCognitionGoal(step),
+            cognitionGoal: stepCognitionGoal(step),
+            sourceFacts: [step],
+            parentTask: "usage"
+          });
+        }
+        continue; // 已细分为步骤屏，不再保留整段 usage 屏（避免重复）
+      }
+    }
+    // 洗涤保养：洗涤方式与水温/条件若分列，是不同认知目标（怎么洗 vs 什么条件洗），可合理细分。
+    if (task.taskCategory === "care" && byCategory.care?.length) {
+      const careText = byCategory.care.join("；");
+      const method = careText.match(/(可机洗|手洗|不可机洗|干洗)/g) || [];
+      const condition = careText.match(/(\d+\s*度|水温[^；，,]*|晾干|不可漂白|低温)/g) || [];
+      const careTasks = [];
+      if (method.length) careTasks.push({ text: method.join("、"), goal: "建立正确的洗涤方式认知" });
+      if (condition.length) careTasks.push({ text: condition.join("、"), goal: "建立洗涤条件与注意事项认知" });
+      if (careTasks.length > 1) {
+        for (const ct of careTasks) {
+          expanded.push({
+            sellingPoint: `洗涤保养：${ct.text}`,
+            taskCategory: "care",
+            compositionHint: ct.goal,
+            cognitionGoal: ct.goal,
+            sourceFacts: [ct.text],
+            parentTask: "care"
+          });
+        }
+        continue;
+      }
+    }
+    // 效果/性能：保温与保冷等不同性能指标对应不同使用价值，可合理细分。
+    if (task.taskCategory === "effect" && byCategory.effect?.length) {
+      const effectText = byCategory.effect.join("；");
+      const keepWarm = effectText.match(/\d+\s*小时保温/);
+      const keepCold = effectText.match(/\d+\s*小时保冷/);
+      const effectTasks = [];
+      if (keepWarm) effectTasks.push({ text: keepWarm[0], goal: "建立保温性能认知" });
+      if (keepCold) effectTasks.push({ text: keepCold[0], goal: "建立保冷性能认知" });
+      if (effectTasks.length > 1) {
+        for (const et of effectTasks) {
+          expanded.push({
+            sellingPoint: `性能依据：${et.text}`,
+            taskCategory: "effect",
+            compositionHint: et.goal,
+            cognitionGoal: et.goal,
+            sourceFacts: [et.text],
+            parentTask: "effect"
+          });
+        }
+        continue;
+      }
+    }
+    // 适用范围：按衣物/家居两组细分，各有独立认知目标。
+    if (task.taskCategory === "applicableScope" && byCategory.applicableScope?.length) {
+      const groups = splitApplicableGroups(byCategory.applicableScope.join("、"));
+      if (groups.length > 1) {
+        for (const group of groups) {
+          expanded.push({
+            sellingPoint: `${group.label}：${group.items.join("、")}`,
+            taskCategory: "applicableScope",
+            compositionHint: group.goal,
+            cognitionGoal: group.goal,
+            sourceFacts: group.items.slice(),
+            parentTask: "applicableScope"
+          });
+        }
+        continue;
+      }
+    }
+    expanded.push(task);
+  }
+  // V2-FIXED-COUNT-DEPTH 去重校准：相同事实可服务不同任务，但相同认知目标(换说法/换背景)不算独立。
+  // 只按 cognitionGoal 去重，不按事实字段/卖点文字——避免压制"同一事实、不同解释任务"的合理细分。
+  const seenGoals = new Set();
+  const deduped = expanded.filter((task) => {
+    const goal = String(task.cognitionGoal || task.compositionHint || "").trim();
+    if (goal && seenGoals.has(goal)) return false;
+    if (goal) seenGoals.add(goal);
+    return true;
+  });
+  return deduped.slice(0, targetCount);
 }
 
 // 本地兜底屏级任务→模块分类：让 moduleKey 反映真实任务，不再全部落 coreSellingPoint。
 // 仅用于本地兜底；AI 规划的 moduleId 仍按其输出优先。
 const LOCAL_TASK_MODULE = {
   identity: "hero",
+  ingredient: "coreSellingPoint",
   material: "materialDetail",
   applicableScope: "useScenario",
   usage: "useScenario",
+  usageStep: "useScenario",
   care: "useScenario",
   effect: "trustProof",
   color: "specInfo"
@@ -951,7 +1090,13 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   });
 
   // P1：无 AI 规划时用结构化事实分组的屏级任务，使用方法等完整任务不拆碎。
-  const localScreenTasks = (v2Planning && !aiPlan) ? buildLocalScreenTasks(structuredFacts, userSellingPoints, count, productName) : [];
+  // V2-FIXED-COUNT-DEPTH：fixed 模式下先按真实事实深度细分，再按目标屏数取用；
+  // auto 模式保持粗粒度（按内容自然数量，不为凑数强行细分）。
+  const localScreenTasks = (v2Planning && !aiPlan)
+    ? (countMode === "fixed"
+        ? expandLocalTasksForFixed(buildLocalScreenTasks(structuredFacts, userSellingPoints, BASE_SKILL.screenCountRule.max, productName), structuredFacts, count)
+        : buildLocalScreenTasks(structuredFacts, userSellingPoints, count, productName))
+    : [];
   const prompts = screenTitles.map((title, index) => {
     const aiScreen = aiScreens[index] || null;
     const localTask = localScreenTasks[index] || null;
@@ -988,8 +1133,17 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       // 屏级事实：只取本屏 sellingPoint 命中的事实，避免全量事实重复注入画面任务。
       screenFacts = structuredFacts.filter((fact) => sellingSource.includes(fact.content)).map((fact) => fact.content);
     } else if (localScreenTasks.length && structuredFacts.length) {
+      // V2-FIXED-COUNT-DEPTH：判重按"事实片段"而非整条 content——细分任务只用了片段（如"可机洗"），
+      // 整条 content（"可机洗30度"）不再被当 leftover 重复补进多个空屏。
       const usedText = localScreenTasks.map((task) => task.sellingPoint).join(" ");
-      const leftover = structuredFacts.filter((fact) => !usedText.includes(fact.content));
+      const leftover = structuredFacts.filter((fact) => {
+        // 切成中文词组/数值单位 token（如"可机洗"+"30度"），细分任务分别用到即算整条已覆盖。
+        const tokens = String(fact.content || "").match(/[\u4e00-\u9fa5]{2,}|\d+\s*(?:度|小时|ml|毫升|件|张)/g) || [];
+        const tokensUsed = tokens.length > 0
+          ? tokens.every((token) => usedText.includes(token))
+          : usedText.includes(fact.content);
+        return !tokensUsed;
+      });
       if (leftover.length) {
         sellingSource = `补充信息：${leftover.map((fact) => `${fact.label}：${fact.content}`).join("；")}`;
       } else {

@@ -171,6 +171,14 @@ function buildDetailAnalysisContent(input, files, includeImages) {
       ] : []),
       // S1-b：空板块自主规划 Skill 指令（仅 planningActive 时注入，条件注入）
       ...(planningActive ? [
+        // V2-FIXED-COUNT-DEPTH：fixed 模式明确要求 N 屏深度策划——不是保留空位后跳过。
+        ...(input.countMode !== "auto" ? [
+          `用户明确指定了 ${count} 屏详情，这是策划目标而非可忽略建议。请在商品事实与用户要求边界内，充分挖掘内容价值，形成 ${count} 个具有独立消费者认知任务的屏幕；` +
+          "允许把一个复杂任务按真实的操作阶段/适用对象/结构细节合理细分为多屏（每屏须有独立认知目标与视觉价值），但不得把同一句卖点换说法、换背景凑数，不得虚构商品事实或效果。" +
+          "只有经过充分策划仍确实无法支撑时，才在 planning 中说明真实内容缺口。"
+        ] : [
+          "当前为 AI 自主屏数模式：不设固定屏数目标，按完整内容地图和实际内容价值决定屏幕数量，不为凑数增加屏幕，也不因内容复杂过度合并。"
+        ]),
         ...skillModuleV2.directives,
         ...skillModuleV2.constraints,
         // V220/S2-B：8 个专业 Skill 的关键 directive + 4 项收窄偏差的双向映射说明
@@ -195,6 +203,8 @@ function buildDetailAnalysisContent(input, files, includeImages) {
       ratio: input.ratio,
       imageSize: input.imageSize,
       screenCount: count,
+      // V2-FIXED-COUNT-DEPTH：把屏数模式传给规划模型；fixed 时按 N 屏深度策划。
+      countMode: input.countMode === "auto" ? "auto" : "fixed",
       ...(selectedSections ? { selectedSections } : {})
     },
     images: {

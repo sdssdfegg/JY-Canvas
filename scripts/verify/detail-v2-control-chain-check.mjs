@@ -719,7 +719,8 @@ function contentScenario(extraInput = {}, extraOpts = {}) {
     [], { ...extraOpts }
   );
 }
-const yGroup = contentScenario({ modelMode: "use-model", modelPose: "special", modelUsage: 1 });
+// Y 组沿用 auto（粗粒度）测试意图；fixed 深度细分由 AF 组覆盖。
+const yGroup = contentScenario({ modelMode: "use-model", modelPose: "special", modelUsage: 1, countMode: "auto" });
 push("Y1 结构化事实解析含来源等级", (() => { const f = deriveMod.parseStructuredFacts(FIX_PF); return f.length >= 3 && f.every((x) => x.source === "user_provided" && x.level === "visible") && f.some((x) => x.category === "usage"); })());
 push("Y2 P0-1无资料fail-fast返回planningError", (() => { const g = deriveMod.buildDetailPromptGroup({ count: 4, workflow: "taobao-detail", productName: "空白商品" }, [], {}); return g.prompts.length === 0 && Boolean(g.planningError) && g.planningIntegrity?.ok === false; })());
 push("Y3 P0-1有结构化资料正常编译", yGroup.prompts.length === 4 && !yGroup.planningError);
@@ -795,13 +796,15 @@ push("AB-J 授权trace含来源屏依据与结果", ["skillId", "screen", "decis
 
 // ---------- AD 组 · V2-ADAPTIVE 自适应屏数与内容价值 ----------
 const AD_PF = "成分：阴离子表面活性剂、乳化剂。适用范围：羽绒服、窗帘。使用方法：按压海绵头中心，挤压出清洁剂，用清洁刷刷洗，用毛巾擦拭后自然干燥。";
-const adRun = (extra = {}) => deriveMod.buildDetailPromptGroup({ count: 8, workflow: "taobao-detail", productName: "羽绒服干洗剂", productFeature: AD_PF, userInstruction: "", ...extra }, [], {});
+// AD 组沿用 auto 测原有"内容不足→空屏+冲突"机制；fixed 深度策划由 AF 组覆盖。
+const adRun = (extra = {}) => deriveMod.buildDetailPromptGroup({ count: 8, workflow: "taobao-detail", productName: "羽绒服干洗剂", productFeature: AD_PF, userInstruction: "", countMode: "auto", ...extra }, [], {});
 const adG = adRun();
 const sellingOf = (p) => (p.text.split("\n").find((x) => x.includes("【本屏卖点】")) || "");
 const visualOf = (p) => (p.text.split("\n").find((x) => x.includes("【画面任务】")) || "");
 push("AD1 空屏标记不生成", adG.prompts.slice(4).every((p) => p.isEmptyScreen === true && p.shouldGenerate === false));
 push("AD2 非空屏正常生成", adG.prompts.slice(0, 4).every((p) => p.isEmptyScreen === false && p.shouldGenerate === true));
-push("AD3 planningConflict记录内容不足", adG.planningConflict?.type === "insufficient_content_for_requested_screens" && (adG.planningConflict.skippedScreens || adG.planningConflict.emptyScreens || []).length >= 4);
+// auto 已改为只返回有效屏（无空屏）；空屏+冲突机制在 fixed 下验证（见 AE5/AF12）。
+push("AD3 auto只返回有效屏不保留空位", adG.prompts.length === 4 && !adG.planningConflict);
 push("AD4 空屏不注入全量商品事实", adG.prompts.slice(4).every((p) => !visualOf(p).includes("画面须呈现已确认事实")));
 push("AD5 非空屏画面任务只含本屏事实", !visualOf(adG.prompts[3]).includes("阴离子表面活性剂") && visualOf(adG.prompts[1]).includes("成分"));
 push("AD6 模块分类按真实任务", adG.prompts[0].moduleKey === "hero" && adG.prompts[2].moduleKey === "useScenario" && adG.prompts[3].moduleKey === "useScenario");
@@ -828,7 +831,7 @@ push("AE2 auto返回有效屏集合", aeAuto.params.countMode === "auto" && aeAu
 push("AE3 fixed保留count契约", aeFixed.prompts.length === 8 && aeFixed.prompts.some((p) => p.isEmptyScreen === true));
 push("AE4 auto无冲突提示", !aeAuto.planningConflict);
 push("AE5 fixed内容不足有冲突", aeFixed.planningConflict?.type === "insufficient_content_for_requested_screens" && aeFixed.planningConflict.countMode === "fixed" && aeFixed.planningConflict.skippedScreens.length >= 1);
-push("AE6 冲突含数量与级因", aeFixed.planningConflict?.requestedScreens === 8 && aeFixed.planningConflict?.effectiveScreens === 4 && aeFixed.planningConflict?.hasInsufficientContent === true);
+push("AE6 冲突含数量与级因", aeFixed.planningConflict?.requestedScreens === 8 && aeFixed.planningConflict?.effectiveScreens === aeFixed.params.effectiveScreenCount && aeFixed.planningConflict?.hasInsufficientContent === true && aeFixed.planningConflict?.effectiveScreens < 8);
 push("AE7 effectiveScreenCount准确", aeAuto.params.effectiveScreenCount === aeAuto.prompts.length && aeFixed.params.effectiveScreenCount === aeFixed.prompts.filter((p) => !p.isEmptyScreen).length && aeFixed.planningConflict.effectiveScreens === aeFixed.params.effectiveScreenCount);
 const aeApparel = aeRun({ countMode: "auto", productName: "T恤", productFeature: "材质：100%棉。颜色：黑色。规格：S/M/L。" });
 const aeHome = aeRun({ countMode: "auto", productName: "保温杯", productFeature: "材质：304不锈钢。容量：500ml。适用场景：办公。" });
@@ -848,6 +851,35 @@ push("AE14 单屏入口守卫空屏", probe(detailState, "prompt?.shouldGenerate
 push("AE15 白名单保留空屏标记", probe(detailGroup, '"shouldGenerate", "isEmptyScreen"') && probe(detailGroup, '"planningConflict"'));
 push("AE16 前端展示冲突", probe(detailView, "activeDetailGroup.planningConflict"));
 push("AE17 auto不被defaultCount覆盖", aeAuto.params.count === 8 && aeAuto.prompts.length < 8);
+
+// ---------- AF 组 · V2-FIXED-COUNT-DEPTH 固定屏数深度策划 ----------
+const AF_PF = "成分：阴离子表面活性剂、非离子表面活性剂、乳化剂、去污剂等。适用范围：羽绒服、羽绒被、窗帘、沙发、尼龙衣物等。使用方法：按压海绵头中心，挤压出清洁剂涂抹于衣物表面，用清洁刷反复刷洗需要清洁部位，用干净毛巾擦拭污渍后，待自然干燥。";
+const afRun = (extra = {}) => deriveMod.buildDetailPromptGroup({ count: 9, countMode: "fixed", workflow: "taobao-detail", productName: "羽绒服干洗剂", productFeature: AF_PF, userInstruction: "", ...extra }, [], {});
+const afG = afRun();
+const afSelling = afG.prompts.map(sellingOf);
+push("AF1 fixed9屏全有效无空屏", afG.prompts.length === 9 && afG.prompts.every((p) => !p.isEmptyScreen && p.shouldGenerate !== false) && !afG.planningConflict);
+push("AF2 深度细分出独立步骤屏", afG.prompts.filter((p) => sellingOf(p).includes("使用步骤：")).length >= 4);
+push("AF3 适用范围按对象拆分", afSelling.some((s) => s.includes("适用衣物织物")) && afSelling.some((s) => s.includes("适用家居织物")));
+push("AF4 九屏卖点无重复", new Set(afSelling).size === afSelling.length);
+push("AF5 每屏认知目标不同(去重按认知)", (() => {
+  const goals = afG.prompts.map((p) => (p.screenVisual?.text || "").slice(0, 20));
+  return new Set(goals).size >= 8;
+})());
+push("AF6 使用步骤认知不串行错配", afSelling.some((s) => s.includes("用清洁刷反复刷洗")) && afSelling.some((s) => s.includes("擦拭污渍后")) && afSelling.some((s) => s.includes("自然干燥")));
+const afAuto = afRun({ countMode: "auto" });
+push("AF7 auto不被深度细分强行扩屏", afAuto.prompts.length <= 4 && afAuto.prompts.every((p) => !p.isEmptyScreen));
+const afApparel = deriveMod.buildDetailPromptGroup({ count: 8, countMode: "fixed", workflow: "taobao-detail", productName: "纯棉T恤", productFeature: "材质：100%棉。版型：宽松。颜色：米白、黑色。规格：S/M/L。洗涤：可机洗30度。", userInstruction: "" }, [], {});
+const afHome = deriveMod.buildDetailPromptGroup({ count: 8, countMode: "fixed", workflow: "taobao-detail", productName: "保温杯", productFeature: "材质：304不锈钢。容量：500ml。保温：12小时保温6小时保冷。颜色：银色。适用场景：办公、户外。", userInstruction: "" }, [], {});
+push("AF8 跨商品不同策划内容", afApparel.prompts[1].moduleKey === "materialDetail" && afHome.prompts.some((p) => sellingOf(p).includes("性能依据")));
+push("AF9 洗涤/性能合理细分不重复", (() => {
+  const ap = afApparel.prompts.filter((p) => !p.isEmptyScreen).map(sellingOf);
+  const hm = afHome.prompts.filter((p) => !p.isEmptyScreen).map(sellingOf);
+  return new Set(ap).size === ap.length && new Set(hm).size === hm.length;
+})());
+push("AF10 规划请求传达fixed深度目标", probe(read("server/detail-ai.js"), "形成 ${count} 个具有独立消费者认知任务的屏幕"));
+push("AF11 规划请求传countMode", probe(read("server/detail-ai.js"), 'countMode: input.countMode === "auto" ? "auto" : "fixed"'));
+// 空屏+冲突机制保留在 fixed 模式（AE_PF 资料有限，8屏无法深度细分填满）。
+push("AF12 空屏与冲突机制仍在fixed保留", aeFixed.prompts.some((p) => p.isEmptyScreen === true) && Boolean(aeFixed.planningConflict));
 
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
