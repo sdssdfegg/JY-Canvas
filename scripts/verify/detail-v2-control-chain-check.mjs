@@ -839,7 +839,8 @@ const detailState = read("src/features/detail/detail-state.js");
 const detailGroup = read("src/features/detail/detail-group.js");
 const detailView = read("src/features/detail/DetailView.jsx");
 const appDefaults = read("src/shared/app-defaults.js");
-push("AE10 前端传countMode", probe(detailState, 'countMode: detailSettings.countTouched ? "fixed" : "auto"'));
+// 修正：产品语义＝选几张出几张，前端固定发 fixed（默认显示10=用户要10张），不再把默认 count 判为 auto。
+push("AE10 前端固定发fixed不选几缩几", probe(detailState, 'countMode: "fixed"') && !probe(detailState, 'countTouched ? "fixed" : "auto"'));
 push("AE11 用户改count置touched", probe(detailState, 'next.countTouched = true'));
 push("AE12 默认含countTouched", probe(appDefaults, "countTouched: false"));
 push("AE13 批量过滤shouldGenerate", probe(detailState, "prompt.shouldGenerate !== false && !prompt.isEmptyScreen"));

@@ -400,8 +400,10 @@ export function useDetailState({
       const sectionPayload = serializeSelectedSections(selectedSections);
       const form = new FormData();
       form.set("payload", JSON.stringify({ ...detailSettings, detailSkillVersion: "v1", stylePackId: "auto", // R2 归一旧预设版本键，防复活旧风格锁
-        // V2-COUNT-MODE：内部模式信号——用户未主动改过屏数=auto（默认值不算硬性要求），改过=fixed。
-        countMode: detailSettings.countTouched ? "fixed" : "auto",
+        // V2-COUNT-MODE 修正：产品语义＝"生成数量显示几就出几张"。默认一律 fixed，
+        // 不再把未拖动下拉框的默认 count 误判为 auto（那会导致"选10只出3-4张"）。
+        // AI 自主屏数(auto)仅作 middleware 显式能力保留，前端当前流程不默认触发，不新增用户操作。
+        countMode: "fixed",
         ...(sectionPayload ? { selectedSections: sectionPayload } : {}),
         analysisMode: "ai",
         detailGroupIndex: detailGroups.length + 1,
