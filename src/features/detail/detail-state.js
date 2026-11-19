@@ -269,7 +269,11 @@ export function useDetailState({
         const channels = channelsForModel(next.model, config.routing || config);
         next.channelId = channels.some((item) => item.id === value) ? value : (channels[0]?.id || "");
       }
-      if (key === "count") next.count = clampDetailCount(value);
+      if (key === "count") {
+        next.count = clampDetailCount(value);
+        // V2-COUNT-MODE：用户主动修改屏数即转为 fixed；即使改回默认值也保留明确意图。
+        next.countTouched = true;
+      }
       if (key === "modelUsage") next.modelUsage = clampDetailModelUsage(value);
       if (key === "reverseScreens") next.reverseScreens = clampReverseScreens(value);
       return next;
@@ -396,6 +400,8 @@ export function useDetailState({
       const sectionPayload = serializeSelectedSections(selectedSections);
       const form = new FormData();
       form.set("payload", JSON.stringify({ ...detailSettings, detailSkillVersion: "v1", stylePackId: "auto", // R2 归一旧预设版本键，防复活旧风格锁
+        // V2-COUNT-MODE：内部模式信号——用户未主动改过屏数=auto（默认值不算硬性要求），改过=fixed。
+        countMode: detailSettings.countTouched ? "fixed" : "auto",
         ...(sectionPayload ? { selectedSections: sectionPayload } : {}),
         analysisMode: "ai",
         detailGroupIndex: detailGroups.length + 1,
@@ -445,6 +451,11 @@ export function useDetailState({
   }
 
   async function generateDetailPrompt(group, prompt, index = 0, count = 1) {
+    // V2-COUNT-MODE：任何入口（单屏/重刷/重试）都不得为空屏提交图像模型。
+    if (prompt?.shouldGenerate === false || prompt?.isEmptyScreen) {
+      addEvent("一键详情", `第${prompt?.screen ?? "?"}屏无独立内容，已跳过生成`);
+      return;
+    }
     const pickFiles = (list, indexes) => {
       if (!Array.isArray(indexes) || indexes.length === 0) return list.length > 0 ? [list[0]] : [];
       return indexes.map((fileIndex) => list[fileIndex]).filter(Boolean);
@@ -576,11 +587,17 @@ export function useDetailState({
       setDetailStatus("failed");
       return;
     }
-    const enabledPrompts = group.prompts.filter((prompt) => prompt.enabled && prompt.status !== "running");
+    // V2-COUNT-MODE：空屏（shouldGenerate=false / isEmptyScreen=true）不得提交图像模型。
+    // 保留有效屏的原始顺序与 screen 号——空屏不参与、不记为失败、不占用进度。
+    const enabledPrompts = group.prompts.filter((prompt) => (
+      prompt.enabled && prompt.status !== "running" && prompt.shouldGenerate !== false && !prompt.isEmptyScreen
+    ));
+    const skippedCount = group.prompts.filter((prompt) => prompt.enabled && (prompt.shouldGenerate === false || prompt.isEmptyScreen)).length;
     if (enabledPrompts.length === 0) {
-      addEvent("一键详情", "没有可提交的分屏，请先勾选未在生成中的提示词");
+      addEvent("一键详情", "没有可提交的有效分屏；空屏已跳过，请先勾选未在生成中的有效提示词");
       return;
     }
+    if (skippedCount > 0) addEvent("一键详情", `已跳过 ${skippedCount} 个无独立内容的空屏，不提交图像模型`);
 
     detailGroupInFlightRef.current = true;
     setDetailStatus("generating");

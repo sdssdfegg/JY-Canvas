@@ -801,7 +801,7 @@ const sellingOf = (p) => (p.text.split("\n").find((x) => x.includes("【本屏�
 const visualOf = (p) => (p.text.split("\n").find((x) => x.includes("【画面任务】")) || "");
 push("AD1 空屏标记不生成", adG.prompts.slice(4).every((p) => p.isEmptyScreen === true && p.shouldGenerate === false));
 push("AD2 非空屏正常生成", adG.prompts.slice(0, 4).every((p) => p.isEmptyScreen === false && p.shouldGenerate === true));
-push("AD3 planningConflict记录内容不足", adG.planningConflict?.type === "insufficient_content_for_requested_screens" && adG.planningConflict.emptyScreens.length >= 4);
+push("AD3 planningConflict记录内容不足", adG.planningConflict?.type === "insufficient_content_for_requested_screens" && (adG.planningConflict.skippedScreens || adG.planningConflict.emptyScreens || []).length >= 4);
 push("AD4 空屏不注入全量商品事实", adG.prompts.slice(4).every((p) => !visualOf(p).includes("画面须呈现已确认事实")));
 push("AD5 非空屏画面任务只含本屏事实", !visualOf(adG.prompts[3]).includes("阴离子表面活性剂") && visualOf(adG.prompts[1]).includes("成分"));
 push("AD6 模块分类按真实任务", adG.prompts[0].moduleKey === "hero" && adG.prompts[2].moduleKey === "useScenario" && adG.prompts[3].moduleKey === "useScenario");
@@ -815,6 +815,38 @@ push("AD11 简单商品不生成空屏", adHome.prompts.every((p) => !p.isEmptyS
 push("AD12 三类任务模块各异", new Set(adHome.prompts.map((p) => p.moduleKey)).size >= 2);
 const adSimple = deriveMod.buildDetailPromptGroup({ count: 2, workflow: "taobao-detail", productName: "商品", productFeature: "材质：棉。", userInstruction: "" }, [], {});
 push("AD13 少屏请求不硬凑重复", adSimple.prompts.length === 2 && new Set(adSimple.prompts.map(sellingOf)).size === 2);
+
+// ---------- AE 组 · V2-COUNT-MODE 屏数来源与生产闭环 ----------
+const AE_PF = "成分：阴离子表面活性剂。适用范围：羽绒服、窗帘。使用方法：按压海绵头，擦拭后自然干燥。";
+const aeBase = { count: 8, workflow: "taobao-detail", productName: "羽绒服干洗剂", productFeature: AE_PF, userInstruction: "" };
+const aeRun = (extra = {}) => deriveMod.buildDetailPromptGroup({ ...aeBase, ...extra }, [], {});
+const aeOld = aeRun();                       // 无 countMode = 旧请求
+const aeAuto = aeRun({ countMode: "auto" });
+const aeFixed = aeRun({ countMode: "fixed" });
+push("AE1 旧请求兼容fixed契约", aeOld.params.countMode === "fixed" && aeOld.prompts.length === 8);
+push("AE2 auto返回有效屏集合", aeAuto.params.countMode === "auto" && aeAuto.prompts.length === aeAuto.prompts.filter((p) => p.shouldGenerate !== false && !p.isEmptyScreen).length && aeAuto.prompts.length < 8);
+push("AE3 fixed保留count契约", aeFixed.prompts.length === 8 && aeFixed.prompts.some((p) => p.isEmptyScreen === true));
+push("AE4 auto无冲突提示", !aeAuto.planningConflict);
+push("AE5 fixed内容不足有冲突", aeFixed.planningConflict?.type === "insufficient_content_for_requested_screens" && aeFixed.planningConflict.countMode === "fixed" && aeFixed.planningConflict.skippedScreens.length >= 1);
+push("AE6 冲突含数量与级因", aeFixed.planningConflict?.requestedScreens === 8 && aeFixed.planningConflict?.effectiveScreens === 4 && aeFixed.planningConflict?.hasInsufficientContent === true);
+push("AE7 effectiveScreenCount准确", aeAuto.params.effectiveScreenCount === aeAuto.prompts.length && aeFixed.params.effectiveScreenCount === aeFixed.prompts.filter((p) => !p.isEmptyScreen).length && aeFixed.planningConflict.effectiveScreens === aeFixed.params.effectiveScreenCount);
+const aeApparel = aeRun({ countMode: "auto", productName: "T恤", productFeature: "材质：100%棉。颜色：黑色。规格：S/M/L。" });
+const aeHome = aeRun({ countMode: "auto", productName: "保温杯", productFeature: "材质：304不锈钢。容量：500ml。适用场景：办公。" });
+push("AE8 auto不同商品不同屏数", aeAuto.prompts.length !== aeApparel.prompts.length || aeApparel.prompts.length !== aeHome.prompts.length);
+push("AE9 auto屏号连续不错位", aeAuto.prompts.every((p, i) => p.screen === i + 1) && aeAuto.prompts.every((p) => p.text.split("\n")[0].includes(`第${p.screen}屏`)));
+// 前端生产闭环（源码静态断言 + 白名单）
+const detailState = read("src/features/detail/detail-state.js");
+const detailGroup = read("src/features/detail/detail-group.js");
+const detailView = read("src/features/detail/DetailView.jsx");
+const appDefaults = read("src/shared/app-defaults.js");
+push("AE10 前端传countMode", probe(detailState, 'countMode: detailSettings.countTouched ? "fixed" : "auto"'));
+push("AE11 用户改count置touched", probe(detailState, 'next.countTouched = true'));
+push("AE12 默认含countTouched", probe(appDefaults, "countTouched: false"));
+push("AE13 批量过滤shouldGenerate", probe(detailState, "prompt.shouldGenerate !== false && !prompt.isEmptyScreen"));
+push("AE14 单屏入口守卫空屏", probe(detailState, "prompt?.shouldGenerate === false || prompt?.isEmptyScreen"));
+push("AE15 白名单保留空屏标记", probe(detailGroup, '"shouldGenerate", "isEmptyScreen"') && probe(detailGroup, '"planningConflict"'));
+push("AE16 前端展示冲突", probe(detailView, "activeDetailGroup.planningConflict"));
+push("AE17 auto不被defaultCount覆盖", aeAuto.params.count === 8 && aeAuto.prompts.length < 8);
 
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");

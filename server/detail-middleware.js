@@ -835,6 +835,9 @@ function compileScreenConditionalInstructions({ activation = null, input = {}, i
 
 function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   const count = clamp(input.count, BASE_SKILL.screenCountRule.min, BASE_SKILL.screenCountRule.max, DEFAULT_COUNT);
+  // V2-COUNT-MODE：内部屏数模式。仅当调用方显式传 countMode:"auto" 时进入自动规划；
+  // 旧请求/未传字段一律 fixed（沿用原固定屏数语义，避免影响旧调用方）。
+  const countMode = input.countMode === "auto" ? "auto" : "fixed";
   const workflow = String(input.workflow || "taobao-detail").trim();
   const platformSkill = getPlatformSkill(workflow);
   const skillVersion = resolveDetailSkillVersion(input);
@@ -1192,6 +1195,13 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     ? [...buildRounds(platformSkill, industrySkill, analysis, count, reverseScreens), buildStylePackRound(styleDecision)]
     : buildRounds(platformSkill, industrySkill, analysis, count, reverseScreens);
 
+  // V2-COUNT-MODE：auto 模式返回实际有效屏集合（不含空屏）；fixed 模式保留 count 数组契约。
+  // 保留每屏原 screen 号（不重排），确保 text 标题、imageSlots、结果与单屏定位一致、不错位。
+  const finalPrompts = countMode === "auto"
+    ? prompts.filter((prompt) => prompt.shouldGenerate !== false && !prompt.isEmptyScreen)
+    : prompts;
+  // 真正可获得生成结果的屏数（fixed 模式数组长度=count，但空屏不生成，需单独统计）。
+  const effectiveScreenCount = prompts.filter((prompt) => prompt.shouldGenerate !== false && !prompt.isEmptyScreen).length;
   // S2-C / V2-ARCH：工程验证控制报告。占位态不注入任何正式专业规则到 17 槽位文本，
   // 仅把"字段是否贯通 / 行业包是否按需加载 / 任务是否可准入拒绝 / 审计基线"作为可验证证据挂在 group 上。
   // 🔴 这是工程验证，不代表专业模型质量验收通过；专业内容由 ChatGPT 交付后另行接入与验收。
@@ -1210,6 +1220,9 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       ratio,
       imageSize,
       count,
+      // V2-COUNT-MODE：模式与实际有效屏数，供前端进度统计与冲突提示使用。
+      countMode,
+      effectiveScreenCount,
       lang,
       copywriting,
       richness: String(input.richness || "simple"),
@@ -1227,14 +1240,18 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     },
     analysis,
     // V2-ADAPTIVE：内容不足以支撑指定屏数时明确标记冲突，不静默保留空屏。
-    ...(v2Planning && !aiPlan && prompts.some((p) => p.isEmptyScreen)
+    ...(v2Planning && !aiPlan && countMode === "fixed" && prompts.some((p) => p.isEmptyScreen)
       ? {
           planningConflict: {
             type: "insufficient_content_for_requested_screens",
+            countMode,
             requestedScreens: count,
             independentTasks: localScreenTasks.length,
-            emptyScreens: prompts.filter((p) => p.isEmptyScreen).map((p) => p.screen || p.index),
-            message: "商品资料支撑的独立内容任务少于指定屏数；空屏已标记不生成。请补充资料、减少屏数，或由 AI 规划补充有依据的内容。"
+            effectiveScreens: effectiveScreenCount,
+            skippedScreens: prompts.filter((p) => p.isEmptyScreen).map((p) => p.screen || p.index),
+            hasInsufficientContent: true,
+            hasTechnicalLimitConflict: false,
+            message: `您指定了 ${count} 屏，目前商品资料只能支持 ${effectiveScreenCount} 项独立内容任务；其余 ${count - effectiveScreenCount} 屏缺少独立内容依据，已跳过不生成。可补充商品资料、调整屏数，或由 AI 规划补充有依据的内容。`
           }
         }
       : {}),
@@ -1252,7 +1269,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       base: BASE_SKILL,
       industry: industrySkill,
       platform: platformSkill,
-      modules: prompts.map((prompt) => ({
+      modules: finalPrompts.map((prompt) => ({
         screen: prompt.screen,
         moduleKey: prompt.moduleKey,
         moduleName: prompt.moduleName,
@@ -1261,7 +1278,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       quality: QUALITY_SKILL
     },
     rounds,
-    prompts
+    prompts: finalPrompts
   };
 }
 

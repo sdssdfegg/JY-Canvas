@@ -436,6 +436,12 @@ export function DetailView({
 
               {activeDetailGroup && (
                 <article className="detailGroup" key={activeDetailGroup.id}>
+                  {/* V2-COUNT-MODE：固定屏数内容不足时，在批量生成前清晰展示规划冲突 */}
+                  {activeDetailGroup.planningConflict && (
+                    <div role="status" style={{ margin: "8px 0", padding: "8px 12px", borderRadius: 6, background: "rgba(230,160,40,0.12)", color: "var(--accent)", fontSize: 13, lineHeight: 1.5 }}>
+                      {activeDetailGroup.planningConflict.message}
+                    </div>
+                  )}
                   <ModuleHeader
                     title={activeDetailGroup.name || activeDetailGroup.label}
                     subtitle={

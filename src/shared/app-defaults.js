@@ -73,6 +73,8 @@ export const detailDefaults = {
   ratio: "9:16",
   imageSize: "2K",
   count: 10,
+  // V2-COUNT-MODE：用户是否主动调整过屏数。false=默认值(auto)，true=用户明确指定(fixed)。
+  countTouched: false,
   copywriting: "need",
   richness: "simple",
   fontStyle: "heiti",

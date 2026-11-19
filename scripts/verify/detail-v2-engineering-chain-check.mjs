@@ -131,7 +131,8 @@ async function main() {
   // P1 静态锚点：白名单键集、会话态契约、数据边界、不落盘、无专业 schema。
   const keyBlock = /const DETAIL_PROMPT_STORAGE_KEYS = \[([\s\S]*?)\];/.exec(group);
   const promptKeys = keyBlock ? [...keyBlock[1].matchAll(/"([A-Za-z0-9_]+)"/g)].map((m) => m[1]) : [];
-  push("S19 prompt 白名单 19 键已取到", promptKeys.length === 19, "实测 " + promptKeys.length + " 键");
+  // V2-COUNT-MODE：新增 shouldGenerate/isEmptyScreen 两键（19→21），供跳过空屏跨刷新保留。
+  push("S19 prompt 白名单 21 键已取到", promptKeys.length === 21, "实测 " + promptKeys.length + " 键");
   push("S20 prompt 白名单无重复键", new Set(promptKeys).size === promptKeys.length);
   const forbiddenSchema = ["narrative:", "screenRoles:", "dedupLog:", "visualDna:", "mustNotClaim:", "confidence:"];
   push("S21 未定义任何 planning 内部专业 schema",

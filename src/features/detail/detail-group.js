@@ -14,7 +14,9 @@ import { sanitizeStoredImage } from "../storage/storage-store.js";
 // stylePack 供详情头部展示，productFiles/referenceFiles 写盘清空，results 为旧数据兼容槽位。
 const DETAIL_GROUP_STORAGE_KEYS = [
   "id", "label", "name", "createdAt", "status", "params", "prompts",
-  "stylePack", "productFiles", "referenceFiles", "results"
+  "stylePack", "productFiles", "referenceFiles", "results",
+  // V2-COUNT-MODE：规划冲突提示需跨刷新保留。
+  "planningConflict"
 ];
 
 // V218 P1：prompt 层持久化白名单。键集实测自 server/detail-middleware.js 的 prompt 构造体
@@ -24,7 +26,9 @@ const DETAIL_PROMPT_STORAGE_KEYS = [
   "screen", "title", "summary", "intervention", "referenceStrategy",
   "productFileIndexes", "referenceFileIndexes", "imageSlots",
   "moduleKey", "moduleName", "qualityChecklist", "aiScreen", "analysisMode",
-  "text", "enabled", "status", "error", "generationMs", "results"
+  "text", "enabled", "status", "error", "generationMs", "results",
+  // V2-COUNT-MODE：空屏标记需持久化，刷新后前端仍能跳过。
+  "shouldGenerate", "isEmptyScreen"
 ];
 
 export function createDetailGroup(deps) {
