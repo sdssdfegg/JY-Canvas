@@ -101,7 +101,7 @@
 
 # 交付 8：修改文件、Commit 与测试清单
 修改文件（8）：`server/detail-middleware.js`、`src/features/detail/detail-state.js`、`src/features/detail/detail-group.js`、`src/features/detail/DetailView.jsx`、`src/shared/app-defaults.js`、`scripts/verify/detail-v2-control-chain-check.mjs`、`scripts/verify/detail-v2-engineering-chain-check.mjs`、`scripts/verify/size-ratchet-baseline.json`。
-Commit：（提交后回填）
+Commit：`5285193`（9 文件 +220/-23，含本报告与基线刷新）；pre-commit 86/86。
 
 ## 十问回答
 1. 前端如何识别默认/明确 count？——内部 `countTouched`：初值 false=auto，用户改 count（含改回默认值）置 true=fixed；预设/params 恢复保留。**不增加用户操作**。
