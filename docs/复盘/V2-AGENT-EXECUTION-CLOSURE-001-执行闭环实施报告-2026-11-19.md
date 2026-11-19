@@ -112,7 +112,7 @@ A-J 十项已固化为控制链 AB 组（真实 `buildDetailPromptGroup` 链路�
 5. `scripts/verify/run-all.mjs`（+5）：双数组注册新门禁。
 
 Commit：
-- （提交后回填）
+- 本次实施 commit：`2f1eda6`（6 文件 +355/-5，含本报告与新增同步门禁脚本）；pre-commit 86/86。
 - 基线：`d03b8a1`（专业升级）、`9e9a735`（状态同步）。
 
 ---
