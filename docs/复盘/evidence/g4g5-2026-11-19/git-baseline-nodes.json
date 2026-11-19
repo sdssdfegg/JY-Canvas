@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-11-19T10:02:00.849Z",
+  "source": "实际 git show，非记忆推测",
+  "nodes": {
+    "B0": {
+      "commit": "2d80c03",
+      "desc": "专业正文升级前（内容质量最小修复P0-1）",
+      "hasFiveLayer": false,
+      "hasClosure": false
+    },
+    "B1": {
+      "commit": "d03b8a1",
+      "desc": "SKILL02/03/04正文+directive升级后，动态执行闭环前",
+      "hasFiveLayer": true,
+      "hasClosure": false
+    },
+    "B2": {
+      "commit": "2f1eda6",
+      "desc": "当前：含动态授权执行闭环与一致性门禁",
+      "hasFiveLayer": true,
+      "hasClosure": true
+    }
+  }
+}

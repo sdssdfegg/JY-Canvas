@@ -1,0 +1,7 @@
+{
+  "generatedAt": "2026-11-19T10:02:00.855Z",
+  "envKeysConfigured": false,
+  "runtimeSettingsHasKey": false,
+  "keySource": "用户设置页运行时输入（payload.apiKey），不落仓库",
+  "note": "本目录不含任何密钥值；仅记录可用性判定。G4/G5真实模型测试因此阻塞。"
+}
