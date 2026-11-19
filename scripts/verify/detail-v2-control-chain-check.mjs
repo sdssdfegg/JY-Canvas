@@ -736,6 +736,31 @@ push("Y13 P2附件审计声明角色", yGroup.prompts.every((p) => p.attachmentA
 push("Y14 P1视觉任务因内容不同", new Set(yGroup.prompts.map((p) => p.text.split("\n").find((x) => x.includes("【画面任务】")))).size >= 3);
 push("Y15 未触发人物不注入人物指令", yGroup.prompts[1].text.includes("禁止出现真人") && !yGroup.prompts[1].text.includes("特殊姿态模特"));
 
+// ---------- Z 组 · V2专业能力升级（正文生效+结构化维度+卖点去重） ----------
+const detailAiSrc = read("server/detail-ai.js");
+const Z_CASES = {
+  apparel: { count: 5, workflow: "taobao-detail", productName: "纯棉T恤", productFeature: "材质：100%棉。版型：宽松落肩。颜色：米白、黑色。规格：S/M/L。洗涤：可机洗。", userInstruction: "", modelMode: "use-model", modelUsage: 2 },
+  home: { count: 3, workflow: "taobao-detail", productName: "保温杯", productFeature: "材质：304不锈钢。容量：500ml。保温：12小时保温。颜色：银色。适用场景：办公、户外。", userInstruction: "" }
+};
+push("Z1 SKILL02五层价值链正文已入", probe(read("prompts/server/detail-v2-planning/skills/consumer-marketing-strategy/SKILL.md"), "五层价值链"));
+push("Z2 SKILL03完整内容地图正文已入", probe(read("prompts/server/detail-v2-planning/skills/detail-story-planning/SKILL.md"), "完整内容地图"));
+push("Z3 SKILL04展示角色正文已入", probe(read("prompts/server/detail-v2-planning/skills/visual-art-direction/SKILL.md"), "商品展示角色判断"));
+push("Z4 directive含五层链且回链phrase未丢", probe(detailAiSrc, "五层价值链") && probe(detailAiSrc, "空洞参数罗列不算营销表达"));
+push("Z5 directive含内容地图+不一条卖点一屏", probe(detailAiSrc, "完整内容地图") && probe(detailAiSrc, "使用动作"));
+push("Z6 directive含展示角色+回链phrase未丢", probe(detailAiSrc, "展示角色") && probe(detailAiSrc, "禁止仅背景/颜色变化"));
+const zFactsApparel = deriveMod.parseStructuredFacts(Z_CASES.apparel.productFeature);
+push("Z7 服装结构化维度含材质/颜色/洗涤", ["material", "color", "care"].every((c) => zFactsApparel.some((f) => f.category === c)));
+const zFactsHome = deriveMod.parseStructuredFacts(Z_CASES.home.productFeature);
+push("Z8 家居结构化维度含材质/效果/场景", ["material", "effect", "applicableScope"].every((c) => zFactsHome.some((f) => f.category === c)));
+const zHome = deriveMod.buildDetailPromptGroup(Z_CASES.home, [], {});
+const zHomeSelling = zHome.prompts.map((p) => (p.text.split("\n").find((x) => x.includes("【本屏卖点】")) || ""));
+push("Z9 家居多屏卖点不重复", new Set(zHomeSelling).size === zHomeSelling.length);
+const zApparel = deriveMod.buildDetailPromptGroup(Z_CASES.apparel, [], {});
+const zApparelSelling = zApparel.prompts.map((p) => (p.text.split("\n").find((x) => x.includes("【本屏卖点】")) || ""));
+push("Z10 服装资料不足屏不重复卖点（诚实标注）", zApparel.prompts.slice(3).every((p) => p.text.includes("无新增独立信息")));
+push("Z11 服装人物仍按屏授权", JSON.stringify(zApparel.prompts.map((p) => Boolean(p.skillActivation?.activeIds?.includes("model-pose")))) === JSON.stringify([true, true, false, false, false]));
+push("Z12 结构化事实仍保留来源等级", zFactsApparel.every((f) => f.source === "user_provided" && f.level === "visible"));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");

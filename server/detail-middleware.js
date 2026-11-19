@@ -63,17 +63,24 @@ function parseList(value) {
 // V2-PRO-003 内容质量修复：结构化商品资料解析（保留来源/事实等级/原始内容）。
 // 用户以「成分：…适用范围：…使用方法：…」标签提供的资料属于用户明确提供=visible，
 // 不得被 parseList 降维成普通卖点串或当成未确认信息。
+// 通用商品信息维度词表（非单品专属）：分类与切分同源，避免两处正则漂移。
+// V1.1 扩展材质/颜色/版型/洗涤/场景等维度——跨商品测试发现原词表仅覆盖日化，服装/家居资料无法结构化。
 const PRODUCT_FACT_LABELS = [
-  { key: "ingredient", pattern: /成[分份]|配方/ },
-  { key: "applicableScope", pattern: /适用(范围|对象|材质)|可用于/ },
-  { key: "usage", pattern: /使用(方法|方式|步骤)|操作步骤|用法/ },
-  { key: "effect", pattern: /效果|功效|作用/ },
-  { key: "spec", pattern: /规格|容量|净含量|型号/ }
+  { key: "ingredient", alts: ["成[分份]", "配方"] },
+  { key: "material", alts: ["材质", "面料", "用料"] },
+  { key: "color", alts: ["颜色", "配色", "色系"] },
+  { key: "applicableScope", alts: ["适用(?:范围|对象|材质|场景|场合)", "可用于", "场景", "用途"] },
+  { key: "usage", alts: ["使用(?:方法|方式|步骤)", "操作步骤", "用法"] },
+  { key: "care", alts: ["洗涤(?:方法|方式)?", "保养", "维护", "收纳", "清洗方式"] },
+  { key: "effect", alts: ["效果", "功效", "作用", "保温", "性能"] },
+  { key: "spec", alts: ["规格", "容量", "净含量", "型号", "版型", "尺码", "尺寸"] }
 ];
+const FACT_LABEL_SOURCE = PRODUCT_FACT_LABELS.flatMap((item) => item.alts).join("|");
+const FACT_LABEL_SPLIT = new RegExp(`(?=(?:${FACT_LABEL_SOURCE})\\s*[:：])`);
 export function parseStructuredFacts(productFeature = "") {
   const text = String(productFeature || "").trim();
   if (!text) return [];
-  const segments = text.split(/(?=(?:成[分份]|配方|适用(?:范围|对象|材质)|可用于|使用(?:方法|方式|步骤)|操作步骤|用法|效果|功效|作用|规格|容量|净含量|型号)\s*[:：])/);
+  const segments = text.split(FACT_LABEL_SPLIT);
   const facts = [];
   for (const seg of segments) {
     const match = seg.match(/^(.*?)\s*[:：]\s*([\s\S]+)$/);
@@ -81,7 +88,7 @@ export function parseStructuredFacts(productFeature = "") {
     const label = match[1].trim();
     const content = match[2].trim().replace(/[。；;]+$/, "");
     if (!content) continue;
-    const kind = PRODUCT_FACT_LABELS.find((item) => item.pattern.test(label));
+    const kind = PRODUCT_FACT_LABELS.find((item) => item.alts.some((alt) => new RegExp(`^${alt}$`).test(label)));
     facts.push({
       category: kind ? kind.key : "other",
       label,
@@ -100,17 +107,24 @@ export function buildLocalScreenTasks(structuredFacts = [], providedSelling = []
   for (const fact of (Array.isArray(structuredFacts) ? structuredFacts : [])) {
     (byCategory[fact.category] = byCategory[fact.category] || []).push(fact.content);
   }
-  const tasks = [];
-  // 首屏：身份与核心价值（成分/规格/用户卖点里选，不塞使用方法）。
-  const identityParts = [...(byCategory.ingredient || []), ...(byCategory.spec || []), ...(providedSelling || [])];
-  if (identityParts.length) tasks.push({ sellingPoint: identityParts.join("；"), taskCategory: "identity", compositionHint: "首屏以商品主体+已确认身份信息建立认知" });
-  // 适用范围：一个完整任务，不按条目拆屏。
-  if (byCategory.applicableScope?.length) tasks.push({ sellingPoint: `适用范围：${byCategory.applicableScope.join("、")}`, taskCategory: "applicableScope", compositionHint: "用真实适用对象建立需求关联，不扩展未列对象" });
-  // 使用方法：一个完整任务，保留全部步骤顺序。
-  if (byCategory.usage?.length) tasks.push({ sellingPoint: `使用方法：${byCategory.usage.join("；")}`, taskCategory: "usage", compositionHint: "按真实步骤呈现操作逻辑，不创造未确认步骤" });
-  // 效果：仅在有已确认内容时单列。
-  if (byCategory.effect?.length) tasks.push({ sellingPoint: `效果依据：${byCategory.effect.join("；")}`, taskCategory: "effect", compositionHint: "只呈现有依据的效果信息，不虚构实验数据" });
-  // 任务不足以填满 count 时，不硬凑重复卖点；返回实际任务数，允许少于用户屏数（由上层决定如何处理）。
+  // 维度→任务的有序定义（通用信息维度，非固定模板；仅按当前商品实际有的维度生成任务）。
+  const definitions = [
+    { category: "identity", parts: [...(byCategory.ingredient || []), ...(providedSelling || [])], label: "商品身份与核心价值", hint: "首屏以商品主体+已确认身份信息建立认知" },
+    { category: "material", parts: byCategory.material || [], label: "材质与面料", hint: "以真实材质细节建立质感认知，不虚构材质" },
+    { category: "applicableScope", parts: byCategory.applicableScope || [], label: "适用范围与场景", hint: "用真实适用对象建立需求关联，不扩展未列对象" },
+    { category: "usage", parts: byCategory.usage || [], label: "使用方法", hint: "按真实步骤呈现操作逻辑，不创造未确认步骤" },
+    { category: "care", parts: byCategory.care || [], label: "洗涤与保养", hint: "呈现有依据的保养方式，不虚构维护效果" },
+    { category: "effect", parts: byCategory.effect || [], label: "效果与性能依据", hint: "只呈现有依据的效果信息，不虚构实验数据" },
+    { category: "color", parts: [...(byCategory.color || []), ...(byCategory.spec || [])], label: "颜色与规格选择", hint: "呈现真实可选规格与颜色，辅助购买决策" }
+  ];
+  const tasks = definitions
+    .filter((def) => def.parts.length > 0)
+    .map((def) => ({
+      sellingPoint: `${def.label}：${def.parts.join("；")}`,
+      taskCategory: def.category,
+      compositionHint: def.hint
+    }));
+  // 任务不足 count 时不硬凑重复卖点：返回实际任务数，由上层按"无独立任务则整合未用事实"处理。
   return tasks.slice(0, count);
 }
 
@@ -880,10 +894,17 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     const variant = screenPack ? variantFor(moduleSkill.id, index, screenPack, input.detailGroupIndex, aiScreen?.compositionVariantId) : null;
     const selling = aiScreen?.sellingPoint || aiScreen?.summary
       || localTask?.sellingPoint
-      // P1：本地兜底且无对应屏级任务时，不用 sellingList 轮流取原始资料（会拆碎使用方法）；
-      //     改用结构化事实的整合表达，保持方法完整。有 aiScreen/非兜底路径仍走原逻辑。
+      // V1.1：本地兜底且无对应屏级任务时，不用 sellingList 轮流取原始资料（拆碎使用方法），
+      //     也不重复全部事实（造成多屏卖点相同）——只取尚未被前面任务消费的维度事实；
+      //     若事实已全部覆盖，则该屏不强行塞内容，标注内容不足。有 aiScreen 仍走原逻辑。
       || (localScreenTasks.length && structuredFacts.length
-          ? structuredFacts.map((fact) => `${fact.label}：${fact.content}`).join("；")
+          ? (() => {
+              const usedText = localScreenTasks.map((task) => task.sellingPoint).join(" ");
+              const leftover = structuredFacts.filter((fact) => !usedText.includes(fact.content));
+              return leftover.length
+                ? `补充信息：${leftover.map((fact) => `${fact.label}：${fact.content}`).join("；")}`
+                : "";
+            })() || "本屏资料已在前序屏幕充分表达，无新增独立信息；保持商品真实呈现，不重复卖点。"
           : (sellingList[index % sellingList.length] || moduleSkill.name));
     // V2-PRO-002：卖点进提示词前做事实边界校验（消费正式配置的禁止泛化规则）。
     // 命中未确认扩展（奶渍/蛋白类/所有材质等）时不注入原卖点，改用保守表达并记入控制报告。
