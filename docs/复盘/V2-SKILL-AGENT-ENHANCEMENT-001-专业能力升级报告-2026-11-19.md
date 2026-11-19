@@ -103,7 +103,7 @@
 6. `scripts/verify/detail-v2-control-chain-check.mjs`（Z 组 12 项）
 
 Commit：
-- 本次升级 commit：（提交后回填）
+- 本次升级 commit：`d03b8a1`（7 文件 +214/-25，含本报告）；pre-commit 85/85。
 - 基线：`2d80c03`（核心修复）、`82c661f`（状态同步）
 
 门禁：control 386/386（Z 组12 + 原有374）、planning 76/76、sections 25/25、assets 冻结未破、`run-all --fast` 85/85、`vite build` EXIT=0（4.48s）。
