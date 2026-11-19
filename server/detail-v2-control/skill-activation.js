@@ -9,7 +9,7 @@ import { activeConfig, createCompilerAudit, ADMISSION } from "./index.js";
 
 // V2-PRO-002：卖点事实边界校验（消费正式配置的 noGeneralization，不自行发明规则）。
 // 返回 { allowed, reason }；命中行业禁止泛化词时拦截，避免未确认事实进提示词。
-export function checkSellingPointBoundary(sellingPoint, industryId = "generic", config = activeConfig()) {
+export function checkSellingPointBoundary(sellingPoint, industryId = "generic", config = activeConfig(), confirmedFacts = []) {
   const text = String(sellingPoint || "");
   const pack = config?.industryPacks?.[industryId];
   const forbidden = Array.isArray(pack?.noGeneralization) ? pack.noGeneralization : [];
@@ -25,10 +25,18 @@ export function checkSellingPointBoundary(sellingPoint, industryId = "generic", 
     detectWords.push("可水洗内衣", "贴身衣物", "化纤", "混纺", "布艺沙发", "窗帘", "床垫", "奶渍", "蛋白质");
   }
   const hits = [...new Set(detectWords)].filter((word) => text.includes(word));
+  // V2-PRO-003 修复：命中词若已出现在用户明确提供/已确认事实中，属于合法事实复述，不拦截。
+  // 原实现注释声称"仅在无对应 visible 事实时拦截"，但代码未核对——导致用户明确提供的
+  // 适用范围（如"窗帘"）被误判为未确认扩展、整句卖点被丢弃。此处按注释语义补齐豁免。
+  const confirmedText = (Array.isArray(confirmedFacts) ? confirmedFacts : [])
+    .map((fact) => String(typeof fact === "object" ? (fact.content || fact.claim || "") : fact || ""))
+    .join(" ");
+  const realHits = hits.filter((word) => !confirmedText.includes(word));
   return {
-    allowed: hits.length === 0,
-    reason: hits.length ? `forbidden_generalization:${hits.join(",")}` : "ok",
-    hits
+    allowed: realHits.length === 0,
+    reason: realHits.length ? `forbidden_generalization:${realHits.join(",")}` : (hits.length ? "confirmed_fact_exempt" : "ok"),
+    hits: realHits,
+    exempted: hits.filter((word) => confirmedText.includes(word))
   };
 }
 

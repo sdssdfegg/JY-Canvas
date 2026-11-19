@@ -78,6 +78,7 @@ function buildGroup(skillVersion, stylePackId, workflow = "taobao-main", groupIn
     workflow,
     count: 3,
     productName: "测试商品",
+    productFeature: "棉质", // P0-1：生成需最小商品资料，避免触发规划失败 fail-fast
     detailGroupIndex: groupIndex,
     detailSkillVersion: skillVersion,
     stylePackId,

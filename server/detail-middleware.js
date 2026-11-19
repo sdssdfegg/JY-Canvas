@@ -20,7 +20,8 @@ import {
   admitTasks,
   createCompilerAudit,
   professionalContentStatus,
-  detectIndustryOverride
+  detectIndustryOverride,
+  activeConfig
 } from "./detail-v2-control/index.js";
 // V2-PRO-002：Skill 按需触发 + 提示词分层组装 + 编译授权（工程机制）。
 import {
@@ -57,6 +58,81 @@ function parseList(value) {
     .split(/\r?\n|[，,；;]/)
     .map((item) => item.replace(/^第?\d+[屏、.:\s-]*/, "").trim())
     .filter(Boolean);
+}
+
+// V2-PRO-003 内容质量修复：结构化商品资料解析（保留来源/事实等级/原始内容）。
+// 用户以「成分：…适用范围：…使用方法：…」标签提供的资料属于用户明确提供=visible，
+// 不得被 parseList 降维成普通卖点串或当成未确认信息。
+const PRODUCT_FACT_LABELS = [
+  { key: "ingredient", pattern: /成[分份]|配方/ },
+  { key: "applicableScope", pattern: /适用(范围|对象|材质)|可用于/ },
+  { key: "usage", pattern: /使用(方法|方式|步骤)|操作步骤|用法/ },
+  { key: "effect", pattern: /效果|功效|作用/ },
+  { key: "spec", pattern: /规格|容量|净含量|型号/ }
+];
+export function parseStructuredFacts(productFeature = "") {
+  const text = String(productFeature || "").trim();
+  if (!text) return [];
+  const segments = text.split(/(?=(?:成[分份]|配方|适用(?:范围|对象|材质)|可用于|使用(?:方法|方式|步骤)|操作步骤|用法|效果|功效|作用|规格|容量|净含量|型号)\s*[:：])/);
+  const facts = [];
+  for (const seg of segments) {
+    const match = seg.match(/^(.*?)\s*[:：]\s*([\s\S]+)$/);
+    if (!match) continue;
+    const label = match[1].trim();
+    const content = match[2].trim().replace(/[。；;]+$/, "");
+    if (!content) continue;
+    const kind = PRODUCT_FACT_LABELS.find((item) => item.pattern.test(label));
+    facts.push({
+      category: kind ? kind.key : "other",
+      label,
+      content,
+      source: "user_provided",
+      level: "visible"
+    });
+  }
+  return facts;
+}
+
+// 本地兜底屏级任务分配：按结构化事实分组组织，使用方法作为一个完整任务不拆碎。
+// 输出与 aiScreen 同形的屏级任务，供无 AI 规划时编译，避免"按屏号轮流取一句原始资料"。
+export function buildLocalScreenTasks(structuredFacts = [], providedSelling = [], count = 4) {
+  const byCategory = {};
+  for (const fact of (Array.isArray(structuredFacts) ? structuredFacts : [])) {
+    (byCategory[fact.category] = byCategory[fact.category] || []).push(fact.content);
+  }
+  const tasks = [];
+  // 首屏：身份与核心价值（成分/规格/用户卖点里选，不塞使用方法）。
+  const identityParts = [...(byCategory.ingredient || []), ...(byCategory.spec || []), ...(providedSelling || [])];
+  if (identityParts.length) tasks.push({ sellingPoint: identityParts.join("；"), taskCategory: "identity", compositionHint: "首屏以商品主体+已确认身份信息建立认知" });
+  // 适用范围：一个完整任务，不按条目拆屏。
+  if (byCategory.applicableScope?.length) tasks.push({ sellingPoint: `适用范围：${byCategory.applicableScope.join("、")}`, taskCategory: "applicableScope", compositionHint: "用真实适用对象建立需求关联，不扩展未列对象" });
+  // 使用方法：一个完整任务，保留全部步骤顺序。
+  if (byCategory.usage?.length) tasks.push({ sellingPoint: `使用方法：${byCategory.usage.join("；")}`, taskCategory: "usage", compositionHint: "按真实步骤呈现操作逻辑，不创造未确认步骤" });
+  // 效果：仅在有已确认内容时单列。
+  if (byCategory.effect?.length) tasks.push({ sellingPoint: `效果依据：${byCategory.effect.join("；")}`, taskCategory: "effect", compositionHint: "只呈现有依据的效果信息，不虚构实验数据" });
+  // 任务不足以填满 count 时，不硬凑重复卖点；返回实际任务数，允许少于用户屏数（由上层决定如何处理）。
+  return tasks.slice(0, count);
+}
+
+// 本地兜底完整性判据：v2Planning=true 但 aiPlan=null 时，必须有可编译的结构化规划，
+// 否则明确失败、停止错误的分屏编译，不静默生成空洞详情。
+export function checkPlanningIntegrity({ v2Planning, aiPlan, structuredFacts = [], sellingPoints = [], rawProductFeature = "" }) {
+  if (!v2Planning) return { ok: true, source: "not_v2_planning" };
+  if (aiPlan) return { ok: true, source: "ai_plan" };
+  // 完整本地兜底：结构化事实 / 用户卖点 / 自由文本商品资料任一存在即可编译。
+  // 自由文本（如"棉质"）虽无标签，仍是用户明确提供的资料，不算空洞规划。
+  const facts = Array.isArray(structuredFacts) ? structuredFacts : [];
+  const selling = Array.isArray(sellingPoints) ? sellingPoints : [];
+  const hasStructured = facts.length > 0 || String(rawProductFeature || "").trim().length > 0;
+  const hasSelling = selling.length > 0;
+  if (!hasStructured && !hasSelling) {
+    return {
+      ok: false,
+      source: "none",
+      reason: "v2Planning 已启用但 AI 规划失败且无结构化本地资料；停止编译，避免静默生成空洞详情。"
+    };
+  }
+  return { ok: true, source: "local_structured_fallback", factCount: facts.length, sellingCount: selling.length };
 }
 
 function imageDimensions(buffer) {
@@ -569,7 +645,7 @@ function buildV2ControlReport(aiPlan, resolvedIndustryId) {
 const FIGURE_POSITIVE_PATTERN = /(模特|真人|人物|人手|手部|手持|握持|穿着|佩戴|使用演示|操作演示|生活场景|使用场景|人物互动|人在使用|手持产品)/;
 const FIGURE_NEGATIVE_PATTERN = /(不要人物|不出现人物|无人物|不使用模特|不要模特|纯静物|纯产品|仅商品|禁止人物|避免人物|无人像)/;
 
-export function deriveFigureTaskContextKeys({ input = {}, aiScreen = null, moduleSkill = null } = {}) {
+export function deriveFigureTaskContextKeys({ input = {}, aiScreen = null, moduleSkill = null, screenIndex = null, count = null } = {}) {
   const userText = String(input.userInstruction || input.userRequirement || "");
   const screenText = [
     aiScreen?.composition,
@@ -582,6 +658,22 @@ export function deriveFigureTaskContextKeys({ input = {}, aiScreen = null, modul
 
   // 用户明确不要人物 → 最高优先，返回排除信号（不派生任何正向人物键）。
   if (FIGURE_NEGATIVE_PATTERN.test(userText)) return ["no_figure_requirement"];
+
+  // V2-PRO-003 P0：用户通过 UI 明确选择「使用模特」时，这是一个明确的当前屏人物授权入口。
+  // 🔴 必须按屏生效：只有 index < min(modelUsage,count) 的屏获得授权，其他屏不继承；
+  //    且仅当调用方传入 screenIndex/count（真实分屏链路）时才启用，孤立探针不因此误触发。
+  const hasScreenScope = Number.isInteger(screenIndex) && Number.isInteger(count);
+  if (hasScreenScope) {
+    const modelMode = String(input.modelMode || "no-model");
+    const modelUsage = Math.max(1, Math.min(12, Number(input.modelUsage) || 4));
+    const authorizedByUi = modelMode === "use-model" && screenIndex < Math.min(modelUsage, count);
+    if (authorizedByUi) {
+      // 用户已明确选择该屏使用模特（含特殊姿势）：派生正式人物信号，交契约判定。
+      return ["screen_needs_figure", "user_requires_figure", "explicit_figure_task"];
+    }
+    // 用户选了模特但本屏未获授权 → 不继承人物任务（返回排除信号，防止文本弱命中越权触发）。
+    if (modelMode === "use-model") return ["no_figure_requirement"];
+  }
 
   // 正向依据只认两类：① 用户明确要求；② 当前屏任务语义本身需要人物/手部/生活场景。
   const userExplicit = FIGURE_POSITIVE_PATTERN.test(userText);
@@ -665,6 +757,25 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   const industrySkill = aiPlan ? aiIndustry(input, productImages, aiPlan) : inferIndustry(input, productImages);
   const localAnalysis = buildProductAnalysis(input, productImages, referenceImages, industrySkill, platformSkill);
   const analysis = mergeAiAnalysis(localAnalysis, aiPlan, options.aiMeta, options.aiError);
+  // V2-PRO-003 P0-1：结构化事实 + 规划完整性判据。
+  // v2Planning 仅在 selectedSections 空选时为真；若此时 AI 规划失败且无结构化本地资料，
+  // 不得把空数据当正常规划继续编译——返回明确失败标记、停止分屏编译，不静默生成空洞详情。
+  const structuredFacts = parseStructuredFacts(input.productFeature);
+  // 已确认事实集：用户结构化资料 + AI 规划 visible 事实——用于卖点边界豁免（用户明确提供的适用范围不算扩展）。
+  const confirmedFactsForBoundary = [
+    ...structuredFacts.map((fact) => fact.content),
+    ...(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts.filter((f) => f?.level === "visible").map((f) => String(f.claim || "")) : [])
+  ];
+  const userSellingPoints = parseList(input.sellingPoints); // 只认用户明确提供的卖点，不认行业 sellingAngles 兜底
+  const selectedSectionsEarly = Array.isArray(input.selectedSections) && input.selectedSections.length > 0 ? input.selectedSections : null;
+  const v2PlanningEarly = selectedSectionsEarly === null;
+  const planningIntegrity = checkPlanningIntegrity({
+    v2Planning: v2PlanningEarly,
+    aiPlan,
+    structuredFacts,
+    sellingPoints: userSellingPoints,
+    rawProductFeature: input.productFeature
+  });
   const productName = String(input.productName || "").trim() || "目标产品";
   const ratio = String(input.ratio || "21:9").trim();
   const imageSize = String(input.imageSize || "2K").trim();
@@ -683,6 +794,20 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   // 驱动；首屏确定性绑定 hero 角色但不写死标题文字；AI 缺屏/失败走最小占位，绝不回退 seedTitles[index%len]。
   // 逐字节一致口径已收窄为兼容路径（§16.2）；styleDecision 仅继续用于 17 槽位风格锁，不再参与规划门控。
   const v2Planning = selectedSections === null;
+  // P0-1 fail-fast：规划态启用但 AI 规划失败且本地无结构化资料时，停止分屏编译。
+  // 不硬编码四屏模板/固定卖点列表掩盖失败；明确返回 planningError 供上层提示用户。
+  if (!planningIntegrity.ok) {
+    return {
+      prompts: [],
+      count,
+      params: { ...(input || {}), count, detailSkillVersion: "v2" },
+      analysis,
+      planningIntegrity,
+      planningError: planningIntegrity.reason,
+      v2Control: { controlStatus: "planning_failed", reason: planningIntegrity.reason, fieldsPresent: {} },
+      note: "规划失败：未生成分屏提示词。请补充商品资料或重试 AI 规划。"
+    };
+  }
   let screenTitles;
   // R1：首屏确定性 hero 角色（仅规划态）。标题文字仍由 AI title/screenRoles 驱动，绝不写死；
   // 模型 planning.screenRoles 的 sectionRefs 供下方 moduleSkill 优先级使用（§5.2 落点 4）。
@@ -729,8 +854,11 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     copywriting
   });
 
+  // P1：无 AI 规划时用结构化事实分组的屏级任务，使用方法等完整任务不拆碎。
+  const localScreenTasks = (v2Planning && !aiPlan) ? buildLocalScreenTasks(structuredFacts, userSellingPoints, count) : [];
   const prompts = screenTitles.map((title, index) => {
     const aiScreen = aiScreens[index] || null;
+    const localTask = localScreenTasks[index] || null;
     // V214 P1：客户板块按屏循环复用，仅作模块归类兜底；AI 已给 moduleId 时以 AI 为准。
     const activeSection = selectedSections ? selectedSections[index % selectedSections.length] : null;
     // R1（§5.2 落点 4）：规划态归类优先级 = 首屏 hero 确定性绑定 > AI moduleId > sectionRefs > 客户板块 > getScreenModule。
@@ -750,24 +878,35 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     const mainFirstScreen = platformSkill.pageType === "主图" && index === 0;
     const screenPack = styleDecision ? (mainFirstScreen ? STYLE_PACKS.S1 : styleDecision.pack) : null;
     const variant = screenPack ? variantFor(moduleSkill.id, index, screenPack, input.detailGroupIndex, aiScreen?.compositionVariantId) : null;
-    const selling = aiScreen?.sellingPoint || aiScreen?.summary || sellingList[index % sellingList.length] || moduleSkill.name;
+    const selling = aiScreen?.sellingPoint || aiScreen?.summary
+      || localTask?.sellingPoint
+      // P1：本地兜底且无对应屏级任务时，不用 sellingList 轮流取原始资料（会拆碎使用方法）；
+      //     改用结构化事实的整合表达，保持方法完整。有 aiScreen/非兜底路径仍走原逻辑。
+      || (localScreenTasks.length && structuredFacts.length
+          ? structuredFacts.map((fact) => `${fact.label}：${fact.content}`).join("；")
+          : (sellingList[index % sellingList.length] || moduleSkill.name));
     // V2-PRO-002：卖点进提示词前做事实边界校验（消费正式配置的禁止泛化规则）。
     // 命中未确认扩展（奶渍/蛋白类/所有材质等）时不注入原卖点，改用保守表达并记入控制报告。
     const sellingBoundary = v2Planning
-      ? checkSellingPointBoundary(selling, industrySkill.id)
+      ? checkSellingPointBoundary(selling, industrySkill.id, activeConfig(), confirmedFactsForBoundary)
       : { allowed: true, reason: "legacy_path", hits: [] };
     const sellingForPrompt = sellingBoundary.allowed
       ? selling
-      : "围绕已确认的商品事实与该屏任务表达，不扩展未经确认的污渍、材质、适用范围或功效。";
+      // P0-3：不再用通用空话兜底——被拦截时改用本屏已确认事实的具体表达，无事实则不注入（P0-1 已挡无资料场景）。
+      : (confirmedFactsForBoundary.length
+          ? `本屏仅表达已确认事实：${confirmedFactsForBoundary.slice(0, 3).join("、")}；不扩展未确认的污渍、材质、适用范围或功效。`
+          : "仅呈现商品图可直接确认的信息，不扩展未经确认的事实。");
     // V2-PRO-003 第七节：视觉方案缺失不回退固定模板——用本屏任务+已确认事实+视觉DNA 组装。
     const screenVisual = v2Planning
       ? buildScreenVisual({
           moduleName: moduleSkill.name,
           contentTask: String(sellingForPrompt || "").slice(0, 60),
-          composition: aiScreen?.composition || "",
-          confirmedFacts: (Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [])
-            .filter((f) => f?.level === "visible").map((f) => String(f.claim || "")),
-          visualDNA: aiPlan?.globalVisualDNA || {}
+          composition: aiScreen?.composition || localTask?.compositionHint || "",
+          confirmedFacts: [
+            ...(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts.filter((f) => f?.level === "visible").map((f) => String(f.claim || "")) : []),
+            ...structuredFacts.map((fact) => fact.content)
+          ],
+          visualDNA: aiPlan?.globalVisualDNA || (analysis.visualStyle ? { tone: analysis.visualStyle } : {})
         })
       : null;
     const visualForPrompt = v2Planning
@@ -794,7 +933,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       triggerCtxKeys.push(`industry_${industrySkill.id}`);
       // V2-PRO-003 缺陷修复：人物任务信号只由当前屏任务语义派生（用户明确要求 / 本屏任务需要），
       // 不凭行业、商品类型或 modelMode 旧参数自动触发；是否激活仍由正式 Activation Contract 判断。
-      triggerCtxKeys.push(...deriveFigureTaskContextKeys({ input, aiScreen, moduleSkill }));
+      triggerCtxKeys.push(...deriveFigureTaskContextKeys({ input, aiScreen, moduleSkill, screenIndex: index, count }));
       // V2-PRO-003 结构专项修复：结构事实仍只作 specialty_evidence；结构"任务信号"单独派生
       // （当前屏确实需要结构表达时才派生 specialty_condition_met），不用效果证据键冒充结构触发。
       triggerCtxKeys.push(...deriveStructureTaskContextKeys({ input, aiScreen, moduleSkill }));
@@ -813,6 +952,8 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       ...(aiScreen?.qualityChecks || [])
     ]);
     const promptDirectives = uniqueList([
+      // P1：本地兜底时以本屏结构化任务的具体指令优先，避免 SCREEN_MODULES 固定句覆盖屏级规划。
+      ...(localTask && sellingForPrompt ? [`本屏内容任务：${sellingForPrompt}`] : []),
       ...moduleSkill.promptDirectives,
       ...(aiScreen?.promptDirectives || [])
     ]);
@@ -879,6 +1020,15 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       productFileIndexes: plan.productFileIndexes,
       referenceFileIndexes: plan.referenceFileIndexes,
       imageSlots,
+      // P2 附件审计：本屏"提示词声明"的图片角色映射。注意这是编译层声明，
+      // 不是模型实际收到的附件——实际附件由前端 generateDetailPrompt 选图后提交，
+      // 需与 referenceMeta 日志对照才能确认二者一致（不在此反推模型实际收到什么）。
+      attachmentAudit: {
+        declaredSlots: imageSlots.map((slot) => ({ slot: slot.slot, role: slot.role, label: slot.label, sourceIndex: slot.sourceIndex })),
+        declaredProductCount: plan.productFileIndexes.length,
+        declaredReferenceCount: plan.referenceFileIndexes.length,
+        note: "编译层声明；模型实际附件以生成请求日志为准"
+      },
       moduleKey: moduleSkill.id,
       moduleName: moduleSkill.name,
       qualityChecklist,

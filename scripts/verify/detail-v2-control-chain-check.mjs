@@ -208,7 +208,7 @@ const probePlan = {
   industryProfile: { industryId: "cleaning" }, consumerInsights: { audience: "家庭用户" }, marketingStrategy: { valueLadder: [] }, globalVisualDNA: { palette: "粉蓝" },
   screens: [{ screen: 1, title: "首屏", moduleId: "hero", sellingPoint: "血渍、奶渍等蛋白类污渍，适用于布艺沙发窗帘床垫" }]
 };
-const probeGroup = mwForProbe.buildDetailPromptGroup({ count: 1, workflow: "taobao-detail", productName: "血渍清洗剂", modelMode: "use-model" }, [], { aiPlan: probePlan });
+const probeGroup = mwForProbe.buildDetailPromptGroup({ count: 1, workflow: "taobao-detail", productName: "血渍清洗剂", modelMode: "no-model" }, [], { aiPlan: probePlan });
 const probeText = probeGroup.prompts[0].text;
 push("H16 端到端：棉/奶渍/沙发不进提示词", !/真实材质[^\n]*棉|奶渍|布艺沙发/.test(probeText));
 push("H17 端到端：模特不激活且质检清单内部化",
@@ -459,7 +459,7 @@ push("Q12 正式键齐触发conditional", figOn?.decision === "conditional" && f
 push("Q13 SKILL06契约仍conditional", figureContract?.execution_mode === "conditional");
 // 污染：未触发人物能力时提示词无人物/场景污染
 const figurePrompt = mwForProbe.buildDetailPromptGroup(
-  { count: 1, workflow: "taobao-detail", productName: "血渍清洗剂", modelMode: "use-model" },
+  { count: 1, workflow: "taobao-detail", productName: "血渍清洗剂", modelMode: "no-model" },
   [], { aiPlan: { ...probePlan, screens: [{ screen: 1, title: "首屏", moduleId: "hero" }] } }
 );
 push("Q14 未触发人物能力不进提示词", !figurePrompt.prompts[0].skillActivation?.activeIds?.includes("model-pose"));
@@ -497,7 +497,8 @@ push("R6 仅旧键缺正式依据→不触发", activationMod.evaluateAllActivat
 const figFormal = activationMod.evaluateAllActivations({ contextKeys: ["screen_needs_figure", "user_requires_figure", "explicit_figure_task"] }).results.find((x) => x.id === "figure-usage-scene");
 push("R7 正式键齐→conditional且权威=正式契约", figFormal?.decision === "conditional" && figFormal?.authoritySource === "formal_professional_contract");
 push("R8 行业不自动触发（服装无人物依据）", figureScenario({ productName: "T恤", industryId: "apparel", materials: ["棉"], userInstruction: "", modelMode: "no-model" }).active === false);
-push("R9 modelMode旧参数不自动触发", figureScenario({ productName: "清洗剂", industryId: "cleaning", materials: ["白色泵瓶"], userInstruction: "", modelMode: "use-model", modelUsage: 3 }).active === false);
+// R9 更新为新语义：modelMode=no-model 时不得凭旧参数/行业自动触发；use-model 仅在授权屏触发（见 R10-R12）。
+push("R9 no-model不自动触发人物", figureScenario({ productName: "清洗剂", industryId: "cleaning", materials: ["白色泵瓶"], userInstruction: "", modelMode: "no-model" }).active === false);
 // 污染：未触发不注入人物、触发不注入Skill正文全文
 const figureCfgText = JSON.stringify(skillsCfgQ?.activationContracts?.["figure-usage-scene"]?.formal_professional_contract_v1 || {});
 push("R10 未触发时提示词为无模特正向约束", figD.prompt.text.includes("本屏无模特") && !/展示穿着效果/.test(figD.prompt.text));
@@ -710,6 +711,31 @@ push("X-F1 否定请求QC正文不进提示词", (() => { const r = qcReal("不�
 push("X-F2 未激活不注入QC全文", (() => { const r = qcReal("生成商品静物图"); return !r.text.includes("质量验收 30 条") && !r.text.includes("【QC报告】"); })());
 push("X-F3 激活也不把QC正文写入提示词", (() => { const r = qcReal("检查这套详情有没有问题"); return r.active && !r.text.includes("质量验收 30 条"); })());
 
+// ---------- Y 组 · 内容策划与提示词质量修复（P0-1/P0/P1/P2） ----------
+const FIX_PF = "成分：阴离子表面活性剂、乳化剂。适用范围：羽绒服、窗帘。使用方法：按压海绵头中心，挤压出清洁剂涂抹于衣物表面，用清洁刷刷洗需要清洁部位，用干净毛巾擦拭后自然干燥。";
+function contentScenario(extraInput = {}, extraOpts = {}) {
+  return deriveMod.buildDetailPromptGroup(
+    { count: 4, workflow: "taobao-detail", productName: "羽绒服干洗剂", productFeature: FIX_PF, ...extraInput },
+    [], { ...extraOpts }
+  );
+}
+const yGroup = contentScenario({ modelMode: "use-model", modelPose: "special", modelUsage: 1 });
+push("Y1 结构化事实解析含来源等级", (() => { const f = deriveMod.parseStructuredFacts(FIX_PF); return f.length >= 3 && f.every((x) => x.source === "user_provided" && x.level === "visible") && f.some((x) => x.category === "usage"); })());
+push("Y2 P0-1无资料fail-fast返回planningError", (() => { const g = deriveMod.buildDetailPromptGroup({ count: 4, workflow: "taobao-detail", productName: "空白商品" }, [], {}); return g.prompts.length === 0 && Boolean(g.planningError) && g.planningIntegrity?.ok === false; })());
+push("Y3 P0-1有结构化资料正常编译", yGroup.prompts.length === 4 && !yGroup.planningError);
+push("Y4 P0事实豁免-已确认窗帘放行", (() => { const r = activationMod.checkSellingPointBoundary("适用于羽绒服、窗帘", "cleaning", undefined, ["羽绒服、窗帘"]); return r.allowed && r.reason === "confirmed_fact_exempt"; })());
+push("Y5 P0事实豁免-无事实仍拦截", !activationMod.checkSellingPointBoundary("适用于窗帘", "cleaning", undefined, []).allowed);
+push("Y6 P1首屏卖点非空泛兜底", (() => { const t = yGroup.prompts[0].text; return t.includes("【本屏卖点】") && !t.includes("围绕已确认的商品事实与该屏任务表达"); })());
+push("Y7 P1成分与适用范围进入卖点", yGroup.prompts[0].text.includes("阴离子表面活性剂") && yGroup.prompts[1].text.includes("适用范围"));
+push("Y8 P1使用方法整段不拆碎", (() => { const joined = yGroup.prompts.map((p) => p.text).join("\n"); return joined.includes("按压海绵头中心") && joined.includes("擦拭后自然干燥") && yGroup.prompts[2].text.includes("使用方法："); })());
+push("Y9 P0按屏人物仅授权屏active", JSON.stringify(yGroup.prompts.map((p) => Boolean(p.skillActivation?.activeIds?.includes("model-pose")))) === JSON.stringify([true, false, false, false]));
+push("Y10 P0授权屏特殊姿势文案", yGroup.prompts[0].text.includes("特殊姿态模特") && yGroup.prompts[1].text.includes("本屏无模特"));
+push("Y11 P0 usage=2前两屏授权", (() => { const g = contentScenario({ modelMode: "use-model", modelUsage: 2 }); return JSON.stringify(g.prompts.map((p) => Boolean(p.skillActivation?.activeIds?.includes("model-pose")))) === JSON.stringify([true, true, false, false]); })());
+push("Y12 P0 no-model全禁人物", (() => { const g = contentScenario({ modelMode: "no-model" }); return g.prompts.every((p) => !p.skillActivation?.activeIds?.includes("model-pose")); })());
+push("Y13 P2附件审计声明角色", yGroup.prompts.every((p) => p.attachmentAudit && Array.isArray(p.attachmentAudit.declaredSlots)));
+push("Y14 P1视觉任务因内容不同", new Set(yGroup.prompts.map((p) => p.text.split("\n").find((x) => x.includes("【画面任务】")))).size >= 3);
+push("Y15 未触发人物不注入人物指令", yGroup.prompts[1].text.includes("禁止出现真人") && !yGroup.prompts[1].text.includes("特殊姿态模特"));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
@@ -756,6 +782,8 @@ neg("N37 SKILL08正式标记被删后判红", skill08.replace("正式专业正�
 neg("N38 QC派生调用被删后判红", middleware.replace("triggerCtxKeys.push(...deriveQCTaskContextKeys({ input }));", ""), "triggerCtxKeys.push(...deriveQCTaskContextKeys({ input }))");
 neg("N39 QC旧别名归一化被删后判红", activationSrc.replace('user_clicks_qc: "qc_requested",', ""), 'user_clicks_qc: "qc_requested"');
 neg("N40 QC否定排除被删后判红", middleware.replace("&& !QC_NEGATION_PATTERN.test(userText)", ""), "&& !QC_NEGATION_PATTERN.test(userText)");
+neg("N41 P0-1 fail-fast被删后判红", middleware.replace("if (!planningIntegrity.ok) {", "if (false) {"), "if (!planningIntegrity.ok) {");
+neg("N42 事实豁免被删后判红", activationSrc.split("const realHits = hits.filter((word) => !confirmedText.includes(word));").join("const realHits = hits;"), "const realHits = hits.filter((word) => !confirmedText.includes(word));");
 
 const failureCount = results.filter((r) => !r.ok).length;
 const output = {
