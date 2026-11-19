@@ -79,7 +79,7 @@
 # 交付 6：修改文件、测试结果与 Commit
 - `server/detail-middleware.js`（+95/-26）：空屏判定与标记、screenFacts 按屏注入、moduleForLocalTask、首屏身份、人物信号去模块名。
 - `scripts/verify/detail-v2-control-chain-check.mjs`（+33）：AD 组 13 项 + Y7/Y8/Z10 适配新屏位。
-- Commit：（提交后回填）
+- Commit：`ddc3f18`（3 文件 +207/-26，含本报告）；pre-commit 86/86。
 - 回归：控制链 **409/409**（原396+AD13）、planning 76/76、sections 25/25、assets 冻结未破、**全量 86/86**、build EXIT=0。
 - 真回归已修：no-model 因 useScenario 模块名误触发人物（AD10 固化）。
 
