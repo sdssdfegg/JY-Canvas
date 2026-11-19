@@ -726,8 +726,8 @@ push("Y3 P0-1有结构化资料正常编译", yGroup.prompts.length === 4 && !yG
 push("Y4 P0事实豁免-已确认窗帘放行", (() => { const r = activationMod.checkSellingPointBoundary("适用于羽绒服、窗帘", "cleaning", undefined, ["羽绒服、窗帘"]); return r.allowed && r.reason === "confirmed_fact_exempt"; })());
 push("Y5 P0事实豁免-无事实仍拦截", !activationMod.checkSellingPointBoundary("适用于窗帘", "cleaning", undefined, []).allowed);
 push("Y6 P1首屏卖点非空泛兜底", (() => { const t = yGroup.prompts[0].text; return t.includes("【本屏卖点】") && !t.includes("围绕已确认的商品事实与该屏任务表达"); })());
-push("Y7 P1成分与适用范围进入卖点", yGroup.prompts[0].text.includes("阴离子表面活性剂") && yGroup.prompts[1].text.includes("适用范围"));
-push("Y8 P1使用方法整段不拆碎", (() => { const joined = yGroup.prompts.map((p) => p.text).join("\n"); return joined.includes("按压海绵头中心") && joined.includes("擦拭后自然干燥") && yGroup.prompts[2].text.includes("使用方法："); })());
+push("Y7 P1成分与适用范围进入卖点", yGroup.prompts[1].text.includes("阴离子表面活性剂") && yGroup.prompts[2].text.includes("适用范围"));
+push("Y8 P1使用方法整段不拆碎", (() => { const joined = yGroup.prompts.map((p) => p.text).join("\n"); return joined.includes("按压海绵头中心") && joined.includes("擦拭后自然干燥") && yGroup.prompts[3].text.includes("使用方法："); })());
 push("Y9 P0按屏人物仅授权屏active", JSON.stringify(yGroup.prompts.map((p) => Boolean(p.skillActivation?.activeIds?.includes("model-pose")))) === JSON.stringify([true, false, false, false]));
 push("Y10 P0授权屏特殊姿势文案", yGroup.prompts[0].text.includes("特殊姿态模特") && yGroup.prompts[1].text.includes("本屏无模特"));
 push("Y11 P0 usage=2前两屏授权", (() => { const g = contentScenario({ modelMode: "use-model", modelUsage: 2 }); return JSON.stringify(g.prompts.map((p) => Boolean(p.skillActivation?.activeIds?.includes("model-pose")))) === JSON.stringify([true, true, false, false]); })());
@@ -757,7 +757,11 @@ const zHomeSelling = zHome.prompts.map((p) => (p.text.split("\n").find((x) => x.
 push("Z9 家居多屏卖点不重复", new Set(zHomeSelling).size === zHomeSelling.length);
 const zApparel = deriveMod.buildDetailPromptGroup(Z_CASES.apparel, [], {});
 const zApparelSelling = zApparel.prompts.map((p) => (p.text.split("\n").find((x) => x.includes("【本屏卖点】")) || ""));
-push("Z10 服装资料不足屏不重复卖点（诚实标注）", zApparel.prompts.slice(3).every((p) => p.text.includes("无新增独立信息")));
+push("Z10 服装资料不足屏标记为空不重复卖点", (() => {
+  const empties = zApparel.prompts.filter((p) => p.isEmptyScreen);
+  return empties.length >= 1 && empties.every((p) => p.shouldGenerate === false && p.text.includes("已标记为不生成"))
+    && zApparel.prompts.filter((p) => !p.isEmptyScreen).every((p) => p.shouldGenerate === true);
+})());
 push("Z11 服装人物仍按屏授权", JSON.stringify(zApparel.prompts.map((p) => Boolean(p.skillActivation?.activeIds?.includes("model-pose")))) === JSON.stringify([true, true, false, false, false]));
 push("Z12 结构化事实仍保留来源等级", zFactsApparel.every((f) => f.source === "user_provided" && f.level === "visible"));
 
@@ -788,6 +792,29 @@ const abH = abRun({ qcTrigger: "button" });
 push("AB-H QC主动触发但不进生图text", abH.prompts[0].skillActivation.activeIds.includes("detail-quality-control") && !abH.prompts[0].text.includes("质量验收 30 条") && abH.prompts[0].authorizationTrace.find((t) => t.skillId === "detail-quality-control")?.injectedToPrompt === false);
 push("AB-I compileWithAuthorization已进生产链路", probe(middleware, "compileScreenConditionalInstructions({ activation") && probe(middleware, "compileWithAuthorization(entries, admitted)"));
 push("AB-J 授权trace含来源屏依据与结果", ["skillId", "screen", "decision", "activated", "injectedToPrompt", "reason"].every((k) => Object.hasOwn(abA.prompts[0].authorizationTrace[0] || {}, k)));
+
+// ---------- AD 组 · V2-ADAPTIVE 自适应屏数与内容价值 ----------
+const AD_PF = "成分：阴离子表面活性剂、乳化剂。适用范围：羽绒服、窗帘。使用方法：按压海绵头中心，挤压出清洁剂，用清洁刷刷洗，用毛巾擦拭后自然干燥。";
+const adRun = (extra = {}) => deriveMod.buildDetailPromptGroup({ count: 8, workflow: "taobao-detail", productName: "羽绒服干洗剂", productFeature: AD_PF, userInstruction: "", ...extra }, [], {});
+const adG = adRun();
+const sellingOf = (p) => (p.text.split("\n").find((x) => x.includes("【本屏卖点】")) || "");
+const visualOf = (p) => (p.text.split("\n").find((x) => x.includes("【画面任务】")) || "");
+push("AD1 空屏标记不生成", adG.prompts.slice(4).every((p) => p.isEmptyScreen === true && p.shouldGenerate === false));
+push("AD2 非空屏正常生成", adG.prompts.slice(0, 4).every((p) => p.isEmptyScreen === false && p.shouldGenerate === true));
+push("AD3 planningConflict记录内容不足", adG.planningConflict?.type === "insufficient_content_for_requested_screens" && adG.planningConflict.emptyScreens.length >= 4);
+push("AD4 空屏不注入全量商品事实", adG.prompts.slice(4).every((p) => !visualOf(p).includes("画面须呈现已确认事实")));
+push("AD5 非空屏画面任务只含本屏事实", !visualOf(adG.prompts[3]).includes("阴离子表面活性剂") && visualOf(adG.prompts[1]).includes("成分"));
+push("AD6 模块分类按真实任务", adG.prompts[0].moduleKey === "hero" && adG.prompts[2].moduleKey === "useScenario" && adG.prompts[3].moduleKey === "useScenario");
+push("AD7 首屏不以成分清单为核心价值", sellingOf(adG.prompts[0]).includes("羽绒服干洗剂") && !sellingOf(adG.prompts[0]).includes("阴离子"));
+push("AD8 无8屏硬上限(max=12)", probe(read("prompts/server/detail-skills.js"), "max: 12") && !probe(read("prompts/server/detail-skills.js"), "max: 8"));
+push("AD9 使用方法整段保留不拆", sellingOf(adG.prompts[3]).includes("按压海绵头中心") && sellingOf(adG.prompts[3]).includes("自然干燥"));
+const adNoModel = adRun({ count: 4, modelMode: "no-model" });
+push("AD10 useScenario模块名不误触发人物", adNoModel.prompts.every((p) => !p.skillActivation?.activeIds?.includes("model-pose")));
+const adHome = deriveMod.buildDetailPromptGroup({ count: 3, workflow: "taobao-detail", productName: "保温杯", productFeature: "材质：304不锈钢。容量：500ml。保温：12小时保温。适用场景：办公、户外。", userInstruction: "" }, [], {});
+push("AD11 简单商品不生成空屏", adHome.prompts.every((p) => !p.isEmptyScreen) && adHome.prompts.length === 3);
+push("AD12 三类任务模块各异", new Set(adHome.prompts.map((p) => p.moduleKey)).size >= 2);
+const adSimple = deriveMod.buildDetailPromptGroup({ count: 2, workflow: "taobao-detail", productName: "商品", productFeature: "材质：棉。", userInstruction: "" }, [], {});
+push("AD13 少屏请求不硬凑重复", adSimple.prompts.length === 2 && new Set(adSimple.prompts.map(sellingOf)).size === 2);
 
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");

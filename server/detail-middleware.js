@@ -102,14 +102,15 @@ export function parseStructuredFacts(productFeature = "") {
 
 // 本地兜底屏级任务分配：按结构化事实分组组织，使用方法作为一个完整任务不拆碎。
 // 输出与 aiScreen 同形的屏级任务，供无 AI 规划时编译，避免"按屏号轮流取一句原始资料"。
-export function buildLocalScreenTasks(structuredFacts = [], providedSelling = [], count = 4) {
+export function buildLocalScreenTasks(structuredFacts = [], providedSelling = [], count = 4, productName = "") {
   const byCategory = {};
   for (const fact of (Array.isArray(structuredFacts) ? structuredFacts : [])) {
     (byCategory[fact.category] = byCategory[fact.category] || []).push(fact.content);
   }
   // 维度→任务的有序定义（通用信息维度，非固定模板；仅按当前商品实际有的维度生成任务）。
   const definitions = [
-    { category: "identity", parts: [...(byCategory.ingredient || []), ...(providedSelling || [])], label: "商品身份与核心价值", hint: "首屏以商品主体+已确认身份信息建立认知" },
+    { category: "identity", parts: [String(productName || "").trim(), ...(providedSelling || [])].filter(Boolean), label: "商品身份与核心价值", hint: "首屏以商品主体+核心价值建立认知，不把成分/参数清单当首屏卖点" },
+    { category: "ingredient", parts: byCategory.ingredient || [], label: "成分与配方", hint: "只在有依据时说明已确认成分，不推导未经证实的效果" },
     { category: "material", parts: byCategory.material || [], label: "材质与面料", hint: "以真实材质细节建立质感认知，不虚构材质" },
     { category: "applicableScope", parts: byCategory.applicableScope || [], label: "适用范围与场景", hint: "用真实适用对象建立需求关联，不扩展未列对象" },
     { category: "usage", parts: byCategory.usage || [], label: "使用方法", hint: "按真实步骤呈现操作逻辑，不创造未确认步骤" },
@@ -126,6 +127,23 @@ export function buildLocalScreenTasks(structuredFacts = [], providedSelling = []
     }));
   // 任务不足 count 时不硬凑重复卖点：返回实际任务数，由上层按"无独立任务则整合未用事实"处理。
   return tasks.slice(0, count);
+}
+
+// 本地兜底屏级任务→模块分类：让 moduleKey 反映真实任务，不再全部落 coreSellingPoint。
+// 仅用于本地兜底；AI 规划的 moduleId 仍按其输出优先。
+const LOCAL_TASK_MODULE = {
+  identity: "hero",
+  material: "materialDetail",
+  applicableScope: "useScenario",
+  usage: "useScenario",
+  care: "useScenario",
+  effect: "trustProof",
+  color: "specInfo"
+};
+export function moduleForLocalTask(taskCategory, index, count) {
+  const id = LOCAL_TASK_MODULE[taskCategory];
+  if (!id) return index === count - 1 ? "conversionClose" : "coreSellingPoint";
+  return id;
 }
 
 // 本地兜底完整性判据：v2Planning=true 但 aiPlan=null 时，必须有可编译的结构化规划，
@@ -665,9 +683,9 @@ export function deriveFigureTaskContextKeys({ input = {}, aiScreen = null, modul
     aiScreen?.composition,
     aiScreen?.sellingPoint,
     aiScreen?.copywriting,
-    aiScreen?.modelPolicyHint,
-    moduleSkill?.name,
-    moduleSkill?.id
+    aiScreen?.modelPolicyHint
+    // V2-ADAPTIVE：不再把 moduleSkill.name/id 作为人物信号来源——模块是"分类标签"（如"使用场景"），
+    // 不是本屏真实人物任务；把它计入会让 useScenario 分类名误触发 FIGURE_POSITIVE_PATTERN 的"使用场景"。
   ].filter(Boolean).map((v) => String(v)).join(" ");
 
   // 用户明确不要人物 → 最高优先，返回排除信号（不派生任何正向人物键）。
@@ -930,7 +948,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   });
 
   // P1：无 AI 规划时用结构化事实分组的屏级任务，使用方法等完整任务不拆碎。
-  const localScreenTasks = (v2Planning && !aiPlan) ? buildLocalScreenTasks(structuredFacts, userSellingPoints, count) : [];
+  const localScreenTasks = (v2Planning && !aiPlan) ? buildLocalScreenTasks(structuredFacts, userSellingPoints, count, productName) : [];
   const prompts = screenTitles.map((title, index) => {
     const aiScreen = aiScreens[index] || null;
     const localTask = localScreenTasks[index] || null;
@@ -943,30 +961,43 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       ? (planningRole.sectionRefs || []).map((ref) => SCREEN_MODULES[String(ref).trim()]
           || Object.values(SCREEN_MODULES).find((module) => module.id === String(ref).trim() || module.name === String(ref).trim())).find(Boolean)
       : null;
+    // V2-ADAPTIVE：本地兜底时按本屏真实任务选模块，消除"第2-7屏全叫核心卖点"的分类错位。
+    const localModule = localTask ? SCREEN_MODULES[moduleForLocalTask(localTask.taskCategory, index, count)] : null;
     const moduleSkill = (v2Planning && index === 0)
       ? SCREEN_MODULES.hero
       : SCREEN_MODULES[aiScreen?.moduleId]
         || Object.values(SCREEN_MODULES).find((module) => module.name === aiScreen?.moduleId)
         || sectionRefModule
         || (activeSection && SCREEN_MODULES[activeSection.moduleId])
+        || localModule
         || getScreenModule(aiScreen?.title || title, index, count);
     const mainFirstScreen = platformSkill.pageType === "主图" && index === 0;
     const screenPack = styleDecision ? (mainFirstScreen ? STYLE_PACKS.S1 : styleDecision.pack) : null;
     const variant = screenPack ? variantFor(moduleSkill.id, index, screenPack, input.detailGroupIndex, aiScreen?.compositionVariantId) : null;
-    const selling = aiScreen?.sellingPoint || aiScreen?.summary
-      || localTask?.sellingPoint
-      // V1.1：本地兜底且无对应屏级任务时，不用 sellingList 轮流取原始资料（拆碎使用方法），
-      //     也不重复全部事实（造成多屏卖点相同）——只取尚未被前面任务消费的维度事实；
-      //     若事实已全部覆盖，则该屏不强行塞内容，标注内容不足。有 aiScreen 仍走原逻辑。
-      || (localScreenTasks.length && structuredFacts.length
-          ? (() => {
-              const usedText = localScreenTasks.map((task) => task.sellingPoint).join(" ");
-              const leftover = structuredFacts.filter((fact) => !usedText.includes(fact.content));
-              return leftover.length
-                ? `补充信息：${leftover.map((fact) => `${fact.label}：${fact.content}`).join("；")}`
-                : "";
-            })() || "本屏资料已在前序屏幕充分表达，无新增独立信息；保持商品真实呈现，不重复卖点。"
-          : (sellingList[index % sellingList.length] || moduleSkill.name));
+    // V2-ADAPTIVE：本地兜底屏的"空屏"判定——无本屏任务且无未消费事实，不得进入正式生图编译。
+    let isEmptyLocalScreen = false;
+    let screenFacts = confirmedFactsForBoundary; // 默认全量（AI规划路径/有aiScreen时不改）
+    let sellingSource = "";
+    if (aiScreen?.sellingPoint || aiScreen?.summary) {
+      sellingSource = aiScreen.sellingPoint || aiScreen.summary;
+    } else if (localTask) {
+      sellingSource = localTask.sellingPoint;
+      // 屏级事实：只取本屏 sellingPoint 命中的事实，避免全量事实重复注入画面任务。
+      screenFacts = structuredFacts.filter((fact) => sellingSource.includes(fact.content)).map((fact) => fact.content);
+    } else if (localScreenTasks.length && structuredFacts.length) {
+      const usedText = localScreenTasks.map((task) => task.sellingPoint).join(" ");
+      const leftover = structuredFacts.filter((fact) => !usedText.includes(fact.content));
+      if (leftover.length) {
+        sellingSource = `补充信息：${leftover.map((fact) => `${fact.label}：${fact.content}`).join("；")}`;
+      } else {
+        // 无新增独立信息 → 标记空屏，不再编译完整提示词、不注入任何事实。
+        isEmptyLocalScreen = true;
+        sellingSource = "";
+      }
+    } else {
+      sellingSource = sellingList[index % sellingList.length] || moduleSkill.name;
+    }
+    const selling = sellingSource;
     // V2-PRO-002：卖点进提示词前做事实边界校验（消费正式配置的禁止泛化规则）。
     // 命中未确认扩展（奶渍/蛋白类/所有材质等）时不注入原卖点，改用保守表达并记入控制报告。
     const sellingBoundary = v2Planning
@@ -979,19 +1010,22 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
           ? `本屏仅表达已确认事实：${confirmedFactsForBoundary.slice(0, 3).join("、")}；不扩展未确认的污渍、材质、适用范围或功效。`
           : "仅呈现商品图可直接确认的信息，不扩展未经确认的事实。");
     // V2-PRO-003 第七节：视觉方案缺失不回退固定模板——用本屏任务+已确认事实+视觉DNA 组装。
-    const screenVisual = v2Planning
+    const screenVisual = (v2Planning && !isEmptyLocalScreen)
       ? buildScreenVisual({
           moduleName: moduleSkill.name,
           contentTask: String(sellingForPrompt || "").slice(0, 60),
           composition: aiScreen?.composition || localTask?.compositionHint || "",
+          // 屏级事实：本地兜底只用本屏命中的事实；AI路径仍用规划的visible事实。不再全量注入。
           confirmedFacts: [
             ...(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts.filter((f) => f?.level === "visible").map((f) => String(f.claim || "")) : []),
-            ...structuredFacts.map((fact) => fact.content)
+            ...screenFacts
           ],
           visualDNA: aiPlan?.globalVisualDNA || (analysis.visualStyle ? { tone: analysis.visualStyle } : {})
         })
       : null;
-    const visualForPrompt = v2Planning
+    const visualForPrompt = isEmptyLocalScreen
+      ? "本屏无新增独立信息，已标记为不生成；不应进入正式详情提示词。"
+      : v2Planning
       ? (screenVisual ? screenVisual.text : "本屏视觉策划缺失：仅保持商品真实结构与清晰呈现，不套用固定模板，不引入未授权元素。")
       : (aiScreen?.composition || moduleSkill.composition);
     const rulePlan = referencePlanForScreen(index, count, productImages, referenceImages, moduleSkill);
@@ -1128,6 +1162,9 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
         composition: aiScreen.composition
       } : null,
       analysisMode: analysis.mode,
+      // V2-ADAPTIVE：本地兜底空屏标记——无新增独立信息，不应进入正式生图；前端可据此跳过。
+      isEmptyScreen: isEmptyLocalScreen,
+      shouldGenerate: !isEmptyLocalScreen,
       text,
       // V2-PRO-002：按需触发/事实边界/编译分层的工程审计证据（不进生图提示词）。
       ...(v2Planning ? {
@@ -1189,6 +1226,18 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       ...(styleDecision ? { detailSkillVersion: "v2", stylePackId: styleDecision.pack.id } : {})
     },
     analysis,
+    // V2-ADAPTIVE：内容不足以支撑指定屏数时明确标记冲突，不静默保留空屏。
+    ...(v2Planning && !aiPlan && prompts.some((p) => p.isEmptyScreen)
+      ? {
+          planningConflict: {
+            type: "insufficient_content_for_requested_screens",
+            requestedScreens: count,
+            independentTasks: localScreenTasks.length,
+            emptyScreens: prompts.filter((p) => p.isEmptyScreen).map((p) => p.screen || p.index),
+            message: "商品资料支撑的独立内容任务少于指定屏数；空屏已标记不生成。请补充资料、减少屏数，或由 AI 规划补充有依据的内容。"
+          }
+        }
+      : {}),
     ...(v2Control ? { v2Control } : {}),
     ...(styleDecision ? {
       skillVersion: "v2",
