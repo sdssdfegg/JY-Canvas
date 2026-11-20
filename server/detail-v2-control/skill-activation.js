@@ -39,7 +39,9 @@ export function checkSellingPointBoundary(sellingPoint, industryId = "generic", 
   // 仅凭关键词出现在事实中不足以豁免，还要求事实里该词附近有依据标记（数值/检测/实测/报告等），
   // 防止"事实仅提了词，没有对应功效依据"也被放行。
   const CONCLUSION_WORD = /效果|功效|性能|认证|检测|结果|参数|安全|承诺|依据|范围|耐用|承重/;
-  const EVIDENCE_MARK = /\d|[0-9]|%|检测|实测|测试|报告|认证编号|实验|数据|依据|数值/;
+  // 实质证据必须有"可核验内容"：数值/百分比/单位/明确检测结论，而不是只有"实测/数据/依据"等标记词。
+  // 单独出现标记词（如"附实测数据依据"）不算事实被证实——防止"依据标记存在"被误当"对应事实已证实"。
+  const SUBSTANTIVE_EVIDENCE = /[0-9０-９]|%|％|合格|通过认证|符合(GB|ISO|国标|行业标准)|达标|±/;
   const exemptable = (word) => {
     if (!confirmedText.includes(word)) return false;
     const at = text.indexOf(word);
@@ -50,7 +52,7 @@ export function checkSellingPointBoundary(sellingPoint, industryId = "generic", 
     if (CONCLUSION_WORD.test(word)) {
       const fat = confirmedText.indexOf(word);
       const factWindow = confirmedText.slice(Math.max(0, fat - 16), fat + word.length + 16);
-      if (!EVIDENCE_MARK.test(factWindow)) return false;
+      if (!SUBSTANTIVE_EVIDENCE.test(factWindow)) return false;
     }
     return true;
   };

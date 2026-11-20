@@ -979,8 +979,9 @@ push("AI3 七包noGeneralization真实拦截", P12_CASES.every(([ind, txt, words
   return r.allowed === false && words.every((w) => r.hits.includes(w)) && r.detectSource?.fromConfig === true;
 }));
 push("AI4 七包事实豁免不误伤", P12_CASES.every(([ind, txt]) => {
-  // 结论性词（性能/认证/范围等）需事实带依据标记才豁免——这是 P1-2B 新增的精确性要求。
-  const factWithEvidence = `${txt}，依据：实测数据`;
+  // 结论性词（性能/认证/范围等）需事实带"实质证据"才豁免——P1-2B 精确性要求。
+  // 依据标记必须是可核验数值，不能只是"实测数据"这类空洞标记（顾问反向测试要求）。
+  const factWithEvidence = `${txt}，依据：数值5`;
   const r = activationMod.checkSellingPointBoundary(txt, ind, p12Cfg, [factWithEvidence]);
   return r.allowed === true && r.reason === "confirmed_fact_exempt";
 }));
@@ -1082,6 +1083,20 @@ push("AK8 T恤空格缺口挂账可见", (() => {
   const f = uniMod.validateRecognitionExamples(p12Cfg, (input) => ({ industryId: uniMod.resolveIndustryDecision({ text: input, aiHint: "", config: p12Cfg }).industryId }));
   const gap = f.cases.find((c) => c.input.includes("T"));
   return f.allPass === false && gap && gap.actualIndustry === "generic" && gap.expectIndustry === "apparel";
+})());
+
+// ---------- AL 组 · P1-2B 反向测试：依据标记存在 ≠ 对应事实已证实 ----------
+push("AL1 空洞依据标记不得豁免性能参数", (() => {
+  const r = activationMod.checkSellingPointBoundary("性能参数表现优异", "electronics", p12Cfg, ["性能参数，附实测数据依据"]);
+  return r.allowed === false && r.hits.includes("性能参数");
+})());
+push("AL2 空洞依据标记不得豁免品质认证", (() => {
+  const r = activationMod.checkSellingPointBoundary("获得品质认证", "food", p12Cfg, ["品质认证，附检测数据依据"]);
+  return r.allowed === false && r.hits.includes("品质认证");
+})());
+push("AL3 实质数值证据仍可豁免", (() => {
+  const r = activationMod.checkSellingPointBoundary("性能参数5000mAh实测续航24小时", "electronics", p12Cfg, ["性能参数：5000mAh，实测续航24小时"]);
+  return r.allowed === true && r.reason === "confirmed_fact_exempt";
 })());
 
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
