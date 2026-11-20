@@ -21,6 +21,7 @@ import {
   createCompilerAudit,
   professionalContentStatus,
   detectIndustryOverride,
+  checkIndustryPollution,
   activeConfig
 } from "./detail-v2-control/index.js";
 // V2-PRO-002：Skill 按需触发 + 提示词分层组装 + 编译授权（工程机制）。
@@ -285,6 +286,18 @@ export function moduleForLocalTask(taskCategory, index, count) {
   return id;
 }
 
+// V2-UNIVERSAL-CATEGORY：按本屏任务推断商品展示角色（全品类，不绑死具体商品）。
+// 仅本地兜底用；有 AI 规划输出时以其为准。Absent 只在确有"非商品主体"任务时给出。
+export function deriveProductDisplayRole(taskCategory = "", moduleId = "") {
+  if (taskCategory === "material" || taskCategory === "ingredient") return "Detail";
+  if (taskCategory === "usage" || taskCategory === "usageStep" || taskCategory === "care") return "Contextual";
+  if (taskCategory === "applicableScope") return "Contextual";
+  if (taskCategory === "identity") return "Primary";
+  if (moduleId === "trustProof" || taskCategory === "effect") return "Secondary";
+  if (moduleId === "specInfo" || taskCategory === "color") return "Detail";
+  return "Primary";
+}
+
 // 本地兜底完整性判据：v2Planning=true 但 aiPlan=null 时，必须有可编译的结构化规划，
 // 否则明确失败、停止错误的分屏编译，不静默生成空洞详情。
 export function checkPlanningIntegrity({ v2Planning, aiPlan, structuredFacts = [], sellingPoints = [], rawProductFeature = "" }) {
@@ -482,8 +495,18 @@ function mergeAiAnalysis(localAnalysis, aiPlan, aiMeta, aiError) {
 
   const product = aiPlan.product || {};
   const strategy = aiPlan.strategy || {};
+  // V2-UNIVERSAL-CATEGORY：消费者洞察真正参与内容规划——把 valueLadder 的"利益/表达"、
+  // consumerInsights 的"需求"纳入屏级卖点候选，不再只做存在性审计。所有行业通用，非单品规则。
+  const insightNeedList = aiPlan.consumerInsights && Array.isArray(aiPlan.consumerInsights.needs)
+    ? aiPlan.consumerInsights.needs.map((need) => asText(typeof need === "object" ? (need.need || need.expression || "") : need)).filter(Boolean)
+    : [];
+  const valueLadderList = aiPlan.marketingStrategy && Array.isArray(aiPlan.marketingStrategy.valueLadder)
+    ? aiPlan.marketingStrategy.valueLadder.flatMap((rung) => [rung?.expression, rung?.benefit].map((v) => asText(v))).filter(Boolean)
+    : [];
   const sellingPoints = uniqueList([
     ...asArray(product.realSellingPoints),
+    ...valueLadderList,          // 消费者利益/营销表达优先于原始资料
+    ...insightNeedList,          // 消费者需求次之
     ...asArray(strategy.pageRhythm),
     ...localAnalysis.sellingPoints
   ]);
@@ -500,6 +523,9 @@ function mergeAiAnalysis(localAnalysis, aiPlan, aiMeta, aiError) {
     productLocks: asArray(product.structureLocks),
     colors: asArray(product.colors),
     riskNotes: asArray(product.riskNotes),
+    // V2-UNIVERSAL-CATEGORY：消费者洞察结果挂到分析层供下游屏级任务与审计追踪。
+    consumerInsights: aiPlan.consumerInsights || null,
+    marketingStrategy: aiPlan.marketingStrategy || null,
     aiModel: aiMeta?.model || "",
     aiTiming: aiMeta?.timing || null,
     limitation: aiMeta?.mode === "ai-vision"
@@ -802,6 +828,11 @@ function buildV2ControlReport(aiPlan, resolvedIndustryId) {
     activeIndustryId: pack.activeIndustryId,
     loadedIndustryPackIds: pack.loadedIndustryPackIds,
     fallbackMode: pack.fallbackMode,
+    // V2-UNIVERSAL-CATEGORY：跨行业污染可观测——检查规划文案是否混入其他行业强特征词。
+    pollutionAudit: checkIndustryPollution(
+      JSON.stringify(aiPlan?.product || {}),
+      industryId
+    ),
     fieldsPresent,
     admission,
     auditBase: audit.report({ plannedTaskIds: [], usedTaskIds: [] }),
@@ -1177,7 +1208,9 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
             ...(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts.filter((f) => f?.level === "visible").map((f) => String(f.claim || "")) : []),
             ...screenFacts
           ],
-          visualDNA: aiPlan?.globalVisualDNA || (analysis.visualStyle ? { tone: analysis.visualStyle } : {})
+          visualDNA: aiPlan?.globalVisualDNA || (analysis.visualStyle ? { tone: analysis.visualStyle } : {}),
+          // 商品展示角色：优先用规划输出（若未来提供），否则由本屏任务类别推断（全品类通用）。
+          productRole: aiScreen?.productRole || deriveProductDisplayRole(localTask?.taskCategory, moduleSkill?.id)
         })
       : null;
     const visualForPrompt = isEmptyLocalScreen

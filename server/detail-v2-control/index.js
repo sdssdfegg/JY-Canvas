@@ -183,6 +183,33 @@ export function detectIndustryOverride(textInput, config = activeConfig()) {
   return null;
 }
 
+// ---------- 全品类跨行业污染检测（配置驱动、可扩展，非硬编码几个行业） ----------
+// 原理：一段文案若命中"其他行业的强特征词"(positiveSignals)，且这些词不在本行业的
+// weakContextWordsMustNotOverride(使用对象/弱语境词)中，视为跨行业规则污染风险。
+// 只输出证据供审计/上游判断，不改变 detectIndustryOverride 的既有判定，避免破坏已验收行为。
+export function checkIndustryPollution(textInput = "", industryId = "generic", config = activeConfig()) {
+  const text = String(textInput || "");
+  const packs = config?.industryPacks || {};
+  const own = packs[industryId] || {};
+  const weakWords = Array.isArray(own.weakContextWordsMustNotOverride) ? own.weakContextWordsMustNotOverride : [];
+  const ownPositives = new Set(Array.isArray(own.positiveSignals) ? own.positiveSignals : []);
+  const risks = [];
+  for (const [otherId, other] of Object.entries(packs)) {
+    if (otherId === industryId || !other || typeof other !== "object") continue;
+    const signals = Array.isArray(other.positiveSignals) ? other.positiveSignals : [];
+    const foreign = signals.filter((word) => (
+      text.includes(word) && !ownPositives.has(word) && !weakWords.some((weak) => weak.includes(word) || word.includes(weak))
+    ));
+    if (foreign.length) risks.push({ industry: otherId, industryName: other.industryName || otherId, signals: foreign });
+  }
+  return {
+    industryId,
+    hasPollution: risks.length > 0,
+    risks,
+    note: "基于行业包 positiveSignals 的配置驱动检测；弱语境词(使用对象)已排除，不作硬性拦截。"
+  };
+}
+
 // ---------- 任务准入接口（四态判定骨架） ----------
 // 专业值缺失（占位态）时不给 admitted——避免占位被固化为正式规则。
 // 传 professionalValues=null 或未交付 → 一律 pending，reason 明确。

@@ -347,13 +347,30 @@ export function compileWithAuthorization(entries = [], admittedTaskIds = []) {
 // V2-PRO-003 第七节：视觉方案缺失时不得回退固定模板。
 // 用当前屏内容任务 + 已确认事实 + 整套视觉DNA 组装确定性视觉骨架（非"商品居中/标题上方"套话）。
 // 若三项皆缺，返回 null 表示"视觉策划缺失"，由调用方只输出商品真实性约束、不冒充专业策划。
-export function buildScreenVisual({ moduleName = "", contentTask = "", composition = "", confirmedFacts = [], visualDNA = {} } = {}) {
+// V2-UNIVERSAL-CATEGORY：商品展示角色（Primary/Secondary/Detail/Contextual/Absent）在编译层有落点。
+// 全品类通用——角色由本屏任务推断，不强制每屏展示商品；Absent 允许商品不直接出现。
+export const PRODUCT_DISPLAY_ROLES = Object.freeze({
+  PRIMARY: "Primary", SECONDARY: "Secondary", DETAIL: "Detail", CONTEXTUAL: "Contextual", ABSENT: "Absent"
+});
+// 商品展示角色→可执行的呈现约束句（全品类通用；Primary/未指定不加句）。
+function roleClause(productRole = "") {
+  if (productRole === PRODUCT_DISPLAY_ROLES.DETAIL) return "以商品真实局部细节为主体，不要求完整商品占据画面";
+  if (productRole === PRODUCT_DISPLAY_ROLES.CONTEXTUAL) return "商品在合理使用场景中出现，重点表现商品与场景/对象的关系";
+  if (productRole === PRODUCT_DISPLAY_ROLES.SECONDARY) return "商品作辅助识别出现，不必占据画面主体";
+  if (productRole === PRODUCT_DISPLAY_ROLES.ABSENT) return "本屏不直接展示完整商品，商品身份由整套商品参考资料保持约束";
+  return "";
+}
+export function buildScreenVisual({ moduleName = "", contentTask = "", composition = "", confirmedFacts = [], visualDNA = {}, productRole = "" } = {}) {
   const comp = String(composition || "").trim();
   // 固定套话识别（任务书第七节点名的模板）：命中即视为无有效视觉策划，不用模板冒充。
   const templatePattern = /(主体清晰|商品居中|产品居中|居中或略偏黄金分割|一屏只讲|一个主要卖点|画面简洁|有结束感|背景干净|标题层级明确|标题上方|卖点两侧|突出产品|保留呼吸感)/;
   const isTemplate = templatePattern.test(comp) || comp.length < 12;
   const hasComposition = comp.length >= 8 && !isTemplate;
-  if (hasComposition) return { text: comp, source: "ai_composition", isTemplateFallback: false };
+  // 有 AI composition 时也补一句角色约束（不覆盖原构图），确保展示角色在编译层真正生效。
+  if (hasComposition) {
+    const clause = roleClause(productRole);
+    return { text: clause ? `${comp}；${clause}。` : comp, source: "ai_composition", isTemplateFallback: false };
+  }
 
   // 用已确认事实与视觉DNA 组装具体骨架；每条都来自真实上下文，不是固定句库。
   const facts = (Array.isArray(confirmedFacts) ? confirmedFacts : []).filter(Boolean).slice(0, 4);
@@ -362,6 +379,8 @@ export function buildScreenVisual({ moduleName = "", contentTask = "", compositi
   const camera = String(visualDNA.cameraLanguage || "").trim();
   const parts = [];
   if (moduleName) parts.push(`围绕「${moduleName}」任务组织画面`);
+  const roleText = roleClause(productRole);
+  if (roleText) parts.push(roleText);
   if (contentTask) parts.push(`本屏信息目标：${contentTask}`);
   if (facts.length) parts.push(`画面须呈现已确认事实：${facts.join("、")}`);
   if (palette) parts.push(`色调遵循整套 DNA：${palette}`);

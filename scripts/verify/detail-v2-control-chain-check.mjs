@@ -881,6 +881,49 @@ push("AF11 规划请求传countMode", probe(read("server/detail-ai.js"), 'countM
 // 空屏+冲突机制保留在 fixed 模式（AE_PF 资料有限，8屏无法深度细分填满）。
 push("AF12 空屏与冲突机制仍在fixed保留", aeFixed.prompts.some((p) => p.isEmptyScreen === true) && Boolean(aeFixed.planningConflict));
 
+// ---------- AG 组 · V2-UNIVERSAL-CATEGORY 全品类消费者洞察与动态行业策划 ----------
+const contentCfg = JSON.parse(read("server/detail-v2-control/config/professional-content-v1.json"));
+const AG_PACK_IDS = ["cleaning", "apparel", "beauty", "food", "electronics", "home", "motherBaby", "pet"];
+push("AG1 行业能力包覆盖多类目", AG_PACK_IDS.every((id) => contentCfg.industryPacks[id]?.industryId === id));
+push("AG2 每包含正/负信号与泛化边界", AG_PACK_IDS.every((id) => {
+  const p = contentCfg.industryPacks[id];
+  return Array.isArray(p.positiveSignals) && p.positiveSignals.length > 0 && Array.isArray(p.negativeSignals) && Array.isArray(p.noGeneralization);
+}));
+push("AG3 消费者洞察接入编译(非只审计)", probe(read("server/detail-middleware.js"), "valueLadderList") && probe(read("server/detail-middleware.js"), "insightNeedList"));
+// 消费者洞察真实链路：带 aiPlan 的营销表达进入 sellingPoints
+const agPlan = {
+  product: { name: "商品", industryId: "home", realSellingPoints: [] },
+  planning: { facts: [{ claim: "棉", level: "visible" }], narrative: { id: "n", reason: "r", confidence: "high" }, screenRoles: [] },
+  industryProfile: { industryId: "home" },
+  consumerInsights: { audience: "家庭", needs: [{ need: "担心不好收纳", evidenceRef: "棉" }] },
+  marketingStrategy: { valueLadder: [{ fact: "棉", need: "担心不好收纳", benefit: "整理更省心", expression: "轻松收纳不凌乱" }], tone: "warm", boundaries: [] },
+  globalVisualDNA: {},
+  screens: [1, 2].map((i) => ({ screen: i, moduleId: "coreSellingPoint", title: "", composition: "", productFileIndexes: [0], referenceFileIndexes: [] }))
+};
+const agG = deriveMod.buildDetailPromptGroup({ count: 4, countMode: "fixed", workflow: "taobao-detail", productName: "收纳袋", productFeature: "材质：棉。", userInstruction: "" }, [], { aiPlan: agPlan });
+push("AG4 消费者利益进入屏级任务", agG.analysis.sellingPoints.some((s) => String(s).includes("轻松收纳不凌乱")));
+push("AG5 消费者需求进入屏级任务", agG.analysis.sellingPoints.some((s) => String(s).includes("担心不好收纳")));
+// 展示角色在编译层有落点
+push("AG6 展示角色入参存在", probe(read("server/detail-v2-control/skill-activation.js"), "PRODUCT_DISPLAY_ROLES") && probe(read("server/detail-v2-control/skill-activation.js"), "productRole =="));
+push("AG7 展示角色按任务推断", deriveMod.deriveProductDisplayRole("material") === "Detail" && deriveMod.deriveProductDisplayRole("usage") === "Contextual" && deriveMod.deriveProductDisplayRole("identity") === "Primary");
+push("AG8 展示角色入画面任务", (() => {
+  const g = deriveMod.buildDetailPromptGroup({ count: 4, countMode: "fixed", workflow: "taobao-detail", productName: "清洁剂", productFeature: "成分：表面活性剂。使用方法：按压，刷洗。", userInstruction: "" }, [], {});
+  return g.prompts.some((p) => (p.screenVisual?.text || "").includes("合理使用场景") || (p.screenVisual?.text || "").includes("局部细节"));
+})());
+// 跨行业污染检测（配置驱动、非硬编码）
+const uniMod = await import(new URL("../../server/detail-v2-control/index.js", import.meta.url).href);
+push("AG9 日化+服装强特征报污染", uniMod.checkIndustryPollution("版型修身袖口精致的清洁喷雾", "cleaning").hasPollution === true);
+push("AG10 使用对象弱词不误报污染", uniMod.checkIndustryPollution("按压海绵头清洁羽绒服污渍", "cleaning").hasPollution === false);
+push("AG11 数码词入服装报污染", uniMod.checkIndustryPollution("手机快充接口性能", "apparel").hasPollution === true);
+push("AG12 污染检测可观测挂审计", probe(read("server/detail-middleware.js"), "pollutionAudit: checkIndustryPollution"));
+push("AG13 SKILL允许Absent不强制每屏商品", probe(read("prompts/server/detail-v2-planning/skills/visual-art-direction/SKILL.md"), "Absent") && probe(read("prompts/server/detail-v2-planning/skills/visual-art-direction/SKILL.md"), "不强制产品每屏正中"));
+// 全品类识别：本地兜底也能识别日化（干洗剂正信号），服装强特征不被日化覆盖。
+const agClean = deriveMod.buildDetailPromptGroup({ count: 4, countMode: "fixed", workflow: "taobao-detail", productName: "羽绒服干洗剂", productFeature: "成分：阴离子表面活性剂。使用方法：按压海绵头，用刷刷洗。", userInstruction: "" }, [], {});
+push("AG14 本地兜底识别日化类目", agClean.analysis.industry === "清洁日化" && agClean.v2Control?.activeIndustryId === "cleaning");
+const agApparel = deriveMod.buildDetailPromptGroup({ count: 4, countMode: "fixed", workflow: "taobao-detail", productName: "纯棉T恤", productFeature: "材质：100%棉。版型：宽松。", userInstruction: "" }, [], {});
+push("AG15 服装不被日化规则覆盖", agApparel.analysis.industry !== "清洁日化" && agApparel.v2Control?.activeIndustryId !== "cleaning");
+push("AG16 行业包按英文id加载", contentCfg.industryPacks.cleaning.industryId === "cleaning" && contentCfg.industryPacks.apparel.industryId === "apparel");
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
