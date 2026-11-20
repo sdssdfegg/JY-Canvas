@@ -1000,9 +1000,8 @@ const ajFixture = uniMod.validateRecognitionExamples(p12Cfg, (input) => {
   return { industryId: d.industryId };
 });
 push("AJ1 recognitionExamples是回归夹具", ajFixture.role === "regression_fixture" && ajFixture.total >= 5);
-// "T 恤"(带空格)未被 apparel 包 positiveSignals 命中→夹具真实检出识别缺口，挂账 P1-3 修正；
-// 夹具的价值正是能检出缺口，不强求全过、不伪造通过。
-push("AJ2 recognitionExamples检出识别缺口并标明", ajFixture.allPass === false && ajFixture.cases.filter((c) => c.pass === true).length >= 4 && ajFixture.cases.some((c) => c.pass === false && c.input.includes("T") && c.actualIndustry === "generic"));
+// P1-3 已修复"T 恤"空格归一化：夹具 5/5 全过，原缺口案例成为固定回归样本（仍保留在 fixture 中）。
+push("AJ2 recognitionExamples全过含T恤回归样本", ajFixture.allPass === true && ajFixture.cases.length >= 5 && ajFixture.cases.some((c) => c.input.includes("T") && c.pass === true && c.actualIndustry === "apparel"));
 // 字段2 professionalValues：消费者=admitIndustryPack，执行结果=准入判定。
 push("AJ3 professionalValues包级准入生效", (() => {
   const ok = uniMod.admitIndustryPack("cleaning", "cleaning", p12Cfg);
@@ -1079,10 +1078,10 @@ push("AK7 豁免-局部证据不放大范围", (() => {
   const r = activationMod.checkSellingPointBoundary("性能参数达标所有场景都适用", "electronics", p12Cfg, ["性能参数：5000mAh"]);
   return r.allowed === false && r.hits.includes("性能参数");
 })());
-push("AK8 T恤空格缺口挂账可见", (() => {
-  const f = uniMod.validateRecognitionExamples(p12Cfg, (input) => ({ industryId: uniMod.resolveIndustryDecision({ text: input, aiHint: "", config: p12Cfg }).industryId }));
-  const gap = f.cases.find((c) => c.input.includes("T"));
-  return f.allPass === false && gap && gap.actualIndustry === "generic" && gap.expectIndustry === "apparel";
+push("AK8 T恤空格归一化修复后识别apparel", (() => {
+  // P1-3 修复：原"T 恤"缺口案例保留为固定回归样本，断言修复后真实识别为 apparel（不再是 generic）。
+  const r = uniMod.resolveIndustryDecision({ text: "T 恤", aiHint: "", config: p12Cfg });
+  return r.industryId === "apparel" && r.packId === "apparel" && r.confidence === "high" && r.decisionPath === "pack_signal_match";
 })());
 
 // ---------- AL 组 · P1-2B 反向测试：依据标记存在 ≠ 对应事实已证实 ----------
@@ -1097,6 +1096,60 @@ push("AL2 空洞依据标记不得豁免品质认证", (() => {
 push("AL3 实质数值证据仍可豁免", (() => {
   const r = activationMod.checkSellingPointBoundary("性能参数5000mAh实测续航24小时", "electronics", p12Cfg, ["性能参数：5000mAh，实测续航24小时"]);
   return r.allowed === true && r.reason === "confirmed_fact_exempt";
+})());
+
+// ---------- AM 组 · P1-3 子类目识别与降级 ----------
+const p13Cfg = structuredClone(p12Cfg);
+p13Cfg.industryPacks.cleaning_down = {
+  industryId: "cleaning_down", industryName: "羽绒服干洗", extends: "cleaning",
+  positiveSignals: ["羽绒服干洗"],
+  noGeneralization: ["羽绒服清洁剂不得扩为所有羽绒制品"],
+  professionalValues: { allowedIndustries: ["cleaning_down"], outputRequirements: "只输出羽绒服干洗专业观察点" }
+};
+push("AM1 T恤空格归一化真实识别", (() => {
+  return ["T 恤", "T恤", "纯棉T 恤宽松"].every((t) => {
+    const r = uniMod.resolveIndustryDecision({ text: t, aiHint: "", config: p12Cfg });
+    return r.industryId === "apparel" && r.packId === "apparel" && r.confidence === "high";
+  });
+})());
+push("AM2 继承解析父→子字段", (() => {
+  const inh = uniMod.resolveInheritedPack("cleaning_down", p13Cfg);
+  return inh.isSubCategory === true && inh.parentPackId === "cleaning" && inh.inheritedFrom.includes("cleaning")
+    && inh.effectivePack.coverage?.length === 6 && Boolean(inh.effectivePack.professionalValues)
+    && inh.effectivePack.positiveSignals.includes("羽绒服干洗")
+    && inh.effectivePack.noGeneralization?.[0]?.includes("羽绒服清洁剂");
+})());
+push("AM3 继承循环检测判红", (() => {
+  const cfg = structuredClone(p13Cfg);
+  cfg.industryPacks.cleaning.extends = "cleaning_down";
+  const cyc = uniMod.resolveInheritedPack("cleaning_down", cfg);
+  return cyc.cycleDetected === true && cyc.resolved === false && String(cyc.error).includes("inheritance_cycle");
+})());
+push("AM4 置信度high加载完整包", (() => {
+  const skill = { id: "cleaning_down", name: "羽绒服干洗", analyzeAttributes: ["羽绒专属"], sellingAngles: [], visualAnchors: [], taboos: [], recommendedScreens: [] };
+  const r = uniMod.applyConfidenceToRules(skill, { confidence: "high", packId: "cleaning_down", industryId: "cleaning_down" }, p13Cfg);
+  return r.ruleLoadDecision.level === "full_pack_rules" && r.rules.analyzeAttributes[0] === "羽绒专属" && r.ruleLoadDecision.inheritedFrom.includes("cleaning");
+})());
+push("AM5 置信度medium降父公共不启专属", (() => {
+  const skill = { id: "cleaning_down", name: "羽绒服干洗", analyzeAttributes: ["羽绒专属"], sellingAngles: [], visualAnchors: [], taboos: [], recommendedScreens: [] };
+  const r = uniMod.applyConfidenceToRules(skill, { confidence: "medium", packId: "cleaning_down", industryId: "cleaning_down" }, p13Cfg);
+  return r.ruleLoadDecision.level === "parent_common_rules" && r.rules.industrySuppressed === true && r.rules.analyzeAttributes[0] !== "羽绒专属";
+})());
+push("AM6 低置信/循环降generic", (() => {
+  const skill = { id: "x", name: "x", analyzeAttributes: ["专属"], sellingAngles: [], visualAnchors: [], taboos: [], recommendedScreens: [] };
+  const lo = uniMod.applyConfidenceToRules(skill, { confidence: "low", packId: "cleaning_down", industryId: "cleaning_down" }, p13Cfg);
+  const cfg = structuredClone(p13Cfg); cfg.industryPacks.cleaning.extends = "cleaning_down";
+  const cyc = uniMod.applyConfidenceToRules(skill, { confidence: "high", packId: "cleaning_down", industryId: "cleaning_down" }, cfg);
+  return lo.ruleLoadDecision.level === "generic_rules" && cyc.ruleLoadDecision.level === "generic_rules" && cyc.ruleLoadDecision.cycleDetected === true;
+})());
+push("AM7 运行时真实消费置信度(非仅审计)", (() => {
+  const g = deriveMod.buildDetailPromptGroup({ count: 4, countMode: "fixed", workflow: "taobao-detail", productName: "版型和口红", productFeature: "版型清晰，口红礼盒。", userInstruction: "" }, [], {});
+  const d = g.v2Control?.ruleLoadDecision;
+  return d && d.level === "parent_common_rules" && d.confidence === "medium";
+})());
+push("AM8 不新增行业包不改平台", (() => {
+  const keys = Object.keys(p12Cfg.industryPacks);
+  return keys.length === 8 && !keys.includes("cleaning_down") && probe(read("server/detail-middleware.js"), "getPlatformSkill");
 })());
 
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------

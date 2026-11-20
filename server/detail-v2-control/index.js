@@ -157,15 +157,17 @@ export function loadIndustryPack(industryId, config = activeConfig()) {
 const APPAREL_STRONG_SIGNALS = ["衬衫", "T恤", "T 恤", "连衣裙", "裙", "裤", "外套", "毛衣", "版型", "袖口", "领口", "纽扣", "拉链", "穿搭", "模特"];
 
 export function detectIndustryOverride(textInput, config = activeConfig()) {
-  const text = String(textInput || "");
+  // P1-3：空格归一化——与 resolveIndustryDecision 同口径，避免"T 恤"服装强特征漏否决。
+  const normalize = (s) => String(s || "").replace(/\s+/g, "");
+  const text = normalize(textInput);
   const cleaningPack = config?.industryPacks?.cleaning;
   if (!cleaningPack || typeof cleaningPack !== "object" || Array.isArray(cleaningPack)) return null;
 
   const positives = Array.isArray(cleaningPack.positiveSignals) ? cleaningPack.positiveSignals : [];
   const negatives = Array.isArray(cleaningPack.negativeSignals) ? cleaningPack.negativeSignals : [];
-  const hitPositive = positives.filter((word) => text.includes(word));
-  const hitNegative = negatives.filter((word) => text.includes(word));
-  const hitApparel = APPAREL_STRONG_SIGNALS.filter((word) => text.includes(word));
+  const hitPositive = positives.filter((word) => text.includes(normalize(word)));
+  const hitNegative = negatives.filter((word) => text.includes(normalize(word)));
+  const hitApparel = APPAREL_STRONG_SIGNALS.filter((word) => text.includes(normalize(word)));
 
   // 清洁强特征命中、无个人护理/化妆/食品负向信号、无服装强特征 → cleaning 覆盖。
   if (hitPositive.length > 0 && hitNegative.length === 0 && hitApparel.length === 0) {
@@ -188,7 +190,9 @@ export function detectIndustryOverride(textInput, config = activeConfig()) {
 // 旧词表(getIndustrySkillByText)不再作为与行业包并行的第二套主判断，只在包体系无命中时降级使用。
 // resolution 随决策返回，供运行时输出：industryId / packId / confidence / evidence / fallbackStatus / ruleSource。
 export function resolveIndustryDecision({ text = "", aiHint = "", fallbackLookup = null, config = activeConfig() } = {}) {
-  const source = `${String(text || "")} ${String(aiHint || "")}`;
+  // P1-3：空格归一化——"T 恤"与"T恤"视为同一识别信号，避免带空格写法漏命中。
+  const normalize = (s) => String(s || "").replace(/\s+/g, "");
+  const source = normalize(`${String(text || "")} ${String(aiHint || "")}`);
   const packs = config?.industryPacks || {};
 
   // 1) cleaning 强特征覆盖（保留既有能力，含服装强特征否决，回归零风险）。
@@ -213,9 +217,9 @@ export function resolveIndustryDecision({ text = "", aiHint = "", fallbackLookup
     const positives = Array.isArray(pack.positiveSignals) ? pack.positiveSignals : [];
     const negatives = Array.isArray(pack.negativeSignals) ? pack.negativeSignals : [];
     const weak = Array.isArray(pack.weakContextWordsMustNotOverride) ? pack.weakContextWordsMustNotOverride : [];
-    const hitPositive = positives.filter((word) => source.includes(word));
-    const hitNegative = negatives.filter((word) => source.includes(word));
-    const hitWeak = weak.filter((word) => source.includes(word));
+    const hitPositive = positives.filter((word) => source.includes(normalize(word)));
+    const hitNegative = negatives.filter((word) => source.includes(normalize(word)));
+    const hitWeak = weak.filter((word) => source.includes(normalize(word)));
     if (hitPositive.length === 0 || hitNegative.length > 0) continue;
     scored.push({ packId, industryId: pack.industryId || packId, industryName: pack.industryName || packId, hitPositive, hitNegative, hitWeak });
   }
@@ -387,6 +391,109 @@ export function applyOutputRequirements(tasks = [], outputRequirements = "") {
     return hit.length > 0 ? { ...task, compositionHint: `${hint}（行业约束：不得出现${hit.join("、")}相关表达）`, outputConstraintHits: hit } : task;
   });
   return { tasks: appliedTasks, applied: bans.length > 0, bans, source: "professionalValues.outputRequirements" };
+}
+
+// ---------- P1-3 子类目继承与置信度消费 ----------
+// 继承字段白名单：子包未声明时从父包继承；子包已声明时覆盖（允许覆盖）。
+const INHERITABLE_FIELDS = [
+  "weakContextWordsMustNotOverride", "positiveSignals", "negativeSignals",
+  "noGeneralization", "generalizationDetectWords", "coverage", "recognitionExamples", "professionalValues"
+];
+// 禁止覆盖字段：子类目不得改写父行业的身份与跨行业边界根基（防跨行业/跨子类目污染）。
+const NON_OVERRIDABLE_FIELDS = ["industryId", "source"];
+
+// 消费者：resolveInheritedPack——解析 extends 链，合并父→子字段，返回有效包 + 继承证据。
+export function resolveInheritedPack(packId, config = activeConfig()) {
+  const packs = config?.industryPacks || {};
+  const chain = [];
+  const seen = new Set();
+  let current = packId;
+  while (current && packs[current] && typeof packs[current] === "object" && !Array.isArray(packs[current])) {
+    if (seen.has(current)) {
+      return { packId, effectivePack: {}, inheritedFrom: [], cycleDetected: true, error: `inheritance_cycle:${current}`, resolved: false };
+    }
+    seen.add(current);
+    chain.push(current);
+    current = packs[current].extends || "";
+  }
+  if (chain.length === 0) return { packId, effectivePack: {}, inheritedFrom: [], resolved: false, error: "pack_not_found" };
+
+  // 从最顶层父包向下合并：子包覆盖父包（允许覆盖），禁止覆盖字段以最顶层为准。
+  const effective = {};
+  for (let i = chain.length - 1; i >= 0; i -= 1) {
+    const pack = packs[chain[i]];
+    for (const field of INHERITABLE_FIELDS) if (pack[field] !== undefined) effective[field] = pack[field];
+    for (const field of NON_OVERRIDABLE_FIELDS) {
+      if (effective[field] === undefined && pack[field] !== undefined) effective[field] = pack[field];
+    }
+    // 子包自己的 id/name 始终为本包（identity 是子类目自身，不算覆盖父行业）。
+    effective.packId = packId;
+    effective.industryId = packs[packId].industryId || effective.industryId;
+    effective.industryName = packs[packId].industryName || effective.industryName;
+  }
+  return {
+    packId,
+    effectivePack: effective,
+    inheritedFrom: chain.slice(1), // 除自身外的祖先链
+    isSubCategory: chain.length > 1,
+    parentPackId: chain[1] || null,
+    cycleDetected: false,
+    resolved: true
+  };
+}
+
+// 消费者：applyConfidenceToRules——置信度真实决定运行时加载哪一层专业规则（非仅记录/审计）。
+// high → 完整有效包（含继承）；medium（多包同分/子类目不确定）→ 降级父行业公共规则，不启用子包专属；low → generic 公共规则。
+export function applyConfidenceToRules(skill, resolution = {}, config = activeConfig()) {
+  const confidence = String(resolution.confidence || "low");
+  const packId = String(resolution.packId || "");
+  // generic 公共底座：不含任何行业专属知识（工程机制层不 import 词表层，避免循环依赖）。
+  const generic = {
+    id: "generic", name: "通用电商",
+    analyzeAttributes: ["商品主体", "已确认事实", "使用方式"],
+    sellingAngles: [], visualAnchors: ["商品真实呈现"], taboos: ["不得虚构未确认事实"],
+    recommendedScreens: ["首屏主视觉", "核心卖点", "使用场景", "收尾转化"], qcRules: []
+  };
+  const inherited = packId ? resolveInheritedPack(packId, config) : null;
+  let level = "generic_rules";
+  let rules = null;
+
+  if (confidence === "high" && inherited?.resolved && !inherited.cycleDetected) {
+    // 高置信：加载完整有效包规则（含继承字段），专业规则属性仍取既有的完整 skill（本项不改属性来源）。
+    level = "full_pack_rules";
+    rules = { ...skill, activeCoverage: Array.isArray(inherited.effectivePack.coverage) ? inherited.effectivePack.coverage : [], inheritedFrom: inherited.inheritedFrom, isSubCategory: inherited.isSubCategory };
+  } else if (confidence === "medium" && inherited?.resolved && !inherited.cycleDetected) {
+    // 中置信（多包同分/子类目不确定）：不启用任何行业专属专业策略——用通用公共底座 +
+    // 父行业 coverage（若有），落实架构约束"同分不得凭排序启用某行业专属规则"。
+    level = "parent_common_rules";
+    const parentId = inherited.parentPackId;
+    const parentPack = parentId ? config?.industryPacks?.[parentId] : null;
+    const commonCoverage = parentPack && Array.isArray(parentPack.coverage) ? parentPack.coverage : [];
+    rules = {
+      ...generic,
+      name: skill?.name || generic.name,
+      activeCoverage: commonCoverage,
+      inheritedFrom: [],
+      isSubCategory: false,
+      subCategorySuppressed: inherited.isSubCategory,
+      industrySuppressed: true
+    };
+  } else {
+    // 低置信/未知/generic：只加载通用公共底座，不加载任何行业专属规则。
+    level = "generic_rules";
+    rules = { ...generic, activeCoverage: [], inheritedFrom: [], isSubCategory: false, industrySuppressed: Boolean(packId) };
+  }
+  return {
+    rules,
+    ruleLoadDecision: {
+      confidence,
+      packId: packId || null,
+      level,
+      inheritedFrom: inherited?.inheritedFrom || [],
+      cycleDetected: Boolean(inherited?.cycleDetected),
+      reason: `confidence_${confidence}_${level}`
+    }
+  };
 }
 
 // ---------- 全品类跨行业污染检测（配置驱动、可扩展，非硬编码几个行业） ----------

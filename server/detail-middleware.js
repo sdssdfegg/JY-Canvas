@@ -27,6 +27,7 @@ import {
   validateRecognitionExamples,
   applyCoverageToTasks,
   applyOutputRequirements,
+  applyConfidenceToRules,
   activeConfig
 } from "./detail-v2-control/index.js";
 // V2-PRO-002：Skill 按需触发 + 提示词分层组装 + 编译授权（工程机制）。
@@ -381,21 +382,31 @@ const CLEANING_RULE_ATTRS = {
   taboos: ["不得跨品类串规则", "不得把使用对象材质写成商品包装材质", "不得虚构适用范围与功效"],
   qcRules: ["检查行业是否串到服装/厨具/卫浴", "检查包装材质是否与使用对象材质混淆", "检查适用范围是否超证据"]
 };
-function applyIndustryResolution(skill, resolution) {
-  // P1-2B：把已决策行业包的 coverage 挂到 industrySkill，供 buildScreenTitles 真实消费。
-  // 只有包准入通过（professionalValues.allowedIndustries）才挂，避免越权使用行业能力。
+function applyIndustryResolution(baseSkill, resolution) {
+  // P1-3：置信度真实决定加载哪一层规则（high完整包 / medium父行业公共 / low generic）。
+  // 返回的 rules 成为下游所有规则消费点（analyzeAttributes/taboos/coverage/...）的实际来源。
+  const { rules, ruleLoadDecision } = applyConfidenceToRules(baseSkill, resolution);
+  const skill = rules;
+  // P1-2B：coverage/outputRequirements 经包级准入后挂到实际加载的 rules 上。
   const packId = resolution.packId;
   let coverage = [];
   let packAdmission = null;
   let outputRequirements = "";
-  if (packId) {
+  // 置信度闸门：只有 high（完整包）才加载包专属 coverage/输出约束；降级层只用公共底座。
+  const fullPack = ruleLoadDecision.level === "full_pack_rules";
+  if (packId && fullPack) {
     packAdmission = admitIndustryPack(packId, resolution.industryId);
     if (packAdmission.admitted) {
-      coverage = checkIndustryCoverage(packId, "内容方向").evidence.declaration;
+      coverage = Array.isArray(skill.activeCoverage) && skill.activeCoverage.length > 0
+        ? skill.activeCoverage
+        : checkIndustryCoverage(packId, "内容方向").evidence.declaration;
       outputRequirements = String(packAdmission.evidence?.outputRequirements || "");
     }
+  } else if (packId && !fullPack) {
+    // 降级层：不加载行业专属输出约束（防中/低置信度启用专属规则）。
+    packAdmission = { packId, industryId: resolution.industryId, admitted: false, reason: `suppressed_by_confidence:${ruleLoadDecision.level}` };
   }
-  return { ...skill, resolution, coverage, packAdmission, outputRequirements };
+  return { ...skill, resolution, ruleLoadDecision, coverage, packAdmission, outputRequirements };
 }
 
 function resolveIndustrySkill(text, aiHint) {
@@ -862,6 +873,8 @@ function buildV2ControlReport(aiPlan, resolvedIndustryId, industryResolution = n
     industrySingleSourceConsistent: modelIndustryId ? modelIndustryId === runtimeIndustryId : null,
     // P1-1：运行时行业识别证据（识别结果/packId/置信度/命中依据/fallback/规则来源）。
     industryResolution,
+    // P1-3：置信度实际加载决策（high完整包/medium父行业公共/low-generic）。
+    ruleLoadDecision: industrySkill?.ruleLoadDecision || null,
     // P1-2B：三字段消费证据——准入(professionalValues)/覆盖(coverage)/识别夹具(recognitionExamples)。
     packAdmission: industrySkill?.packAdmission || null,
     coverageApplied: Array.isArray(industrySkill?.coverage) ? industrySkill.coverage : [],
