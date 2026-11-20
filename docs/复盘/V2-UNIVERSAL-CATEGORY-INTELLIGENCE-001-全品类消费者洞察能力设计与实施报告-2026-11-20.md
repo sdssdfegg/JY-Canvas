@@ -77,7 +77,7 @@
 
 # 交付 9：修改文件、Commit、测试
 文件：`detail-middleware.js`（+35/-）、`detail-ai.js`（directive 同步）、`professional-content-v1.json`（+9/-2，8 包 + cleaning 信号）、`detail-v2-control/index.js`（checkIndustryPollution）、`skill-activation.js`（展示角色）、`detail-story-planning/SKILL.md`（V1.3 校准）、`detail-v2-control-chain-check.mjs`（AG 组 16 项）。
-Commit：（提交后回填）
+Commit：`8d7fce3`（8 文件 +229/-7，含本报告）；pre-commit 86/86。
 测试：控制链 **454/454**（AG16）、同步门禁 35/35、planning 76/76、assets 冻结未破、**全量 86/86**、build EXIT=0；8 类目跨商品终测通过。
 
 ## 八问回答
