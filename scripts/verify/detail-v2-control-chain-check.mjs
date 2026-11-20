@@ -1154,10 +1154,13 @@ push("AM8 不新增行业包不改平台", (() => {
 })());
 
 // ---------- AN 组 · 顾问核验：生产子类目现状 / 单信号high风险修正 / 三态下游边界 ----------
-push("AN1 生产无真实子类目配置", (() => {
+push("AN1 生产仅cleaning含1个真实子类目", (() => {
   const keys = Object.keys(p12Cfg.industryPacks);
-  return keys.length === 8 && keys.every((k) => !p12Cfg.industryPacks[k].extends && !p12Cfg.industryPacks[k].subCategories)
-    && !probe(read("server/detail-v2-control/index.js"), "subCategories");
+  const subs = keys.map((k) => p12Cfg.industryPacks[k].subCategories || []);
+  return keys.length === 8 && subs.filter((s) => s.length > 0).length === 1
+    && p12Cfg.industryPacks.cleaning.subCategories.length === 1
+    && p12Cfg.industryPacks.cleaning.subCategories[0].id === "laundryStain"
+    && probe(read("server/detail-v2-control/index.js"), "export function resolveSubCategory");
 })());
 push("AN2 单信号可达high(判定依据在案)", (() => {
   const r = uniMod.resolveIndustryDecision({ text: "版型", aiHint: "", config: p12Cfg });
@@ -1196,6 +1199,52 @@ push("AN7 high下游加载行业专属", (() => {
   return g.v2Control?.ruleLoadDecision?.level === "full_pack_rules"
     && g.analysis.analyzeAttributes[0] === "清洁对象"
     && g.coverageDecision?.decision?.applied === true && g.outputRequirementsApplied?.applied === true;
+})());
+
+// ---------- AO 组 · P1-3补充：生产真实子类目完整链路 ----------
+const aoCfg = JSON.parse(read("server/detail-v2-control/config/professional-content-v1.json"));
+const aoGroup = (pn, pf) => deriveMod.buildDetailPromptGroup({ count: 6, countMode: "fixed", workflow: "taobao-detail", productName: pn, productFeature: pf, userInstruction: "" }, [], {});
+push("AO1 生产子类目完整识别+继承+规则加载", (() => {
+  const g = aoGroup("衣物去渍护理剂", "衣物去渍衣领净领口去渍，成分：表活。");
+  const r = g.v2Control?.industryResolution || {};
+  return r.industryId === "laundryStain" && r.ruleSource === "industrySubCategory" && r.parentPackId === "cleaning"
+    && r.evidence?.positive?.length === 3 && g.v2Control?.ruleLoadDecision?.level === "full_pack_rules"
+    && g.v2Control?.ruleLoadDecision?.inheritedFrom?.includes("cleaning")
+    && g.outputRequirementsApplied?.applied === true;
+})());
+push("AO2 父行业回退(非子目输入)", (() => {
+  const g = aoGroup("厨房重油污清洁剂", "厨房重油污清洁，按压刷洗。");
+  return g.v2Control?.industryResolution?.industryId === "cleaning" && g.v2Control?.industryResolution?.decisionPath !== "subcategory_signal_match"
+    && g.v2Control?.ruleLoadDecision?.level === "full_pack_rules";
+})());
+push("AO3 generic回退", (() => {
+  const g = aoGroup("未知商品", "无特征描述xyz。");
+  return g.v2Control?.industryResolution?.industryId === "generic" && g.v2Control?.ruleLoadDecision?.level === "generic_rules";
+})());
+push("AO4 子类目单信号降级父公共", (() => {
+  const g = aoGroup("衣物去渍产品", "衣物去渍，成分：表活。");
+  return g.v2Control?.industryResolution?.industryId === "laundryStain"
+    && g.v2Control?.ruleLoadDecision?.level === "parent_common_rules"
+    && g.v2Control?.ruleLoadDecision?.reason?.includes("subcategory_single_signal_demoted")
+    && g.outputRequirementsApplied?.applied === false;
+})());
+push("AO5 子目冲突降级medium", (() => {
+  const cfg = structuredClone(aoCfg);
+  cfg.industryPacks.cleaning.subCategories.push({ id: "kitchenDegrease", industryId: "kitchenDegrease", industryName: "厨房去油", extends: "cleaning", positiveSignals: ["衣物去渍"] });
+  const r = uniMod.resolveSubCategory("衣物去渍", "cleaning", cfg);
+  return r && r.confidence === "medium" && r.evidence.tiedSubCategories.length === 2;
+})());
+push("AO6 跨父类目污染隔离", (() => {
+  const cfg = structuredClone(aoCfg);
+  cfg.industryPacks.cleaning.subCategories.push({ id: "evil", industryId: "evil", extends: "apparel", positiveSignals: ["衣物去渍"] });
+  const r = uniMod.resolveSubCategory("衣物去渍", "cleaning", cfg);
+  return r && r.subCategoryId === "laundryStain" && r.evidence.crossParentRejected >= 1;
+})());
+push("AO7 P1-1通用识别不回退", (() => {
+  const r = uniMod.resolveIndustryDecision({ text: "T 恤", aiHint: "", config: aoCfg });
+  const g = aoGroup("血渍清洗剂", "血渍清洗剂，成分：表活。");
+  return r.industryId === "apparel" && g.v2Control?.industryResolution?.industryId === "cleaning"
+    && g.v2Control?.ruleLoadDecision?.level === "full_pack_rules";
 })());
 
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------

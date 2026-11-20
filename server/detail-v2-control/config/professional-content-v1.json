@@ -54,7 +54,21 @@
         "excludedConditions": [],
         "userOverridePolicy": "使用场景词不得覆盖产品本身行业判定",
         "outputRequirements": "行业段只输出清洁日化观察点与禁忌，禁止服装版型/袖口/领口/纽扣/模特规则"
-      }
+      },
+      "subCategories": [
+        {
+          "id": "laundryStain",
+          "industryId": "laundryStain",
+          "industryName": "衣物去渍",
+          "extends": "cleaning",
+          "positiveSignals": ["衣物去渍", "衣领净", "领口去渍"],
+          "professionalValues": {
+            "allowedIndustries": ["cleaning"],
+            "outputRequirements": "专注衣物去渍场景，禁止厨具卫浴规则"
+          },
+          "noGeneralization": ["衣物去渍不得扩为所有织物"]
+        }
+      ]
     },
     "apparel": { "source": "通用行业能力包 V1", "industryId": "apparel", "industryName": "服装鞋包", "weakContextWordsMustNotOverride": ["清洁", "洗涤", "护理", "包装"], "positiveSignals": ["女装", "男装", "衬衫", "T恤", "连衣裙", "裤子", "外套", "毛衣", "鞋", "箱包", "版型", "面料", "袖口", "领口"], "negativeSignals": ["清洗剂", "清洁剂", "去渍", "护肤", "食品"], "recognitionExamples": [], "coverage": [], "noGeneralization": ["未确认的面料不得写成具体材质", "版型描述不得推导为穿着效果承诺", "参考图服装不得当成目标商品"], "generalizationDetectWords": ["穿着效果承诺", "参考图服装", "具体材质"], "professionalValues": { "allowedIndustries": ["apparel"], "requiredAttributes": [], "requiredFacts": [], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "使用场景词不得覆盖产品本身行业判定", "outputRequirements": "只输出本行业观察点与禁忌，不套用其他行业规则" } },
     "beauty": { "source": "通用行业能力包 V1", "industryId": "beauty", "industryName": "美妆护肤", "weakContextWordsMustNotOverride": ["清洁", "护理", "包装"], "positiveSignals": ["护肤", "美妆", "口红", "粉底", "精华", "面霜", "乳液", "香水", "彩妆", "妆容"], "negativeSignals": ["清洗剂", "去渍", "食品", "服装"], "recognitionExamples": [], "coverage": [], "noGeneralization": ["未经证据不得推导功效或适用人群", "成分列表不得推导为使用效果", "膏体颜色不得推导为成分安全"], "generalizationDetectWords": ["功效承诺", "适用人群断言", "成分安全保证", "使用效果"], "professionalValues": { "allowedIndustries": ["beauty"], "requiredAttributes": [], "requiredFacts": [], "evidenceRequirements": [], "excludedConditions": [], "userOverridePolicy": "使用场景词不得覆盖产品本身行业判定", "outputRequirements": "只输出本行业观察点与禁忌，不套用其他行业规则" } },

@@ -454,7 +454,10 @@ export function applyConfidenceToRules(skill, resolution = {}, config = activeCo
     sellingAngles: [], visualAnchors: ["商品真实呈现"], taboos: ["不得虚构未确认事实"],
     recommendedScreens: ["首屏主视觉", "核心卖点", "使用场景", "收尾转化"], qcRules: []
   };
-  const inherited = packId ? resolveInheritedPack(packId, config) : null;
+  // 子类目场景：调用方（resolveSubCategory）已用临时 config 预解析继承链，直接复用，避免顶层找不到子目包。
+  const inherited = resolution?.preResolvedInherited
+    ? resolution.preResolvedInherited
+    : (packId ? resolveInheritedPack(packId, config) : null);
   let level = "generic_rules";
   let rules = null;
 
@@ -462,10 +465,10 @@ export function applyConfidenceToRules(skill, resolution = {}, config = activeCo
   // 只作用于 isSubCategory 的 high 场景；生产 8 个平级包无子包，行为零影响（P1-1 不回退）。
   const subCategorySingleSignal = (() => {
     if (confidence !== "high" || !inherited?.isSubCategory) return false;
-    const own = Array.isArray(config?.industryPacks?.[packId]?.positiveSignals) ? config.industryPacks[packId].positiveSignals : [];
+    // 子类目的 evidence.positive 已由 resolveSubCategory 保证全为子目专属信号（非父包继承），
+    // 直接用其数量判充分性；子目 id 不在 industryPacks 顶层，不能按顶层包 positiveSignals 过滤。
     const hits = Array.isArray(resolution?.evidence?.positive) ? resolution.evidence.positive : [];
-    const ownHits = hits.filter((w) => own.includes(w));
-    return ownHits.length < 2;
+    return hits.length < 2;
   })();
 
   if (confidence === "high" && inherited?.resolved && !inherited.cycleDetected && !subCategorySingleSignal) {
@@ -504,6 +507,47 @@ export function applyConfidenceToRules(skill, resolution = {}, config = activeCo
       subCategorySingleSignal,
       reason: subCategorySingleSignal ? `subcategory_single_signal_demoted_${level}` : `confidence_${confidence}_${level}`
     }
+  };
+}
+
+// ---------- P1-3 补充：生产子类目识别入口（包内二级，不改 P1-1 通用行业识别） ----------
+// 子目配置嵌在父包 subCategories[*]，extends 必须指回父包 id（跨行业子目拒绝）。
+// 返回子类目 resolution；无子目命中/冲突/跨污染时返回 null 由调用方用父行业规则。
+export function resolveSubCategory(textInput, parentPackId, config = activeConfig()) {
+  const normalize = (s) => String(s || "").replace(/\s+/g, "");
+  const text = normalize(textInput);
+  const parent = config?.industryPacks?.[parentPackId];
+  const subs = Array.isArray(parent?.subCategories) ? parent.subCategories : [];
+  if (subs.length === 0) return null;
+
+  const scored = [];
+  for (const sub of subs) {
+    if (!sub || typeof sub !== "object") continue;
+    // 跨行业/跨父类目污染隔离：子目 extends 必须等于当前父包 id。
+    if (String(sub.extends || "") !== String(parentPackId)) continue;
+    const signals = Array.isArray(sub.positiveSignals) ? sub.positiveSignals : [];
+    const hits = signals.filter((w) => text.includes(normalize(w)));
+    if (hits.length === 0) continue;
+    scored.push({ sub, id: sub.id || sub.industryId, hits });
+  }
+  if (scored.length === 0) return null;
+  scored.sort((a, b) => b.hits.length - a.hits.length);
+
+  // 注入临时包键，复用既有 resolveInheritedPack 的继承链（extends 指回父包）。
+  const tmpConfig = { industryPacks: { ...(config?.industryPacks || {}) } };
+  const top = scored[0];
+  tmpConfig.industryPacks[top.id] = { ...top.sub, industryId: top.id, industryName: top.sub.industryName || top.id };
+  const inherited = resolveInheritedPack(top.id, tmpConfig);
+  const tie = scored.length > 1 && scored[1].hits.length === top.hits.length;
+
+  return {
+    subCategoryId: top.id,
+    subCategoryName: top.sub.industryName || top.id,
+    parentPackId,
+    confidence: tie ? "medium" : "high",
+    evidence: { positive: top.hits, via: `${parentPackId}.subCategories[${top.id}].positiveSignals`, tiedSubCategories: tie ? scored.filter((s) => s.hits.length === top.hits.length).map((s) => s.id) : [], crossParentRejected: subs.length - scored.length },
+    inherited,
+    tie
   };
 }
 

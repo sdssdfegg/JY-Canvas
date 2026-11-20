@@ -28,6 +28,7 @@ import {
   applyCoverageToTasks,
   applyOutputRequirements,
   applyConfidenceToRules,
+  resolveSubCategory,
   activeConfig
 } from "./detail-v2-control/index.js";
 // V2-PRO-002：Skill 按需触发 + 提示词分层组装 + 编译授权（工程机制）。
@@ -394,13 +395,21 @@ function applyIndustryResolution(baseSkill, resolution) {
   let outputRequirements = "";
   // 置信度闸门：只有 high（完整包）才加载包专属 coverage/输出约束；降级层只用公共底座。
   const fullPack = ruleLoadDecision.level === "full_pack_rules";
+  // 子类目：准入用父包（子目 id 不在 industryPacks 顶层），outputRequirements 用继承合并后的子目有效值。
+  const admissionPackId = resolution.parentPackId || packId;
   if (packId && fullPack) {
-    packAdmission = admitIndustryPack(packId, resolution.industryId);
+    packAdmission = admitIndustryPack(admissionPackId, resolution.industryId);
+    // 子目行业 id 不在父包 allowedIndustries 时，改以父包 id 校验（子目归属父行业、不越权）。
+    if (!packAdmission.admitted && resolution.parentPackId) {
+      packAdmission = admitIndustryPack(admissionPackId, admissionPackId);
+    }
     if (packAdmission.admitted) {
+      const inherited = resolution.preResolvedInherited?.effectivePack;
       coverage = Array.isArray(skill.activeCoverage) && skill.activeCoverage.length > 0
         ? skill.activeCoverage
-        : checkIndustryCoverage(packId, "内容方向").evidence.declaration;
-      outputRequirements = String(packAdmission.evidence?.outputRequirements || "");
+        : checkIndustryCoverage(admissionPackId, "内容方向").evidence.declaration;
+      // 子目 outputRequirements 优先（继承 professionalValues.outputRequirements），否则父包。
+      outputRequirements = String(inherited?.professionalValues?.outputRequirements || packAdmission.evidence?.outputRequirements || "");
     }
   } else if (packId && !fullPack) {
     // 降级层：不加载行业专属输出约束（防中/低置信度启用专属规则）。
@@ -410,22 +419,48 @@ function applyIndustryResolution(baseSkill, resolution) {
 }
 
 function resolveIndustrySkill(text, aiHint) {
-  const resolution = resolveIndustryDecision({ text, aiHint, fallbackLookup: getIndustrySkillByText });
+  let resolution = resolveIndustryDecision({ text, aiHint, fallbackLookup: getIndustrySkillByText });
+  let subCategoryMatch = null;
+
+  // P1-3 补充：生产包内二级子类目识别——仅在 P1-1 已判为某父包后做增强，不改通用识别。
+  // 父包须配置 subCategories；子类目 extends 必须指回该父包（污染隔离由 resolveSubCategory 保证）。
+  const parentPackId = resolution.packId;
+  if (parentPackId && parentPackId !== "generic") {
+    subCategoryMatch = resolveSubCategory(`${text} ${aiHint}`, parentPackId);
+    if (subCategoryMatch) {
+      resolution = {
+        industryId: subCategoryMatch.subCategoryId,
+        packId: subCategoryMatch.subCategoryId,
+        confidence: subCategoryMatch.confidence,
+        fallbackStatus: "none",
+        ruleSource: "industrySubCategory",
+        decisionPath: "subcategory_signal_match",
+        parentPackId,
+        subCategoryEvidence: subCategoryMatch.evidence,
+        evidence: subCategoryMatch.evidence,
+        preResolvedInherited: subCategoryMatch.inherited
+      };
+    }
+  }
+
   let base;
-  if (resolution.packId === "cleaning" && resolution.decisionPath === "pack_strong_override") {
-    // 保留 cleaning 既有覆盖层规则属性（回归零风险）。
+  const isCleaning = parentPackId === "cleaning" || resolution.parentPackId === "cleaning";
+  if (isCleaning && (resolution.decisionPath === "pack_strong_override" || resolution.parentPackId === "cleaning")) {
+    // cleaning 及衣物去渍子类目：沿用既有覆盖层规则属性底座（回归零风险），子目专属由继承/置信度机制叠加。
     base = {
       id: resolution.industryId,
-      name: "清洁日化",
+      name: subCategoryMatch ? subCategoryMatch.subCategoryName : "清洁日化",
       ...CLEANING_RULE_ATTRS,
-      isIndustryOverride: true,
+      isIndustryOverride: !subCategoryMatch,
       overrideSource: "§3"
     };
   } else {
     // 其余决策路径：从既有行业词表取规则属性；缺属性时用保守通用底座，不制造行业知识。
     base = INDUSTRY_SKILLS[resolution.industryId] || { ...INDUSTRY_SKILLS.generic, id: resolution.industryId, name: resolution.industryId };
   }
-  return applyIndustryResolution(base, resolution);
+  const result = applyIndustryResolution(base, resolution);
+  if (subCategoryMatch) result.subCategoryMatch = { subCategoryId: subCategoryMatch.subCategoryId, parentPackId, tie: subCategoryMatch.tie, inheritedFrom: subCategoryMatch.inherited.inheritedFrom };
+  return result;
 }
 
 function inferIndustry(input, productImages) {
