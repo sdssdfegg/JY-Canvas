@@ -31,12 +31,23 @@ export function checkSellingPointBoundary(sellingPoint, industryId = "generic", 
   const confirmedText = (Array.isArray(confirmedFacts) ? confirmedFacts : [])
     .map((fact) => String(typeof fact === "object" ? (fact.content || fact.claim || "") : fact || ""))
     .join(" ");
-  const realHits = hits.filter((word) => !confirmedText.includes(word));
+  // P1-2B 豁免精确匹配：事实中出现命中词 ≠ 允许对该词做全称泛化。
+  // 只有"命中词在事实中"且"卖点未对该词施加全称/泛化修饰"时才豁免，防止跨范围放行
+  // （如事实="适用于窗帘"，卖点="所有窗帘材质都适用"命中泛化词时仍须拦截）。
+  const GENERALIZATION_MODIFIERS = /所有|全部|任何|均|都|各类|各种|通用|全系列|全材质|任何一种|一切/;
+  const exemptable = (word) => {
+    if (!confirmedText.includes(word)) return false;
+    const at = text.indexOf(word);
+    if (at < 0) return false;
+    const window = text.slice(Math.max(0, at - 12), at + word.length + 12);
+    return !GENERALIZATION_MODIFIERS.test(window);
+  };
+  const realHits = hits.filter((word) => !exemptable(word));
   return {
     allowed: realHits.length === 0,
     reason: realHits.length ? `forbidden_generalization:${realHits.join(",")}` : (hits.length ? "confirmed_fact_exempt" : "ok"),
     hits: realHits,
-    exempted: hits.filter((word) => confirmedText.includes(word)),
+    exempted: hits.filter((word) => exemptable(word)),
     // P1-2：检测词来源可追溯（配置包 id + 词数），证明"配置读取→运行约束"链路。
     detectSource: { packId: industryId, fromConfig: configuredWords.length > 0, detectWordCount: configuredWords.length || detectWords.length }
   };

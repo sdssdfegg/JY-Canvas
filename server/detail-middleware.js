@@ -22,6 +22,9 @@ import {
   professionalContentStatus,
   checkIndustryPollution,
   resolveIndustryDecision,
+  admitIndustryPack,
+  checkIndustryCoverage,
+  validateRecognitionExamples,
   activeConfig
 } from "./detail-v2-control/index.js";
 // V2-PRO-002：Skill 按需触发 + 提示词分层组装 + 编译授权（工程机制）。
@@ -377,7 +380,16 @@ const CLEANING_RULE_ATTRS = {
   qcRules: ["检查行业是否串到服装/厨具/卫浴", "检查包装材质是否与使用对象材质混淆", "检查适用范围是否超证据"]
 };
 function applyIndustryResolution(skill, resolution) {
-  return { ...skill, resolution };
+  // P1-2B：把已决策行业包的 coverage 挂到 industrySkill，供 buildScreenTitles 真实消费。
+  // 只有包准入通过（professionalValues.allowedIndustries）才挂，避免越权使用行业能力。
+  const packId = resolution.packId;
+  let coverage = [];
+  let packAdmission = null;
+  if (packId) {
+    packAdmission = admitIndustryPack(packId, resolution.industryId);
+    if (packAdmission.admitted) coverage = checkIndustryCoverage(packId, "内容方向").evidence.declaration;
+  }
+  return { ...skill, resolution, coverage, packAdmission };
 }
 
 function resolveIndustrySkill(text, aiHint) {
@@ -762,6 +774,17 @@ function buildGlobalLock({ input, platformSkill, industrySkill, analysis, produc
     `目标平台：${platformSkill.platform}${platformSkill.pageType}；输出语言：${lang}；比例：${ratio}；分辨率：${imageSize}。`,
     `目标商品：只以商品图里的「${productName}」为准，${BASE_SKILL.productAuthenticityLock.join(" ")}`,
     `行业识别：${analysis.industry}；重点观察：${industrySkill.analyzeAttributes.join("、")}。`,
+    // P1-2B：coverage（经包级准入）作为行业能力覆盖约束进入全局锁——真实拼进每屏 prompt。
+    // 该字段来自 industryPacks[*].coverage；注入时过滤"厨房/浴室/客厅"等生活场景词条目，
+    // 避免把覆盖元数据变成跨行业场景污染（Q15 防护）；只保留可安全表达的方向标签与项数约束。
+    ...(Array.isArray(industrySkill.coverage) && industrySkill.coverage.length > 0
+      ? (() => {
+          const safe = industrySkill.coverage.filter((item) => !/(客厅|厨房|浴室|家庭成员|宠物)/.test(String(item)));
+          return safe.length > 0
+            ? [`能力覆盖：本行业内容须落在已声明覆盖方向内（${safe.join("、")}），不扩展到未声明方向。`]
+            : [`能力覆盖：本行业已声明 ${industrySkill.coverage.length} 项覆盖方向，内容须落在声明范围内，不扩展未声明方向。`];
+        })()
+      : []),
     `受众：${analysis.targetAudience}；材质线索：${analysis.materialHints.join("、")}。`,
     `全局风格：${analysis.visualStyle}；${BASE_SKILL.globalStyleConsistency.join(" ")}`,
     `平台规则：${platformSkill.visualRule} ${platformSkill.copyRule}`,
@@ -809,7 +832,7 @@ function buildRounds(platformSkill, industrySkill, analysis, count, reverseScree
 // S2-C / V2-ARCH：四层控制框架的"工程验证"辅助。
 // 只证明数据贯通 / 行业包按需加载 / 任务准入拒绝 / 编译来源可追溯；不输出正式专业规则到提示词。
 // 占位态（ChatGPT 专业内容未接入）下：loadedIndustryPackIds 恒空、任务恒 pending、审计恒 unauthorizedAdded=false。
-function buildV2ControlReport(aiPlan, resolvedIndustryId, industryResolution = null) {
+function buildV2ControlReport(aiPlan, resolvedIndustryId, industryResolution = null, industrySkill = null) {
   const status = professionalContentStatus();
   const registry = createTaskRegistry();
   // 单一决策源工程验证：模型 industryProfile 行业为展示行业，运行时词表行业为规则行业，
@@ -844,6 +867,13 @@ function buildV2ControlReport(aiPlan, resolvedIndustryId, industryResolution = n
     industrySingleSourceConsistent: modelIndustryId ? modelIndustryId === runtimeIndustryId : null,
     // P1-1：运行时行业识别证据（识别结果/packId/置信度/命中依据/fallback/规则来源）。
     industryResolution,
+    // P1-2B：三字段消费证据——准入(professionalValues)/覆盖(coverage)/识别夹具(recognitionExamples)。
+    packAdmission: industrySkill?.packAdmission || null,
+    coverageApplied: Array.isArray(industrySkill?.coverage) ? industrySkill.coverage : [],
+    recognitionFixture: (() => {
+      const fixture = validateRecognitionExamples();
+      return { role: fixture.role, total: fixture.total, allPass: fixture.allPass };
+    })(),
     activeIndustryId: pack.activeIndustryId,
     loadedIndustryPackIds: pack.loadedIndustryPackIds,
     fallbackMode: pack.fallbackMode,
@@ -1411,7 +1441,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   // S2-C / V2-ARCH：工程验证控制报告。占位态不注入任何正式专业规则到 17 槽位文本，
   // 仅把"字段是否贯通 / 行业包是否按需加载 / 任务是否可准入拒绝 / 审计基线"作为可验证证据挂在 group 上。
   // 🔴 这是工程验证，不代表专业模型质量验收通过；专业内容由 ChatGPT 交付后另行接入与验收。
-  const v2Control = v2Planning ? buildV2ControlReport(aiPlan, industrySkill.id, industrySkill.resolution) : null;
+  const v2Control = v2Planning ? buildV2ControlReport(aiPlan, industrySkill.id, industrySkill.resolution, industrySkill) : null;
 
   return {
     id: `detail_${createdAt}_${Math.random().toString(36).slice(2, 8)}`,

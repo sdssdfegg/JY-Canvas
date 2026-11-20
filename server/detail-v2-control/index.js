@@ -263,6 +263,64 @@ export function resolveIndustryDecision({ text = "", aiHint = "", fallbackLookup
   };
 }
 
+// ---------- P1-2B 三字段真实消费（来源→消费者函数→执行结果→运行时证据） ----------
+// 字段1 recognitionExamples：明确定位为"识别回归测试夹具"（非运行时识别输入）。
+// 消费者=本函数（供门禁/自检调用），执行结果=逐例识别断言，证据=pass/forbidden 命中情况。
+export function validateRecognitionExamples(config = activeConfig(), decide = null) {
+  const packs = config?.industryPacks || {};
+  const cases = [];
+  for (const [packId, pack] of Object.entries(packs)) {
+    if (!pack || typeof pack !== "object" || !Array.isArray(pack.recognitionExamples)) continue;
+    for (const ex of pack.recognitionExamples) {
+      const item = { packId, input: String(ex?.input || ""), expectIndustry: String(ex?.industry || ""), forbidden: String(ex?.forbidden || "") };
+      if (typeof decide === "function" && item.input) {
+        const got = decide(item.input);
+        item.actualIndustry = got?.industryId || got?.id || "";
+        item.pass = Boolean(item.actualIndustry) && item.actualIndustry === item.expectIndustry && (!item.forbidden || item.actualIndustry !== item.forbidden);
+      } else {
+        item.pass = null; // 未提供决策函数时只做夹具枚举，不伪造通过。
+      }
+      cases.push(item);
+    }
+  }
+  return { source: "industryPacks[*].recognitionExamples", role: "regression_fixture", total: cases.length, cases, allPass: cases.length > 0 && cases.every((c) => c.pass === true) };
+}
+
+// 字段2 professionalValues：包级准入——allowedIndustries 决定该包专业规则是否允许用于当前行业。
+// 消费者=本函数；执行结果=admitted/rejected；证据=reason + 命中的 allowedIndustries。
+export function admitIndustryPack(packId, industryId, config = activeConfig()) {
+  const pack = config?.industryPacks?.[packId];
+  const values = pack?.professionalValues;
+  if (!pack || typeof pack !== "object") return { packId, industryId, admitted: false, reason: "pack_not_found" };
+  if (!values || typeof values !== "object") return { packId, industryId, admitted: false, reason: "professional_values_missing" };
+  const allowed = Array.isArray(values.allowedIndustries) ? values.allowedIndustries : [];
+  const ok = allowed.length === 0 || allowed.includes("*") || allowed.includes(industryId);
+  return {
+    packId,
+    industryId,
+    admitted: ok,
+    reason: ok ? "industry_allowed" : "industry_not_allowed",
+    evidence: { source: `${packId}.professionalValues.allowedIndustries`, allowedIndustries: allowed, outputRequirements: String(values.outputRequirements || "") }
+  };
+}
+
+// 字段3 coverage：能力覆盖判定——判断某内容方向是否在本行业包的覆盖清单内。
+// 消费者=本函数；执行结果=covered/uncovered/undeclared；证据=declaration 来源与匹配项。
+export function checkIndustryCoverage(packId, contentDirection, config = activeConfig()) {
+  const pack = config?.industryPacks?.[packId];
+  const coverage = Array.isArray(pack?.coverage) ? pack.coverage : [];
+  const direction = String(contentDirection || "");
+  if (coverage.length === 0) return { packId, contentDirection: direction, status: "undeclared", covered: false, evidence: { source: `${packId}.coverage`, declaration: [] } };
+  const matched = coverage.filter((item) => direction.includes(String(item)) || String(item).includes(direction));
+  return {
+    packId,
+    contentDirection: direction,
+    status: matched.length > 0 ? "covered" : "uncovered",
+    covered: matched.length > 0,
+    evidence: { source: `${packId}.coverage`, declaration: coverage, matched }
+  };
+}
+
 // ---------- 全品类跨行业污染检测（配置驱动、可扩展，非硬编码几个行业） ----------
 // 原理：一段文案若命中"其他行业的强特征词"(positiveSignals)，且这些词不在本行业的
 // weakContextWordsMustNotOverride(使用对象/弱语境词)中，视为跨行业规则污染风险。

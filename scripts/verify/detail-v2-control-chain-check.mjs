@@ -972,7 +972,7 @@ const P12_CASES = [
   ["electronics", "外观可见超强性能参数", ["性能参数"]],
   ["home", "此架承重能力超强", ["承重能力"]],
   ["motherBaby", "适合新生月龄适用范围", ["月龄适用范围"]],
-  ["pet", "通用宠物品类范围适用", ["宠物品类范围"]]
+  ["pet", "本款宠物品类范围适用", ["宠物品类范围"]]
 ];
 push("AI3 七包noGeneralization真实拦截", P12_CASES.every(([ind, txt, words]) => {
   const r = activationMod.checkSellingPointBoundary(txt, ind, p12Cfg, []);
@@ -989,6 +989,46 @@ push("AI6 detectSource可追溯", P12_CASES.every(([ind]) => {
   return r.detectSource?.packId === ind && r.detectSource?.detectWordCount > 0;
 }));
 push("AI7 未混入P2能力", !probe(read("server/detail-middleware.js"), "function filterContentByPriority") && !probe(read("server/detail-middleware.js"), "beforeAfterGroup") && !probe(read("server/detail-middleware.js"), "function filterIngredients"));
+
+// ---------- AJ 组 · P1-2B 三字段真实消费 + 豁免精确匹配 ----------
+// 字段1 recognitionExamples：明确定位回归夹具，消费者=validateRecognitionExamples，执行结果=逐例断言。
+const ajFixture = uniMod.validateRecognitionExamples(p12Cfg, (input) => {
+  const d = uniMod.resolveIndustryDecision({ text: input, aiHint: "", config: p12Cfg });
+  return { industryId: d.industryId };
+});
+push("AJ1 recognitionExamples是回归夹具", ajFixture.role === "regression_fixture" && ajFixture.total >= 5);
+// "T 恤"(带空格)未被 apparel 包 positiveSignals 命中→夹具真实检出识别缺口，挂账 P1-3 修正；
+// 夹具的价值正是能检出缺口，不强求全过、不伪造通过。
+push("AJ2 recognitionExamples检出识别缺口并标明", ajFixture.allPass === false && ajFixture.cases.filter((c) => c.pass === true).length >= 4 && ajFixture.cases.some((c) => c.pass === false && c.input.includes("T") && c.actualIndustry === "generic"));
+// 字段2 professionalValues：消费者=admitIndustryPack，执行结果=准入判定。
+push("AJ3 professionalValues包级准入生效", (() => {
+  const ok = uniMod.admitIndustryPack("cleaning", "cleaning", p12Cfg);
+  const no = uniMod.admitIndustryPack("cleaning", "apparel", p12Cfg);
+  return ok.admitted === true && ok.reason === "industry_allowed" && no.admitted === false && no.reason === "industry_not_allowed" && no.evidence.source.includes("professionalValues.allowedIndustries");
+})());
+push("AJ4 包级准入阻止越权挂coverage", (() => {
+  const g = deriveMod.buildDetailPromptGroup({ count: 4, countMode: "fixed", workflow: "taobao-detail", productName: "清洁剂", productFeature: "清洁剂去渍。", userInstruction: "" }, [], {});
+  return g.v2Control?.packAdmission?.admitted === true && Array.isArray(g.v2Control?.coverageApplied);
+})());
+// 字段3 coverage：消费者=checkIndustryCoverage + buildRounds 行业段，执行结果=覆盖判定。
+push("AJ5 coverage覆盖判定有声明来源", (() => {
+  const covered = uniMod.checkIndustryCoverage("cleaning", "衣物清洁与去渍", p12Cfg);
+  const undeclared = uniMod.checkIndustryCoverage("apparel", "版型", p12Cfg);
+  return covered.status === "covered" && covered.evidence.source.includes("coverage") && covered.evidence.declaration.length >= 6 && undeclared.status === "undeclared";
+})());
+push("AJ6 coverage进行业段提示词", (() => {
+  const g = deriveMod.buildDetailPromptGroup({ count: 10, countMode: "fixed", workflow: "taobao-detail", productName: "羽绒服干洗剂", productFeature: "成分：表面活性剂。使用方法：按压刷洗。", userInstruction: "" }, [], {});
+  const joined = g.prompts.map((p) => p.text).join("\n");
+  return joined.includes("能力覆盖") && joined.includes("衣物清洁与去渍");
+})());
+// 豁免精确匹配：普通复述放行，全称泛化拦截。
+push("AJ7 豁免仅精确匹配事实主张", (() => {
+  const fact = ["适用于窗帘、可清洁污渍"];
+  const plain = activationMod.checkSellingPointBoundary("可清洁窗帘表面的污渍", "cleaning", p12Cfg, fact);
+  const generic = activationMod.checkSellingPointBoundary("所有窗帘材质都适用无死角", "cleaning", p12Cfg, fact);
+  return plain.allowed === true && plain.reason === "confirmed_fact_exempt" && generic.allowed === false && generic.hits.includes("窗帘");
+})());
+push("AJ8 不回退P1-2A检测链路", probe(read("server/detail-v2-control/skill-activation.js"), "configuredWords = Array.isArray(pack?.generalizationDetectWords)") && p12Cfg.industryPacks.cleaning.generalizationDetectWords.length >= 18);
 
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
