@@ -421,6 +421,42 @@ function applyIndustryResolution(baseSkill, resolution) {
   return { ...skill, resolution, ruleLoadDecision, coverage, packAdmission, outputRequirements };
 }
 
+// P1-6 laundryStain 子类目污染漏拦截治理：基于"具体命中词及文本范围"排除子类目自身信号。
+// 不能以词包含关系全局豁免（例如"领口"⊂"领口去渍"就豁免全文所有"领口"）——只在某次命中
+// 完全落于子类目信号短语占据的文本区间内时才排除；独立出现的同名词仍算真实他行业信号。
+// 返回清洗后的 risks（保留行业归属与其余真实信号），不修改任何配置/词表/文本。
+function filterSubCategorySignalsByRange(text, risks, parentPackId, subCategoryMatch) {
+  if (!subCategoryMatch || !parentPackId) return risks;
+  const cfg = activeConfig();
+  const subPack = cfg?.industryPacks?.[parentPackId]?.subCategories
+    ?.find((s) => (s.id || s.industryId) === (subCategoryMatch.subCategoryId || subCategoryMatch.subCategoryName));
+  const subSignals = Array.isArray(subPack?.positiveSignals) ? subPack.positiveSignals : [];
+  if (subSignals.length === 0) return risks;
+  // 子类目信号短语在文本中占据的所有区间（精确位置，非全局词）。
+  const ranges = [];
+  for (const s of subSignals) {
+    const sig = String(s || "");
+    if (!sig) continue;
+    let i = 0;
+    while ((i = text.indexOf(sig, i)) >= 0) { ranges.push([i, i + sig.length]); i += 1; }
+  }
+  const withinSubRange = (pos, len) => ranges.some(([a, b]) => pos >= a && pos + len <= b);
+  return risks.map((r) => ({
+    ...r,
+    signals: (r.signals || []).filter((w) => {
+      const word = String(w || "");
+      if (!word) return false;
+      // 该词只要有一次命中落在子类目区间之外，即为独立真实信号，保留。
+      let i = 0;
+      while ((i = text.indexOf(word, i)) >= 0) {
+        if (!withinSubRange(i, word.length)) return true;
+        i += 1;
+      }
+      return false;
+    })
+  })).filter((r) => r.signals.length > 0);
+}
+
 function resolveIndustrySkill(text, aiHint) {
   let resolution = resolveIndustryDecision({ text, aiHint, fallbackLookup: getIndustrySkillByText });
   let subCategoryMatch = null;
@@ -452,11 +488,15 @@ function resolveIndustrySkill(text, aiHint) {
   // 只隔离不可靠的行业专属策略。不改原始商品文本、不新增字段、不碰 P1-1 评分/tie/override。
   // 保护既有契约：
   // ① P1-1 已判 medium/low（多包同分/降级）不重复收敛，保留其 parent_common_rules 语义；
-  // ② 子类目已明确命中（P1-3 生产能力）时行业归属已可靠识别，跳过冲突保护——子目专属信号
-  //    （如 laundryStain 的"领口去渍"含 apparel 词"领口"）不应反向触发污染拦截、破坏 P1-3 已验收能力。
-  const conflictBaselineId = resolution.industryId;
-  const conflictAudit = (!subCategoryMatch && resolution.confidence === "high" && conflictBaselineId && conflictBaselineId !== "generic")
+  // ② 子类目场景以父包（cleaning）为检测基准——父包信号被 ownPositives 自动豁免，
+  //    再按"具体命中词及文本范围"排除子目自身信号（如"领口去渍"区间内的"领口"），
+  //    独立出现的他行业强信号（如独立"领口"/版型/袖口/手机）仍触发冲突保护。
+  const conflictBaselineId = subCategoryMatch ? (parentPackId || resolution.industryId) : resolution.industryId;
+  const rawAudit = (resolution.confidence === "high" && conflictBaselineId && conflictBaselineId !== "generic")
     ? checkIndustryPollution(text, conflictBaselineId) : null;
+  const cleanedRisks = subCategoryMatch && rawAudit
+    ? filterSubCategorySignalsByRange(text, rawAudit.risks || [], conflictBaselineId, subCategoryMatch) : (rawAudit?.risks || []);
+  const conflictAudit = rawAudit ? { ...rawAudit, risks: cleanedRisks, hasPollution: cleanedRisks.length > 0 } : null;
   const conflictProtected = Boolean(conflictAudit?.hasPollution);
   if (conflictProtected) {
     resolution = {
