@@ -911,10 +911,67 @@ push("AG8 展示角色入画面任务", (() => {
   return g.prompts.some((p) => (p.screenVisual?.text || "").includes("合理使用场景") || (p.screenVisual?.text || "").includes("局部细节"));
 })());
 // 跨行业污染检测（配置驱动、非硬编码）
+// P1-6 验收矩阵修正（顾问裁定乙，2026-11-20）：
+// AG9/AG11 原输入经实施前逐词核验，只有单一行业强正信号（AG9 仅 apparel:版型/袖口、cleaning 命中 0；
+// AG11 仅 electronics:手机），识别结果本就正确、不构成"识别被污染带偏"。故重新定位为"正确识别、不误伤"
+// 负向控制，不得再作为跨行业强信号污染的正向样本。真正污染正向样本改用生产配置中两行业均有真实
+// 正信号命中的输入（AG14-AG18），验证 P1-6 触发条件的数据基础（多包强信号并存 + 污染可检出）。
 const uniMod = await import(new URL("../../server/detail-v2-control/index.js", import.meta.url).href);
-push("AG9 日化+服装强特征报污染", uniMod.checkIndustryPollution("版型修身袖口精致的清洁喷雾", "cleaning").hasPollution === true);
+const agCfg = JSON.parse(read("server/detail-v2-control/config/professional-content-v1.json"));
+const agHits = (text, packId) => (Array.isArray(agCfg.industryPacks?.[packId]?.positiveSignals) ? agCfg.industryPacks[packId].positiveSignals : []).filter((w) => text.includes(w));
+const agDecision = (text) => uniMod.resolveIndustryDecision({ text, aiHint: "", config: agCfg });
+// AG9 负向控制：仅 apparel 强信号，cleaning 命中 0，识别 apparel high 正确，不触发 P1-6。
+push("AG9 负向控制：单行业apparel正确识别不误伤", (() => {
+  const t = "版型修身袖口精致的清洁喷雾";
+  const hitApparel = agHits(t, "apparel"), hitClean = agHits(t, "cleaning");
+  const d = agDecision(t);
+  return hitApparel.length > 0 && hitClean.length === 0 && d.industryId === "apparel" && d.confidence === "high";
+})());
 push("AG10 使用对象弱词不误报污染", uniMod.checkIndustryPollution("按压海绵头清洁羽绒服污渍", "cleaning").hasPollution === false);
-push("AG11 数码词入服装报污染", uniMod.checkIndustryPollution("手机快充接口性能", "apparel").hasPollution === true);
+push("AG10b 真弱词命中(棉/面料)不误报且识别cleaning", (() => {
+  const t = "棉质面料清洁喷雾去渍";
+  const d = agDecision(t);
+  return uniMod.checkIndustryPollution(t, "cleaning").hasPollution === false && d.industryId === "cleaning";
+})());
+// AG11 负向控制：仅 electronics 强信号，apparel 命中 0，识别 electronics high 正确。
+push("AG11 负向控制：单行业electronics正确识别不误伤", (() => {
+  const t = "手机快充接口性能";
+  const hitElec = agHits(t, "electronics"), hitApparel = agHits(t, "apparel");
+  const d = agDecision(t);
+  return hitElec.length > 0 && hitApparel.length === 0 && d.industryId === "electronics" && d.confidence === "high";
+})());
+// AG14-AG18 真实多行业强信号正向样本：逐词证明两行业均有真实正信号命中，且污染可检出。
+// 注意：这些用例验证 P1-6 触发条件的"数据基础"，不验证降级结果（业务实施另行授权）。
+push("AG14 真污染样本:版型修身清洗剂去渍(cleaning+apparel强信号并存)", (() => {
+  const t = "版型修身清洗剂去渍";
+  const c = agHits(t, "cleaning"), a = agHits(t, "apparel");
+  return c.length > 0 && a.length > 0 && uniMod.checkIndustryPollution(t, "cleaning").hasPollution === true;
+})());
+push("AG15 真污染样本:口红彩妆清洗剂(cleaning+beauty并存)", (() => {
+  const t = "口红彩妆清洗剂";
+  const c = agHits(t, "cleaning"), b = agHits(t, "beauty");
+  return c.length > 0 && b.length > 0 && uniMod.checkIndustryPollution(t, "cleaning").hasPollution === true;
+})());
+push("AG16 真污染样本:口红彩妆连衣裙(beauty+apparel并存,非cleaning组合)", (() => {
+  const t = "口红彩妆连衣裙";
+  const b = agHits(t, "beauty"), a = agHits(t, "apparel");
+  return b.length > 0 && a.length > 0 && uniMod.checkIndustryPollution(t, "beauty").hasPollution === true;
+})());
+push("AG17 正常单行业不误降:清洗剂去渍重油污", (() => {
+  const t = "清洗剂去渍重油污";
+  const packs = ["apparel", "beauty", "food", "electronics", "motherBaby", "pet"];
+  const others = packs.reduce((n, p) => n + agHits(t, p).length, 0);
+  const d = agDecision(t);
+  return agHits(t, "cleaning").length > 0 && others === 0 && d.industryId === "cleaning" && d.confidence === "high";
+})());
+push("AG18 真多行业并存均可检出(逐词证据)", (() => {
+  const samples = [
+    { t: "手机快充清洗剂去渍", own: "cleaning", other: "electronics" },
+    { t: "食品饮料衬衫", own: "food", other: "apparel" },
+    { t: "手机电脑外套", own: "electronics", other: "apparel" }
+  ];
+  return samples.every((s) => agHits(s.t, s.own).length > 0 && agHits(s.t, s.other).length > 0 && uniMod.checkIndustryPollution(s.t, s.own).hasPollution === true);
+})());
 push("AG12 污染检测可观测挂审计", probe(read("server/detail-middleware.js"), "pollutionAudit: checkIndustryPollution"));
 push("AG13 SKILL允许Absent不强制每屏商品", probe(read("prompts/server/detail-v2-planning/skills/visual-art-direction/SKILL.md"), "Absent") && probe(read("prompts/server/detail-v2-planning/skills/visual-art-direction/SKILL.md"), "不强制产品每屏正中"));
 // 全品类识别：本地兜底也能识别日化（干洗剂正信号），服装强特征不被日化覆盖。
