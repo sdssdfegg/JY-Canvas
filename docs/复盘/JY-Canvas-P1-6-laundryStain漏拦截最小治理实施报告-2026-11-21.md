@@ -55,7 +55,7 @@
 
 ## 七、Commit 与状态同步
 - 业务实施 commit：`dc4af4e`（detail-middleware.js 范围排除治理 + CP10-16 + 本报告）。
-- 状态同步 commit：（提交后回填，见下方状态同步提交）。
+- 状态同步 commit：`81d116a`（NEXT / 执行单 README / 规划 README + 上轮实施报告 commit 占位回填）。三 commit 记录最终核实：`6cde039`（test-only）→ `2ad6951`（P1-6 基础实施）→ `73c42b3`（状态同步）→ `dc4af4e`（本轮业务治理）→ `81d116a`（本轮状态同步），HEAD=`81d116a`，无占位残留。
 - 本轮仅业务 + 状态同步两个 commit；未改测试夹具以外无关文件（CP10-16 随业务提交，属本治理直接测试）。
 
 ## 八、未解决问题与证据边界
