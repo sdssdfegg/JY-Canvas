@@ -924,6 +924,41 @@ const agApparel = deriveMod.buildDetailPromptGroup({ count: 4, countMode: "fixed
 push("AG15 服装不被日化规则覆盖", agApparel.analysis.industry !== "清洁日化" && agApparel.v2Control?.activeIndustryId !== "cleaning");
 push("AG16 行业包按英文id加载", contentCfg.industryPacks.cleaning.industryId === "cleaning" && contentCfg.industryPacks.apparel.industryId === "apparel");
 
+// ---------- AH 组 · P1-1 行业体系统一（单一决策链 + 运行时证据） ----------
+const p11Run = (pf, pn = "测试商品") => deriveMod.buildDetailPromptGroup({ count: 4, countMode: "fixed", workflow: "taobao-detail", productName: pn, productFeature: pf, userInstruction: "" }, [], {});
+const p11Clean = p11Run("成分：阴离子表面活性剂。使用方法：按压海绵头，用清洁刷刷洗。", "羽绒服干洗剂").analysis.industryResolution;
+const p11Apparel = p11Run("材质：100%棉。版型：宽松。", "纯棉T恤").analysis.industryResolution;
+const p11Jewelry = p11Run("珠宝首饰，天然翡翠。", "翡翠手镯").analysis.industryResolution;
+const p11Unknown = p11Run("无特征描述xyz。", "未知商品").analysis.industryResolution;
+push("AH1 cleaning强特征覆盖保留", p11Clean.packId === "cleaning" && p11Clean.ruleSource === "industryPack" && p11Clean.decisionPath === "pack_strong_override" && p11Clean.confidence === "high");
+push("AH2 包信号匹配为主判断", p11Apparel.packId === "apparel" && p11Apparel.ruleSource === "industryPack" && p11Apparel.decisionPath === "pack_signal_match" && p11Apparel.fallbackStatus === "none");
+push("AH3 旧词表降为受控fallback", p11Jewelry.fallbackStatus === "legacy_fallback" && p11Jewelry.ruleSource === "legacyKeywords" && p11Jewelry.confidence === "low");
+push("AH4 generic末级降级有因", p11Unknown.fallbackStatus === "generic_fallback" && p11Unknown.industryId === "generic" && Boolean(p11Unknown.evidence?.via));
+push("AH5 resolution六要素齐全", [p11Clean, p11Apparel, p11Jewelry, p11Unknown].every((r) => r && ["industryId", "packId", "confidence", "evidence", "fallbackStatus", "ruleSource"].every((k) => k in r)));
+push("AH6 命中依据可追溯", Boolean(p11Clean.evidence.positive?.length) && p11Apparel.evidence.via?.includes("positiveSignals") && p11Jewelry.evidence.via?.includes("keywords"));
+// 回归：旧判断函数语义未变（cleaning 覆盖层独立可测）
+const p11Override = uniMod.detectIndustryOverride ? uniMod.detectIndustryOverride("衣物血渍清洗剂") : null;
+push("AH7 detectIndustryOverride仍可用", p11Override && p11Override.industryId === "cleaning");
+// 运行时链路：analysis 与 v2Control 都带 resolution
+const p11Full = p11Run("成分：阴离子表面活性剂。使用方法：按压海绵头刷洗。", "羽绒服干洗剂");
+push("AH8 analysis输出resolution", Boolean(p11Full.analysis.industryResolution?.industryId));
+push("AH9 v2Control输出resolution", Boolean(p11Full.v2Control?.industryResolution?.ruleSource));
+push("AH10 单一决策入口存在", probe(read("server/detail-v2-control/index.js"), "export function resolveIndustryDecision"));
+push("AH11 旧词表仅在fallback调用", (() => {
+  const s = read("server/detail-middleware.js");
+  const inResolve = s.indexOf("function resolveIndustrySkill");
+  const seg = s.slice(inResolve, inResolve + 1200);
+  return probe(seg, "fallbackLookup: getIndustrySkillByText") && !probe(seg, "getIndustrySkillByText(text);\n}");
+})());
+push("AH12 多包同置信度降级", (() => {
+  const r = uniMod.resolveIndustryDecision({ text: "版型和口红", aiHint: "" });
+  return r.confidence === "medium" && Array.isArray(r.evidence.tiedPacks) && r.evidence.tiedPacks.length >= 2;
+})());
+push("AH13 包装不误判服装回归", (() => {
+  const r = uniMod.resolveIndustryDecision({ text: "多用途包装清洁剂去渍", aiHint: "" });
+  return r.industryId === "cleaning" && r.decisionPath === "pack_strong_override";
+})());
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");

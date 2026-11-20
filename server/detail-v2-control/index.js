@@ -183,6 +183,86 @@ export function detectIndustryOverride(textInput, config = activeConfig()) {
   return null;
 }
 
+// ---------- P1-1 行业体系统一：单一决策入口 ----------
+// 优先级（唯一主判断链）：行业包强特征覆盖(cleaning) > 行业包通用正信号 > 旧词表受控 fallback > generic。
+// 旧词表(getIndustrySkillByText)不再作为与行业包并行的第二套主判断，只在包体系无命中时降级使用。
+// resolution 随决策返回，供运行时输出：industryId / packId / confidence / evidence / fallbackStatus / ruleSource。
+export function resolveIndustryDecision({ text = "", aiHint = "", fallbackLookup = null, config = activeConfig() } = {}) {
+  const source = `${String(text || "")} ${String(aiHint || "")}`;
+  const packs = config?.industryPacks || {};
+
+  // 1) cleaning 强特征覆盖（保留既有能力，含服装强特征否决，回归零风险）。
+  const override = detectIndustryOverride(source, config);
+  if (override) {
+    return {
+      industryId: override.industryId,
+      packId: "cleaning",
+      confidence: "high",
+      fallbackStatus: "none",
+      ruleSource: "industryPack",
+      decisionPath: "pack_strong_override",
+      evidence: { positive: override.evidence.positive, negative: override.evidence.negative, apparelBlock: override.evidence.apparel, via: "cleaning.positiveSignals" }
+    };
+  }
+
+  // 2) 行业包通用正信号匹配：统计每个包 positiveSignals 命中数，取唯一最高分。
+  //    weakContextWordsMustNotOverride 命中的词仅作弱语境，不计入行业本身判定（使用对象≠行业）。
+  const scored = [];
+  for (const [packId, pack] of Object.entries(packs)) {
+    if (!pack || typeof pack !== "object" || Array.isArray(pack)) continue;
+    const positives = Array.isArray(pack.positiveSignals) ? pack.positiveSignals : [];
+    const negatives = Array.isArray(pack.negativeSignals) ? pack.negativeSignals : [];
+    const weak = Array.isArray(pack.weakContextWordsMustNotOverride) ? pack.weakContextWordsMustNotOverride : [];
+    const hitPositive = positives.filter((word) => source.includes(word));
+    const hitNegative = negatives.filter((word) => source.includes(word));
+    const hitWeak = weak.filter((word) => source.includes(word));
+    if (hitPositive.length === 0 || hitNegative.length > 0) continue;
+    scored.push({ packId, industryId: pack.industryId || packId, industryName: pack.industryName || packId, hitPositive, hitNegative, hitWeak });
+  }
+  scored.sort((a, b) => b.hitPositive.length - a.hitPositive.length);
+  if (scored.length > 0) {
+    const top = scored[0];
+    const tie = scored.length > 1 && scored[1].hitPositive.length === top.hitPositive.length;
+    return {
+      industryId: top.industryId,
+      packId: top.packId,
+      // 多包同分或仅命中弱语境词时降为 medium，不强判。
+      confidence: tie ? "medium" : "high",
+      fallbackStatus: "none",
+      ruleSource: "industryPack",
+      decisionPath: "pack_signal_match",
+      evidence: { positive: top.hitPositive, negative: top.hitNegative, weakContext: top.hitWeak, via: `${top.packId}.positiveSignals`, tiedPacks: tie ? scored.filter((s) => s.hitPositive.length === top.hitPositive.length).map((s) => s.packId) : [] }
+    };
+  }
+
+  // 3) 旧词表受控 fallback：仅当包体系完全无命中时启用，不再是并行主判断。
+  if (typeof fallbackLookup === "function") {
+    const skill = fallbackLookup(source);
+    if (skill && skill.id && skill.id !== "generic") {
+      return {
+        industryId: skill.id,
+        packId: packs[skill.id] ? skill.id : null,
+        confidence: "low",
+        fallbackStatus: "legacy_fallback",
+        ruleSource: "legacyKeywords",
+        decisionPath: "legacy_keyword_fallback",
+        evidence: { via: "INDUSTRY_SKILLS.keywords", legacyName: skill.name }
+      };
+    }
+  }
+
+  // 4) generic 末级降级，显式记录原因。
+  return {
+    industryId: "generic",
+    packId: null,
+    confidence: "low",
+    fallbackStatus: "generic_fallback",
+    ruleSource: "generic",
+    decisionPath: "generic_fallback",
+    evidence: { via: "no_pack_no_keyword_match" }
+  };
+}
+
 // ---------- 全品类跨行业污染检测（配置驱动、可扩展，非硬编码几个行业） ----------
 // 原理：一段文案若命中"其他行业的强特征词"(positiveSignals)，且这些词不在本行业的
 // weakContextWordsMustNotOverride(使用对象/弱语境词)中，视为跨行业规则污染风险。

@@ -20,8 +20,8 @@ import {
   admitTasks,
   createCompilerAudit,
   professionalContentStatus,
-  detectIndustryOverride,
   checkIndustryPollution,
+  resolveIndustryDecision,
   activeConfig
 } from "./detail-v2-control/index.js";
 // V2-PRO-002：Skill 按需触发 + 提示词分层组装 + 编译授权（工程机制）。
@@ -366,6 +366,39 @@ function assetsFromInput(inputImages, files, role) {
   }));
 }
 
+// P1-1 行业体系统一：把 resolution 元数据挂到行业对象上，供运行时输出与审计消费。
+// 规则属性本体仍来自既有词表/覆盖层（属性从 pack 字段消费属 P1-2，本项不越界）。
+const CLEANING_RULE_ATTRS = {
+  analyzeAttributes: ["清洁对象", "处理问题", "使用方式", "适用范围", "使用条件", "效果依据"],
+  sellingAngles: ["清洁对象与问题匹配", "明确适用与使用方式", "有依据的效果表达"],
+  recommendedScreens: ["首屏主视觉", "核心卖点", "使用场景", "参数说明", "信任背书", "收尾转化"],
+  visualAnchors: ["商品主体清晰", "真实使用对象", "干净光线", "无跨品类元素"],
+  taboos: ["不得跨品类串规则", "不得把使用对象材质写成商品包装材质", "不得虚构适用范围与功效"],
+  qcRules: ["检查行业是否串到服装/厨具/卫浴", "检查包装材质是否与使用对象材质混淆", "检查适用范围是否超证据"]
+};
+function applyIndustryResolution(skill, resolution) {
+  return { ...skill, resolution };
+}
+
+function resolveIndustrySkill(text, aiHint) {
+  const resolution = resolveIndustryDecision({ text, aiHint, fallbackLookup: getIndustrySkillByText });
+  let base;
+  if (resolution.packId === "cleaning" && resolution.decisionPath === "pack_strong_override") {
+    // 保留 cleaning 既有覆盖层规则属性（回归零风险）。
+    base = {
+      id: resolution.industryId,
+      name: "清洁日化",
+      ...CLEANING_RULE_ATTRS,
+      isIndustryOverride: true,
+      overrideSource: "§3"
+    };
+  } else {
+    // 其余决策路径：从既有行业词表取规则属性；缺属性时用保守通用底座，不制造行业知识。
+    base = INDUSTRY_SKILLS[resolution.industryId] || { ...INDUSTRY_SKILLS.generic, id: resolution.industryId, name: resolution.industryId };
+  }
+  return applyIndustryResolution(base, resolution);
+}
+
 function inferIndustry(input, productImages) {
   const text = [
     input.productName,
@@ -374,23 +407,7 @@ function inferIndustry(input, productImages) {
     input.sellingPoints,
     ...productImages.map((item) => item.name)
   ].join(" ");
-  // V2-PRO-001：无 aiPlan 的兼容路径同样走清洁日化覆盖层，避免"包装"误判服装。
-  const override = detectIndustryOverride(text);
-  if (override) {
-    return {
-      id: override.industryId,
-      name: override.industryName,
-      analyzeAttributes: override.analyzeAttributes,
-      sellingAngles: ["清洁对象与问题匹配", "明确适用与使用方式", "有依据的效果表达"],
-      recommendedScreens: ["首屏主视觉", "核心卖点", "使用场景", "参数说明", "信任背书", "收尾转化"],
-      visualAnchors: ["商品主体清晰", "真实使用对象", "干净光线", "无跨品类元素"],
-      taboos: override.taboos,
-      qcRules: ["检查行业是否串到服装/厨具/卫浴", "检查包装材质是否与使用对象材质混淆", "检查适用范围是否超证据"],
-      isIndustryOverride: true,
-      overrideSource: override.source
-    };
-  }
-  return getIndustrySkillByText(text);
+  return resolveIndustrySkill(text, "");
 }
 
 function aiIndustry(input, productImages, aiPlan) {
@@ -401,26 +418,24 @@ function aiIndustry(input, productImages, aiPlan) {
     ...(Array.isArray(aiPlan?.product?.realSellingPoints) ? aiPlan.product.realSellingPoints : []),
     ...(Array.isArray(aiPlan?.product?.materials) ? aiPlan.product.materials : [])
   ].join(" ");
-  // V2-PRO-001 / 第一层+第二层：正式清洁日化包强特征覆盖层（不改 G-2 词表）。
-  // 命中清洗剂/去渍等强特征且无服装强特征时，直接用清洁日化规则属性，杜绝"包装"的"包"误判服装。
   const inputText = [input?.productName, input?.productFeature, input?.userInstruction, ...(Array.isArray(input?.sellingPoints) ? input.sellingPoints : [])].join(" ");
-  const override = detectIndustryOverride(`${aiText} ${inputText}`);
-  if (override) {
-    return {
-      id: override.industryId,
-      name: override.industryName,
-      analyzeAttributes: override.analyzeAttributes,
-      sellingAngles: ["清洁对象与问题匹配", "明确适用与使用方式", "有依据的效果表达"],
-      recommendedScreens: ["首屏主视觉", "核心卖点", "使用场景", "参数说明", "信任背书", "收尾转化"],
-      visualAnchors: ["商品主体清晰", "真实使用对象", "干净光线", "无跨品类元素"],
-      taboos: override.taboos,
-      qcRules: ["检查行业是否串到服装/厨具/卫浴", "检查包装材质是否与使用对象材质混淆", "检查适用范围是否超证据"],
-      isIndustryOverride: true,
-      overrideSource: override.source
-    };
+  // 单一决策链：模型行业提示(aiHint) + 用户输入文本 参与同一次 resolveIndustryDecision。
+  // 包强特征命中（含 cleaning）即定案；否则 fallback 词表；再否则 generic。
+  const resolved = resolveIndustrySkill(`${inputText} ${aiText}`, aiText);
+  // 兼容既有行为：模型明确给出 industryId 但包/词表都判 generic 时，若该 id 在词表存在则采纳模型值。
+  if (resolved.resolution.industryId === "generic" && aiPlan?.product?.industryId && INDUSTRY_SKILLS[aiPlan.product.industryId]) {
+    const skill = INDUSTRY_SKILLS[aiPlan.product.industryId];
+    return applyIndustryResolution(skill, {
+      ...resolved.resolution,
+      industryId: skill.id,
+      packId: null,
+      fallbackStatus: "legacy_fallback",
+      ruleSource: "aiHintAdopted",
+      decisionPath: "ai_hint_adopted",
+      evidence: { via: "aiPlan.product.industryId", hint: aiPlan.product.industryId }
+    });
   }
-  const skill = getIndustrySkillByText(aiText);
-  return skill.id !== "generic" ? skill : inferIndustry(input, productImages);
+  return resolved;
 }
 
 function asArray(value) {
@@ -601,6 +616,8 @@ function buildProductAnalysis(input, productImages, referenceImages, industrySki
     mode: input.analysisMode === "ai" ? "ai-ready-fallback" : "local-rule",
     confidence: productImages.some((item) => item.hasPixels) ? "medium" : "low",
     industry: industrySkill.name,
+    // P1-1：每条主链路都输出行业识别证据（不依赖 v2Control 是否生成）。
+    industryResolution: industrySkill.resolution || null,
     platform: platformSkill.platform,
     targetAudience: inferAudience(input, industrySkill),
     materialHints: inferMaterials(input, industrySkill),
@@ -792,7 +809,7 @@ function buildRounds(platformSkill, industrySkill, analysis, count, reverseScree
 // S2-C / V2-ARCH：四层控制框架的"工程验证"辅助。
 // 只证明数据贯通 / 行业包按需加载 / 任务准入拒绝 / 编译来源可追溯；不输出正式专业规则到提示词。
 // 占位态（ChatGPT 专业内容未接入）下：loadedIndustryPackIds 恒空、任务恒 pending、审计恒 unauthorizedAdded=false。
-function buildV2ControlReport(aiPlan, resolvedIndustryId) {
+function buildV2ControlReport(aiPlan, resolvedIndustryId, industryResolution = null) {
   const status = professionalContentStatus();
   const registry = createTaskRegistry();
   // 单一决策源工程验证：模型 industryProfile 行业为展示行业，运行时词表行业为规则行业，
@@ -825,6 +842,8 @@ function buildV2ControlReport(aiPlan, resolvedIndustryId) {
     modelIndustryId,
     runtimeIndustryId,
     industrySingleSourceConsistent: modelIndustryId ? modelIndustryId === runtimeIndustryId : null,
+    // P1-1：运行时行业识别证据（识别结果/packId/置信度/命中依据/fallback/规则来源）。
+    industryResolution,
     activeIndustryId: pack.activeIndustryId,
     loadedIndustryPackIds: pack.loadedIndustryPackIds,
     fallbackMode: pack.fallbackMode,
@@ -1392,7 +1411,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   // S2-C / V2-ARCH：工程验证控制报告。占位态不注入任何正式专业规则到 17 槽位文本，
   // 仅把"字段是否贯通 / 行业包是否按需加载 / 任务是否可准入拒绝 / 审计基线"作为可验证证据挂在 group 上。
   // 🔴 这是工程验证，不代表专业模型质量验收通过；专业内容由 ChatGPT 交付后另行接入与验收。
-  const v2Control = v2Planning ? buildV2ControlReport(aiPlan, industrySkill.id) : null;
+  const v2Control = v2Planning ? buildV2ControlReport(aiPlan, industrySkill.id, industrySkill.resolution) : null;
 
   return {
     id: `detail_${createdAt}_${Math.random().toString(36).slice(2, 8)}`,
