@@ -959,6 +959,37 @@ push("AH13 包装不误判服装回归", (() => {
   return r.industryId === "cleaning" && r.decisionPath === "pack_strong_override";
 })());
 
+// ---------- AI 组 · P1-2 字段真实消费（noGeneralization 配置→运行约束完整链路） ----------
+const p12Cfg = JSON.parse(read("server/detail-v2-control/config/professional-content-v1.json"));
+const P12_NON_CLEANING = ["apparel", "beauty", "food", "electronics", "home", "motherBaby", "pet"];
+push("AI1 八包均配detectWords", ["cleaning", ...P12_NON_CLEANING].every((id) => Array.isArray(p12Cfg.industryPacks[id]?.generalizationDetectWords) && p12Cfg.industryPacks[id].generalizationDetectWords.length > 0));
+push("AI2 detectWords替代硬编码正则", probe(read("server/detail-v2-control/skill-activation.js"), "configuredWords = Array.isArray(pack?.generalizationDetectWords)") && !probe(read("server/detail-v2-control/skill-activation.js"), "match(/奶渍|蛋白质污渍"));
+// 7 个非 cleaning 包逐一证明：违规卖点被拦截 + 命中词来自配置 + 事实豁免生效。
+const P12_CASES = [
+  ["apparel", "版型修身承诺穿着效果承诺", ["穿着效果承诺"]],
+  ["beauty", "搭配成分可保证使用效果", ["使用效果"]],
+  ["food", "产地直供获得品质认证", ["品质认证"]],
+  ["electronics", "外观可见超强性能参数", ["性能参数"]],
+  ["home", "此架承重能力超强", ["承重能力"]],
+  ["motherBaby", "适合新生月龄适用范围", ["月龄适用范围"]],
+  ["pet", "通用宠物品类范围适用", ["宠物品类范围"]]
+];
+push("AI3 七包noGeneralization真实拦截", P12_CASES.every(([ind, txt, words]) => {
+  const r = activationMod.checkSellingPointBoundary(txt, ind, p12Cfg, []);
+  return r.allowed === false && words.every((w) => r.hits.includes(w)) && r.detectSource?.fromConfig === true;
+}));
+push("AI4 七包事实豁免不误伤", P12_CASES.every(([ind, txt]) => {
+  const r = activationMod.checkSellingPointBoundary(txt, ind, p12Cfg, [txt]);
+  return r.allowed === true && r.reason === "confirmed_fact_exempt";
+}));
+const p12Clean = activationMod.checkSellingPointBoundary("血渍清洗剂可去奶渍", "cleaning", p12Cfg, []);
+push("AI5 cleaning回归不破坏", p12Clean.allowed === false && p12Clean.hits.includes("奶渍") && p12Clean.detectSource?.fromConfig === true);
+push("AI6 detectSource可追溯", P12_CASES.every(([ind]) => {
+  const r = activationMod.checkSellingPointBoundary("测试", ind, p12Cfg, []);
+  return r.detectSource?.packId === ind && r.detectSource?.detectWordCount > 0;
+}));
+push("AI7 未混入P2能力", !probe(read("server/detail-middleware.js"), "function filterContentByPriority") && !probe(read("server/detail-middleware.js"), "beforeAfterGroup") && !probe(read("server/detail-middleware.js"), "function filterIngredients"));
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");

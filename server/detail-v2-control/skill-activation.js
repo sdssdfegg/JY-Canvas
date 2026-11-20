@@ -13,16 +13,16 @@ export function checkSellingPointBoundary(sellingPoint, industryId = "generic", 
   const text = String(sellingPoint || "");
   const pack = config?.industryPacks?.[industryId];
   const forbidden = Array.isArray(pack?.noGeneralization) ? pack.noGeneralization : [];
-  // 从禁止泛化规则中提取可检测的关键词（规则是自然句，这里只取明确污渍/材质/功效词）。
-  const detectWords = [];
-  for (const rule of forbidden) {
-    const matches = String(rule).match(/奶渍|蛋白质污渍|蛋白类|所有织物|所有材质|所有卫浴材质|杀菌|除菌|消毒|所有厨具/g) || [];
-    detectWords.push(...matches);
-  }
-  // "所有织物/所有材质"的具体表现词（专业规则 §3.4 禁止把具体对象扩为全部相似对象）：
-  // 仅在 cleaning 行业且无对应 visible 事实时视为未确认扩展。
-  if (industryId === "cleaning") {
-    detectWords.push("可水洗内衣", "贴身衣物", "化纤", "混纺", "布艺沙发", "窗帘", "床垫", "奶渍", "蛋白质");
+  // P1-2 字段真实消费：可检测词从配置的 generalizationDetectWords 读取（配置驱动，替代硬编码正则）。
+  // 每个包的 detectWords 由其 noGeneralization 规则派生，配置里显式列出——这是"配置读取→运行约束"链路。
+  // 兼容兜底：旧配置无该字段时，仍从规则句按通用"扩为/推导/虚构/断言"对象提取，避免行为断裂。
+  const configuredWords = Array.isArray(pack?.generalizationDetectWords) ? pack.generalizationDetectWords : [];
+  const detectWords = [...configuredWords];
+  if (detectWords.length === 0) {
+    for (const rule of forbidden) {
+      const matches = String(rule).match(/(?:扩为|推导为|虚构|断言为|等同于)([^，,；;]{2,12})/g) || [];
+      detectWords.push(...matches.map((m) => m.replace(/^(?:扩为|推导为|虚构|断言为|等同于)/, "")));
+    }
   }
   const hits = [...new Set(detectWords)].filter((word) => text.includes(word));
   // V2-PRO-003 修复：命中词若已出现在用户明确提供/已确认事实中，属于合法事实复述，不拦截。
@@ -36,7 +36,9 @@ export function checkSellingPointBoundary(sellingPoint, industryId = "generic", 
     allowed: realHits.length === 0,
     reason: realHits.length ? `forbidden_generalization:${realHits.join(",")}` : (hits.length ? "confirmed_fact_exempt" : "ok"),
     hits: realHits,
-    exempted: hits.filter((word) => confirmedText.includes(word))
+    exempted: hits.filter((word) => confirmedText.includes(word)),
+    // P1-2：检测词来源可追溯（配置包 id + 词数），证明"配置读取→运行约束"链路。
+    detectSource: { packId: industryId, fromConfig: configuredWords.length > 0, detectWordCount: configuredWords.length || detectWords.length }
   };
 }
 
