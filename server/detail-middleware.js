@@ -25,6 +25,8 @@ import {
   admitIndustryPack,
   checkIndustryCoverage,
   validateRecognitionExamples,
+  applyCoverageToTasks,
+  applyOutputRequirements,
   activeConfig
 } from "./detail-v2-control/index.js";
 // V2-PRO-002：Skill 按需触发 + 提示词分层组装 + 编译授权（工程机制）。
@@ -385,11 +387,15 @@ function applyIndustryResolution(skill, resolution) {
   const packId = resolution.packId;
   let coverage = [];
   let packAdmission = null;
+  let outputRequirements = "";
   if (packId) {
     packAdmission = admitIndustryPack(packId, resolution.industryId);
-    if (packAdmission.admitted) coverage = checkIndustryCoverage(packId, "内容方向").evidence.declaration;
+    if (packAdmission.admitted) {
+      coverage = checkIndustryCoverage(packId, "内容方向").evidence.declaration;
+      outputRequirements = String(packAdmission.evidence?.outputRequirements || "");
+    }
   }
-  return { ...skill, resolution, coverage, packAdmission };
+  return { ...skill, resolution, coverage, packAdmission, outputRequirements };
 }
 
 function resolveIndustrySkill(text, aiHint) {
@@ -774,17 +780,6 @@ function buildGlobalLock({ input, platformSkill, industrySkill, analysis, produc
     `目标平台：${platformSkill.platform}${platformSkill.pageType}；输出语言：${lang}；比例：${ratio}；分辨率：${imageSize}。`,
     `目标商品：只以商品图里的「${productName}」为准，${BASE_SKILL.productAuthenticityLock.join(" ")}`,
     `行业识别：${analysis.industry}；重点观察：${industrySkill.analyzeAttributes.join("、")}。`,
-    // P1-2B：coverage（经包级准入）作为行业能力覆盖约束进入全局锁——真实拼进每屏 prompt。
-    // 该字段来自 industryPacks[*].coverage；注入时过滤"厨房/浴室/客厅"等生活场景词条目，
-    // 避免把覆盖元数据变成跨行业场景污染（Q15 防护）；只保留可安全表达的方向标签与项数约束。
-    ...(Array.isArray(industrySkill.coverage) && industrySkill.coverage.length > 0
-      ? (() => {
-          const safe = industrySkill.coverage.filter((item) => !/(客厅|厨房|浴室|家庭成员|宠物)/.test(String(item)));
-          return safe.length > 0
-            ? [`能力覆盖：本行业内容须落在已声明覆盖方向内（${safe.join("、")}），不扩展到未声明方向。`]
-            : [`能力覆盖：本行业已声明 ${industrySkill.coverage.length} 项覆盖方向，内容须落在声明范围内，不扩展未声明方向。`];
-        })()
-      : []),
     `受众：${analysis.targetAudience}；材质线索：${analysis.materialHints.join("、")}。`,
     `全局风格：${analysis.visualStyle}；${BASE_SKILL.globalStyleConsistency.join(" ")}`,
     `平台规则：${platformSkill.visualRule} ${platformSkill.copyRule}`,
@@ -1172,11 +1167,16 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   // P1：无 AI 规划时用结构化事实分组的屏级任务，使用方法等完整任务不拆碎。
   // V2-FIXED-COUNT-DEPTH：fixed 模式下先按真实事实深度细分，再按目标屏数取用；
   // auto 模式保持粗粒度（按内容自然数量，不为凑数强行细分）。
-  const localScreenTasks = (v2Planning && !aiPlan)
+  const rawLocalTasks = (v2Planning && !aiPlan)
     ? (countMode === "fixed"
         ? expandLocalTasksForFixed(buildLocalScreenTasks(structuredFacts, userSellingPoints, BASE_SKILL.screenCountRule.max, productName), structuredFacts, count)
         : buildLocalScreenTasks(structuredFacts, userSellingPoints, count, productName))
     : [];
+  // P1-2B 补齐：coverage 真实决定任务优先/舍弃，outputRequirements 真实注入行业输出约束。
+  // 两者都作用于屏级任务（下游 prompts），不是拼进每屏重复文本。
+  const coverageDecision = applyCoverageToTasks(rawLocalTasks, industrySkill.coverage);
+  const requirementApplied = applyOutputRequirements(coverageDecision.tasks, industrySkill.outputRequirements);
+  const localScreenTasks = requirementApplied.tasks;
   const prompts = screenTitles.map((title, index) => {
     const aiScreen = aiScreens[index] || null;
     const localTask = localScreenTasks[index] || null;
@@ -1492,6 +1492,9 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
         }
       : {}),
     ...(v2Control ? { v2Control } : {}),
+    // P1-2B 补齐：coverage/ outputRequirements 对屏级任务的真实决策结果（可观测证据）。
+    coverageDecision,
+    outputRequirementsApplied: { applied: requirementApplied.applied, bans: requirementApplied.bans, source: requirementApplied.source || "" },
     ...(styleDecision ? {
       skillVersion: "v2",
       stylePack: {

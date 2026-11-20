@@ -321,6 +321,74 @@ export function checkIndustryCoverage(packId, contentDirection, config = activeC
   };
 }
 
+// ---------- P1-2B 补齐：coverage 影响屏级任务分配 / outputRequirements 影响行业输出约束 ----------
+// coverage→通用信息维度的映射（维度名来自 buildLocalScreenTasks 的 taskCategory，非行业专属规则）。
+// 覆盖方向里含"对象/适用/场景"→提升适用范围；含"方式/步骤/使用"→提升使用方法；含"效果/依据"→提升效果。
+const COVERAGE_TASK_HINTS = [
+  { re: /适用|对象|场景|范围/, categories: ["applicableScope"] },
+  { re: /使用|方式|步骤|操作|清洁|去渍|去油|除垢/, categories: ["usage", "care", "applicableScope"] },
+  { re: /效果|依据|性能/, categories: ["effect"] }
+];
+// 消费者：applyCoverageToTasks——coverage 真实影响任务的选择/优先/舍弃，不是拼进每屏文本。
+export function applyCoverageToTasks(tasks = [], coverage = []) {
+  const list = Array.isArray(tasks) ? tasks.map((t) => ({ ...t })) : [];
+  const cov = Array.isArray(coverage) ? coverage : [];
+  if (cov.length === 0 || list.length === 0) {
+    return { tasks: list, decision: { applied: false, reason: "coverage_undeclared", selectedCategories: [], boostCategories: [], deprioritizedCategories: [] } };
+  }
+  const covText = cov.join("、");
+  const boostCategories = new Set();
+  for (const hint of COVERAGE_TASK_HINTS) if (hint.re.test(covText)) hint.categories.forEach((c) => boostCategories.add(c));
+  // 约束：不改变任务屏位顺序（首屏 identity / 固定深度策划顺序是已验收结构，Y/AD 组锁定）。
+  // coverage 通过"覆盖状态标记 + 内容方向约束"影响每个任务实际表达，而非重排屏位。
+  // 命中覆盖维度 → in_scope 且补一条覆盖方向约束；未命中且非通用维度 → out_of_scope 供下游降级。
+  const selectedCategories = [];
+  const deprioritizedCategories = [];
+  const scopedTasks = list.map((task) => {
+    const category = String(task.taskCategory || "");
+    // taskCategory 可能是细分品类（usageStep/careStep），按其基础维度归属匹配覆盖。
+    const inScope = boostCategories.has(category) || [...boostCategories].some((base) => category.startsWith(base));
+    const universal = category === "identity";
+    if (inScope) {
+      selectedCategories.push(task.taskCategory);
+      return {
+        ...task,
+        coverageStatus: "in_scope",
+        compositionHint: `${task.compositionHint || ""}（行业覆盖方向：${covText}；本屏内容须落在该覆盖内，不扩展到未声明方向）`
+      };
+    }
+    if (!universal) deprioritizedCategories.push(task.taskCategory);
+    return { ...task, coverageStatus: universal ? "universal" : "out_of_scope" };
+  });
+  return {
+    tasks: scopedTasks,
+    decision: {
+      applied: true,
+      reason: "coverage_driven_content_scope",
+      coverageCount: cov.length,
+      selectedCategories: [...new Set(selectedCategories)],
+      boostCategories: [...boostCategories],
+      deprioritizedCategories: [...new Set(deprioritizedCategories)]
+    }
+  };
+}
+
+// 消费者：applyOutputRequirements——把行业输出约束（"禁止X规则"）注入命中任务的 hint，影响屏级内容。
+export function applyOutputRequirements(tasks = [], outputRequirements = "") {
+  const list = Array.isArray(tasks) ? tasks.map((t) => ({ ...t })) : [];
+  const text = String(outputRequirements || "");
+  if (!text) return { tasks: list, applied: false, bans: [] };
+  // 从"禁止A/B/C规则"提取被禁对象（按 / 和 、切分），只取明确的短词，避免误伤。
+  const banMatch = text.match(/禁止([^，。；]+)/);
+  const bans = banMatch ? banMatch[1].split(/[\/、]/).map((s) => s.trim()).filter((s) => s.length >= 1 && s.length <= 8) : [];
+  const appliedTasks = list.map((task) => {
+    const hint = String(task.compositionHint || "");
+    const hit = bans.filter((b) => hint.includes(b) || String(task.taskCategory || "").includes(b));
+    return hit.length > 0 ? { ...task, compositionHint: `${hint}（行业约束：不得出现${hit.join("、")}相关表达）`, outputConstraintHits: hit } : task;
+  });
+  return { tasks: appliedTasks, applied: bans.length > 0, bans, source: "professionalValues.outputRequirements" };
+}
+
 // ---------- 全品类跨行业污染检测（配置驱动、可扩展，非硬编码几个行业） ----------
 // 原理：一段文案若命中"其他行业的强特征词"(positiveSignals)，且这些词不在本行业的
 // weakContextWordsMustNotOverride(使用对象/弱语境词)中，视为跨行业规则污染风险。

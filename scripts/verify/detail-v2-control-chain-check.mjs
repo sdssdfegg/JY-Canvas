@@ -979,7 +979,9 @@ push("AI3 七包noGeneralization真实拦截", P12_CASES.every(([ind, txt, words
   return r.allowed === false && words.every((w) => r.hits.includes(w)) && r.detectSource?.fromConfig === true;
 }));
 push("AI4 七包事实豁免不误伤", P12_CASES.every(([ind, txt]) => {
-  const r = activationMod.checkSellingPointBoundary(txt, ind, p12Cfg, [txt]);
+  // 结论性词（性能/认证/范围等）需事实带依据标记才豁免——这是 P1-2B 新增的精确性要求。
+  const factWithEvidence = `${txt}，依据：实测数据`;
+  const r = activationMod.checkSellingPointBoundary(txt, ind, p12Cfg, [factWithEvidence]);
   return r.allowed === true && r.reason === "confirmed_fact_exempt";
 }));
 const p12Clean = activationMod.checkSellingPointBoundary("血渍清洗剂可去奶渍", "cleaning", p12Cfg, []);
@@ -1016,10 +1018,13 @@ push("AJ5 coverage覆盖判定有声明来源", (() => {
   const undeclared = uniMod.checkIndustryCoverage("apparel", "版型", p12Cfg);
   return covered.status === "covered" && covered.evidence.source.includes("coverage") && covered.evidence.declaration.length >= 6 && undeclared.status === "undeclared";
 })());
-push("AJ6 coverage进行业段提示词", (() => {
-  const g = deriveMod.buildDetailPromptGroup({ count: 10, countMode: "fixed", workflow: "taobao-detail", productName: "羽绒服干洗剂", productFeature: "成分：表面活性剂。使用方法：按压刷洗。", userInstruction: "" }, [], {});
-  const joined = g.prompts.map((p) => p.text).join("\n");
-  return joined.includes("能力覆盖") && joined.includes("衣物清洁与去渍");
+push("AJ6 coverage影响屏级任务且非每屏重复", (() => {
+  const inf = "成分：阴离子表面活性剂。适用范围：羽绒服、窗帘。使用方法：按压海绵头，刷洗，擦拭后自然干燥。";
+  const g = deriveMod.buildDetailPromptGroup({ count: 6, countMode: "fixed", workflow: "taobao-detail", productName: "羽绒服干洗剂", productFeature: inf, userInstruction: "" }, [], {});
+  const d = g.coverageDecision?.decision || {};
+  const scopeHints = g.prompts.filter((p) => p.text.includes("行业覆盖方向")).length;
+  // 决策真实影响任务（有 selected），覆盖方向只进命中任务（非每屏），且不破坏屏位。
+  return d.applied === true && d.selectedCategories.length > 0 && scopeHints > 0 && scopeHints < g.prompts.length && g.prompts[0].text.includes("羽绒服干洗剂");
 })());
 // 豁免精确匹配：普通复述放行，全称泛化拦截。
 push("AJ7 豁免仅精确匹配事实主张", (() => {
@@ -1029,6 +1034,55 @@ push("AJ7 豁免仅精确匹配事实主张", (() => {
   return plain.allowed === true && plain.reason === "confirmed_fact_exempt" && generic.allowed === false && generic.hits.includes("窗帘");
 })());
 push("AJ8 不回退P1-2A检测链路", probe(read("server/detail-v2-control/skill-activation.js"), "configuredWords = Array.isArray(pack?.generalizationDetectWords)") && p12Cfg.industryPacks.cleaning.generalizationDetectWords.length >= 18);
+
+// ---------- AK 组 · P1-2B 补齐证据（outputRequirements消费/coverage屏级决策/豁免范围精确性） ----------
+push("AK1 outputRequirements字段来源", (() => {
+  const r = deriveMod.buildDetailPromptGroup({ count: 4, countMode: "fixed", workflow: "taobao-detail", productName: "清洁剂", productFeature: "清洁剂去渍。", userInstruction: "" }, [], {});
+  return r.outputRequirementsApplied?.applied === true && r.outputRequirementsApplied.source === "professionalValues.outputRequirements" && r.outputRequirementsApplied.bans.includes("袖口");
+})());
+push("AK2 outputRequirements真实改写任务约束", (() => {
+  const req = p12Cfg.industryPacks.cleaning.professionalValues.outputRequirements;
+  const tasks = [
+    { taskCategory: "material", sellingPoint: "材质与面料：袖口设计", compositionHint: "展示袖口细节与版型结构" },
+    { taskCategory: "ingredient", sellingPoint: "成分与配方：表面活性剂", compositionHint: "说明成分" }
+  ];
+  const r = uniMod.applyOutputRequirements(tasks, req);
+  return r.tasks[0].compositionHint.includes("行业约束：不得出现袖口") && r.tasks[0].outputConstraintHits.includes("袖口") && r.tasks[1].compositionHint === tasks[1].compositionHint;
+})());
+push("AK3 coverage同输入开关对照", (() => {
+  const tasks = [
+    { taskCategory: "identity", sellingPoint: "商品身份", compositionHint: "首屏认知" },
+    { taskCategory: "ingredient", sellingPoint: "成分", compositionHint: "说明成分" },
+    { taskCategory: "applicableScope", sellingPoint: "适用范围", compositionHint: "范围认知" },
+    { taskCategory: "usageStep", sellingPoint: "使用步骤", compositionHint: "刷洗动作" }
+  ];
+  const off = uniMod.applyCoverageToTasks(tasks, []);
+  const on = uniMod.applyCoverageToTasks(tasks, p12Cfg.industryPacks.cleaning.coverage);
+  return off.decision.applied === false && on.decision.applied === true && on.decision.selectedCategories.includes("applicableScope") && on.decision.selectedCategories.includes("usageStep") && on.decision.deprioritizedCategories.includes("ingredient");
+})());
+push("AK4 coverage不破坏屏位不每屏重复", (() => {
+  const inf = "成分：阴离子表面活性剂。适用范围：羽绒服、窗帘。使用方法：按压海绵头，刷洗，擦拭后自然干燥。";
+  const g = deriveMod.buildDetailPromptGroup({ count: 6, countMode: "fixed", workflow: "taobao-detail", productName: "羽绒服干洗剂", productFeature: inf, userInstruction: "" }, [], {});
+  const scopeHints = g.prompts.filter((p) => p.text.includes("行业覆盖方向")).length;
+  return g.coverageDecision?.decision?.applied === true && scopeHints > 0 && scopeHints < g.prompts.length && g.prompts[0].text.includes("羽绒服干洗剂");
+})());
+push("AK5 豁免-仅关键词无依据不放行", (() => {
+  const r = activationMod.checkSellingPointBoundary("性能参数表现优异", "electronics", p12Cfg, ["性能参数"]);
+  return r.allowed === false && r.hits.includes("性能参数");
+})());
+push("AK6 豁免-有具体效果事实允许", (() => {
+  const r = activationMod.checkSellingPointBoundary("性能参数5000mAh实测续航24小时", "electronics", p12Cfg, ["性能参数：5000mAh，实测续航24小时"]);
+  return r.allowed === true && r.reason === "confirmed_fact_exempt";
+})());
+push("AK7 豁免-局部证据不放大范围", (() => {
+  const r = activationMod.checkSellingPointBoundary("性能参数达标所有场景都适用", "electronics", p12Cfg, ["性能参数：5000mAh"]);
+  return r.allowed === false && r.hits.includes("性能参数");
+})());
+push("AK8 T恤空格缺口挂账可见", (() => {
+  const f = uniMod.validateRecognitionExamples(p12Cfg, (input) => ({ industryId: uniMod.resolveIndustryDecision({ text: input, aiHint: "", config: p12Cfg }).industryId }));
+  const gap = f.cases.find((c) => c.input.includes("T"));
+  return f.allPass === false && gap && gap.actualIndustry === "generic" && gap.expectIndustry === "apparel";
+})());
 
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");

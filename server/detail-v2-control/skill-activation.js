@@ -35,12 +35,24 @@ export function checkSellingPointBoundary(sellingPoint, industryId = "generic", 
   // 只有"命中词在事实中"且"卖点未对该词施加全称/泛化修饰"时才豁免，防止跨范围放行
   // （如事实="适用于窗帘"，卖点="所有窗帘材质都适用"命中泛化词时仍须拦截）。
   const GENERALIZATION_MODIFIERS = /所有|全部|任何|均|都|各类|各种|通用|全系列|全材质|任何一种|一切/;
+  // P1-2B 补齐：结论性/功效类词（含"效果/功效/性能/认证/检测/结果/参数/安全/承诺/依据/范围"词根）
+  // 仅凭关键词出现在事实中不足以豁免，还要求事实里该词附近有依据标记（数值/检测/实测/报告等），
+  // 防止"事实仅提了词，没有对应功效依据"也被放行。
+  const CONCLUSION_WORD = /效果|功效|性能|认证|检测|结果|参数|安全|承诺|依据|范围|耐用|承重/;
+  const EVIDENCE_MARK = /\d|[0-9]|%|检测|实测|测试|报告|认证编号|实验|数据|依据|数值/;
   const exemptable = (word) => {
     if (!confirmedText.includes(word)) return false;
     const at = text.indexOf(word);
     if (at < 0) return false;
     const window = text.slice(Math.max(0, at - 12), at + word.length + 12);
-    return !GENERALIZATION_MODIFIERS.test(window);
+    if (GENERALIZATION_MODIFIERS.test(window)) return false;
+    // 结论性词：在事实里定位该词，检查其局部窗口是否有依据标记。
+    if (CONCLUSION_WORD.test(word)) {
+      const fat = confirmedText.indexOf(word);
+      const factWindow = confirmedText.slice(Math.max(0, fat - 16), fat + word.length + 16);
+      if (!EVIDENCE_MARK.test(factWindow)) return false;
+    }
+    return true;
   };
   const realHits = hits.filter((word) => !exemptable(word));
   return {
