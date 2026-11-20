@@ -1456,30 +1456,67 @@ const cpSub = (pn, pf) => deriveMod.buildDetailPromptGroup(
   { count: 4, countMode: "fixed", workflow: "taobao-detail", productName: pn, productFeature: pf, userInstruction: "" }, [], {}
 );
 push("CP10 S1正常laundryStain保留子类目", (() => {
-  const s = cpIndustry(cpSub("衣物去渍护理剂", "衣物去渍衣领净领口去渍，成分：表活。"));
-  return s && s.id === "laundryStain" && s.resolution?.confidence === "high" && s.resolution?.decisionPath === "subcategory_signal_match"
-    && Boolean(s.subCategoryMatch) && s.ruleLoadDecision?.level === "full_pack_rules";
+  const g = cpSub("衣物去渍护理剂", "衣物去渍衣领净领口去渍，成分：表活。");
+  const s = cpIndustry(g); const r = s?.resolution || {};
+  // 原有断言全保留，追加：子类目身份/继承证据/规则来源/full_pack_rules/专属规则真实加载。
+  return s && s.id === "laundryStain" && r.confidence === "high" && r.decisionPath === "subcategory_signal_match"
+    && Boolean(s.subCategoryMatch) && s.ruleLoadDecision?.level === "full_pack_rules"
+    && r.ruleSource === "industrySubCategory" && r.packId === "laundryStain"
+    && s.subCategoryMatch?.subCategoryId === "laundryStain" && s.subCategoryMatch?.parentPackId === "cleaning"
+    && Boolean(r.preResolvedInherited) && Array.isArray(r.preResolvedInherited?.inheritedFrom) && r.preResolvedInherited.inheritedFrom.includes("cleaning")
+    && g.coverageDecision?.decision?.applied === true && g.outputRequirementsApplied?.applied === true
+    && Array.isArray(s.analyzeAttributes) && s.analyzeAttributes.includes("清洁对象");
 })());
 push("CP11 S2 laundryStain+apparel真信号收敛generic", (() => {
-  const s = cpIndustry(cpSub("衣物去渍衣领净领口去渍版型修身袖口精致", "成分：表活。"));
-  return s && s.id === "generic" && s.resolution?.confidence === "medium" && s.resolution?.decisionPath === "cross_industry_conflict"
-    && !s.subCategoryMatch && Array.isArray(s.analyzeAttributes) && !/版型轮廓|袖口\/领口/.test(JSON.stringify(s.analyzeAttributes));
+  const g = cpSub("衣物去渍衣领净领口去渍版型修身袖口精致", "成分：表活。");
+  const s = cpIndustry(g); const r = s?.resolution || {}; const txt = g.prompts[0].text;
+  // 原有 analyzeAttributes 通用化断言保留，追加收敛全字段 + 下游消费者/上下文隔离。
+  return s && s.id === "generic" && r.confidence === "medium" && r.decisionPath === "cross_industry_conflict"
+    && !s.subCategoryMatch && Array.isArray(s.analyzeAttributes) && !/版型轮廓|袖口\/领口/.test(JSON.stringify(s.analyzeAttributes))
+    && r.packId === null && r.ruleSource === "generic" && s.ruleLoadDecision?.level === "generic_rules"
+    && !r.preResolvedInherited && g.coverageDecision?.decision?.applied === false && g.outputRequirementsApplied?.applied === false
+    && JSON.stringify(s.analyzeAttributes) === JSON.stringify(["商品主体", "已确认事实", "使用方式"])
+    && !/款式结构|版型轮廓|袖口\/领口|模特比例/.test(txt)
+    && Array.isArray(r.evidence?.pollutingIndustries) && r.evidence.pollutingIndustries.includes("apparel");
 })());
 push("CP12 S2b laundryStain+electronics收敛generic", (() => {
-  const s = cpIndustry(cpSub("衣物去渍衣领净手机快充", "成分：表活。"));
-  return s && s.id === "generic" && s.resolution?.confidence === "medium" && s.resolution?.decisionPath === "cross_industry_conflict";
+  const g = cpSub("衣物去渍衣领净手机快充", "成分：表活。");
+  const s = cpIndustry(g); const r = s?.resolution || {}; const txt = g.prompts[0].text;
+  // 不能只查 resolution 三字段——追加收敛全字段 + 下游消费者(inferAudience 不进 electronics 专属分支)。
+  return s && s.id === "generic" && r.confidence === "medium" && r.decisionPath === "cross_industry_conflict"
+    && r.packId === null && r.ruleSource === "generic" && s.ruleLoadDecision?.level === "generic_rules"
+    && !s.subCategoryMatch && !r.preResolvedInherited
+    && g.coverageDecision?.decision?.applied === false && g.outputRequirementsApplied?.applied === false
+    && JSON.stringify(s.analyzeAttributes) === JSON.stringify(["商品主体", "已确认事实", "使用方式"])
+    && !/核心功能|接口位置|屏幕\/按键|参数功能/.test(txt)
+    && g.analysis?.targetAudience === "电商浏览用户，关注第一眼质感、核心卖点、真实细节和购买理由"
+    && Array.isArray(r.evidence?.pollutingIndustries) && r.evidence.pollutingIndustries.includes("electronics");
 })());
 push("CP13 S3子目自身领口不误报+独立领口仍触发", (() => {
-  const inSub = cpIndustry(cpSub("衣物去渍领口去渍", "成分：表活。"));
-  const independent = cpIndustry(cpSub("衣物去渍清洗剂领口设计修身", "成分：表活。"));
-  // 子目短语"领口去渍"内的"领口"不触发；独立出现的"领口"必须触发（禁止全局豁免）。
+  const gIn = cpSub("衣物去渍领口去渍", "成分：表活。");
+  const gOut = cpSub("衣物去渍清洗剂领口设计修身", "成分：表活。");
+  const inSub = cpIndustry(gIn); const independent = cpIndustry(gOut);
+  // 区间内：保留 laundryStain 子类目和专属规则；区间外：收敛 generic 并清子类目证据。
   return inSub && inSub.id === "laundryStain" && inSub.resolution?.confidence === "high"
+    && inSub.resolution?.decisionPath === "subcategory_signal_match" && Boolean(inSub.subCategoryMatch)
+    && inSub.ruleLoadDecision?.level === "full_pack_rules" && inSub.resolution?.ruleSource === "industrySubCategory"
+    && gIn.coverageDecision?.decision?.applied === true
     && independent && independent.id === "generic" && independent.resolution?.confidence === "medium"
-    && independent.resolution?.decisionPath === "cross_industry_conflict";
+    && independent.resolution?.decisionPath === "cross_industry_conflict"
+    && independent.resolution?.packId === null && independent.resolution?.ruleSource === "generic"
+    && !independent.subCategoryMatch && !independent.resolution?.preResolvedInherited
+    && independent.ruleLoadDecision?.level === "generic_rules"
+    && gOut.coverageDecision?.decision?.applied === false && gOut.outputRequirementsApplied?.applied === false;
 })());
 push("CP14 S4父包cleaning信号正常行为", (() => {
-  const s = cpIndustry(cpSub("清洗剂去渍重油污", "成分：表活。"));
-  return s && s.id === "cleaning" && s.resolution?.confidence === "high" && s.resolution?.decisionPath === "pack_strong_override";
+  const g = cpSub("清洗剂去渍重油污", "成分：表活。");
+  const s = cpIndustry(g); const r = s?.resolution || {};
+  // 原有断言保留，追加 cleaning 身份/规则来源/full_pack_rules/专属规则未被 P1-6 影响。
+  return s && s.id === "cleaning" && r.confidence === "high" && r.decisionPath === "pack_strong_override"
+    && r.ruleSource === "industryPack" && r.packId === "cleaning" && s.ruleLoadDecision?.level === "full_pack_rules"
+    && !s.subCategoryMatch && !r.preResolvedInherited
+    && g.coverageDecision?.decision?.applied === true && g.outputRequirementsApplied?.applied === true
+    && Array.isArray(s.analyzeAttributes) && s.analyzeAttributes.includes("清洁对象");
 })());
 push("CP15 独立强信号版型/袖口/手机/口红不受错误豁免", (() => {
   return ["衣物去渍版型修身袖口 成分：表活。", "衣物去渍手机快充 成分：表活。", "衣物去渍口红彩妆 成分：表活。"].every((pf) => {
@@ -1494,6 +1531,18 @@ push("CP16 弱语境豁免保持(cleaning弱词棉/面料不判污染)", (() => 
   const cleanWeak = agCfg.industryPacks.cleaning.weakContextWordsMustNotOverride || [];
   return cleanWeak.includes("棉") && cleanWeak.includes("面料")
     && uniMod.checkIndustryPollution(t, "cleaning", agCfg).hasPollution === false;
+})());
+// CP17：同一"领口"在子目短语"领口去渍"内出现一次、又独立出现一次——区间内排除，但区间外必须保留并触发冲突保护。
+push("CP17 同词区间内外同时出现→区间外命中触发冲突保护", (() => {
+  const g = cpSub("衣物去渍护理剂", "衣物去渍领口去渍，领口设计修身，成分：表活。");
+  const s = cpIndustry(g); const r = s?.resolution || {}; const txt = g.prompts[0].text;
+  return s && s.id === "generic" && r.packId === null && r.confidence === "medium"
+    && r.decisionPath === "cross_industry_conflict" && r.ruleSource === "generic"
+    && !s.subCategoryMatch && !r.preResolvedInherited && s.ruleLoadDecision?.level === "generic_rules"
+    && g.coverageDecision?.decision?.applied === false && g.outputRequirementsApplied?.applied === false
+    && JSON.stringify(s.analyzeAttributes) === JSON.stringify(["商品主体", "已确认事实", "使用方式"])
+    && !/款式结构|版型轮廓|袖口\/领口/.test(txt)
+    && Array.isArray(r.evidence?.pollutingIndustries) && r.evidence.pollutingIndustries.includes("apparel");
 })());
 
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
