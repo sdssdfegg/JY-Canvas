@@ -446,8 +446,37 @@ function resolveIndustrySkill(text, aiHint) {
     }
   }
 
+  // P1-6 跨行业冲突保护（顾问裁定触发定义）：识别完成后、规则加载前，以当前识别结果为基准，
+  // 用生产配置驱动的 checkIndustryPollution 判定输入是否含跨行业强正信号冲突且未命中弱语境豁免。
+  // 命中即把本次行业决策一致收敛为 generic/medium——不要求证明识别"错误"（无独立正确行业基准），
+  // 只隔离不可靠的行业专属策略。不改原始商品文本、不新增字段、不碰 P1-1 评分/tie/override。
+  // 保护既有契约：
+  // ① P1-1 已判 medium/low（多包同分/降级）不重复收敛，保留其 parent_common_rules 语义；
+  // ② 子类目已明确命中（P1-3 生产能力）时行业归属已可靠识别，跳过冲突保护——子目专属信号
+  //    （如 laundryStain 的"领口去渍"含 apparel 词"领口"）不应反向触发污染拦截、破坏 P1-3 已验收能力。
+  const conflictBaselineId = resolution.industryId;
+  const conflictAudit = (!subCategoryMatch && resolution.confidence === "high" && conflictBaselineId && conflictBaselineId !== "generic")
+    ? checkIndustryPollution(text, conflictBaselineId) : null;
+  const conflictProtected = Boolean(conflictAudit?.hasPollution);
+  if (conflictProtected) {
+    resolution = {
+      ...resolution,
+      industryId: "generic",
+      packId: null,
+      confidence: "medium",
+      fallbackStatus: "none",
+      ruleSource: "generic",
+      decisionPath: "cross_industry_conflict",
+      parentPackId: null,
+      preResolvedInherited: null,
+      evidence: { via: "p1_6_cross_industry_conflict", pollutingIndustries: conflictAudit.risks.map((r) => r.industry) }
+    };
+    // 子类目专属证据一并失效——冲突保护下不加载任何行业/子类目专属策略。
+    subCategoryMatch = null;
+  }
+
   let base;
-  const isCleaning = parentPackId === "cleaning" || resolution.parentPackId === "cleaning";
+  const isCleaning = !conflictProtected && (parentPackId === "cleaning" || resolution.parentPackId === "cleaning");
   if (isCleaning && (resolution.decisionPath === "pack_strong_override" || resolution.parentPackId === "cleaning")) {
     // cleaning 及衣物去渍子类目：沿用既有覆盖层规则属性底座（回归零风险），子目专属由继承/置信度机制叠加。
     base = {

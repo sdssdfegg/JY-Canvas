@@ -1398,6 +1398,59 @@ push("AP16 状态枚举由真实事件产生", (() => {
   return states.activation.includes("missing_contract") && states.execution.includes("model_call_failed") && states.output.includes("empty") && states.downstream.includes("not_consumed") && states.injection.includes("duplicate");
 })());
 
+// ---------- CP 组 · P1-6 跨行业冲突保护（业务实施效果断言） ----------
+// 触发定义（顾问裁定）：生产配置污染检测确认跨行业强正信号冲突且未命中弱语境豁免即触发，
+// 不要求证明识别结果"错误"（无独立可信正确行业基准）。命中→confidence=medium + industryId/packId=generic。
+const cpGroup = (t, f) => deriveMod.buildDetailPromptGroup(
+  { count: 4, countMode: "fixed", workflow: "taobao-detail", productName: t, productFeature: f || "成分：表活。", userInstruction: "" }, [], {}
+);
+const cpIndustry = (g) => g.skillLayers?.industry;
+push("CP1 AG14 cleaning+apparel冲突→generic+专属规则不进规划", (() => {
+  const g = cpGroup("版型修身清洗剂去渍"); const s = cpIndustry(g); const txt = g.prompts[0].text;
+  return s && s.id === "generic" && s.resolution?.confidence === "medium" && s.resolution?.decisionPath === "cross_industry_conflict"
+    && s.ruleLoadDecision?.level === "generic_rules"
+    && !/款式结构|版型轮廓|袖口\/领口|模特比例/.test(txt)
+    && JSON.stringify(s.analyzeAttributes) === JSON.stringify(["商品主体", "已确认事实", "使用方式"]);
+})());
+push("CP2 AG15 cleaning+beauty冲突→generic", (() => {
+  const s = cpIndustry(cpGroup("口红彩妆清洗剂"));
+  return s && s.id === "generic" && s.resolution?.confidence === "medium" && s.resolution?.decisionPath === "cross_industry_conflict";
+})());
+push("CP3 AG16 beauty+apparel冲突→generic", (() => {
+  const s = cpIndustry(cpGroup("口红彩妆连衣裙"));
+  return s && s.id === "generic" && s.resolution?.confidence === "medium";
+})());
+push("CP4 AG18a/b/c真多行业组合均收敛generic", (() => {
+  return ["手机快充清洗剂去渍", "食品饮料衬衫", "手机电脑外套"].every((t) => {
+    const s = cpIndustry(cpGroup(t)); return s && s.id === "generic" && s.resolution?.confidence === "medium";
+  });
+})());
+push("CP5 AG9/AG11单行业负向控制不误降级", (() => {
+  const a = cpIndustry(cpGroup("版型修身袖口精致的清洁喷雾"));
+  const b = cpIndustry(cpGroup("手机快充接口性能"));
+  return a && a.id === "apparel" && a.resolution?.confidence === "high"
+    && b && b.id === "electronics" && b.resolution?.confidence === "high";
+})());
+push("CP6 AG10b弱语境豁免不误降级", (() => {
+  const s = cpIndustry(cpGroup("棉质面料清洁喷雾去渍"));
+  return s && s.id === "cleaning" && s.resolution?.confidence === "high" && s.resolution?.decisionPath !== "cross_industry_conflict";
+})());
+push("CP7 AG17单行业正常识别不误降级", (() => {
+  const s = cpIndustry(cpGroup("清洗剂去渍重油污"));
+  return s && s.id === "cleaning" && s.resolution?.confidence === "high";
+})());
+push("CP8 降级后ID分支消费者不绕过(checkSellingPointBoundary用generic)", (() => {
+  const r = uniMod.checkSellingPointBoundary ? uniMod.checkSellingPointBoundary("版型修身清洗剂去渍", "generic", agCfg, []) : null;
+  // uniMod 是 index.js；checkSellingPointBoundary 在 skill-activation，用 middleware 暴露不可得时以配置事实断言。
+  const genericPack = agCfg.industryPacks.generic || {};
+  return (r === null || (r.detectSource?.packId === "generic" && r.detectSource?.fromConfig === false))
+    && Array.isArray(genericPack.generalizationDetectWords) === false;
+})());
+push("CP9 原始商品文本未被修改(冲突保护只改resolution)", (() => {
+  const g = cpGroup("版型修身清洗剂去渍"); const txt = g.prompts[0].text;
+  return txt.includes("版型修身清洗剂去渍") && g.params?.productName === "版型修身清洗剂去渍";
+})());
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
