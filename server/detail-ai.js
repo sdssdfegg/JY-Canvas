@@ -39,6 +39,10 @@ const V2_REGISTERED_SKILLS = detailV2SkillRegistry.map((skill) => ({
   marker: skill.marker,
   directive: V2_SKILL_DIRECTIVES[skill.id] || `[${skill.id}] 按该专业 Skill 规则执行，不得越过商品真实性。`
 }));
+// P1-5 阶段A双路径治理：registeredSkills 只作取证/可追溯载体（marker 门禁 V5 依赖），
+// directive 的唯一权威注入路径是 instruction(:185)。此处派生无 directive 的 marker 视图，
+// 消除同一 directive 在同一请求体内经 instruction + registeredSkills 双路径逐字重复。
+const V2_REGISTERED_MARKERS = V2_REGISTERED_SKILLS.map(({ id, version, marker }) => ({ id, version, marker }));
 
 // V219 §11.3 四项收窄偏差的双向映射说明（校准进 instruction，不改 outputSchema 既有枚举值）。
 // 每项均给出"运行时值 ←→ 原文值"映射与不改枚举的声明，作为策划语义证据进入模型上下文。
@@ -106,11 +110,13 @@ function compactSkillPack(input, v2Context = null) {
   };
   // 自建 V2 规划 Skill：条件注入（仅 planningActive 即空板块默认路径时进入 skillPack）。
   // 保持 compactSkillPack(input, v2Context) 调用锚点不变；planningActive 在函数内部自算，非第三参数。
-  // V220/S2-B：把 index.js 注册表的 8 个专业 Skill 以 {marker,directive} 视图挂进 planningSkill.registeredSkills。
+  // V220/S2-B：把 index.js 注册表的 8 个专业 Skill 以 {id,version,marker} 取证视图挂进 planningSkill.registeredSkills。
+  // P1-5 阶段A治理：此处不再挂 directive——directive 唯一权威注入路径是 instruction(:185)，
+  // registeredSkills 仅承载 marker 供 V5 门禁可追溯，避免同一 directive 在同一请求体内双路径逐字重复。
   // 仍嵌在 planningSkill 内而非新开顶层键——旧门禁 stripPlanningSkill/N6/B12 的"仅空选注入"语义原样成立，
   // 且 skillModuleV2 本体导出字节不变；8 项由 detailV2SkillRegistry 派生，不再单对象硬编码。
   const planningSkillField = planningActive
-    ? { planningSkill: { ...skillModuleV2, registeredSkills: V2_REGISTERED_SKILLS } }
+    ? { planningSkill: { ...skillModuleV2, registeredSkills: V2_REGISTERED_MARKERS } }
     : {};
   if (!v2Context) return { ...pack, ...planningSkillField };
   return {

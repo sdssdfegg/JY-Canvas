@@ -379,6 +379,12 @@ push("V10 旧枚举值未改：facts.level 三级 + moduleId 词表仍为原字�
   probe(sources.ai, "level: \"visible|inferred|mustNotClaim\"")
     && probe(sources.ai, "hero|painReverse|coreSellingPoint|materialDetail|useScenario|specInfo|trustProof|conversionClose|fitStructure"),
   "不改旧枚举，仅加映射说明");
+// P1-5 阶段A治理：registeredSkills 只作 marker 取证载体，directive 唯一权威路径是 instruction。
+const regNoDirective = (list) => Array.isArray(list) && list.length > 0 && list.every((item) =>
+  item && Object.hasOwn(item, "marker") && !Object.hasOwn(item, "directive"));
+push("V11 P1-5治理：registeredSkills 无 directive 且 marker 齐全（唯一权威路径=instruction）",
+  regNoDirective(regSkillsOf(payloadA)) && hasAllMarkers(payloadA) && hasAllPhrases(payloadA),
+  "registeredSkills 字段=" + Object.keys(regSkillsOf(payloadA)?.[0] || {}).join(","));
 
 // V 组负向对照（坏夹具→判红，证明上述断言非虚设、非恒真）
 const badDropMarker = {
@@ -386,6 +392,11 @@ const badDropMarker = {
 };
 push("VN1 负向：删 1 个 Skill marker 必被 V5 判红",
   hasAllMarkers(payloadA) && !hasAllMarkers(badDropMarker), "坏夹具少一 marker");
+// P1-5 负向：若 registeredSkills 重新挂回 directive（双路径回退），V11 必须判红。
+const badWithDirective = { skillPack: { planningSkill: { registeredSkills: (regSkillsOf(payloadA) || []).map((s) => ({ ...s, directive: "x" })) } } };
+push("VN4 负向：registeredSkills 回退挂 directive 必被 V11 判红",
+  regNoDirective(regSkillsOf(payloadA)) && !regNoDirective(badWithDirective.skillPack.planningSkill.registeredSkills),
+  "坏夹具重新挂 directive");
 const badNoTopKey = { outputSchema: { ...(payloadA?.outputSchema || {}) } };
 delete badNoTopKey.outputSchema.industryProfile;
 push("VN2 负向：删 industryProfile 顶层键必被 V8 判红",
