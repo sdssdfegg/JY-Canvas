@@ -1247,6 +1247,100 @@ push("AO7 P1-1通用识别不回退", (() => {
     && g.v2Control?.ruleLoadDecision?.level === "full_pack_rules";
 })());
 
+// ---------- AP 组 · P1-4 五态治理实施（14 项测试矩阵） ----------
+const apAiPlan = {
+  product: { industryId: "cleaning", name: "衣物清洗剂", realSellingPoints: ["去渍强", "温和配方"] },
+  consumerInsights: { needs: ["深层去渍"] },
+  marketingStrategy: { valueLadder: [{ expression: "洁净如新", benefit: "省时" }] },
+  planning: { facts: [{ claim: "去渍率98%", level: "visible" }], screenRoles: [] },
+  globalVisualDNA: { palette: "蓝白" }
+};
+const apGroup = (opts = {}, input = {}) => deriveMod.buildDetailPromptGroup(
+  { count: 4, countMode: "fixed", workflow: "taobao-detail", productName: "衣物血渍清洗剂", productFeature: "成分：表活。适用范围：羽绒服。使用方法：按压刷洗。有检测报告。", userInstruction: "", ...input },
+  [], opts
+);
+// 五态字段完整性（4 Skill 核心）
+const apLife = apGroup({ aiPlan: apAiPlan, aiMeta: { model: "t", mode: "ai-text", timing: { totalMs: 1 } } }).skillLifecycleByScreen.screen_1;
+const apPU = apLife.results.find((r) => r.id === "product-understanding");
+push("AP1 正确激活并成功投递", Boolean(apPU) && apPU.lifecycle.activation.state === "activated" && apPU.lifecycle.execution.state === "model_call_succeeded" && apPU.lifecycle.execution.evidence.directiveDispatched === true);
+push("AP2 未激活后续阶段跳过", (() => {
+  const r = apLife.results.find((x) => x.id === "figure-usage-scene");
+  return r && r.lifecycle.activation.state === "not_activated" && r.lifecycle.execution.state === "not_applicable" && r.lifecycle.output.state === "not_applicable";
+})());
+push("AP3 当前任务不适用态", (() => {
+  const r = apLife.results.find((x) => x.id === "detail-quality-control");
+  return r && ["not_activated", "not_applicable"].includes(r.lifecycle.activation.state);
+})());
+push("AP4 指令投递但模型调用失败", (() => {
+  const g = apGroup({ aiPlan: apAiPlan, aiError: "模型超时" });
+  const r = g.skillLifecycleByScreen.screen_1.results.find((x) => x.id === "product-understanding");
+  return r.lifecycle.execution.state === "model_call_failed" && r.lifecycle.execution.evidence.modelCallFailed === true;
+})());
+push("AP5 模型调用成功但输出为空", (() => {
+  const emptyPlan = { product: {}, planning: {}, globalVisualDNA: {} };
+  const g = apGroup({ aiPlan: emptyPlan, aiMeta: { model: "t", timing: { totalMs: 1 } } });
+  const r = g.skillLifecycleByScreen.screen_1.results.find((x) => x.id === "product-understanding");
+  return ["empty", "invalid", "not_produced"].includes(r.lifecycle.output.state);
+})());
+push("AP6 输出结构或内容无效", (() => {
+  const bad = activationMod.validateSkillOutput([{ name: "缺benefit" }], { itemFields: ["expression", "benefit"] });
+  const s = activationMod.validateSkillOutput("  ", {});
+  return bad.state === "invalid" && s.state === "empty";
+})());
+push("AP7 输出有效但无下游消费者", (() => {
+  const r = apLife.results.find((x) => x.id === "industry-routing-retained");
+  return r && r.lifecycle.downstream.state === "not_consumed" && r.lifecycle.downstream.evidence.consumer === null;
+})());
+push("AP8 输出被真实消费并影响结果", (() => {
+  const r = apLife.results.find((x) => x.id === "product-understanding");
+  return r && r.lifecycle.output.state === "valid" && r.lifecycle.downstream.state === "consumed" && Boolean(r.lifecycle.downstream.evidence.effect);
+})());
+push("AP9 只进规划请求未进最终提示词", (() => {
+  // qc 仅在 aiPlan 声明、无 text 注入；downstream=not_consumed、injection=not_required。
+  const g = apGroup({ aiPlan: { ...apAiPlan, qc: { globalChecks: ["检查"] } }, aiMeta: { model: "t", timing: { totalMs: 1 } } });
+  const r = g.skillLifecycleByScreen.screen_1.results.find((x) => x.id === "detail-quality-control");
+  return r && ["not_activated", "not_applicable"].includes(r.lifecycle.activation.state) && r.lifecycle.injection.state === "not_required";
+})());
+push("AP10 进最终提示词并送生图请求", (() => {
+  // 人物 Skill 在 UI 授权屏：injection=injected 且 text 含【模特与镜头】。
+  const g = apGroup({ aiPlan: apAiPlan, aiMeta: { model: "t", timing: { totalMs: 1 } } }, { modelMode: "use-model", modelUsage: 4 });
+  const r = g.skillLifecycleByScreen.screen_1.results.find((x) => x.id === "figure-usage-scene");
+  return r && r.lifecycle.injection.state === "injected" && g.prompts[0].text.includes("【模特与镜头】");
+})());
+push("AP11 重复注入识别不去重", (() => {
+  const two = "【全局一致性锁定】abc【全局一致性锁定】abc";
+  const n = (two.match(/【全局一致性锁定】/g) || []).length;
+  const segA = activationMod.contentFingerprint("abc");
+  const segB = activationMod.contentFingerprint("abd");
+  return n === 2 && segA === activationMod.contentFingerprint("abc") && segA !== segB;
+})());
+push("AP12 六类专项正反与缺契约", (() => {
+  const skillsCfg = JSON.parse(read("server/detail-v2-control/config/professional-skills-v1.json"));
+  const six = skillsCfg.activationContracts?.["product-specialty-expression"]?.formal_professional_contract_v1?.six_specialties || [];
+  const struct = apLife.results.find((x) => x.id === "product-structure");
+  const ing = apLife.results.find((x) => x.id === "ingredient-mechanism");
+  return six.length === 6 && struct && ing && ing.lifecycle.activation.state === "not_activated";
+})());
+push("AP13 单屏scope与整次规划scope不混", (() => {
+  // 激活判定是整次规划级(planning_whole)，注入/输出/消费是单屏级(screen_i)——两者不得混淆。
+  const lc = apLife;
+  return lc.scope === "screen_1"
+    && lc.results.every((r) => r.lifecycle.activation.scope === "planning_whole")
+    && lc.results.every((r) => r.lifecycle.injection.scope === "screen_1");
+})());
+push("AP14 多Skill共享一次调用关联正确", (() => {
+  const ids = apLife.results.filter((r) => r.lifecycle.execution.state === "model_call_succeeded").map((r) => r.lifecycle.execution.runId);
+  return ids.length >= 3 && new Set(ids).size === 1 && apLife.results.every((r) => r.lifecycle.execution.runId);
+})());
+push("AP15 五态独立不压成单布尔", (() => {
+  const l = apPU.lifecycle;
+  return ["activation", "execution", "output", "downstream", "injection"].every((k) => l[k] && l[k].state && l[k].runId && l[k].eventTime);
+})());
+push("AP16 状态枚举由真实事件产生", (() => {
+  const states = activationMod.LIFECYCLE_STATES;
+  return states.activation.includes("missing_contract") && states.execution.includes("model_call_failed") && states.output.includes("empty") && states.downstream.includes("not_consumed") && states.injection.includes("duplicate");
+})());
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");

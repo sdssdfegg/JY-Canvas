@@ -276,6 +276,60 @@ function conditionsMet(conditions, ctxKeys) {
 }
 
 // 对单个能力做触发判定，返回四态之一 + 原因（可审计）
+// ---------- P1-4 五态治理：状态契约与真实事件工具（增量，不改既有判定字段） ----------
+// 五态由真实运行事件写入，初始值 undefined/pending，禁止用预设默认值填充。
+export const LIFECYCLE_STATES = Object.freeze({
+  activation: ["activated", "not_activated", "not_applicable", "missing_contract"],
+  execution: ["directive_dispatched", "model_call_succeeded", "model_call_failed", "not_dispatched", "not_applicable"],
+  output: ["valid", "invalid", "empty", "not_produced", "not_applicable"],
+  downstream: ["consumed", "not_consumed", "not_required", "consumer_failed", "not_applicable"],
+  injection: ["injected", "not_injected", "duplicate", "not_required"]
+});
+// 轻量内容指纹（确定性 hash，不保存原文）——只用于 occurrence 计数与来源比对。
+export function contentFingerprint(text) {
+  const s = String(text == null ? "" : text);
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return `fp_${(h >>> 0).toString(16)}`;
+}
+// Output 有效性：非空、非占位、结构符合声明——不是 Boolean 存在性检查。
+export function validateSkillOutput(value, spec = {}) {
+  if (value === null || value === undefined) return { state: "not_produced", reason: "value_null_or_undefined" };
+  if (typeof value === "string") {
+    const t = value.trim();
+    if (!t) return { state: "empty", reason: "blank_string" };
+    if (/^(待补充|示例|模板|TODO|tbd|暂无|N\/A)$/i.test(t)) return { state: "empty", reason: "placeholder_string" };
+    return { state: "valid", size: t.length };
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return { state: "empty", reason: "empty_array" };
+    const meaningful = value.filter((v) => v !== null && v !== undefined && String(typeof v === "object" ? JSON.stringify(v) : v).trim() !== "");
+    if (meaningful.length === 0) return { state: "empty", reason: "all_items_blank" };
+    if (Array.isArray(spec.itemFields)) {
+      const bad = meaningful.find((v) => typeof v !== "object" || spec.itemFields.some((f) => !(f in v)));
+      if (bad) return { state: "invalid", reason: "item_missing_required_field", fields: spec.itemFields };
+    }
+    return { state: "valid", size: meaningful.length };
+  }
+  if (typeof value === "object") {
+    const keys = Object.keys(value);
+    if (keys.length === 0) return { state: "empty", reason: "empty_object" };
+    if (Array.isArray(spec.requiredFields)) {
+      const missing = spec.requiredFields.filter((f) => value[f] === undefined || value[f] === null || (typeof value[f] === "string" && !value[f].trim()));
+      if (missing.length) return { state: "invalid", reason: "missing_required_fields", missing };
+    }
+    return { state: "valid", size: keys.length };
+  }
+  return { state: "invalid", reason: "unexpected_type", type: typeof value };
+}
+// 构造一条五态事件记录（标识 + 时间 + 依据）；不保存原文/商品事实。
+export function makeLifecycleEvent({ runId = "", skillId = "", specialtyId = null, scope = "planning_whole", state, evidence = {} }) {
+  return { runId, skillId, specialtyId, scope, eventTime: new Date().toISOString(), state, evidence };
+}
+
 export function evaluateActivation(id, contract, ctx = {}) {
   const normalized = normalizeContextKeys(ctx.contextKeys || []);
   const ctxKeys = normalized.keys;
@@ -300,22 +354,61 @@ export function evaluateActivation(id, contract, ctx = {}) {
   else if (mode === EXECUTION_MODE.MANDATORY) decision = EXECUTION_MODE.MANDATORY;
   else decision = EXECUTION_MODE.CONDITIONAL;
 
+  const active = decision === EXECUTION_MODE.MANDATORY || decision === EXECUTION_MODE.CONDITIONAL;
+  // P1-4：activation 态由本次真实判定事件产生（不是默认填充）。
+  const activationState = mode === EXECUTION_MODE.INACTIVE ? "not_activated"
+    : !contract ? "missing_contract"
+      : active ? "activated" : "not_activated";
+  const lifecycle = {
+    activation: makeLifecycleEvent({
+      runId: ctx.runId || "", skillId: id, specialtyId: ctx.specialtyId || null, scope: ctx.scope || "planning_whole",
+      state: activationState,
+      evidence: { decision, activationMet: reason.activationMet, exclusionHit: reason.exclusionHit, requiredContextMet: reason.requiredContextMet, authoritySource }
+    }),
+    execution: null, output: null, downstream: null, injection: null
+  };
   return {
     ...reason,
     authoritySource,
     legacyHits: normalized.legacyHits,
     decision,
-    active: decision === EXECUTION_MODE.MANDATORY || decision === EXECUTION_MODE.CONDITIONAL,
+    active,
     injectToPrompt: Boolean(contract?.prompt_injection_policy) && decision !== EXECUTION_MODE.INACTIVE,
-    auditReason: `authority=${authoritySource}; mode=${mode}; activation=${reason.activationMet}; exclusion=${reason.exclusionHit}; required=${reason.requiredContextMet}`
+    auditReason: `authority=${authoritySource}; mode=${mode}; activation=${reason.activationMet}; exclusion=${reason.exclusionHit}; required=${reason.requiredContextMet}`,
+    lifecycle
   };
 }
 
 // 批量触发判定：返回激活清单 / 未激活清单 / 每项的为什么（可审计）
 export function evaluateAllActivations(ctx = {}, table = resolveActivationTable()) {
   const results = Object.entries(table).map(([id, contract]) => evaluateActivation(id, contract, ctx));
+  // P1-4：为每个 Skill 追加 execution 态——所有 Skill 共享一次规划模型调用。
+  // directiveDispatched 表示"该 Skill 的 directive 随本次请求投递"（V2 规划路径必然装配 directives，见 detail-ai.js:182-186）；
+  // modelCallSucceeded/Failed 来自真实模型调用结果（aiPlan.ok / aiError），不是 Skill 独立执行。
+  const rt = ctx.runtime || {};
+  for (const r of results) {
+    const applicable = r.lifecycle.activation.state === "activated";
+    let state = "not_applicable";
+    if (applicable) {
+      if (rt.modelCallFailed) state = "model_call_failed";
+      else if (!rt.directiveDispatched) state = "not_dispatched";
+      else if (rt.modelCallSucceeded) state = "model_call_succeeded";
+      else state = "not_dispatched";
+    }
+    r.lifecycle.execution = makeLifecycleEvent({
+      runId: ctx.runId || "", skillId: r.id, specialtyId: r.specialtyId || null, scope: ctx.scope || "planning_whole",
+      state,
+      evidence: {
+        directiveDispatched: Boolean(rt.directiveDispatched),
+        modelCallSucceeded: Boolean(rt.modelCallSucceeded),
+        modelCallFailed: Boolean(rt.modelCallFailed),
+        note: "指令投递/模型调用结果；不代表 Skill 独立执行成功，不观测模型内部遵循度"
+      }
+    });
+  }
   return {
     activationStatus: "engineering_verification_only",
+    runId: ctx.runId || "",
     activeIds: results.filter((r) => r.active).map((r) => r.id),
     inactiveIds: results.filter((r) => !r.active).map((r) => r.id),
     injectedIds: results.filter((r) => r.injectToPrompt).map((r) => r.id),

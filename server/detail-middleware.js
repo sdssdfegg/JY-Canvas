@@ -37,7 +37,10 @@ import {
   assemblePromptLayers,
   compileWithAuthorization,
   checkSellingPointBoundary,
-  buildScreenVisual
+  buildScreenVisual,
+  contentFingerprint,
+  validateSkillOutput,
+  makeLifecycleEvent
 } from "./detail-v2-control/skill-activation.js";
 
 const DEFAULT_COUNT = BASE_SKILL.screenCountRule.defaultCount;
@@ -1090,12 +1093,98 @@ function compileScreenConditionalInstructions({ activation = null, input = {}, i
     injectedToPrompt: false,
     reason: "optional 且 prompt_injection_policy 禁止审查清单进入生图提示词；仅走内部审查层"
   });
+  // P1-4：修正"已激活但无 generation instruction 却称已进入提示词"的文本矛盾——如实标注未注入。
+  for (const t of trace) {
+    if (t.activated && !t.hasGenerationInstruction && !t.carriedByExistingSlot) {
+      t.reason = "已激活但本屏未构造 generation instruction，未注入生图提示词（五态：injection=not_injected）";
+    }
+  }
   const admitted = [...activeSkillIds].filter((id) => !NON_INJECTABLE_SKILLS.has(id));
   const compiled = compileWithAuthorization(entries, admitted);
   return { lines: compiled.kept.map((entry) => entry.text), trace, compiled, dropped: compiled.dropped };
 }
 
+// P1-4：每个 Skill 的真实输出字段 / 下游消费者映射（仅列报告已核定字段，不扩大）。
+// consumer 为 null 表示无真实下游消费（仅审计/预留），必须如实标 not_consumed。
+const SKILL_OUTPUT_MAP = {
+  "product-understanding": { fields: [["aiPlan.product", (p) => p?.product]], consumer: "aiIndustry/mergeAiAnalysis", effect: "行业决策与卖点" },
+  "consumer-marketing-strategy": { fields: [["consumerInsights.needs", (p) => p?.consumerInsights?.needs], ["marketingStrategy.valueLadder", (p) => p?.marketingStrategy?.valueLadder]], consumer: "mergeAiAnalysis", effect: "屏级卖点候选" },
+  "detail-story-planning": { fields: [["planning.screenRoles", (p) => p?.planning?.screenRoles], ["planning.facts", (p) => p?.planning?.facts]], consumer: "screenRoles/moduleId", effect: "屏模块归类" },
+  "visual-art-direction": { fields: [["globalVisualDNA", (p) => p?.globalVisualDNA]], consumer: "buildScreenVisual", effect: "画面任务" },
+  "ecommerce-copy-layout": { fields: [["screen.copywriting", (p, s) => s?.copywriting]], consumer: "本屏文案槽", effect: "本屏文案" },
+  "figure-usage-scene": { fields: [["screen.modelPolicyHint", (p, s) => s?.modelPolicyHint]], consumer: "authorizedModelLine", effect: "模特与镜头" },
+  "product-specialty-expression": { fields: [["planning.facts", (p) => p?.planning?.facts]], consumer: "structure/effect entry", effect: "专项画面", specialtyScoped: true },
+  "detail-quality-control": { fields: [["qc", (p) => p?.qc]], consumer: null, effect: "仅内部审查层（不消费到生图）" },
+  "industry-routing-retained": { fields: [["industryProfile", (p) => p?.industryProfile]], consumer: null, effect: "仅一致性审计" }
+};
+// 零消费/预留字段：明确列出，禁止据字段存在判 consumed。
+const UNCONSUMED_FIELDS = ["planning.narrative", "planning.dedupLog", "marketingStrategy.tone", "marketingStrategy.boundaries", "consumerInsights.audience", "qc", "industryProfile"];
+
+// 汇总五态：基于 activation.results 的真实事件 + 本屏真实 text。
+function buildFiveStateLifecycle({ activation, runId, aiPlan, aiScreen, text = "", scope }) {
+  if (!activation) return null;
+  const occurrences = (needle) => {
+    if (!needle) return 0;
+    let n = 0, i = 0;
+    while ((i = text.indexOf(needle, i)) >= 0) { n += 1; i += needle.length; }
+    return n;
+  };
+  const results = activation.results.map((r) => {
+    const life = { ...(r.lifecycle || {}) };
+    const spec = SKILL_OUTPUT_MAP[r.id] || null;
+
+    // Output：以真实输出字段值校验，不是 Boolean 存在性。
+    if (life.activation.state === "activated" && spec) {
+      const vals = spec.fields.map(([name, get]) => ({ name, value: get(aiPlan, aiScreen) }));
+      const checks = vals.map(({ name, value }) => ({ name, ...validateSkillOutput(value) }));
+      const valid = checks.filter((c) => c.state === "valid");
+      life.output = makeLifecycleEvent({
+        runId, skillId: r.id, scope,
+        state: checks.length === 0 ? "not_produced" : (valid.length === checks.length ? "valid" : (checks.every((c) => c.state === "empty") ? "empty" : "invalid")),
+        evidence: { fields: checks.map((c) => ({ name: c.name, state: c.state, reason: c.reason || "" })) }
+      });
+      // Downstream：只有"输出 valid 且存在真实消费者"才标 consumed；否则真实原因。
+      const consumed = valid.length > 0 && Boolean(spec.consumer);
+      life.downstream = makeLifecycleEvent({
+        runId, skillId: r.id, scope,
+        state: consumed ? "consumed" : (spec && !spec.consumer ? "not_consumed" : (life.output.state === "not_produced" || life.output.state === "empty" ? "not_applicable" : "not_consumed")),
+        evidence: { consumer: spec?.consumer || null, effect: spec?.effect || "", unconsumedDeclared: UNCONSUMED_FIELDS.slice(), reason: spec?.consumer ? "输出有效且有真实消费者" : "仅审计/预留字段或内部层，无生图消费" }
+      });
+    } else if (life.activation.state === "activated" && !spec) {
+      // 已激活但无核定输出映射（retained/全局约束 Skill）：状态明确标注，不留 null。
+      life.output = makeLifecycleEvent({ runId, skillId: r.id, scope, state: "not_applicable", evidence: { reason: "已激活但无核定输出字段映射（retained/全局约束）" } });
+      life.downstream = makeLifecycleEvent({ runId, skillId: r.id, scope, state: "not_required", evidence: { reason: "retained/全局约束，无逐 Skill 下游消费需求" } });
+    } else if (life.activation.state !== "activated") {
+      life.output = life.output || makeLifecycleEvent({ runId, skillId: r.id, scope, state: "not_applicable", evidence: { reason: "未激活，无输出事件" } });
+      life.downstream = life.downstream || makeLifecycleEvent({ runId, skillId: r.id, scope, state: "not_applicable", evidence: { reason: "未激活，无下游消费事件" } });
+    }
+
+    // Injection：仅对已激活 Skill 判定（未激活的禁人物兜底文本不算该 Skill 注入）；以 text 中规则段真实出现次数判定（只记不去重）。
+    const isActive = life.activation.state === "activated";
+    const injectionNeedle = !isActive ? null
+      : (r.id === "figure-usage-scene" ? "【模特与镜头】" : (r.id === "ecommerce-copy-layout" && aiScreen?.copywriting ? aiScreen.copywriting : null));
+    const count = occurrences(injectionNeedle);
+    const needsInjection = Boolean(injectionNeedle);
+    const injectionState = !needsInjection ? "not_required" : (count === 0 ? "not_injected" : count > 1 ? "duplicate" : "injected");
+    life.injection = makeLifecycleEvent({
+      runId, skillId: r.id, scope, state: injectionState,
+      evidence: { hash: needsInjection ? contentFingerprint(injectionNeedle) : null, targetStage: "final_detail_prompt", occurrenceCount: count, duplicate: count > 1 }
+    });
+    return { ...r, lifecycle: life };
+  });
+  return { runId, scope, results };
+}
+
 function buildDetailPromptGroup(input = {}, files = [], options = {}) {
+  // P1-4：本次规划运行的真实关联标识与模型调用事件（供五态 execution 关联，不保存原文/商品事实）。
+  const { aiMeta, aiError: runtimeAiError } = options;
+  const planningCalled = Boolean(options.aiPlan) || Boolean(aiMeta);
+  const runtimePlan = {
+    runId: options.runId || (planningCalled ? `run_${contentFingerprint(`${aiMeta?.model || ""}|${aiMeta?.timing?.totalMs || ""}|${input.count || 4}`)}` : "run_local"),
+    directiveDispatched: planningCalled, // V2 规划路径经 buildDetailChatBody 装配 directives（detail-ai.js:182-186）
+    modelCallSucceeded: Boolean(options.aiPlan) && !runtimeAiError,
+    modelCallFailed: Boolean(runtimeAiError)
+  };
   const count = clamp(input.count, BASE_SKILL.screenCountRule.min, BASE_SKILL.screenCountRule.max, DEFAULT_COUNT);
   // V2-COUNT-MODE：内部屏数模式。仅当调用方显式传 countMode:"auto" 时进入自动规划；
   // 旧请求/未传字段一律 fixed（沿用原固定屏数语义，避免影响旧调用方）。
@@ -1225,6 +1314,8 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   const coverageDecision = applyCoverageToTasks(rawLocalTasks, industrySkill.coverage);
   const requirementApplied = applyOutputRequirements(coverageDecision.tasks, industrySkill.outputRequirements);
   const localScreenTasks = requirementApplied.tasks;
+  // P1-4：五态记录按屏收集到 group 顶层（不挂进 prompts[]，避免污染逐字节等价门禁；不进生图 text）。
+  const skillLifecycleByScreen = {};
   const prompts = screenTitles.map((title, index) => {
     const aiScreen = aiScreens[index] || null;
     const localTask = localScreenTasks[index] || null;
@@ -1352,7 +1443,11 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
         triggerCtxKeys.push("reliable_effect_evidence", "effect_evidence");
       }
     }
-    const activation = v2Planning ? evaluateAllActivations({ contextKeys: triggerCtxKeys }) : null;
+    const activation = v2Planning ? evaluateAllActivations({
+      contextKeys: triggerCtxKeys,
+      runId: runtimePlan.runId,
+      runtime: runtimePlan
+    }) : null;
     const activeSkillIds = new Set(activation?.activeIds || []);
     // P0：按屏授权编译——activeIds 经 compileWithAuthorization 真实决定条件指令能否进入本屏 text。
     const conditionalCompilation = compileScreenConditionalInstructions({ activation, input, index, count, aiScreen });
@@ -1420,6 +1515,11 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       `【负面约束】${negativeConstraints.join("、")}。`
     ].filter(Boolean).join("\n");
 
+    // P1-4：五态真实运行记录——按屏收集到 group 顶层，不进 prompts[]/生图 text。
+    if (v2Planning) skillLifecycleByScreen[`screen_${index + 1}`] = buildFiveStateLifecycle({
+      activation, runId: runtimePlan.runId, aiPlan, aiScreen, text, scope: `screen_${index + 1}`
+    });
+
     return {
       screen: index + 1,
       title,
@@ -1455,7 +1555,9 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
       text,
       // V2-PRO-002：按需触发/事实边界/编译分层的工程审计证据（不进生图提示词）。
       ...(v2Planning ? {
-        skillActivation: activation,
+        // 保持既有审计字段字节稳定：lifecycle(含真实事件时间)只放 group 顶层 skillLifecycleByScreen。
+        skillActivation: { ...activation, results: activation.results.map(({ lifecycle: _lc, ...rest }) => rest) },
+        // P1-4 五态记录收集到 group 顶层（skillLifecycleByScreen），不放 prompts[]——见 map 前声明。
         // P0 授权追踪：每条条件指令的来源Skill/屏/激活依据/授权结果/是否进入提示词。
         authorizationTrace: conditionalCompilation.trace,
         authorizationDropped: conditionalCompilation.dropped,
@@ -1491,7 +1593,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   // 🔴 这是工程验证，不代表专业模型质量验收通过；专业内容由 ChatGPT 交付后另行接入与验收。
   const v2Control = v2Planning ? buildV2ControlReport(aiPlan, industrySkill.id, industrySkill.resolution, industrySkill) : null;
 
-  return {
+  const result = {
     id: `detail_${createdAt}_${Math.random().toString(36).slice(2, 8)}`,
     label: `${new Date(createdAt).toLocaleTimeString("zh-CN", { hour12: false, hour: "2-digit", minute: "2-digit" })} | ${productName}`,
     createdAt,
@@ -1567,6 +1669,9 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     rounds,
     prompts: finalPrompts
   };
+  // P1-4：五态记录挂非枚举属性——服务端可读取审计，但不进 JSON 序列化（不污染逐字节等价门禁/前端 payload）。
+  if (v2Planning) Object.defineProperty(result, "skillLifecycleByScreen", { value: skillLifecycleByScreen, enumerable: false, configurable: true });
+  return result;
 }
 
 export {
