@@ -1102,7 +1102,7 @@ push("AL3 实质数值证据仍可豁免", (() => {
 const p13Cfg = structuredClone(p12Cfg);
 p13Cfg.industryPacks.cleaning_down = {
   industryId: "cleaning_down", industryName: "羽绒服干洗", extends: "cleaning",
-  positiveSignals: ["羽绒服干洗"],
+  positiveSignals: ["羽绒服干洗", "羽绒服清洁"],
   noGeneralization: ["羽绒服清洁剂不得扩为所有羽绒制品"],
   professionalValues: { allowedIndustries: ["cleaning_down"], outputRequirements: "只输出羽绒服干洗专业观察点" }
 };
@@ -1126,8 +1126,9 @@ push("AM3 继承循环检测判红", (() => {
   return cyc.cycleDetected === true && cyc.resolved === false && String(cyc.error).includes("inheritance_cycle");
 })());
 push("AM4 置信度high加载完整包", (() => {
+  // 子包充分信号（≥2 专属命中）才加载完整包——AN3 修正后的语义；单信号另由 AN3 验证降级。
   const skill = { id: "cleaning_down", name: "羽绒服干洗", analyzeAttributes: ["羽绒专属"], sellingAngles: [], visualAnchors: [], taboos: [], recommendedScreens: [] };
-  const r = uniMod.applyConfidenceToRules(skill, { confidence: "high", packId: "cleaning_down", industryId: "cleaning_down" }, p13Cfg);
+  const r = uniMod.applyConfidenceToRules(skill, { confidence: "high", packId: "cleaning_down", industryId: "cleaning_down", evidence: { positive: ["羽绒服干洗", "羽绒服清洁"] } }, p13Cfg);
   return r.ruleLoadDecision.level === "full_pack_rules" && r.rules.analyzeAttributes[0] === "羽绒专属" && r.ruleLoadDecision.inheritedFrom.includes("cleaning");
 })());
 push("AM5 置信度medium降父公共不启专属", (() => {
@@ -1150,6 +1151,51 @@ push("AM7 运行时真实消费置信度(非仅审计)", (() => {
 push("AM8 不新增行业包不改平台", (() => {
   const keys = Object.keys(p12Cfg.industryPacks);
   return keys.length === 8 && !keys.includes("cleaning_down") && probe(read("server/detail-middleware.js"), "getPlatformSkill");
+})());
+
+// ---------- AN 组 · 顾问核验：生产子类目现状 / 单信号high风险修正 / 三态下游边界 ----------
+push("AN1 生产无真实子类目配置", (() => {
+  const keys = Object.keys(p12Cfg.industryPacks);
+  return keys.length === 8 && keys.every((k) => !p12Cfg.industryPacks[k].extends && !p12Cfg.industryPacks[k].subCategories)
+    && !probe(read("server/detail-v2-control/index.js"), "subCategories");
+})());
+push("AN2 单信号可达high(判定依据在案)", (() => {
+  const r = uniMod.resolveIndustryDecision({ text: "版型", aiHint: "", config: p12Cfg });
+  return r.industryId === "apparel" && r.confidence === "high" && r.decisionPath === "pack_signal_match" && r.evidence.positive.length === 1;
+})());
+push("AN3 子包单信号不误加载子专属", (() => {
+  const cfg = structuredClone(p12Cfg);
+  cfg.industryPacks.cleaning_down = { industryId: "cleaning_down", industryName: "羽绒服干洗", extends: "cleaning", positiveSignals: ["羽绒服干洗"], professionalValues: { allowedIndustries: ["cleaning_down"], outputRequirements: "子专属" } };
+  const skill = { id: "cleaning_down", analyzeAttributes: ["子专属属性"], sellingAngles: [], visualAnchors: [], taboos: [], recommendedScreens: [] };
+  const r = uniMod.resolveIndustryDecision({ text: "羽绒服干洗", aiHint: "", config: cfg });
+  const a = uniMod.applyConfidenceToRules(skill, r, cfg);
+  return a.ruleLoadDecision.level === "parent_common_rules" && a.ruleLoadDecision.subCategorySingleSignal === true && a.rules.analyzeAttributes[0] !== "子专属属性";
+})());
+push("AN4 生产单信号high不回退", (() => {
+  const skill = { id: "apparel", analyzeAttributes: ["版型分析"], sellingAngles: [], visualAnchors: [], taboos: [], recommendedScreens: [] };
+  const r = uniMod.resolveIndustryDecision({ text: "版型", aiHint: "", config: p12Cfg });
+  const a = uniMod.applyConfidenceToRules(skill, r, p12Cfg);
+  return a.ruleLoadDecision.level === "full_pack_rules" && a.rules.analyzeAttributes[0] === "版型分析" && a.ruleLoadDecision.subCategorySingleSignal === false;
+})());
+push("AN5 medium下游四字段无行业专属", (() => {
+  const g = deriveMod.buildDetailPromptGroup({ count: 4, countMode: "fixed", workflow: "taobao-detail", productName: "版型和口红", productFeature: "版型清晰，口红礼盒，成分：蜂蜡。", userInstruction: "" }, [], {});
+  const t = g.prompts.map((p) => p.text).join("\n");
+  return g.analysis.analyzeAttributes[0] === "商品主体" && !/袖口|领口|纽扣|穿搭/.test(t)
+    && g.coverageDecision?.decision?.applied === false && g.outputRequirementsApplied?.applied === false
+    && g.v2Control?.ruleLoadDecision?.level === "parent_common_rules";
+})());
+push("AN6 low下游完全generic", (() => {
+  const g = deriveMod.buildDetailPromptGroup({ count: 4, countMode: "fixed", workflow: "taobao-detail", productName: "未知商品", productFeature: "无特征描述xyz。", userInstruction: "" }, [], {});
+  const t = g.prompts[0].text;
+  return g.analysis.industry === "通用电商" && g.v2Control?.industryResolution?.packId === null
+    && g.v2Control?.ruleLoadDecision?.level === "generic_rules" && g.coverageDecision?.decision?.applied === false
+    && !t.includes("不得跨品类串规则") && t.includes("不得虚构未确认事实");
+})());
+push("AN7 high下游加载行业专属", (() => {
+  const g = deriveMod.buildDetailPromptGroup({ count: 4, countMode: "fixed", workflow: "taobao-detail", productName: "羽绒服干洗剂", productFeature: "成分：阴离子表面活性剂。使用方法：按压刷洗。", userInstruction: "" }, [], {});
+  return g.v2Control?.ruleLoadDecision?.level === "full_pack_rules"
+    && g.analysis.analyzeAttributes[0] === "清洁对象"
+    && g.coverageDecision?.decision?.applied === true && g.outputRequirementsApplied?.applied === true;
 })());
 
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------

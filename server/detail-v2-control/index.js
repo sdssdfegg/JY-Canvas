@@ -458,11 +458,21 @@ export function applyConfidenceToRules(skill, resolution = {}, config = activeCo
   let level = "generic_rules";
   let rules = null;
 
-  if (confidence === "high" && inherited?.resolved && !inherited.cycleDetected) {
+  // 子类目专属规则充分性门槛：仅凭单一信号命中子包不足以下载子专属规则（防"单一弱信号→high→误加载子专属"）。
+  // 只作用于 isSubCategory 的 high 场景；生产 8 个平级包无子包，行为零影响（P1-1 不回退）。
+  const subCategorySingleSignal = (() => {
+    if (confidence !== "high" || !inherited?.isSubCategory) return false;
+    const own = Array.isArray(config?.industryPacks?.[packId]?.positiveSignals) ? config.industryPacks[packId].positiveSignals : [];
+    const hits = Array.isArray(resolution?.evidence?.positive) ? resolution.evidence.positive : [];
+    const ownHits = hits.filter((w) => own.includes(w));
+    return ownHits.length < 2;
+  })();
+
+  if (confidence === "high" && inherited?.resolved && !inherited.cycleDetected && !subCategorySingleSignal) {
     // 高置信：加载完整有效包规则（含继承字段），专业规则属性仍取既有的完整 skill（本项不改属性来源）。
     level = "full_pack_rules";
     rules = { ...skill, activeCoverage: Array.isArray(inherited.effectivePack.coverage) ? inherited.effectivePack.coverage : [], inheritedFrom: inherited.inheritedFrom, isSubCategory: inherited.isSubCategory };
-  } else if (confidence === "medium" && inherited?.resolved && !inherited.cycleDetected) {
+  } else if ((confidence === "medium" || subCategorySingleSignal) && inherited?.resolved && !inherited.cycleDetected) {
     // 中置信（多包同分/子类目不确定）：不启用任何行业专属专业策略——用通用公共底座 +
     // 父行业 coverage（若有），落实架构约束"同分不得凭排序启用某行业专属规则"。
     level = "parent_common_rules";
@@ -491,7 +501,8 @@ export function applyConfidenceToRules(skill, resolution = {}, config = activeCo
       level,
       inheritedFrom: inherited?.inheritedFrom || [],
       cycleDetected: Boolean(inherited?.cycleDetected),
-      reason: `confidence_${confidence}_${level}`
+      subCategorySingleSignal,
+      reason: subCategorySingleSignal ? `subcategory_single_signal_demoted_${level}` : `confidence_${confidence}_${level}`
     }
   };
 }
