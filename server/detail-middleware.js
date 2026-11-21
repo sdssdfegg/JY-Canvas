@@ -29,7 +29,10 @@ import {
   applyOutputRequirements,
   applyConfidenceToRules,
   resolveSubCategory,
-  activeConfig
+  activeConfig,
+  classifyProductFacts,
+  confirmedFactClaims,
+  normalizeDetailRequest
 } from "./detail-v2-control/index.js";
 // V2-PRO-002：Skill 按需触发 + 提示词分层组装 + 编译授权（工程机制）。
 import {
@@ -954,9 +957,10 @@ function buildV2ControlReport(aiPlan, resolvedIndustryId, industryResolution = n
   const runtimeIndustryId = String(resolvedIndustryId || "generic").trim() || "generic";
   const industryId = modelIndustryId || runtimeIndustryId;
   const pack = loadIndustryPack(industryId);
-  const confirmedFacts = (Array.isArray(aiPlan?.planning?.facts)
-    ? aiPlan.planning.facts.filter((f) => f?.level === "visible").map((f) => String(f.claim || ""))
-    : []);
+  // 阶段 B ProductBrief：事实分类防冒充——无 category 的旧 aiPlan 与旧逻辑逐项等价；
+  // 显式 category 为行业知识/推断/竞品/评价却标 visible 的，拒绝作为商品事实，防冒充。
+  const planFactsForBoundary = Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [];
+  const confirmedFacts = confirmedFactClaims(planFactsForBoundary);
   const admission = admitTasks([...registry.contentTasks, ...registry.visualTasks], {
     industryId: pack.activeIndustryId,
     confirmedFacts,
@@ -1245,6 +1249,9 @@ function buildFiveStateLifecycle({ activation, runId, aiPlan, aiScreen, text = "
 }
 
 function buildDetailPromptGroup(input = {}, files = [], options = {}) {
+  // 阶段 B RequestContract：集中标准化视图（语义/默认值/用户明确/适用范围/状态追踪）。
+  // 仅作契约层审计，不替换运行时字段、不改任何行为——避免提前实施阶段 C 的屏位/分屏改造。
+  const requestContract = normalizeDetailRequest(input);
   // P1-4：本次规划运行的真实关联标识与模型调用事件（供五态 execution 关联，不保存原文/商品事实）。
   const { aiMeta, aiError: runtimeAiError } = options;
   const planningCalled = Boolean(options.aiPlan) || Boolean(aiMeta);
@@ -1280,7 +1287,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   // 已确认事实集：用户结构化资料 + AI 规划 visible 事实——用于卖点边界豁免（用户明确提供的适用范围不算扩展）。
   const confirmedFactsForBoundary = [
     ...structuredFacts.map((fact) => fact.content),
-    ...(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts.filter((f) => f?.level === "visible").map((f) => String(f.claim || "")) : [])
+    ...confirmedFactClaims(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [])
   ];
   const userSellingPoints = parseList(input.sellingPoints); // 只认用户明确提供的卖点，不认行业 sellingAngles 兜底
   const selectedSectionsEarly = Array.isArray(input.selectedSections) && input.selectedSections.length > 0 ? input.selectedSections : null;
@@ -1462,7 +1469,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
           composition: aiScreen?.composition || localTask?.compositionHint || "",
           // 屏级事实：本地兜底只用本屏命中的事实；AI路径仍用规划的visible事实。不再全量注入。
           confirmedFacts: [
-            ...(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts.filter((f) => f?.level === "visible").map((f) => String(f.claim || "")) : []),
+            ...confirmedFactClaims(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : []),
             ...screenFacts
           ],
           visualDNA: aiPlan?.globalVisualDNA || (analysis.visualStyle ? { tone: analysis.visualStyle } : {}),
@@ -1490,7 +1497,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     const triggerCtxKeys = [];
     if (v2Planning) {
       const facts = Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [];
-      const visibleFacts = facts.filter((f) => f?.level === "visible").map((f) => String(f.claim || ""));
+      const visibleFacts = confirmedFactClaims(facts);
       facts.forEach((f) => triggerCtxKeys.push(`fact_${f?.level || "unknown"}`));
       visibleFacts.forEach((claim) => triggerCtxKeys.push(`visible:${claim}`));
       triggerCtxKeys.push(`industry_${industrySkill.id}`);
@@ -1508,7 +1515,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
         || /(标题|文案|卖点短语|广告语)/.test(String(aiScreen?.composition || input.userInstruction || ""));
       if (screenHasCopyTask) triggerCtxKeys.push("screen_needs_text", "screen_content_task");
       if (visibleFacts.some((c) => /结构|泵头|喷头|卡扣/.test(c))) triggerCtxKeys.push("confirmed_structure_fact");
-      if (facts.some((f) => f?.level === "visible" && /效果|去除率|测试/.test(String(f.claim || "")))) {
+      if (visibleFacts.some((c) => /效果|去除率|测试/.test(c))) {
         triggerCtxKeys.push("reliable_effect_evidence", "effect_evidence");
       }
     }
@@ -1538,9 +1545,8 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     ]);
     // V2-PRO-002 / F-1：材质事实按 L1/L2/L3 分级——L3(mustNotClaim) 不进"真实材质/颜色"，
     // L2(inferred) 只作图片观察标注；避免把使用对象材质（棉）误写成商品包装材质。
-    const gradedVisible = (Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [])
-      .filter((f) => f?.level === "visible" && /材质|棉|化纤|混纺|颜色|瓶身|泵头/.test(String(f.claim || "")))
-      .map((f) => String(f.claim || ""));
+    const gradedVisible = confirmedFactClaims(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [])
+      .filter((claim) => /材质|棉|化纤|混纺|颜色|瓶身|泵头/.test(claim));
     const materialText = v2Planning
       ? (gradedVisible.length > 0 ? gradedVisible.slice(0, 8).join("、") : "以商品图为准确认，未确认材质不作断言")
       : ([...(analysis.materialHints || []), ...(analysis.colors || [])].slice(0, 8).join("、") || "以商品图为准");
@@ -1740,6 +1746,12 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   };
   // P1-4：五态记录挂非枚举属性——服务端可读取审计，但不进 JSON 序列化（不污染逐字节等价门禁/前端 payload）。
   if (v2Planning) Object.defineProperty(result, "skillLifecycleByScreen", { value: skillLifecycleByScreen, enumerable: false, configurable: true });
+  // 阶段 B：RequestContract 追踪 + ProductBrief 事实分类审计（同样非枚举，不污染序列化）。
+  Object.defineProperty(result, "requestContract", { value: requestContract, enumerable: false, configurable: true });
+  Object.defineProperty(result, "productBriefAudit", {
+    value: classifyProductFacts(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : []),
+    enumerable: false, configurable: true
+  });
   return result;
 }
 

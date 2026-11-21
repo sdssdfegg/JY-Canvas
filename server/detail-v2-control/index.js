@@ -29,6 +29,20 @@ export const FACT_LEVEL = Object.freeze({
   L3: "mustNotClaim"
 });
 
+// 阶段 B · ProductBrief 事实信息类别（工程契约，不含专业内容）。
+// 用途：把事实来源与"能否当作商品自身事实"显式化——只有 product-confirmed 可作为商品事实消费，
+// industry-knowledge / ai-inference / competitor / user-review 一律不得冒充商品事实进入确定性卖点/边界豁免。
+export const FACT_CATEGORY = Object.freeze({
+  PRODUCT_CONFIRMED: "product-confirmed",   // 用户提供或商品图/可靠资料确证
+  INDUSTRY_KNOWLEDGE: "industry-knowledge", // 行业通用知识
+  COMPETITOR: "competitor",                 // 竞品公开信息
+  USER_REVIEW: "user-review",               // 有来源的真实用户评价
+  AI_INFERENCE: "ai-inference"              // AI 推断
+});
+const FACT_CATEGORY_VALUES = new Set(Object.values(FACT_CATEGORY));
+// 只有 product-confirmed 可冒充"商品自身事实"进入 visible 消费；其余最多 inferred。
+const PRODUCT_FACT_CATEGORIES = new Set([FACT_CATEGORY.PRODUCT_CONFIRMED]);
+
 function readPendingConfig() {
   try {
     return JSON.parse(readFileSync(path.join(HERE, "config", "pending-professional-content.json"), "utf8"));
@@ -45,6 +59,125 @@ function readProfessionalConfig() {
   } catch {
     return null;
   }
+}
+
+// 阶段 B · RequestContract：前端基础参数契约（工程语义层，不含专业规则）。
+// 每项定义：语义 / 默认值 / 用户明确选择标志 / 适用范围 / 在七层闭环中的作用点。
+// 🔴 原则：复用现有字段，不新增字段、不重复建设；语义在此集中定义，运行时行为改造留待后续阶段。
+// 特别约定（顾问阶段 B 范围）：
+//   - modelUsage 的语义是"整套详情计划安排模特内容屏数的目标"，不是"从第 1 屏起的前 N 屏授权"；
+//     targetModelScreens 只是该语义的别名标注，具体屏位分配属于阶段 C，本契约不改 modelPolicy 运行时。
+//   - reverseScreens 保留 painReverse 痛点反转原功能，本契约只保证其进入 V2 规划输入，分屏任务组织属于阶段 C。
+//   - copywriting 仅明确 need / none 语义；逐屏 ScreenPlan 的实现与消费属于阶段 C。
+export const DETAIL_REQUEST_CONTRACT = Object.freeze({
+  workflow: { semantic: "详情页工作流/平台策略", defaultValue: "taobao-detail", appliesTo: ["planning", "compile"], scope: "strategy" },
+  analysisMode: { semantic: "是否调用 AI 规划", defaultValue: "ai", appliesTo: ["planning"], scope: "strategy" },
+  model: { semantic: "生图模型标识", defaultValue: "tt-image-2", appliesTo: ["generation"], scope: "generation" },
+  channelId: { semantic: "生图渠道标识", defaultValue: "", appliesTo: ["generation"], scope: "generation" },
+  dispatchMode: { semantic: "调度模式", defaultValue: "manual", appliesTo: ["generation"], scope: "generation" },
+  ratio: { semantic: "图片比例", defaultValue: "9:16", appliesTo: ["compile", "generation"], scope: "generation" },
+  imageSize: { semantic: "分辨率", defaultValue: "2K", appliesTo: ["compile", "generation"], scope: "generation" },
+  count: { semantic: "整套详情屏数", defaultValue: 10, appliesTo: ["planning", "compile"], scope: "planning", explicitFlag: "countTouched" },
+  countTouched: { semantic: "用户是否主动调整过屏数（true=fixed 用户明确优先）", defaultValue: false, appliesTo: ["planning"], scope: "planning" },
+  copywriting: { semantic: "逐屏文案需求：need=需要、none=不需要（海报式）", defaultValue: "need", appliesTo: ["planning", "compile"], scope: "content" },
+  richness: { semantic: "画面丰富度/信息密度", defaultValue: "simple", appliesTo: ["compile"], scope: "visual" },
+  fontStyle: { semantic: "字体风格", defaultValue: "heiti", appliesTo: ["compile"], scope: "visual" },
+  detailSkillVersion: { semantic: "Skill 版本", defaultValue: "v1", appliesTo: ["planning"], scope: "system" },
+  stylePackId: { semantic: "风格包标识", defaultValue: "auto", appliesTo: ["compile"], scope: "visual" },
+  modelMode: { semantic: "是否允许/要求安排模特内容", defaultValue: "use-model", appliesTo: ["planning", "compile"], scope: "visual" },
+  modelPose: { semantic: "模特姿态（仅在安排模特的屏生效）", defaultValue: "regular", appliesTo: ["compile"], scope: "visual" },
+  modelUsage: {
+    semantic: "整套详情计划安排模特内容屏数的目标（非前 N 屏授权；屏位分配属于阶段 C）",
+    defaultValue: 4, appliesTo: ["planning", "compile"], scope: "planning",
+    semanticAlias: "targetModelScreens"
+  },
+  reverseScreens: {
+    semantic: "痛点反转（painReverse）屏数，保留原功能；保证进入 V2 规划输入，分屏任务属于阶段 C",
+    defaultValue: 2, appliesTo: ["planning"], scope: "content"
+  },
+  lang: { semantic: "输出语种", defaultValue: "中文", appliesTo: ["compile"], scope: "strategy" },
+  productName: { semantic: "商品名称", defaultValue: "", appliesTo: ["planning", "compile"], scope: "fact" },
+  productFeature: { semantic: "用户提供的商品资料（商品事实来源之一）", defaultValue: "", appliesTo: ["planning", "compile"], scope: "fact" },
+  userInstruction: { semantic: "用户明确指令（单屏明确要求优先于一般策划建议）", defaultValue: "", appliesTo: ["planning"], scope: "fact" },
+  sellingPoints: { semantic: "用户明确提供的卖点", defaultValue: "", appliesTo: ["planning", "compile"], scope: "fact" }
+});
+
+// 七层闭环状态枚举：每级独立判定，不得用上游通过替代下游通过。
+export const PARAM_CLOSURE_STATUS = Object.freeze({
+  PASSED: "passed",
+  FAILED: "failed",
+  UNVERIFIED: "unverified",
+  NOT_APPLICABLE: "not_applicable"
+});
+
+// 参数标准化：返回规范化取值与逐参数溯源（source=user/default、explicit=是否用户明确）。
+// 不改变调用方数据；仅提供契约层可查询的标准化视图，运行时消费沿用既有字段，零行为回归。
+export function normalizeDetailRequest(input = {}) {
+  const values = {};
+  const trace = {};
+  for (const [key, def] of Object.entries(DETAIL_REQUEST_CONTRACT)) {
+    const present = Object.prototype.hasOwnProperty.call(input, key) && input[key] !== undefined && input[key] !== null;
+    let value = present ? input[key] : def.defaultValue;
+    // copywriting 仅 two-value 语义归一：非 none 视为 need，兼容任意旧值。
+    if (key === "copywriting") value = String(value) === "none" ? "none" : "need";
+    // modelUsage 契约归一到正整数档位；语义=整套目标屏数（屏位分配不在本阶段）。
+    if (key === "modelUsage") {
+      const n = Number(value);
+      value = Number.isFinite(n) ? Math.max(1, Math.min(12, Math.trunc(n))) : def.defaultValue;
+    }
+    values[key] = value;
+    const explicitFlag = def.explicitFlag ? Boolean(input[def.explicitFlag]) : false;
+    trace[key] = {
+      source: present ? "user" : "default",
+      value,
+      explicit: present || explicitFlag,
+      appliesTo: def.appliesTo,
+      scope: def.scope
+    };
+  }
+  // 语义别名：供阶段 C 及下游按正确语义读取，不改动 modelUsage 字段本身。
+  values.targetModelScreens = values.modelUsage;
+  trace.targetModelScreens = { source: "derived", value: values.modelUsage, explicit: trace.modelUsage.explicit, appliesTo: ["planning", "compile"], scope: "planning" };
+  return { values, trace, contractVersion: "stage-b-1.0" };
+}
+
+// ProductBrief 事实防护：识别"行业知识/AI推断/竞品/评价冒充商品事实"。
+// 兼容旧数据：facts 无 category 字段时沿用 level=visible 旧判定（零行为回归）。
+// 仅当新数据显式给出 category 且非 product-confirmed 时，才禁止其作为商品事实，并记录冒充标记。
+export function classifyProductFacts(facts = []) {
+  const confirmedClaims = [];
+  const misuse = [];
+  for (const f of (Array.isArray(facts) ? facts : [])) {
+    const claim = String(f?.claim || "");
+    if (!claim) continue;
+    const level = String(f?.level || "");
+    const category = f?.category == null ? null : String(f.category);
+    if (category === null) {
+      // 旧数据兼容：无 category 时维持既有 visible 消费语义。
+      if (level === FACT_LEVEL.L1) confirmedClaims.push({ claim, level, category: null, source: f?.source ?? null });
+      continue;
+    }
+    if (!FACT_CATEGORY_VALUES.has(category)) {
+      misuse.push({ claim, reason: "unknown_category", category });
+      continue;
+    }
+    // 非商品事实类别标为 visible（冒充）→ 拒绝作为商品事实，并留痕。
+    if (level === FACT_LEVEL.L1 && !PRODUCT_FACT_CATEGORIES.has(category)) {
+      misuse.push({ claim, reason: "non_product_fact_marked_visible", category });
+      continue;
+    }
+    if (level === FACT_LEVEL.L1 && PRODUCT_FACT_CATEGORIES.has(category)) {
+      confirmedClaims.push({ claim, level, category, source: f?.source ?? null });
+    }
+  }
+  return { confirmedClaims, misuse, hasMisuse: misuse.length > 0 };
+}
+
+// 商品事实 claim 提取：供 middleware 边界/画面消费。
+// 兼容保证：对无 category 的旧 aiPlan，输出与旧逻辑 (level==="visible".map(claim)) 逐项一致；
+// 仅当新数据显式 category 且被判冒充时，才排除该项，防止行业知识/推断冒充商品事实。
+export function confirmedFactClaims(facts = []) {
+  return classifyProductFacts(facts).confirmedClaims.map((f) => f.claim);
 }
 
 // 活动配置：正式内容优先，缺失/损坏时回退占位。
@@ -661,6 +794,12 @@ export function createCompilerAudit() {
 export default {
   ADMISSION,
   FACT_LEVEL,
+  FACT_CATEGORY,
+  DETAIL_REQUEST_CONTRACT,
+  PARAM_CLOSURE_STATUS,
+  normalizeDetailRequest,
+  classifyProductFacts,
+  confirmedFactClaims,
   professionalContentStatus,
   activeConfig,
   createTaskRegistry,

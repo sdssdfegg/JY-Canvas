@@ -1545,6 +1545,71 @@ push("CP17 同词区间内外同时出现→区间外命中触发冲突保护", 
     && Array.isArray(r.evidence?.pollutingIndustries) && r.evidence.pollutingIndustries.includes("apparel");
 })());
 
+// ---------- CB 组 · 阶段 B：RequestContract + ProductBrief 契约统一 ----------
+const cbInput = {
+  workflow: "taobao-detail", count: 10, countTouched: true, copywriting: "none",
+  modelMode: "use-model", modelUsage: 2, reverseScreens: 2, ratio: "9:16", imageSize: "2K", lang: "中文",
+  productName: "羽绒服干洗剂", productFeature: "成分：表活。"
+};
+push("CB1 RequestContract 参数语义/默认值/适用范围齐全", (() => {
+  const c = uniMod.DETAIL_REQUEST_CONTRACT || {};
+  const need = ["workflow", "count", "countTouched", "copywriting", "modelMode", "modelPose", "modelUsage", "reverseScreens", "ratio", "imageSize", "lang", "productName", "productFeature", "userInstruction", "sellingPoints"];
+  return need.every((k) => c[k] && typeof c[k].semantic === "string" && c[k].semantic.length > 0
+    && Array.isArray(c[k].appliesTo) && typeof c[k].scope === "string");
+})());
+push("CB2 modelUsage语义=整套目标屏数(非前N屏)且copywriting两值明确", (() => {
+  const c = uniMod.DETAIL_REQUEST_CONTRACT || {};
+  return /整套.*目标/.test(c.modelUsage?.semantic || "") && /非前 N 屏/.test(c.modelUsage?.semantic || "")
+    && c.modelUsage?.semanticAlias === "targetModelScreens"
+    && /painReverse/.test(c.reverseScreens?.semantic || "")
+    && /need.*none/.test(c.copywriting?.semantic || "");
+})());
+push("CB3 normalizeDetailRequest 用户明确/默认值溯源+targetModelScreens别名", (() => {
+  const n = uniMod.normalizeDetailRequest(cbInput);
+  return n.contractVersion === "stage-b-1.0"
+    && n.trace.count.source === "user" && n.trace.count.explicit === true
+    && n.trace.countTouched.source === "user" && n.trace.countTouched.explicit === true
+    && n.trace.lang.source === "user"
+    && n.trace.fontStyle.source === "default" // 未传 → default
+    && n.values.targetModelScreens === 2
+    && n.values.copywriting === "none"
+    && uniMod.normalizeDetailRequest({ copywriting: "weird" }).values.copywriting === "need";
+})());
+push("CB4 ProductBrief旧数据兼容(无category与旧逻辑逐项等价)", (() => {
+  const facts = [
+    { claim: "含表活", level: "visible" },
+    { claim: "清洁率99%", level: "inferred" },
+    { claim: "已认证", level: "mustNotClaim" }
+  ];
+  const got = uniMod.confirmedFactClaims(facts);
+  const old = facts.filter((f) => f.level === "visible").map((f) => f.claim);
+  return JSON.stringify(got) === JSON.stringify(old)
+    && uniMod.classifyProductFacts(facts).hasMisuse === false;
+})());
+push("CB5 行业知识/AI推断冒充商品事实被拒且留痕", (() => {
+  const facts = [
+    { claim: "表活可去污", level: "visible", category: "industry-knowledge" },
+    { claim: "推测适合羽绒", level: "visible", category: "ai-inference" },
+    { claim: "含阴离子表活", level: "visible", category: "product-confirmed", source: "商品图标签" }
+  ];
+  const r = uniMod.classifyProductFacts(facts);
+  return r.hasMisuse === true && r.misuse.length === 2
+    && JSON.stringify(r.confirmedClaims.map((f) => f.claim)) === JSON.stringify(["含阴离子表活"])
+    && r.confirmedClaims[0].source === "商品图标签";
+})());
+push("CB6 middleware 契约追踪与事实审计非枚举(不污染序列化)", (() => {
+  const g = deriveMod.buildDetailPromptGroup(cbInput, [], {});
+  const desc = Object.getOwnPropertyDescriptor(g, "requestContract");
+  const fa = Object.getOwnPropertyDescriptor(g, "productBriefAudit");
+  return Boolean(desc) && desc.enumerable === false && desc.value?.contractVersion === "stage-b-1.0"
+    && Boolean(fa) && fa.enumerable === false && Array.isArray(fa.value?.confirmedClaims)
+    && JSON.stringify(g).includes("requestContract") === false;
+})());
+push("CB7 reverseScreens 进入V2规划输入(白名单源码断言)", (() => {
+  const body = read("server/detail-ai.js");
+  return probe(body, "reverseScreens: input.reverseScreens") && probe(body, "modelUsage: input.modelUsage");
+})());
+
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------
 const neg = (name, tamperedSource, needle) => push(name, !probe(tamperedSource, needle), "篡改后锚点应消失");
 neg("N1 删控制报告挂载后判红", middleware.replace("v2Control ? { v2Control } : {}", ""), "v2Control ? { v2Control } : {}");
