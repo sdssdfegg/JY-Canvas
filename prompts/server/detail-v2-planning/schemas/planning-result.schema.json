@@ -230,7 +230,10 @@
             "required": ["claim", "level"],
             "properties": {
               "claim": { "type": "string", "maxLength": 200 },
-              "level": { "$ref": "#/$defs/factLevel" }
+              "level": { "$ref": "#/$defs/factLevel" },
+              "category": { "type": "string", "enum": ["product-confirmed", "industry-knowledge", "competitor", "user-review", "ai-inference", "unclassified"], "description": "阶段B-补充：信息类别；产品事实必须是 product-confirmed。缺分类的新版事实按 unclassified 处理，不得视为商品事实。" },
+              "sourceType": { "type": "string", "enum": ["user-input", "product-image", "external-source", "ai-inference"], "description": "阶段B-补充：事实来源类型；ai-inference 不得作为已确认事实。" },
+              "evidence": { "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 200 }, "description": "阶段B-补充：来源出处/商品图位置/用户输入原文；product-confirmed 且 level=visible 时至少一条。" }
             }
           }
         },

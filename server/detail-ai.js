@@ -300,7 +300,8 @@ function buildDetailAnalysisContent(input, files, includeImages) {
         planning: {
           narrative: { id: "string", reason: "string", confidence: "string" },
           screenRoles: [{ index: 0, role: "hero", sectionRefs: ["string"] }],
-          facts: [{ claim: "string", level: "visible|inferred|mustNotClaim" }],
+          // 阶段 B-补充：新版事实必须给 category/sourceType/evidence，防止行业知识或 AI 推断冒充商品事实。
+          facts: [{ claim: "string", level: "visible|inferred|mustNotClaim", category: "product-confirmed|industry-knowledge|competitor|user-review|ai-inference", sourceType: "user-input|product-image|external-source|ai-inference", evidence: ["string（来源出处/商品图位置/用户输入原文，至少一条）"] }],
           dedupLog: ["string"]
         }
       } : {})

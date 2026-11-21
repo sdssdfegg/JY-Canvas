@@ -1564,12 +1564,12 @@ push("CB2 modelUsage语义=整套目标屏数(非前N屏)且copywriting两值明
     && /painReverse/.test(c.reverseScreens?.semantic || "")
     && /need.*none/.test(c.copywriting?.semantic || "");
 })());
-push("CB3 normalizeDetailRequest 用户明确/默认值溯源+targetModelScreens别名", (() => {
+push("CB3 normalizeDetailRequest 用户明确/默认值/unknown三态溯源+别名", (() => {
   const n = uniMod.normalizeDetailRequest(cbInput);
   return n.contractVersion === "stage-b-1.0"
-    && n.trace.count.source === "user" && n.trace.count.explicit === true
-    && n.trace.countTouched.source === "user" && n.trace.countTouched.explicit === true
-    && n.trace.lang.source === "user"
+    && n.trace.count.source === "user" && n.trace.count.explicit === true // countTouched=true 明确
+    && n.trace.modelUsage.source === "user" && n.trace.modelUsage.explicit === true // 2≠默认4 → user
+    && n.trace.lang.source === "unknown" && n.trace.lang.explicit === false // 传同默认值 → 无法区分，unknown
     && n.trace.fontStyle.source === "default" // 未传 → default
     && n.values.targetModelScreens === 2
     && n.values.copywriting === "none"
@@ -1586,16 +1586,16 @@ push("CB4 ProductBrief旧数据兼容(无category与旧逻辑逐项等价)", (()
   return JSON.stringify(got) === JSON.stringify(old)
     && uniMod.classifyProductFacts(facts).hasMisuse === false;
 })());
-push("CB5 行业知识/AI推断冒充商品事实被拒且留痕", (() => {
+push("CB5 新版行业知识/AI推断冒充商品事实被拒且留痕", (() => {
   const facts = [
-    { claim: "表活可去污", level: "visible", category: "industry-knowledge" },
-    { claim: "推测适合羽绒", level: "visible", category: "ai-inference" },
-    { claim: "含阴离子表活", level: "visible", category: "product-confirmed", source: "商品图标签" }
+    { claim: "表活可去污", level: "visible", category: "industry-knowledge", sourceType: "external-source", evidence: ["行业手册"] },
+    { claim: "推测适合羽绒", level: "visible", category: "ai-inference", sourceType: "ai-inference", evidence: ["推断"] },
+    { claim: "含阴离子表活", level: "visible", category: "product-confirmed", sourceType: "product-image", evidence: ["商品图标签特写"], source: "商品图标签" }
   ];
-  const r = uniMod.classifyProductFacts(facts);
-  return r.hasMisuse === true && r.misuse.length === 2
+  const r = uniMod.classifyProductFacts(facts, { schemaVersion: "1.0.0" });
+  return r.strict === true && r.hasMisuse === true && r.misuse.length === 2
     && JSON.stringify(r.confirmedClaims.map((f) => f.claim)) === JSON.stringify(["含阴离子表活"])
-    && r.confirmedClaims[0].source === "商品图标签";
+    && r.confirmedClaims[0].sourceType === "product-image";
 })());
 push("CB6 middleware 契约追踪与事实审计非枚举(不污染序列化)", (() => {
   const g = deriveMod.buildDetailPromptGroup(cbInput, [], {});
@@ -1608,6 +1608,75 @@ push("CB6 middleware 契约追踪与事实审计非枚举(不污染序列化)", 
 push("CB7 reverseScreens 进入V2规划输入(白名单源码断言)", (() => {
   const body = read("server/detail-ai.js");
   return probe(body, "reverseScreens: input.reverseScreens") && probe(body, "modelUsage: input.modelUsage");
+})());
+
+// ---------- CB 组 · 阶段 B-补充：事实分类闭环 / 显式选择 / 参数闭环 / 优先级 ----------
+push("CB8 新版缺category/无效category标unclassified且不得进confirmed", (() => {
+  const facts = [
+    { claim: "缺分类事实", level: "visible", sourceType: "product-image", evidence: ["图"] },
+    { claim: "无效分类事实", level: "visible", category: "made-up", sourceType: "product-image", evidence: ["图"] },
+    { claim: "正常商品事实", level: "visible", category: "product-confirmed", sourceType: "user-input", evidence: ["用户输入原文"] }
+  ];
+  const r = uniMod.classifyProductFacts(facts, { schemaVersion: "1.0.0" });
+  return r.unclassified.length === 2
+    && r.unclassified.every((u) => u.category === uniMod.FACT_CATEGORY.UNCLASSIFIED)
+    && JSON.stringify(r.confirmedClaims.map((f) => f.claim)) === JSON.stringify(["正常商品事实"]);
+})());
+push("CB9 新版product-confirmed缺来源类型或证据不得自动confirmed", (() => {
+  const base = { claim: "某成分", level: "visible", category: "product-confirmed" };
+  const noSource = uniMod.classifyProductFacts([{ ...base, evidence: ["图"] }], { schemaVersion: "1.0.0" });
+  const noEvidence = uniMod.classifyProductFacts([{ ...base, sourceType: "product-image" }], { schemaVersion: "1.0.0" });
+  const aiSrc = uniMod.classifyProductFacts([{ ...base, sourceType: "ai-inference", evidence: ["推断"] }], { schemaVersion: "1.0.0" });
+  const ok = uniMod.classifyProductFacts([{ ...base, sourceType: "user-input", evidence: ["用户原文"] }], { schemaVersion: "1.0.0" });
+  return noSource.confirmedClaims.length === 0 && noSource.misuse.some((m) => m.reason === "missing_or_invalid_source_type")
+    && noEvidence.confirmedClaims.length === 0 && noEvidence.misuse.some((m) => m.reason === "missing_evidence")
+    && aiSrc.confirmedClaims.length === 0 && aiSrc.misuse.some((m) => m.reason === "source_type_not_confirmable")
+    && ok.confirmedClaims.length === 1;
+})());
+push("CB10 真正旧版无category数据保留兼容+不因category伪装新版", (() => {
+  const oldFacts = [{ claim: "旧版事实", level: "visible" }, { claim: "推断", level: "inferred" }];
+  const old = uniMod.classifyProductFacts(oldFacts); // 无 schemaVersion = 旧版
+  return old.strict === false && JSON.stringify(old.confirmedClaims.map((f) => f.claim)) === JSON.stringify(["旧版事实"])
+    && old.confirmedClaims[0].compat === true
+    // 即便事实带了 category，只要整体无 schemaVersion 也不启用严格模式（防模型填 category 绕过）
+    && uniMod.classifyProductFacts([{ claim: "x", level: "visible", category: "ai-inference" }]).strict === false;
+})());
+push("CB11 显式选择区分：未触碰默认值=default vs 主动选同值=unknown vs 有touched=user", (() => {
+  const untouched = uniMod.normalizeDetailRequest({});                       // 未提交 → default
+  const sameValue = uniMod.normalizeDetailRequest({ count: 10, countTouched: false }); // 提交同默认值但未标触碰 → default
+  const unknownField = uniMod.normalizeDetailRequest({ lang: "中文" });      // 无 touched 且同默认 → unknown
+  const explicitSame = uniMod.normalizeDetailRequest({ count: 10, countTouched: true }); // 主动选同默认值 → user
+  return untouched.trace.count.source === "default"
+    && sameValue.trace.count.source === "default"
+    && unknownField.trace.lang.source === "unknown" && unknownField.trace.lang.explicit === false
+    && explicitSame.trace.count.source === "user" && explicitSame.trace.count.explicit === true;
+})());
+push("CB12 逐参数七阶段闭环结构：22项独立记录/后两级unverified/不适用not_applicable", (() => {
+  const c = uniMod.buildParamClosure({ count: 10, countTouched: true, ratio: "9:16", modelMode: "use-model" });
+  const keys = Object.keys(uniMod.DETAIL_REQUEST_CONTRACT);
+  const stages = ["frontSubmit", "backReceive", "planning", "screenTask", "finalPrompt", "imageRequest", "imageResult"];
+  const countRec = c.params.count;
+  const ratioRec = c.params.ratio; // appliesTo 含 generation → 后两级 unverified
+  const langRec = c.params.lang;   // appliesTo 仅 compile → 其余 not_applicable
+  return keys.length === 23 && Object.keys(c.params).length === 23
+    && stages.every((s) => c.stages.includes(s))
+    && stages.every((s) => Object.prototype.hasOwnProperty.call(countRec.stages, s))
+    && countRec.stages.frontSubmit === "passed" && countRec.stages.backReceive === "passed"
+    && countRec.stages.imageRequest === "not_applicable" && countRec.stages.imageResult === "not_applicable"
+    && ratioRec.stages.imageRequest === "unverified" && ratioRec.stages.imageResult === "unverified"
+    && langRec.stages.planning === "not_applicable" && langRec.stages.imageRequest === "not_applicable";
+})());
+push("CB13 参数优先级：法律安全>用户单屏>用户全局>软建议>AI>默认+压过用户需显式标记", (() => {
+  const r1 = uniMod.resolveParamConflict({ legalSafetyPlatform: "平台禁词", globalExplicit: "用户选值", aiAdvice: "AI建议" });
+  const r2 = uniMod.resolveParamConflict({ screenExplicit: "用户单屏要求", globalExplicit: "用户全局值" });
+  const r3 = uniMod.resolveParamConflict({ globalExplicit: "用户全局值", softAdvice: "行业建议", aiAdvice: "AI建议", defaultValue: "默认" });
+  const r4 = uniMod.resolveParamConflict({ softAdvice: "行业建议", globalExplicit: "用户全局值" }); // 软建议不能压用户 → 用户胜
+  const r5 = uniMod.resolveParamConflict({ legalSafetyPlatform: "安全红线", screenExplicit: "用户单屏要求" }); // 安全红线可压用户但须显式标记
+  return r1.value === "平台禁词" && r1.source === "legal_safety_platform"
+    && r2.value === "用户单屏要求" && r2.source === "screen_explicit"
+    && r3.value === "用户全局值" && r3.source === "global_explicit" && r3.overridesUserExplicit === false
+    && r4.value === "用户全局值" && r4.source === "global_explicit" // 软建议不得静默覆盖用户明确要求
+    && r5.value === "安全红线" && r5.overridesUserExplicit === true && r5.reason === "higher_priority_overrode_user_explicit";
 })());
 
 // ---------- E 组 · 真实篡改负向对照（对 middleware 源串逐字篡改） ----------

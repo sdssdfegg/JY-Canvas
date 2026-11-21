@@ -32,7 +32,8 @@ import {
   activeConfig,
   classifyProductFacts,
   confirmedFactClaims,
-  normalizeDetailRequest
+  normalizeDetailRequest,
+  buildParamClosure
 } from "./detail-v2-control/index.js";
 // V2-PRO-002：Skill 按需触发 + 提示词分层组装 + 编译授权（工程机制）。
 import {
@@ -960,7 +961,7 @@ function buildV2ControlReport(aiPlan, resolvedIndustryId, industryResolution = n
   // 阶段 B ProductBrief：事实分类防冒充——无 category 的旧 aiPlan 与旧逻辑逐项等价；
   // 显式 category 为行业知识/推断/竞品/评价却标 visible 的，拒绝作为商品事实，防冒充。
   const planFactsForBoundary = Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [];
-  const confirmedFacts = confirmedFactClaims(planFactsForBoundary);
+  const confirmedFacts = confirmedFactClaims(planFactsForBoundary, { schemaVersion: aiPlan?.schemaVersion });
   const admission = admitTasks([...registry.contentTasks, ...registry.visualTasks], {
     industryId: pack.activeIndustryId,
     confirmedFacts,
@@ -1287,7 +1288,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   // 已确认事实集：用户结构化资料 + AI 规划 visible 事实——用于卖点边界豁免（用户明确提供的适用范围不算扩展）。
   const confirmedFactsForBoundary = [
     ...structuredFacts.map((fact) => fact.content),
-    ...confirmedFactClaims(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [])
+    ...confirmedFactClaims(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [], { schemaVersion: aiPlan?.schemaVersion })
   ];
   const userSellingPoints = parseList(input.sellingPoints); // 只认用户明确提供的卖点，不认行业 sellingAngles 兜底
   const selectedSectionsEarly = Array.isArray(input.selectedSections) && input.selectedSections.length > 0 ? input.selectedSections : null;
@@ -1469,7 +1470,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
           composition: aiScreen?.composition || localTask?.compositionHint || "",
           // 屏级事实：本地兜底只用本屏命中的事实；AI路径仍用规划的visible事实。不再全量注入。
           confirmedFacts: [
-            ...confirmedFactClaims(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : []),
+            ...confirmedFactClaims(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [], { schemaVersion: aiPlan?.schemaVersion }),
             ...screenFacts
           ],
           visualDNA: aiPlan?.globalVisualDNA || (analysis.visualStyle ? { tone: analysis.visualStyle } : {}),
@@ -1497,7 +1498,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     const triggerCtxKeys = [];
     if (v2Planning) {
       const facts = Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [];
-      const visibleFacts = confirmedFactClaims(facts);
+      const visibleFacts = confirmedFactClaims(facts, { schemaVersion: aiPlan?.schemaVersion });
       facts.forEach((f) => triggerCtxKeys.push(`fact_${f?.level || "unknown"}`));
       visibleFacts.forEach((claim) => triggerCtxKeys.push(`visible:${claim}`));
       triggerCtxKeys.push(`industry_${industrySkill.id}`);
@@ -1545,7 +1546,7 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
     ]);
     // V2-PRO-002 / F-1：材质事实按 L1/L2/L3 分级——L3(mustNotClaim) 不进"真实材质/颜色"，
     // L2(inferred) 只作图片观察标注；避免把使用对象材质（棉）误写成商品包装材质。
-    const gradedVisible = confirmedFactClaims(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [])
+    const gradedVisible = confirmedFactClaims(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [], { schemaVersion: aiPlan?.schemaVersion })
       .filter((claim) => /材质|棉|化纤|混纺|颜色|瓶身|泵头/.test(claim));
     const materialText = v2Planning
       ? (gradedVisible.length > 0 ? gradedVisible.slice(0, 8).join("、") : "以商品图为准确认，未确认材质不作断言")
@@ -1748,8 +1749,10 @@ function buildDetailPromptGroup(input = {}, files = [], options = {}) {
   if (v2Planning) Object.defineProperty(result, "skillLifecycleByScreen", { value: skillLifecycleByScreen, enumerable: false, configurable: true });
   // 阶段 B：RequestContract 追踪 + ProductBrief 事实分类审计（同样非枚举，不污染序列化）。
   Object.defineProperty(result, "requestContract", { value: requestContract, enumerable: false, configurable: true });
+  // B-补充：逐参数七阶段闭环状态（无真实模型/图片证据的后两级恒 unverified）。
+  Object.defineProperty(result, "paramClosure", { value: buildParamClosure(input), enumerable: false, configurable: true });
   Object.defineProperty(result, "productBriefAudit", {
-    value: classifyProductFacts(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : []),
+    value: classifyProductFacts(Array.isArray(aiPlan?.planning?.facts) ? aiPlan.planning.facts : [], { schemaVersion: aiPlan?.schemaVersion }),
     enumerable: false, configurable: true
   });
   return result;

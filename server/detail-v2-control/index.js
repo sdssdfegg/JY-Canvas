@@ -37,11 +37,24 @@ export const FACT_CATEGORY = Object.freeze({
   INDUSTRY_KNOWLEDGE: "industry-knowledge", // 行业通用知识
   COMPETITOR: "competitor",                 // 竞品公开信息
   USER_REVIEW: "user-review",               // 有来源的真实用户评价
-  AI_INFERENCE: "ai-inference"              // AI 推断
+  AI_INFERENCE: "ai-inference",             // AI 推断
+  UNCLASSIFIED: "unclassified"              // B-补充：新版事实缺 category/category 无效时的兜底类别，不得视为商品事实
 });
 const FACT_CATEGORY_VALUES = new Set(Object.values(FACT_CATEGORY));
-// 只有 product-confirmed 可冒充"商品自身事实"进入 visible 消费；其余最多 inferred。
+// 只有 product-confirmed 可作为商品事实进入 visible 消费；其余最多 inferred。
 const PRODUCT_FACT_CATEGORIES = new Set([FACT_CATEGORY.PRODUCT_CONFIRMED]);
+// B-补充：事实来源类型（至少区分用户输入/商品图可见/外部资料/AI推断）。
+export const FACT_SOURCE_TYPE = Object.freeze({
+  USER_INPUT: "user-input",           // 用户资料/明确指令
+  PRODUCT_IMAGE: "product-image",     // 商品图可见信息
+  EXTERNAL_SOURCE: "external-source", // 有出处的外部资料
+  AI_INFERENCE: "ai-inference"        // AI 推断（不可作已确认事实）
+});
+const FACT_SOURCE_VALUES = new Set(Object.values(FACT_SOURCE_TYPE));
+// 能支撑"已确认商品事实"的来源类型：用户输入 / 商品图可见 / 有出处外部资料；AI 推断不能。
+const CONFIRMABLE_SOURCE_TYPES = new Set([FACT_SOURCE_TYPE.USER_INPUT, FACT_SOURCE_TYPE.PRODUCT_IMAGE, FACT_SOURCE_TYPE.EXTERNAL_SOURCE]);
+// B-补充：新版规划结果 schema 标记（>= 此版本启用严格事实分类；旧版无此标记走历史兼容）。
+export const PRODUCT_FACT_SCHEMA_VERSION = "2.0";
 
 function readPendingConfig() {
   try {
@@ -110,6 +123,85 @@ export const PARAM_CLOSURE_STATUS = Object.freeze({
   NOT_APPLICABLE: "not_applicable"
 });
 
+// B-补充：参数来源优先级（从高到低），冲突时高优先级胜出，禁止静默覆盖用户明确要求。
+export const PARAM_PRIORITY = Object.freeze({
+  LEGAL_SAFETY_PLATFORM: 60, // 法律/安全/平台强制约束
+  SCREEN_EXPLICIT: 50,       // 用户明确指定的单屏要求
+  GLOBAL_EXPLICIT: 40,       // 用户明确选择的全局参数
+  SOFT_ADVICE: 30,           // 行业/平台软性策划建议
+  AI_ADVICE: 20,             // AI 自主建议
+  DEFAULT: 10                // 系统默认值
+});
+const PRIORITY_LABELS = Object.freeze({
+  60: "legal_safety_platform", 50: "screen_explicit", 40: "global_explicit",
+  30: "soft_advice", 20: "ai_advice", 10: "default"
+});
+
+// 冲突处理：返回胜出值、胜出层级、是否压过了用户明确要求（压过则必须显式说明，不允许静默）。
+export function resolveParamConflict(candidates = {}) {
+  const order = [
+    ["legalSafetyPlatform", PARAM_PRIORITY.LEGAL_SAFETY_PLATFORM],
+    ["screenExplicit", PARAM_PRIORITY.SCREEN_EXPLICIT],
+    ["globalExplicit", PARAM_PRIORITY.GLOBAL_EXPLICIT],
+    ["softAdvice", PARAM_PRIORITY.SOFT_ADVICE],
+    ["aiAdvice", PARAM_PRIORITY.AI_ADVICE],
+    ["defaultValue", PARAM_PRIORITY.DEFAULT]
+  ];
+  let winner = null;
+  for (const [key, priority] of order) {
+    if (Object.prototype.hasOwnProperty.call(candidates, key) && candidates[key] !== undefined) {
+      winner = { key, priority, value: candidates[key], source: PRIORITY_LABELS[priority] };
+      break;
+    }
+  }
+  if (!winner) return { value: undefined, source: "none", priority: 0, overridesUserExplicit: false, reason: "no_candidate" };
+  const userExplicitPresent = Object.prototype.hasOwnProperty.call(candidates, "screenExplicit") || Object.prototype.hasOwnProperty.call(candidates, "globalExplicit");
+  // 胜出层级高于"用户单屏要求"且存在用户明确候选 → 用户明确要求被更高优先级压过，必须显式标记。
+  const overridesUserExplicit = winner.priority > PARAM_PRIORITY.SCREEN_EXPLICIT && userExplicitPresent;
+  return {
+    value: winner.value,
+    source: winner.source,
+    priority: winner.priority,
+    overridesUserExplicit,
+    reason: overridesUserExplicit ? "higher_priority_overrode_user_explicit" : "highest_priority_won"
+  };
+}
+
+// B-补充：逐参数七阶段闭环状态结构。
+// 阶段：frontSubmit/backReceive/planning/screenTask/finalPrompt/imageRequest/imageResult。
+// 判定原则：只有 evidence 提供源码/探针证据的阶段才 passed；后两级无真实模型/图片证据恒 unverified；
+// appliesTo 不含的阶段标 not_applicable；unknown 状态一律不作为 passed。
+const CLOSURE_STAGES = ["frontSubmit", "backReceive", "planning", "screenTask", "finalPrompt", "imageRequest", "imageResult"];
+const STAGE_TO_SCOPE = {
+  planning: "planning", screenTask: "planning", finalPrompt: "compile", imageRequest: "generation", imageResult: "generation"
+};
+export function buildParamClosure(input = {}, evidence = {}) {
+  const norm = normalizeDetailRequest(input);
+  const result = {};
+  for (const [key, def] of Object.entries(DETAIL_REQUEST_CONTRACT)) {
+    const stages = {};
+    // 前端提交：input 中存在该字段即 passed（源码/探针可证），否则 default 也视为 submitted（系统默认被提交）。
+    stages.frontSubmit = Object.prototype.hasOwnProperty.call(input, key) ? PARAM_CLOSURE_STATUS.PASSED : PARAM_CLOSURE_STATUS.NOT_APPLICABLE;
+    // 后台接收：normalize 产生 values 即证明接收（服务端纯函数探针可证）。
+    stages.backReceive = Object.prototype.hasOwnProperty.call(norm.values, key) ? PARAM_CLOSURE_STATUS.PASSED : PARAM_CLOSURE_STATUS.FAILED;
+    // 中间三级：仅当 evidence[key] 给出对应阶段的 true 证据才 passed；appliesTo 不含则 not_applicable；否则 unverified。
+    for (const stage of ["planning", "screenTask", "finalPrompt", "imageRequest", "imageResult"]) {
+      const stageScope = STAGE_TO_SCOPE[stage];
+      const inScope = def.appliesTo.includes(stageScope);
+      if (!inScope) {
+        stages[stage] = PARAM_CLOSURE_STATUS.NOT_APPLICABLE;
+      } else if (evidence?.[key]?.[stage] === true) {
+        stages[stage] = PARAM_CLOSURE_STATUS.PASSED;
+      } else {
+        // 后两级无真实模型/图片证据，恒 unverified；其余阶段无证据也 unverified。
+        stages[stage] = PARAM_CLOSURE_STATUS.UNVERIFIED;
+      }
+    }
+    result[key] = { value: norm.values[key], source: norm.trace[key].source, stages };
+  }
+  return { contractVersion: "stage-b-1.0", stages: CLOSURE_STAGES, params: result };
+}
+
 // 参数标准化：返回规范化取值与逐参数溯源（source=user/default、explicit=是否用户明确）。
 // 不改变调用方数据；仅提供契约层可查询的标准化视图，运行时消费沿用既有字段，零行为回归。
 export function normalizeDetailRequest(input = {}) {
@@ -126,11 +218,22 @@ export function normalizeDetailRequest(input = {}) {
       value = Number.isFinite(n) ? Math.max(1, Math.min(12, Math.trunc(n))) : def.defaultValue;
     }
     values[key] = value;
-    const explicitFlag = def.explicitFlag ? Boolean(input[def.explicitFlag]) : false;
+    // B-补充：source 必须基于真实选择状态，不能只看属性是否存在。
+    // ① 有 explicitFlag（如 countTouched）→ 以标记为准：true=user（含主动选同默认值）、false=default。
+    // ② 无标记：不 present→default；present 且值等于默认→unknown（无法区分用户选同值/系统默认）；值不同→user。
+    let source;
+    if (def.explicitFlag && Object.prototype.hasOwnProperty.call(input, def.explicitFlag)) {
+      source = input[def.explicitFlag] ? "user" : "default";
+    } else if (!present) {
+      source = "default";
+    } else {
+      const sameAsDefault = String(value) === String(def.defaultValue);
+      source = sameAsDefault ? "unknown" : "user";
+    }
     trace[key] = {
-      source: present ? "user" : "default",
+      source,
       value,
-      explicit: present || explicitFlag,
+      explicit: source === "user",
       appliesTo: def.appliesTo,
       scope: def.scope
     };
@@ -141,43 +244,75 @@ export function normalizeDetailRequest(input = {}) {
   return { values, trace, contractVersion: "stage-b-1.0" };
 }
 
-// ProductBrief 事实防护：识别"行业知识/AI推断/竞品/评价冒充商品事实"。
-// 兼容旧数据：facts 无 category 字段时沿用 level=visible 旧判定（零行为回归）。
-// 仅当新数据显式给出 category 且非 product-confirmed 时，才禁止其作为商品事实，并记录冒充标记。
-export function classifyProductFacts(facts = []) {
+// B-补充：判断是否"新版规划结果"（启用严格事实分类）。
+// 新版 aiPlan 顶层 schemaVersion 存在且非空即视为新版；缺失/为空 = 历史旧版，走原兼容路径。
+// 🔴 不因模型填了 category 就认定为新版——版本只看规划结果整体标记，防止绕过。
+function isStrictFactSchema(schemaVersion) {
+  return typeof schemaVersion === "string" && schemaVersion.trim().length > 0;
+}
+
+// ProductBrief 事实防护：识别"行业知识/AI推断/缺分类/缺来源证据冒充商品事实"。
+// 版本化兼容：
+//   - 旧版（无 schemaVersion，历史数据）：facts 无 category 时沿用 level=visible 旧判定（零行为回归）。
+//   - 新版（有 schemaVersion）：每条事实必须有合法 category + 可确认来源类型 + 证据关联；
+//     缺/无效 category → unclassified；缺来源或证据 → 不得获得 confirmed 资格；均留痕，不静默放行。
+export function classifyProductFacts(facts = [], options = {}) {
+  const strict = isStrictFactSchema(options?.schemaVersion);
   const confirmedClaims = [];
   const misuse = [];
+  const unclassified = [];
   for (const f of (Array.isArray(facts) ? facts : [])) {
     const claim = String(f?.claim || "");
     if (!claim) continue;
     const level = String(f?.level || "");
-    const category = f?.category == null ? null : String(f.category);
-    if (category === null) {
-      // 旧数据兼容：无 category 时维持既有 visible 消费语义。
-      if (level === FACT_LEVEL.L1) confirmedClaims.push({ claim, level, category: null, source: f?.source ?? null });
+    const rawCategory = f?.category == null ? null : String(f.category);
+    const sourceType = f?.sourceType == null ? null : String(f.sourceType);
+    const hasEvidence = Array.isArray(f?.evidence) ? f.evidence.length > 0 : (typeof f?.evidence === "string" && f.evidence.trim().length > 0);
+
+    // 旧版兼容：无整体 schemaVersion 且无 category → 维持既有 visible 语义，不改历史结果。
+    if (!strict && rawCategory === null) {
+      if (level === FACT_LEVEL.L1) confirmedClaims.push({ claim, level, category: null, source: f?.source ?? null, compat: true });
       continue;
     }
-    if (!FACT_CATEGORY_VALUES.has(category)) {
-      misuse.push({ claim, reason: "unknown_category", category });
+
+    // 新版：缺/无效 category → unclassified，绝不自动视为 product-confirmed。
+    if (!FACT_CATEGORY_VALUES.has(rawCategory)) {
+      const reason = rawCategory === null ? "missing_category" : "invalid_category";
+      unclassified.push({ claim, reason, category: FACT_CATEGORY.UNCLASSIFIED });
+      misuse.push({ claim, reason, category: rawCategory ?? FACT_CATEGORY.UNCLASSIFIED });
       continue;
     }
-    // 非商品事实类别标为 visible（冒充）→ 拒绝作为商品事实，并留痕。
-    if (level === FACT_LEVEL.L1 && !PRODUCT_FACT_CATEGORIES.has(category)) {
-      misuse.push({ claim, reason: "non_product_fact_marked_visible", category });
+    const category = rawCategory;
+    // 非商品事实类别标 visible → 冒充，拒绝。
+    if (!PRODUCT_FACT_CATEGORIES.has(category)) {
+      if (level === FACT_LEVEL.L1) misuse.push({ claim, reason: "non_product_fact_marked_visible", category });
       continue;
     }
-    if (level === FACT_LEVEL.L1 && PRODUCT_FACT_CATEGORIES.has(category)) {
-      confirmedClaims.push({ claim, level, category, source: f?.source ?? null });
+    // product-confirmed 仍需来源类型 + 证据关联才能 confirmed；缺一不可，不默认补 product-confirmed。
+    if (level === FACT_LEVEL.L1) {
+      if (!FACT_SOURCE_VALUES.has(sourceType)) {
+        misuse.push({ claim, reason: "missing_or_invalid_source_type", category });
+        continue;
+      }
+      if (!CONFIRMABLE_SOURCE_TYPES.has(sourceType)) {
+        misuse.push({ claim, reason: "source_type_not_confirmable", category, sourceType });
+        continue;
+      }
+      if (!hasEvidence) {
+        misuse.push({ claim, reason: "missing_evidence", category, sourceType });
+        continue;
+      }
+      confirmedClaims.push({ claim, level, category, sourceType, evidence: f.evidence, source: f?.source ?? null });
     }
   }
-  return { confirmedClaims, misuse, hasMisuse: misuse.length > 0 };
+  return { confirmedClaims, misuse, unclassified, hasMisuse: misuse.length > 0, schemaVersion: options?.schemaVersion || null, strict };
 }
 
 // 商品事实 claim 提取：供 middleware 边界/画面消费。
 // 兼容保证：对无 category 的旧 aiPlan，输出与旧逻辑 (level==="visible".map(claim)) 逐项一致；
 // 仅当新数据显式 category 且被判冒充时，才排除该项，防止行业知识/推断冒充商品事实。
-export function confirmedFactClaims(facts = []) {
-  return classifyProductFacts(facts).confirmedClaims.map((f) => f.claim);
+export function confirmedFactClaims(facts = [], options = {}) {
+  return classifyProductFacts(facts, options).confirmedClaims.map((f) => f.claim);
 }
 
 // 活动配置：正式内容优先，缺失/损坏时回退占位。
@@ -795,11 +930,16 @@ export default {
   ADMISSION,
   FACT_LEVEL,
   FACT_CATEGORY,
+  FACT_SOURCE_TYPE,
+  PRODUCT_FACT_SCHEMA_VERSION,
   DETAIL_REQUEST_CONTRACT,
   PARAM_CLOSURE_STATUS,
+  PARAM_PRIORITY,
   normalizeDetailRequest,
   classifyProductFacts,
   confirmedFactClaims,
+  buildParamClosure,
+  resolveParamConflict,
   professionalContentStatus,
   activeConfig,
   createTaskRegistry,
