@@ -106,6 +106,10 @@ export function MainTopBar({
           <FolderOpen size={15} />
           <span>指定文件夹</span>
         </Button>
+        <Button size="sm" type="button" onClick={() => void openSaveDirectory()}>
+          <FolderOpen size={15} />
+          <span>打开保存目录</span>
+        </Button>
         {activeView === "detail-main" && (
           <Button
             size="sm"
@@ -129,10 +133,6 @@ export function MainTopBar({
             <span>拼图预览</span>
           </Button>
         )}
-        <Button size="sm" type="button" onClick={() => void openSaveDirectory()}>
-          <FolderOpen size={15} />
-          <span>打开保存目录</span>
-        </Button>
         {activeView === "detail-main" && (
           <TaskBadge status={detailApi.detailStatus === "failed" ? "failed" : detailApi.detailRunningCount > 0 || detailApi.detailStatus === "planning" ? "running" : "success"}>{detailApi.detailStatusText}</TaskBadge>
         )}
