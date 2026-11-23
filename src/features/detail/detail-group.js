@@ -1,7 +1,6 @@
 import { canvasToBlob } from "../../shared/canvas-blob.js";
 import { DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, detailDefaults, referenceDefaults } from "../../shared/app-defaults.js";
 import { readJsonStorage } from "../../lib/storage/json-storage.js";
-import { nextDetailScreenId } from "./detail-screen-id.js";
 import { sanitizeStoredImage } from "../storage/storage-store.js";
 
 // 详情页分组 / 拼图域工厂 —— 全部函数体从 src/main.jsx 逐字抽出，未改一行逻辑。
@@ -17,7 +16,9 @@ const DETAIL_GROUP_STORAGE_KEYS = [
   "id", "label", "name", "createdAt", "status", "params", "prompts",
   "stylePack", "productFiles", "referenceFiles", "results",
   // V2-COUNT-MODE：规划冲突提示需跨刷新保留。
-  "planningConflict"
+  "planningConflict",
+  // P1 数量联动：组类型（manual/ai，明确标记不用 prompt.source 推断）+ 数量缩减时的可恢复暂存区。
+  "kind", "parkedPrompts"
 ];
 
 // V218 P1：prompt 层持久化白名单。键集实测自 server/detail-middleware.js 的 prompt 构造体
@@ -234,24 +235,11 @@ export function createDetailGroup(deps) {
   function updateDetailPrompt(groupId, screen, patch) {
     setDetailGroups((current) => current.map((group) => {
       if (group.id !== groupId) return group;
-      return {
-        ...group,
-        prompts: group.prompts.map((prompt) => (
-          prompt.screen === screen ? { ...prompt, ...patch } : prompt
-        ))
-      };
-    }));
-  }
-
-  function toggleDetailPrompt(groupId, screen) {
-    setDetailGroups((current) => current.map((group) => {
-      if (group.id !== groupId) return group;
-      return {
-        ...group,
-        prompts: group.prompts.map((prompt) => (
-          prompt.screen === screen ? { ...prompt, enabled: !prompt.enabled } : prompt
-        ))
-      };
+      // 异步回写按稳定 ID 定位：活动列表或暂存区都能命中（暂存屏不 retire、结果不丢）。
+      const apply = (list) => (list || []).map((prompt) => (
+        prompt.screen === screen ? { ...prompt, ...patch } : prompt
+      ));
+      return { ...group, prompts: apply(group.prompts), parkedPrompts: apply(group.parkedPrompts) };
     }));
   }
 
@@ -280,44 +268,6 @@ export function createDetailGroup(deps) {
     addEvent("一键详情", "已删除预设");
   }
 
-  // 手动新增空白分屏：完全独立于 AI 策划，不调用任何模型接口、不产生 Token。
-  // screen 作为稳定唯一内部 ID：取当前组内 max(screen)+1，永不复用、不随排序改变；
-  // 用户看到的"第N屏"编号由渲染时的数组位置计算，与 screen 解耦。
-  function addManualDetailScreen(groupId) {
-    let addedScreen = null;
-    setDetailGroups((current) => current.map((group) => {
-      if (group.id !== groupId) return group;
-      const prompts = Array.isArray(group.prompts) ? group.prompts : [];
-      addedScreen = nextDetailScreenId(current);
-      const blank = {
-        screen: addedScreen,
-        title: "手动分屏",
-        summary: "",
-        intervention: "用户自建分屏",
-        referenceStrategy: "",
-        text: "",
-        enabled: true,
-        status: "idle",
-        results: [],
-        source: "manual",
-        shouldGenerate: true,
-        isEmptyScreen: false
-      };
-      return { ...group, prompts: [...prompts, blank] };
-    }));
-    if (addedScreen !== null) addEvent("一键详情", `已新增手动分屏（内部ID ${addedScreen}）`);
-  }
-
-  // 删除单个分屏：只删目标 screen（稳定 ID），其他分屏数据/图片关联不变；不物理删除底层图片资产。
-  // 若被删屏的结果正处于选中态，交由调用方清理 detailInfoSelection；此处仅操作 group.prompts。
-  function deleteDetailScreen(groupId, screen) {
-    setDetailGroups((current) => current.map((group) => {
-      if (group.id !== groupId) return group;
-      return { ...group, prompts: (group.prompts || []).filter((prompt) => prompt.screen !== screen) };
-    }));
-    addEvent("一键详情", `已删除分屏（内部ID ${screen}）`);
-  }
-
   return {
     stitchDetailGroupBlob,
     detailResultItemsForGroup,
@@ -332,9 +282,6 @@ export function createDetailGroup(deps) {
     moveStitchDrag,
     endStitchDrag,
     updateDetailPrompt,
-    toggleDetailPrompt,
-    addManualDetailScreen,
-    deleteDetailScreen,
     saveDetailPreset,
     loadDetailPreset,
     deleteDetailPreset

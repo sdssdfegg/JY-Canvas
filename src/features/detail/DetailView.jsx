@@ -58,6 +58,7 @@ export function DetailView({
     detailReferencePreviews,
     activeDetailGroup,
     visibleDetailPrompts,
+    activeEffectiveCount,
     activeDetailResults,
     detailInfoItem,
     detailProductInputRef,
@@ -86,7 +87,7 @@ export function DetailView({
     dropDetailScreen,
     endDetailScreenDrag,
     removeDetailScreen,
-    toggleDetailPrompt,
+    toggleDetailPromptAndSync,
     updateDetailPrompt,
     generateDetailPrompt,
     generateDetailGroup,
@@ -221,7 +222,7 @@ export function DetailView({
                 </select>
               </label>
               <label>
-                <span>生成数量</span>
+                <span>生成数量{activeDetailGroup?.kind === "manual" && ` · 有效${activeEffectiveCount}屏/预计${activeEffectiveCount}张`}</span>
                 <select className="ui-select" value={detailSettings.count} onChange={(event) => updateDetailSetting("count", event.target.value)}>
                   {countOptions.map((count) => <option key={count} value={count}>{count}张</option>)}
                 </select>
@@ -519,7 +520,7 @@ export function DetailView({
                               <input
                                 type="checkbox"
                                 checked={prompt.enabled}
-                                onChange={() => toggleDetailPrompt(activeDetailGroup.id, prompt.screen)}
+                                onChange={() => toggleDetailPromptAndSync(activeDetailGroup.id, prompt.screen)}
                               />
                               <span>第{screenIndex + 1}屏</span>
                             </label>

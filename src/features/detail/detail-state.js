@@ -10,7 +10,10 @@ import {
   sanitizeDetailGroupsForStorage,
   createDetailGroup
 } from "./detail-group.js";
-import { detailScreenExists, pruneDeletedScreen } from "./detail-screen-id.js";
+import {
+  detailScreenExists, pruneDeletedScreen, effectiveDetailPrompts, isManualDetailGroup
+} from "./detail-screen-id.js";
+import { useDetailCountSync } from "./detail-count-sync.js";
 import { createManualDetailGroup } from "./detail-manual-group.js";
 import { DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, defaultState, detailDefaults } from "../../shared/app-defaults.js";
 import { writeJsonStorage } from "../../lib/storage/json-storage.js";
@@ -179,6 +182,7 @@ export function useDetailState({
   // V218 P0：组级生成 in-flight 锁，挡住异步 setState 窗口内的重复提交。
   const detailGroupInFlightRef = useRef(false);
   const detailGroupsRef = useRef(detailGroups); // 异步回写前判定目标屏是否仍存在
+  const { applyCountSync, syncFromGroup, toggleAndSync, guardBatchEmpty } = useDetailCountSync({ detailGroupsRef, setDetailGroups, setDetailSettings, clampDetailCount, activeDetailGroupId });
 
   const detailModel = models.find((item) => item.value === detailSettings.model) || models[0];
   const detailRatios = detailModel.ratios || ["1:1", "3:4", "16:9"];
@@ -210,6 +214,7 @@ export function useDetailState({
   const activeDetailResults = useMemo(() => activeDetailGroup
     ? visibleDetailPrompts.flatMap((prompt) => (prompt.results || []).map((result) => ({ group: activeDetailGroup, prompt, result })))
     : [], [activeDetailGroup, visibleDetailPrompts]);
+  const activeEffectiveCount = useMemo(() => activeDetailGroup ? effectiveDetailPrompts(activeDetailGroup).length : 0, [activeDetailGroup]); // 界面显示有效数/预计张数
   const detailInfoItem = detailInfoSelection
     ? activeDetailResults.find((item) => item.result.id === detailInfoSelection.resultId) || null
     : null;
@@ -260,6 +265,13 @@ export function useDetailState({
   }, [detailReferencePreviews]);
 
   function updateDetailSetting(key, value) {
+    // P1 数量联动：生图数量单独走统一入口（手动组双向同步，AI 组只改设置）。
+    if (key === "count") {
+      const next = { ...detailSettings, count: clampDetailCount(value) };
+      next.countTouched = true; // V2-COUNT-MODE：用户改数量即转 fixed（实际写入由统一入口完成）。
+      applyCountSync(activeDetailGroupId, next.count, "setting");
+      return;
+    }
     setDetailSettings((current) => {
       const next = { ...current, [key]: value };
       if (key === "model") {
@@ -272,11 +284,6 @@ export function useDetailState({
       if (key === "channelId") {
         const channels = channelsForModel(next.model, config.routing || config);
         next.channelId = channels.some((item) => item.id === value) ? value : (channels[0]?.id || "");
-      }
-      if (key === "count") {
-        next.count = clampDetailCount(value);
-        // V2-COUNT-MODE：用户主动修改屏数即转为 fixed；即使改回默认值也保留明确意图。
-        next.countTouched = true;
       }
       if (key === "modelUsage") next.modelUsage = clampDetailModelUsage(value);
       if (key === "reverseScreens") next.reverseScreens = clampReverseScreens(value);
@@ -314,9 +321,6 @@ export function useDetailState({
     moveStitchDrag,
     endStitchDrag,
     updateDetailPrompt,
-    toggleDetailPrompt,
-    addManualDetailScreen,
-    deleteDetailScreen,
     saveDetailPreset,
     loadDetailPreset,
     deleteDetailPreset,
@@ -611,7 +615,7 @@ export function useDetailState({
       addEvent("一键详情", "没有可提交的有效分屏；空屏已跳过，请先勾选未在生成中的有效提示词");
       return;
     }
-    if (skippedCount > 0) addEvent("一键详情", `已跳过 ${skippedCount} 个无独立内容的空屏，不提交图像模型`);
+    if (skippedCount > 0) addEvent("一键详情", `已跳过 ${skippedCount} 个无独立内容的空屏，不提交图像模型`); if (!guardBatchEmpty(group, detailForwardSort, setError, addEvent)) return;
 
     detailGroupInFlightRef.current = true;
     setDetailStatus("generating");
@@ -715,31 +719,37 @@ export function useDetailState({
     addEvent("一键详情", "已删除一个详情分组");
   }
 
-  // 新增手动分屏：无激活分组先建纯本地空组（不调 AI），再加空白屏（工厂见 detail-manual-group.js）。
+  // 新增手动分屏：活动组非手动组（含 AI 规划组）时先建纯本地手动组，再加空白屏。
   function ensureManualGroupAndAddScreen() {
-    let targetGroupId = activeDetailGroup?.id;
+    let targetGroupId = activeDetailGroup && isManualDetailGroup(activeDetailGroup) ? activeDetailGroup.id : null;
     if (!targetGroupId) {
       const manualGroup = createManualDetailGroup({ detailSettings, detailProductFiles, detailReferenceFiles });
       targetGroupId = manualGroup.id;
-      setDetailGroups((current) => [manualGroup, ...current].slice(0, 20));
+      detailGroupsRef.current = [manualGroup, ...detailGroupsRef.current].slice(0, 20);
+      setDetailGroups(detailGroupsRef.current);
       setActiveDetailGroupId(targetGroupId);
       setDetailInfoSelection(null);
       setDetailStatus("ready");
     }
-    addManualDetailScreen(targetGroupId);
+    // 新增一个空白分屏：走统一入口（最后一次操作优先），基础数量随之 +1。
+    const group = detailGroupsRef.current.find((item) => item?.id === targetGroupId);
+    applyCountSync(targetGroupId, effectiveDetailPrompts(group).length + 1, "setting");
   }
+
 
   // 删除单个分屏：委托 detail-group 只删目标 prompt，同时清理指向被删屏的结果选中态与拼图预览，
   // 防止已删除屏的异步结果/预览残留（图片资产本身不物理删除，遵循现有数据管理方式）。
   function removeDetailScreen(groupId, screen) {
-    deleteDetailScreen(groupId, screen);
+    // 用户明确点 X = 永久删除：retire 稳定 ID、从活动与暂存列表都移除（与数量缩减的暂存语义严格区分）。
     detailGroupsRef.current = pruneDeletedScreen(detailGroupsRef.current, groupId, screen);
+    setDetailGroups(detailGroupsRef.current);
     setDetailInfoSelection((current) => (
       current && current.groupId === groupId && String(current.promptScreen) === String(screen)
         ? null
         : current
     ));
     setStitchPreview((current) => (current && current.groupId === groupId ? null : current));
+    syncFromGroup(groupId);
   }
 
   // V215 P1：分组重命名（双击组名进入内联编辑，由 DetailView 调用）。name 为空不写。
@@ -809,6 +819,7 @@ export function useDetailState({
     detailProductInputRef,
     detailReferenceInputRef,
     // 派生
+    activeEffectiveCount,
     detailModel,
     detailRatios,
     detailSizes,
@@ -839,10 +850,11 @@ export function useDetailState({
     moveStitchDrag,
     endStitchDrag,
     updateDetailPrompt,
-    toggleDetailPrompt,
-    addManualDetailScreen,
+    toggleDetailPromptAndSync: toggleAndSync,
     ensureManualGroupAndAddScreen,
     removeDetailScreen,
+    applyCountSync,
+    syncFromGroup,
     saveDetailPreset,
     loadDetailPreset,
     deleteDetailPreset,

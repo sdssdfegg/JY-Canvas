@@ -14,7 +14,7 @@
       "tmp",
       ".codex-artifacts"
     ],
-    "fileCount": 183,
+    "fileCount": 184,
     "files": [
       "src/api/ai-canvas-agent.js",
       "src/api/assets.js",
@@ -74,6 +74,7 @@
       "src/features/detail-studio/versions/VersionPanel.jsx",
       "src/features/detail/DetailSectionsModal.jsx",
       "src/features/detail/DetailView.jsx",
+      "src/features/detail/detail-count-sync.js",
       "src/features/detail/detail-group.js",
       "src/features/detail/detail-image-form.js",
       "src/features/detail/detail-manual-group.js",

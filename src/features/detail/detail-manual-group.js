@@ -21,6 +21,9 @@ export function createManualDetailGroup({ detailSettings, detailProductFiles, de
     },
     productFiles: [...detailProductFiles],
     referenceFiles: [...detailReferenceFiles],
+    // P1 数量联动：组级明确类型标记（禁止用 prompt.source 推断整组），及数量缩减的可恢复暂存区。
+    kind: "manual",
+    parkedPrompts: [],
     prompts: []
   };
 }
