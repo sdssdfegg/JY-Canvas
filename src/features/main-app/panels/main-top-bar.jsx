@@ -109,6 +109,17 @@ export function MainTopBar({
         {activeView === "detail-main" && (
           <Button
             size="sm"
+            type="button"
+            title="手动新增空白分屏，不调用 AI 策划"
+            onClick={() => detailApi.ensureManualGroupAndAddScreen()}
+          >
+            <Plus size={15} />
+            <span>新增分屏</span>
+          </Button>
+        )}
+        {activeView === "detail-main" && (
+          <Button
+            size="sm"
             tone="primary"
             type="button"
             onClick={() => detailApi.activeDetailGroup && detailApi.openStitchPreview(detailApi.activeDetailGroup)}

@@ -132,7 +132,8 @@ async function main() {
   const keyBlock = /const DETAIL_PROMPT_STORAGE_KEYS = \[([\s\S]*?)\];/.exec(group);
   const promptKeys = keyBlock ? [...keyBlock[1].matchAll(/"([A-Za-z0-9_]+)"/g)].map((m) => m[1]) : [];
   // V2-COUNT-MODE：新增 shouldGenerate/isEmptyScreen 两键（19→21），供跳过空屏跨刷新保留。
-  push("S19 prompt 白名单 21 键已取到", promptKeys.length === 21, "实测 " + promptKeys.length + " 键");
+  // 手动分屏：新增 source 键（21→22），标记分屏来自用户自建还是 AI 策划。
+  push("S19 prompt 白名单 22 键已取到", promptKeys.length === 22, "实测 " + promptKeys.length + " 键");
   push("S20 prompt 白名单无重复键", new Set(promptKeys).size === promptKeys.length);
   const forbiddenSchema = ["narrative:", "screenRoles:", "dedupLog:", "visualDna:", "mustNotClaim:", "confidence:"];
   push("S21 未定义任何 planning 内部专业 schema",

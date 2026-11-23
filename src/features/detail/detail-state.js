@@ -311,6 +311,8 @@ export function useDetailState({
     endStitchDrag,
     updateDetailPrompt,
     toggleDetailPrompt,
+    addManualDetailScreen,
+    deleteDetailScreen,
     saveDetailPreset,
     loadDetailPreset,
     deleteDetailPreset,
@@ -456,6 +458,12 @@ export function useDetailState({
     // V2-COUNT-MODE：任何入口（单屏/重刷/重试）都不得为空屏提交图像模型。
     if (prompt?.shouldGenerate === false || prompt?.isEmptyScreen) {
       addEvent("一键详情", `第${prompt?.screen ?? "?"}屏无独立内容，已跳过生成`);
+      return;
+    }
+    // 手动分屏：提示词为空时明确校验失败，不自动触发 AI 策划、不静默填充其他内容。
+    if (!String(prompt?.text || "").trim()) {
+      updateDetailPrompt(group.id, prompt.screen, { status: "failed", error: "提示词为空，请先填写本屏提示词", generationMs: null });
+      addEvent("一键详情", `第${prompt?.screen ?? "?"}屏提示词为空，已阻止生成`);
       return;
     }
     const pickFiles = (list, indexes) => {
@@ -703,6 +711,52 @@ export function useDetailState({
     addEvent("一键详情", "已删除一个详情分组");
   }
 
+  // 新增手动分屏入口：无激活分组时先建一个纯本地空分组（不调用任何策划模型），再加空白屏。
+  // 这样客户可完全跳过 AI，从零开始自建整套详情分屏。
+  function ensureManualGroupAndAddScreen() {
+    let targetGroupId = activeDetailGroup?.id;
+    if (!targetGroupId) {
+      const createdAt = Date.now();
+      targetGroupId = `detail_manual_${createdAt}_${Math.random().toString(36).slice(2, 8)}`;
+      const manualGroup = {
+        id: targetGroupId,
+        label: `${new Date(createdAt).toLocaleTimeString("zh-CN", { hour12: false, hour: "2-digit", minute: "2-digit" })} | 手动分屏`,
+        name: "手动分屏",
+        createdAt,
+        status: "ready",
+        params: {
+          workflow: detailSettings.workflow,
+          model: detailSettings.model,
+          ratio: detailSettings.ratio,
+          imageSize: detailSettings.imageSize,
+          count: detailSettings.count,
+          copywriting: detailSettings.copywriting,
+          lang: detailSettings.lang
+        },
+        productFiles: [...detailProductFiles],
+        referenceFiles: [...detailReferenceFiles],
+        prompts: []
+      };
+      setDetailGroups((current) => [manualGroup, ...current].slice(0, 20));
+      setActiveDetailGroupId(targetGroupId);
+      setDetailInfoSelection(null);
+      setDetailStatus("ready");
+    }
+    addManualDetailScreen(targetGroupId);
+  }
+
+  // 删除单个分屏：委托 detail-group 只删目标 prompt，同时清理指向被删屏的结果选中态与拼图预览，
+  // 防止已删除屏的异步结果/预览残留（图片资产本身不物理删除，遵循现有数据管理方式）。
+  function removeDetailScreen(groupId, screen) {
+    deleteDetailScreen(groupId, screen);
+    setDetailInfoSelection((current) => (
+      current && current.groupId === groupId && String(current.promptScreen) === String(screen)
+        ? null
+        : current
+    ));
+    setStitchPreview((current) => (current && current.groupId === groupId ? null : current));
+  }
+
   // V215 P1：分组重命名（双击组名进入内联编辑，由 DetailView 调用）。name 为空不写。
   function renameDetailGroup(groupId, name) {
     const trimmed = (name || "").trim();
@@ -801,6 +855,9 @@ export function useDetailState({
     endStitchDrag,
     updateDetailPrompt,
     toggleDetailPrompt,
+    addManualDetailScreen,
+    ensureManualGroupAndAddScreen,
+    removeDetailScreen,
     saveDetailPreset,
     loadDetailPreset,
     deleteDetailPreset,

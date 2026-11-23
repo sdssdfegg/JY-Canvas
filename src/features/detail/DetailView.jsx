@@ -85,6 +85,7 @@ export function DetailView({
     beginDetailScreenDrag,
     dropDetailScreen,
     endDetailScreenDrag,
+    removeDetailScreen,
     toggleDetailPrompt,
     updateDetailPrompt,
     generateDetailPrompt,
@@ -489,8 +490,30 @@ export function DetailView({
                       divider={false}
                     />
                     <div className="detailPromptGrid">
-                      {visibleDetailPrompts.map((prompt) => (
-                        <article className={`detailPromptCard ${prompt.status}`} key={`${activeDetailGroup.id}-${prompt.screen}`}>
+                      {visibleDetailPrompts.map((prompt, screenIndex) => (
+                        <article
+                          className={`detailPromptCard ${prompt.status} ${detailDragScreen?.screen === prompt.screen ? "dragging" : ""}`}
+                          key={prompt.screen}
+                          draggable
+                          onDragStart={(event) => {
+                            beginDetailScreenDrag(event, activeDetailGroup.id, prompt.screen);
+                            event.dataTransfer.effectAllowed = "move";
+                          }}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = "move";
+                          }}
+                          onDragEnter={(event) => event.currentTarget.classList.add("drag-over")}
+                          onDragLeave={(event) => event.currentTarget.classList.remove("drag-over")}
+                          onDrop={(event) => {
+                            event.currentTarget.classList.remove("drag-over");
+                            dropDetailScreen(event, activeDetailGroup.id, prompt.screen);
+                          }}
+                          onDragEnd={(event) => {
+                            event.currentTarget.classList.remove("drag-over");
+                            endDetailScreenDrag();
+                          }}
+                        >
                           <header>
                             <label className="detailCheck">
                               <input
@@ -498,9 +521,19 @@ export function DetailView({
                                 checked={prompt.enabled}
                                 onChange={() => toggleDetailPrompt(activeDetailGroup.id, prompt.screen)}
                               />
-                              <span>第{prompt.screen}屏</span>
+                              <span>第{screenIndex + 1}屏</span>
                             </label>
                             <small>{prompt.intervention}</small>
+                            <button
+                              className="detailPromptDelete"
+                              type="button"
+                              title="删除本分屏（不删除底层图片资产）"
+                              aria-label={`删除第${screenIndex + 1}屏`}
+                              disabled={prompt.status === "running"}
+                              onClick={() => removeDetailScreen(activeDetailGroup.id, prompt.screen)}
+                            >
+                              <X size={14} />
+                            </button>
                           </header>
                           <h3>{prompt.title}</h3>
                           <p>{prompt.summary}</p>
@@ -510,7 +543,7 @@ export function DetailView({
                             onChange={(event) => updateDetailPrompt(activeDetailGroup.id, prompt.screen, { text: event.target.value })}
                           />
                           <div className="detailPromptActions">
-                            <Button size="sm" type="button" onClick={() => void copyText(prompt.text, `第${prompt.screen}屏提示词已复制`)}>
+                            <Button size="sm" type="button" onClick={() => void copyText(prompt.text, `第${screenIndex + 1}屏提示词已复制`)}>
                               <Copy size={14} />
                               <span>复制</span>
                             </Button>
@@ -587,7 +620,7 @@ export function DetailView({
                               >
                                 <CachedImage
                                   src={src}
-                                  alt={`第${prompt.screen}屏结果`}
+                                  alt={`第${resultIndex + 1}屏结果`}
                                   draggable
                                   onDragStart={(event) => beginResultImageDrag(event, result, resultIndex)}
                                   diagnostic={{ requestId: result.requestId || result.id, endpoint: "/api/images", module: "一键详情", placement: `detail-screen-${prompt.screen}` }}
@@ -596,7 +629,7 @@ export function DetailView({
                               <button
                                 className="detailScreenPrompt"
                                 type="button"
-                                onClick={() => void copyText(prompt.text, `第${prompt.screen}屏提示词已复制`)}
+                                onClick={() => void copyText(prompt.text, `第${resultIndex + 1}屏提示词已复制`)}
                                 title={prompt.text}
                               >
                                 {prompt.text}
@@ -623,7 +656,7 @@ export function DetailView({
           <aside className="detailInfoPanel">
             <ModuleHeader
               title="生图信息"
-              subtitle={`第${detailInfoItem.prompt.screen}屏 · ${detailInfoItem.prompt.title}`}
+              subtitle={`第${visibleDetailPrompts.findIndex((item) => item.screen === detailInfoItem.prompt.screen) + 1 || detailInfoItem.prompt.screen}屏 · ${detailInfoItem.prompt.title}`}
               action={<Button size="sm" iconOnly aria-label="关闭" type="button" onClick={() => setDetailInfoSelection(null)}>
                 <X size={16} />
               </Button>}

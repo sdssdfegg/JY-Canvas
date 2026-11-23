@@ -2273,6 +2273,53 @@ textarea:focus {
   border-color: color-mix(in srgb, var(--danger) 52%, var(--border));
 }
 
+/* 阶段：分屏拖拽排序——拖拽源半透明+虚线框，dragover 卡片顶部标出目标位置 */
+.detailPromptCard[draggable="true"] {
+  cursor: grab;
+}
+
+.detailPromptCard[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.detailPromptCard.dragging {
+  opacity: 0.5;
+  border-style: dashed;
+  border-color: var(--accent);
+}
+
+.detailPromptGrid .detailPromptCard.drag-over,
+.detailPromptCard.dragging + .detailPromptCard {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.detailPromptDelete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted, var(--text));
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.detailPromptDelete:hover:not(:disabled) {
+  opacity: 1;
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+
+.detailPromptDelete:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
 .detailPromptCard header {
   justify-content: space-between;
   gap: 10px;

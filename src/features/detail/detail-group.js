@@ -28,7 +28,9 @@ const DETAIL_PROMPT_STORAGE_KEYS = [
   "moduleKey", "moduleName", "qualityChecklist", "aiScreen", "analysisMode",
   "text", "enabled", "status", "error", "generationMs", "results",
   // V2-COUNT-MODE：空屏标记需持久化，刷新后前端仍能跳过。
-  "shouldGenerate", "isEmptyScreen"
+  "shouldGenerate", "isEmptyScreen",
+  // 手动分屏：source 字段值为 manual 时标记用户自主新增（不来自 AI 策划）；screen 是稳定唯一 ID（组内不复用）。
+  "source"
 ];
 
 export function createDetailGroup(deps) {
@@ -277,6 +279,45 @@ export function createDetailGroup(deps) {
     addEvent("一键详情", "已删除预设");
   }
 
+  // 手动新增空白分屏：完全独立于 AI 策划，不调用任何模型接口、不产生 Token。
+  // screen 作为稳定唯一内部 ID：取当前组内 max(screen)+1，永不复用、不随排序改变；
+  // 用户看到的"第N屏"编号由渲染时的数组位置计算，与 screen 解耦。
+  function addManualDetailScreen(groupId) {
+    let addedScreen = null;
+    setDetailGroups((current) => current.map((group) => {
+      if (group.id !== groupId) return group;
+      const prompts = Array.isArray(group.prompts) ? group.prompts : [];
+      const maxScreen = prompts.reduce((max, prompt) => Math.max(max, Number.parseInt(prompt?.screen, 10) || 0), 0);
+      addedScreen = maxScreen + 1;
+      const blank = {
+        screen: addedScreen,
+        title: "手动分屏",
+        summary: "",
+        intervention: "用户自建分屏",
+        referenceStrategy: "",
+        text: "",
+        enabled: true,
+        status: "idle",
+        results: [],
+        source: "manual",
+        shouldGenerate: true,
+        isEmptyScreen: false
+      };
+      return { ...group, prompts: [...prompts, blank] };
+    }));
+    if (addedScreen !== null) addEvent("一键详情", `已新增手动分屏（内部ID ${addedScreen}）`);
+  }
+
+  // 删除单个分屏：只删目标 screen（稳定 ID），其他分屏数据/图片关联不变；不物理删除底层图片资产。
+  // 若被删屏的结果正处于选中态，交由调用方清理 detailInfoSelection；此处仅操作 group.prompts。
+  function deleteDetailScreen(groupId, screen) {
+    setDetailGroups((current) => current.map((group) => {
+      if (group.id !== groupId) return group;
+      return { ...group, prompts: (group.prompts || []).filter((prompt) => prompt.screen !== screen) };
+    }));
+    addEvent("一键详情", `已删除分屏（内部ID ${screen}）`);
+  }
+
   return {
     stitchDetailGroupBlob,
     detailResultItemsForGroup,
@@ -292,6 +333,8 @@ export function createDetailGroup(deps) {
     endStitchDrag,
     updateDetailPrompt,
     toggleDetailPrompt,
+    addManualDetailScreen,
+    deleteDetailScreen,
     saveDetailPreset,
     loadDetailPreset,
     deleteDetailPreset
