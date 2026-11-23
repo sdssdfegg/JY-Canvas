@@ -121,6 +121,8 @@ const ORDER = [
   // BUG02（2026-10-16）：渲染期 TDZ 门禁 —— 用 espree 扫 App() 渲染期前向引用（const/let），
   // 拦住「build 通过但首次渲染必崩」的合入。纯解析、无子进程、无基线（门槛 0），进提交钩子。
   "main-render-tdz-check",
+  // 阶段最终验收：分屏稳定 ID 单调不复用 + 已删除屏旧异步结果丢弃（模拟延迟，无真实模型）。
+  "detail-screen-id-check",
   // auth-key-parity：前后端 KEY 清洗规则逐用例一致（登记表第 13 行"后续可抽共享测试用例"）。
   // runtime-config-baseline：守住 server/core/runtime-config.js 的默认值
   // （超时 / 并发 / 缓存策略都是历史实测调校出来的，改了不报错、只改出图行为，
@@ -346,6 +348,7 @@ const FAST_ORDER = [
   "source-hygiene-check",
   // BUG02 渲染期 TDZ 门禁：纯解析、无子进程（<1s），改一行就崩的 TDZ 立刻发现，正合提交钩子。
   "main-render-tdz-check",
+  "detail-screen-id-check",
   "runtime-config-baseline-check",
   "auth-key-parity-check",
   "state-singleton-check",

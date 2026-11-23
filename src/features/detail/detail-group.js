@@ -1,6 +1,7 @@
 import { canvasToBlob } from "../../shared/canvas-blob.js";
 import { DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, detailDefaults, referenceDefaults } from "../../shared/app-defaults.js";
 import { readJsonStorage } from "../../lib/storage/json-storage.js";
+import { nextDetailScreenId } from "./detail-screen-id.js";
 import { sanitizeStoredImage } from "../storage/storage-store.js";
 
 // 详情页分组 / 拼图域工厂 —— 全部函数体从 src/main.jsx 逐字抽出，未改一行逻辑。
@@ -287,8 +288,7 @@ export function createDetailGroup(deps) {
     setDetailGroups((current) => current.map((group) => {
       if (group.id !== groupId) return group;
       const prompts = Array.isArray(group.prompts) ? group.prompts : [];
-      const maxScreen = prompts.reduce((max, prompt) => Math.max(max, Number.parseInt(prompt?.screen, 10) || 0), 0);
-      addedScreen = maxScreen + 1;
+      addedScreen = nextDetailScreenId(current);
       const blank = {
         screen: addedScreen,
         title: "手动分屏",

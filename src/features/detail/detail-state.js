@@ -10,6 +10,8 @@ import {
   sanitizeDetailGroupsForStorage,
   createDetailGroup
 } from "./detail-group.js";
+import { detailScreenExists, pruneDeletedScreen } from "./detail-screen-id.js";
+import { createManualDetailGroup } from "./detail-manual-group.js";
 import { DETAIL_GROUPS_KEY, DETAIL_PRESETS_KEY, defaultState, detailDefaults } from "../../shared/app-defaults.js";
 import { writeJsonStorage } from "../../lib/storage/json-storage.js";
 import { addFilesByRole, removeFilesByRole } from "../../shared/image-input.js";
@@ -176,6 +178,7 @@ export function useDetailState({
   const stitchDragRef = useRef(null);
   // V218 P0：组级生成 in-flight 锁，挡住异步 setState 窗口内的重复提交。
   const detailGroupInFlightRef = useRef(false);
+  const detailGroupsRef = useRef(detailGroups); // 异步回写前判定目标屏是否仍存在
 
   const detailModel = models.find((item) => item.value === detailSettings.model) || models[0];
   const detailRatios = detailModel.ratios || ["1:1", "3:4", "16:9"];
@@ -226,6 +229,7 @@ export function useDetailState({
   }, [detailPresets]);
 
   useEffect(() => {
+    detailGroupsRef.current = detailGroups;
     writeJsonStorage(DETAIL_GROUPS_KEY, sanitizeDetailGroupsForStorage(detailGroups));
   }, [detailGroups]);
 
@@ -515,10 +519,9 @@ export function useDetailState({
       }
       upload.files.forEach((file) => form.append("image", file, file.name));
       const payload = await generateImages(form);
+      if (!detailScreenExists(detailGroupsRef.current, group.id, prompt.screen)) return []; // 目标屏已删→结果丢弃
       const totalMs = Number.isFinite(payload.timing?.totalMs) ? payload.timing.totalMs : performance.now() - started;
-      const returnedItems = Array.isArray(payload.historyItems) && payload.historyItems.length > 0
-        ? payload.historyItems
-        : null;
+      const returnedItems = Array.isArray(payload.historyItems) && payload.historyItems.length > 0 ? payload.historyItems : null;
       const nextResults = (returnedItems || payload.images || []).map((entry, resultIndex) => {
         const serverItem = returnedItems ? entry : null;
         return {
@@ -563,6 +566,7 @@ export function useDetailState({
         setIsSettingsOpen(true);
         setError("API Key 无效，请检查后在设置里重新保存。");
       }
+      if (!detailScreenExists(detailGroupsRef.current, group.id, prompt.screen)) throw err; // 已删屏失败结果丢弃
       updateDetailPrompt(group.id, prompt.screen, {
         status: "failed",
         error: message,
@@ -711,32 +715,12 @@ export function useDetailState({
     addEvent("一键详情", "已删除一个详情分组");
   }
 
-  // 新增手动分屏入口：无激活分组时先建一个纯本地空分组（不调用任何策划模型），再加空白屏。
-  // 这样客户可完全跳过 AI，从零开始自建整套详情分屏。
+  // 新增手动分屏：无激活分组先建纯本地空组（不调 AI），再加空白屏（工厂见 detail-manual-group.js）。
   function ensureManualGroupAndAddScreen() {
     let targetGroupId = activeDetailGroup?.id;
     if (!targetGroupId) {
-      const createdAt = Date.now();
-      targetGroupId = `detail_manual_${createdAt}_${Math.random().toString(36).slice(2, 8)}`;
-      const manualGroup = {
-        id: targetGroupId,
-        label: `${new Date(createdAt).toLocaleTimeString("zh-CN", { hour12: false, hour: "2-digit", minute: "2-digit" })} | 手动分屏`,
-        name: "手动分屏",
-        createdAt,
-        status: "ready",
-        params: {
-          workflow: detailSettings.workflow,
-          model: detailSettings.model,
-          ratio: detailSettings.ratio,
-          imageSize: detailSettings.imageSize,
-          count: detailSettings.count,
-          copywriting: detailSettings.copywriting,
-          lang: detailSettings.lang
-        },
-        productFiles: [...detailProductFiles],
-        referenceFiles: [...detailReferenceFiles],
-        prompts: []
-      };
+      const manualGroup = createManualDetailGroup({ detailSettings, detailProductFiles, detailReferenceFiles });
+      targetGroupId = manualGroup.id;
       setDetailGroups((current) => [manualGroup, ...current].slice(0, 20));
       setActiveDetailGroupId(targetGroupId);
       setDetailInfoSelection(null);
@@ -749,6 +733,7 @@ export function useDetailState({
   // 防止已删除屏的异步结果/预览残留（图片资产本身不物理删除，遵循现有数据管理方式）。
   function removeDetailScreen(groupId, screen) {
     deleteDetailScreen(groupId, screen);
+    detailGroupsRef.current = pruneDeletedScreen(detailGroupsRef.current, groupId, screen);
     setDetailInfoSelection((current) => (
       current && current.groupId === groupId && String(current.promptScreen) === String(screen)
         ? null

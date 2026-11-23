@@ -527,9 +527,8 @@ export function DetailView({
                             <button
                               className="detailPromptDelete"
                               type="button"
-                              title="删除本分屏（不删除底层图片资产）"
+                              title="删除本分屏（不删除底层图片资产；生成中也可删除，旧结果返回后自动丢弃）"
                               aria-label={`删除第${screenIndex + 1}屏`}
-                              disabled={prompt.status === "running"}
                               onClick={() => removeDetailScreen(activeDetailGroup.id, prompt.screen)}
                             >
                               <X size={14} />
