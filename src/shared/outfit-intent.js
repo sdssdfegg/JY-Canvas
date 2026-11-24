@@ -428,17 +428,17 @@ export function outfitTargetText(intent) {
  * 2026-09-26 两条口径：
  *   1. **鞋子不写进"保持不变"**：批量换装走的是半身图，画面里根本没有鞋子，
  *      写"图1的鞋子保持不变"会让模型去补一双鞋；
- *   2. **选了连衣裙时，上装/下装都不再写"保持不变"**：连衣裙本身就是一件式上下装，
- *      再说"上装/下装保持不变"自相矛盾。只选了连衣裙 → 没有保持句。
+ *      再说"上装/下装保持不变"自相矛盾。只选了连衣裙 → 没有保持句；仅外套另保持内衬。
  */
 export function outfitKeepText(intent) {
   const normalized = normalizeOutfitIntent(intent);
   if (normalized.parts.length === 0) return "";
   const dressSelected = normalized.parts.includes("dress");
-  const labels = OUTFIT_KEEP_PART_VALUES
-    .filter((part) => !normalized.parts.includes(part))
-    .filter((part) => !(dressSelected && (part === "upper" || part === "lower")))
-    .map((part) => partLabel(part));
+  // 仅外套：内衬不换须保持（放在下装前）；其余按未选部位生成。
+  const keepInner = normalized.parts.includes("upper") && !dressSelected && resolveUpperLayer(normalized).value === "outer";
+  const labels = [...(keepInner ? ["内衬"] : []), ...OUTFIT_KEEP_PART_VALUES
+    .filter((part) => !normalized.parts.includes(part) && !(dressSelected && (part === "upper" || part === "lower")))
+    .map((part) => partLabel(part))];
   if (labels.length === 0) return "";
   return `图1的${joinChinese(labels, "和")}保持不变。`;
 }

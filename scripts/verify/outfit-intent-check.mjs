@@ -85,6 +85,20 @@ Object.entries(layers).forEach(([value, expected]) => {
 check("内搭/外套/内搭+外套三种文字互不相同",
   new Set([layers.inner, layers.outer, layers["inner-outer"]]).size === 3);
 
+// —— 3a) 仅外套：内衬不换须保持不变（目标句不变，保持句加"内衬"）；其他层级不受影响。
+const outerC = compiled({ parts: ["upper"], upperLayer: "outer" });
+check("仅外套保持句=内衬和下装",
+  outerC.keep === "图1的内衬和下装保持不变。", outerC.keep);
+check("仅外套首行=外套目标+内衬下装保持",
+  outerC.prompt.split("\n")[0] === "让图1模特穿着图2的外套。图1的内衬和下装保持不变。",
+  outerC.prompt.split("\n")[0]);
+check("其他层级保持句不含内衬",
+  ["single", "inner", "inner-outer"].every((v) => {
+    const c = compiled({ parts: ["upper"], upperLayer: v });
+    return c.keep === "图1的下装保持不变。";
+  }),
+  ["single", "inner", "inner-outer"].map((v) => compiled({ parts: ["upper"], upperLayer: v }).keep).join(" | "));
+
 // —— 3b) 需求里给出的那条完整原文：不手抄长字符串，只断言「由模块自身产出」的结构
 // （首行 = 换装目标 + 保持句；中间是穿法跟随条款；末尾是人物基准）。
 // 这样以后改提示词措辞，只要模块产出一致，校验不破；杜绝「老源码 vs 新源码打架」。
