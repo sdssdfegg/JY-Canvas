@@ -31,7 +31,7 @@ import {
   RANDOM_BACKGROUND_LEGACY_DEFAULT_PROMPT,
   RANDOM_BACKGROUND_LIGHT_LEGACY_DEFAULT_PROMPT,
   RANDOM_BACKGROUND_NEUTRAL_DAYLIGHT_LEGACY_DEFAULT_PROMPT,
-  moveItemByDrop
+  moveItemByDrop, SINGLETON_WORKFLOW_MODES
 } from "./outfit-top.js";
 import {
   defaultPromptForWorkflowMode,
@@ -160,14 +160,14 @@ export function useOutfitPages(deps) {
     const name = normalizeOutfitPageName(input, page.name || DEFAULT_OUTFIT_PAGE_NAME);
     if (!name || name === page.name) return;
     const oldDefaultLabels = defaultUploadLabelsForPage(page.name);
-    const shouldApplyNewDefaults = sameUploadLabels(
-      page.id === activeOutfitPageId ? uploadLabels : page.uploadLabels,
-      oldDefaultLabels
-    );
+    const currentLabels = page.id === activeOutfitPageId ? uploadLabels : page.uploadLabels;
+    const oldMode = inferOutfitWorkflowMode(page.name, currentLabels);
+    // 家族内改名（批量姿态→姿态命名）：旧 singleton 且新名不识别时保留旧标签/模式，不套换装默认。
+    const keepSingletonLabels = SINGLETON_WORKFLOW_MODES.has(oldMode) && inferOutfitWorkflowMode(name, defaultUploadLabelsForPage(name)) === "outfit";
+    const shouldApplyNewDefaults = !keepSingletonLabels && sameUploadLabels(currentLabels, oldDefaultLabels);
     const nextUploadLabels = shouldApplyNewDefaults
       ? normalizeUploadLabels(defaultUploadLabelsForPage(name), name)
       : normalizeUploadLabels(page.id === activeOutfitPageId ? uploadLabels : page.uploadLabels, name);
-    const oldMode = inferOutfitWorkflowMode(page.name, page.id === activeOutfitPageId ? uploadLabels : page.uploadLabels);
     const nextMode = inferOutfitWorkflowMode(name, nextUploadLabels);
     const pageSettings = page.id === activeOutfitPageId ? settings : mergeOutfitPageSettings(page.settings, settings);
     const currentPrompt = String(pageSettings.prompt || "");

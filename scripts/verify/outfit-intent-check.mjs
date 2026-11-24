@@ -7,6 +7,7 @@
 // 纯逻辑，不起服务、不联网、不扣费。
 // 用法：node scripts/verify/outfit-intent-check.mjs
 import process from "node:process";
+import { readFileSync } from "node:fs";
 import {
   DEFAULT_UPPER_LAYER,
   OUTFIT_AUTO_PROMPT_CHAR_LIMIT,
@@ -370,6 +371,13 @@ const recognized = recognizedFactKeys({ category: "衬衫", color: "未识别", 
 check("未识别字段不算已识别",
   recognized.includes("category") && recognized.includes("hem") && !recognized.includes("color") && !recognized.includes("material"),
   recognized.join(","));
+
+// —— 14) 家族内改名守卫（2026-11-24）：singleton 页改任意名不重置标签/模式。
+const pagesSrc = readFileSync(new URL("../../src/features/outfit/use-outfit-pages.js", import.meta.url), "utf8");
+check("singleton家族内改名不重置上传标签",
+  pagesSrc.includes("SINGLETON_WORKFLOW_MODES.has(oldMode)")
+  && pagesSrc.includes('defaultUploadLabelsForPage(name)) === "outfit"')
+  && pagesSrc.includes("!keepSingletonLabels && sameUploadLabels(currentLabels, oldDefaultLabels)"));
 
 const failed = results.filter((item) => !item.pass);
 console.log(JSON.stringify({
