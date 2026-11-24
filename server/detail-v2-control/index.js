@@ -9,7 +9,12 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
+// SEA/打包为 cjs 时 import.meta 为空（vite 会告警 empty-import-meta），fileURLToPath(undefined) 直接抛
+// ERR_INVALID_ARG_TYPE 导致 public 首启动白屏；与 server/core/app-paths.js 同款兜底：cjs 下用 __filename。
+const hereFile = typeof require !== "undefined" && typeof __filename !== "undefined"
+  ? __filename
+  : fileURLToPath(import.meta.url);
+const HERE = path.dirname(hereFile);
 const PENDING_CONFIG_REL = "server/detail-v2-control/config/pending-professional-content.json";
 const PROFESSIONAL_CONFIG_REL = "server/detail-v2-control/config/professional-content-v1.json";
 
