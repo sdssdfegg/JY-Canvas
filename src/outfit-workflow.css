@@ -2209,6 +2209,17 @@
   box-shadow: 0 -14px 28px rgba(0, 0, 0, 0.22);
 }
 
+/* 2026-11-24（用户实测·dock 内容被裁）：本 dock 内容恒定约 815px，而 workspace 为
+   height:100vh + overflow:hidden，dock 被压到 ~740px，超出的 66px（换装设置下半/提示词）
+   被裁，必须缩小浏览器才可见。实测该溢出与视口高矮无关（大视口下 panel 仍 scrollH815>client749），
+   故无条件让 dock 自身可纵向滚动：内容未超出时无滚动条、行为与原样一致；超出时可滚不再被裁。
+   底部操作条 position:sticky 仍吸 dock 底，生成按钮恒可见。
+   V191「唯一主滚归 outfitScrollArea」保持——结果区仍是主滚，这里只是 dock 内容溢出时的兜底。 */
+.outfitWorkflowEmbedded.embedded .composerPanel {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
 
 .outfitWorkflowEmbedded .outfitViewPanel.active {
   /* 2026-11-01（用户要求·统一底边）：整块 = flex 列铺满视口——
