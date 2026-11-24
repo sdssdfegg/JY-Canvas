@@ -379,6 +379,20 @@ check("singleton家族内改名不重置上传标签",
   && pagesSrc.includes('defaultUploadLabelsForPage(name)) === "outfit"')
   && pagesSrc.includes("!keepSingletonLabels && sameUploadLabels(currentLabels, oldDefaultLabels)"));
 
+// —— 15) 姿态页图1/图2对调（2026-11-24）：图1母版、图2姿态，前端槽位+发送权重+提示词一致。
+const outfitTopSrc = readFileSync(new URL("../../src/features/outfit/outfit-top.js", import.meta.url), "utf8");
+const composerSrc = readFileSync(new URL("../../src/features/outfit/panels/OutfitComposer.jsx", import.meta.url), "utf8");
+const batchSrc = readFileSync(new URL("../../src/features/outfit/handlers/outfit-batch-execution.js", import.meta.url), "utf8");
+const posePrompt = outfitTopSrc.slice(outfitTopSrc.indexOf("POSE_REMIX_DEFAULT_PROMPT"), outfitTopSrc.indexOf("POSE_MOTHER_FACE_SWAP_DEFAULT_PROMPT"));
+check("姿态默认提示词图1母版图2姿态",
+  posePrompt.includes("图1上传区是固定母版成片") && posePrompt.includes("图2上传区是批量姿态参考图"));
+check("姿态图1槽位显示母版且带固定按钮",
+  composerSrc.includes('isPoseRemixWorkflow ? "clothing" : "model"') && composerSrc.includes("fixedTitle: \"设为固定母版\""));
+check("姿态页grid列宽对调(图1小区图2大区)",
+  readFileSync(new URL("../../src/outfit-workflow.css", import.meta.url), "utf8").includes(".assetGrid.poseSwapGrid"));
+check("姿态页发送顺序母版占图1权重",
+  batchSrc.includes('taskWorkflowMode === "pose-remix") [taskModelFile, taskClothingFile] = [taskClothingFile, taskModelFile]'));
+
 const failed = results.filter((item) => !item.pass);
 console.log(JSON.stringify({
   ok: failed.length === 0,

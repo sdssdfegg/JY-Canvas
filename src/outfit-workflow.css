@@ -3066,6 +3066,10 @@
   align-items: start;
   margin-bottom: 0;
 }
+/* 2026-11-24 姿态页图1/图2对调：图1(母版)小区、图2(姿态)大区。 */
+.outfitWorkflowEmbedded .assetGrid.poseSwapGrid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+}
 
 .outfitWorkflowEmbedded .assetGrid > :only-child {
   grid-column: 1 / -1;

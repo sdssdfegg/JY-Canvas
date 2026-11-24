@@ -19,7 +19,7 @@ function isPoseRemixWorkflow(input) {
     || /批量姿态|批量姿态图|姿态参考图|固定模特换姿势|固定模特|固定人物|固定成片|固定母版成片|批量姿势|批量姿势参考图|换姿势|姿势生成|姿势参考|pose/i.test(text);
 }
 
-// 中文注释：按当前工作流生成不同质检标准，批量姿态重点防止复制图1衣服和固定头肩。
+// 中文注释：按当前工作流生成不同质检标准，批量姿态重点防止复制图2衣服和固定头肩。
 function workflowQualityRules(input) {
   if (isPoseRemixWorkflow(input)) {
     return {
@@ -181,7 +181,7 @@ function normalizeQualityPlan(plan, input = {}) {
   const workflowCritical = mode === "face-swap"
     ? /(复制|带入|出现|参考|保留).*图2.*(衣|服装|衣领|肩膀|背景|场景|身体|姿势|拍摄角度|头部姿态|头发外轮廓|脖子|头身比)|图2.*(衣|服装|衣领|肩膀|背景|场景|身体|姿势|拍摄角度|头部姿态|头发外轮廓|脖子|头身比).*(复制|带入|进入|出现)|换衣|换装|衣服.*(改|换|变|不是图1)|背景.*(换|变|不是图1)|姿势.*(不像|不跟|没跟).*图1|像.*(母图|图2).*姿势/
     : mode === "pose-remix"
-      ? /复制图1.*(衣|服装|背景)|姿态.*(不跟|没跟|固定)|下半身.*不/
+      ? /复制图2.*(衣|服装|背景)|姿态.*(不跟|没跟|固定)|下半身.*不/
       : /穿法.*漂移|袖口.*漂移|袖克夫.*漂移|扣子.*(错|漂移|不一致|多|少)|衣摆.*(未扎|漂移|不一致)|卷袖.*(错|漂移|不一致)|拉链.*(错|漂移)|领口.*(错|漂移)|下半身.*不/;
   const criticalIssue = issues.some((issue) => commonCritical.test(issue) || workflowCritical.test(issue));
   const pass = typeof plan?.pass === "boolean" ? plan.pass : score >= 78 && !criticalIssue;

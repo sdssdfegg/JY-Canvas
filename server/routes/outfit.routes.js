@@ -239,7 +239,7 @@ export function registerOutfitRoutes(app) {
         message: faceSwapWorkflow
           ? "至少需要 1 张图1目标人物图和 1 张图2人脸参考图"
           : poseRemixWorkflow
-            ? "至少需要 1 张图1姿态参考图和 1 张图2固定母版成片"
+            ? "至少需要 1 张图1固定母版成片和 1 张图2批量姿态参考图"
             : outpaintWorkflow
               ? "至少需要 1 张图1待扩图原图"
               : whiteRefineWorkflow

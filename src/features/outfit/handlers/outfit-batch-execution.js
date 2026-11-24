@@ -247,8 +247,8 @@ export function useOutfitBatchExecution(ctx) {
     const taskIsWhiteRefine = taskWorkflowMode === "white-refine";
     const taskIsRandomBackground = taskWorkflowMode === "random-background";
     const taskIsOutfit = taskWorkflowMode === "outfit";
-    const taskModelFile = imageItemUploadFile(task.modelItem);
-    const taskClothingFile = imageItemUploadFile(task.clothingItem);
+    let taskModelFile = imageItemUploadFile(task.modelItem), taskClothingFile = imageItemUploadFile(task.clothingItem);
+    if (taskWorkflowMode === "pose-remix") [taskModelFile, taskClothingFile] = [taskClothingFile, taskModelFile]; // 姿态页图1母版/图2姿态
     let localEdit = taskIsOutpaint || taskIsWhiteRefine || taskIsRandomBackground
       ? null
       : task.localEdit?.cropFile && task.localEdit?.cropRect
@@ -673,14 +673,14 @@ export function useOutfitBatchExecution(ctx) {
     const nextTasks = await Promise.all(taskDrafts.map((task) => attachTaskReferenceThumbs(task).catch(() => task)));
     if ((isOutfitWorkflow || isPoseRemixWorkflow) && referenceImages.some((item) => item.selected) && !mentionsOptionalReferenceImage(settings.prompt, settings.productNote)) {
       addEvent("图3未参与", isPoseRemixWorkflow
-        ? "补充提示词未说明图3用途，本轮不上传图3，避免影响图1姿态和图2母版。"
+        ? "补充提示词未说明图3用途，本轮不上传图3，避免影响图1母版和图2姿态。"
         : "补充提示词未说明图3用途，本轮不上传图3，避免影响图2服装。");
     }
     if (!nextTasks.length) {
       addEvent("无法开始", isDesignDraftWorkflow
         ? "至少上传 1 张图1实拍参考和 1 张图2设计稿参考"
         : isPoseRemixWorkflow
-          ? "至少上传 1 张图1姿态参考图和 1 张图2固定母版成片"
+          ? "至少上传 1 张图1固定母版成片和 1 张图2批量姿态参考图"
             : isRandomBackgroundWorkflow
               ? "至少上传 1 张图1人物图"
               : isBackgroundChangeWorkflow

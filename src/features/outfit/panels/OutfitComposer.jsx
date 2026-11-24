@@ -123,43 +123,43 @@ export default function OutfitComposer({
   applyGroupPreprocess: _applyGroupPreprocess,
   setImageLightbox
 }) {
-  // 2026-10-30：渠道级质量（与尺寸置灰同模式）——LK-1K 仅 auto/low/medium，high/max 置灰而非移除。
-  // 下发值缺失时回退模型能力，避免质量控件整个消失。
+  // 2026-10-30：渠道级质量——LK-1K 仅 auto/low/medium，high/max 置灰；下发缺失回退能力目录。
   const allowedQualities = (outfitQualities && outfitQualities.length)
     ? outfitQualities
     : (outfitCapabilities.quality || []);
   const allQualities = (outfitQualitiesAll && outfitQualitiesAll.length)
     ? outfitQualitiesAll
     : (outfitCapabilities.quality || []);
-  // V124（用户要求）：上装层级仅当「更换部位=上装」时可编辑；其余部位时整组置灰、不可选。
-  const upperLayerDisabled = recolorPart !== "upper";
+  const upperLayerDisabled = recolorPart !== "upper"; // V124：层级仅换上装可编辑；姿态页 z1/z2 对调槽位
+  const z1 = isPoseRemixWorkflow ? "clothing" : "model", z2 = isPoseRemixWorkflow ? "model" : "clothing", zItems = (g) => (g === "model" ? modelImages : clothingImages);
   return (
 <section className="composerPanel">
-  <section className="assetGrid">
+  <section className={`assetGrid${isPoseRemixWorkflow ? " poseSwapGrid" : ""}`}>
     <UploadZone
       compact
-      title={`图1：${uploadLabels.model.title}`}
-      hint={uploadLabels.model.hint}
+      title={`图1：${uploadLabels[z1].title}`}
+      hint={uploadLabels[z1].hint}
       slotPrefix="图1："
-      titleText={uploadLabels.model.title}
-      hintText={uploadLabels.model.hint}
-      onEditTitle={() => editUploadLabel("model", "title")}
-      onEditHint={() => editUploadLabel("model", "hint")}
-      items={modelImages}
-      onPick={(files) => addImages("model", files)}
-      onRemove={(id) => removeImage("model", id)}
-      onToggle={(id) => toggleImage("model", id)}
-      onReorder={(fromId, toId, placement) => reorderImage("model", fromId, toId, placement)}
-      onReplace={(id, file) => void replaceImage("model", id, file)}
-      onClear={() => clearImageGroup("model")}
+      titleText={uploadLabels[z1].title}
+      hintText={uploadLabels[z1].hint}
+      onEditTitle={() => editUploadLabel(z1, "title")}
+      onEditHint={() => editUploadLabel(z1, "hint")}
+      items={zItems(z1)}
+      onPick={(files) => addImages(z1, files)}
+      onRemove={(id) => removeImage(z1, id)}
+      onToggle={(id) => toggleImage(z1, id)}
+      onReorder={(fromId, toId, placement) => reorderImage(z1, fromId, toId, placement)}
+      onReplace={(id, file) => void replaceImage(z1, id, file)}
+      onClear={() => clearImageGroup(z1)}
+      {...(isPoseRemixWorkflow ? { onSetFixed: settings.pairingMode === "fixed" ? setMasterClothing : null, fixedId: fixedClothingId, fixedTitle: "设为固定母版" } : {})}
       onPreview={(item) => setImageLightbox({ title: item.name, src: item.previewUrl })}
-      onOpenCrop={(item) => setCropTarget({ group: "model", item })}
-      onOpenLocalEdit={(item) => openLocalEdit("model", item)}
+      onOpenCrop={(item) => setCropTarget({ group: z1, item })}
+      onOpenLocalEdit={(item) => openLocalEdit(z1, item)}
       localEditEnabled={!isDesignDraftWorkflow && !isPoseRemixWorkflow && !isOutpaintWorkflow && !isWhiteRefineWorkflow && !isRandomBackgroundWorkflow}
-      maxCount={MAX_UPLOAD_IMAGES}
+      maxCount={isPoseRemixWorkflow ? 2 : MAX_UPLOAD_IMAGES}
       onLimit={(message) => addEvent("图1上传", message)}
-      onActivate={() => setActiveUploadGroup("model")}
-      columns={4}
+      onActivate={() => setActiveUploadGroup(z1)}
+      columns={isPoseRemixWorkflow ? undefined : 4}
       /* V77（用户要求·停用）：统一处理/新上传默认停用；数据流与 handler 保留，
          恢复时传回 bulkMode={modelBulkMode}、onBulkModeChange={(mode) => void applyGroupPreprocess("model", mode)} */
     />
@@ -170,28 +170,28 @@ export default function OutfitComposer({
     {!isOutpaintWorkflow && !isRandomBackgroundWorkflow && !isWhiteRefineWorkflow && (
       <UploadZone
         compact
-        title={`图2：${uploadLabels.clothing.title}`}
-        hint={uploadLabels.clothing.hint}
+        title={`图2：${uploadLabels[z2].title}`}
+        hint={uploadLabels[z2].hint}
         slotPrefix="图2："
-        titleText={uploadLabels.clothing.title}
-        hintText={uploadLabels.clothing.hint}
-        onEditTitle={() => editUploadLabel("clothing", "title")}
-        onEditHint={() => editUploadLabel("clothing", "hint")}
-        items={clothingImages}
-        onPick={(files) => addImages("clothing", files)}
-        onRemove={(id) => removeImage("clothing", id)}
-        onToggle={(id) => toggleImage("clothing", id)}
-        onReorder={(fromId, toId, placement) => reorderImage("clothing", fromId, toId, placement)}
-        onReplace={(id, file) => void replaceImage("clothing", id, file)}
-        onClear={() => clearImageGroup("clothing")}
-        onSetFixed={isWhiteRefineWorkflow ? null : isPoseRemixWorkflow ? settings.pairingMode === "fixed" ? setMasterClothing : null : setMasterClothing}
-        fixedId={isWhiteRefineWorkflow || (isPoseRemixWorkflow && settings.pairingMode !== "fixed") ? "" : fixedClothingId}
-        fixedTitle={isPoseRemixWorkflow ? "设为固定母版" : isFaceSwapWorkflow ? "设为固定人脸" : isBackgroundChangeWorkflow ? "设为固定场景" : isOutpaintWorkflow ? "设为主扩图参考" : "设为固定服装"}
+        titleText={uploadLabels[z2].title}
+        hintText={uploadLabels[z2].hint}
+        onEditTitle={() => editUploadLabel(z2, "title")}
+        onEditHint={() => editUploadLabel(z2, "hint")}
+        items={zItems(z2)}
+        onPick={(files) => addImages(z2, files)}
+        onRemove={(id) => removeImage(z2, id)}
+        onToggle={(id) => toggleImage(z2, id)}
+        onReorder={(fromId, toId, placement) => reorderImage(z2, fromId, toId, placement)}
+        onReplace={(id, file) => void replaceImage(z2, id, file)}
+        onClear={() => clearImageGroup(z2)}
+        onSetFixed={isPoseRemixWorkflow ? null : isWhiteRefineWorkflow ? null : setMasterClothing}
+        fixedId={isPoseRemixWorkflow ? "" : fixedClothingId}
+        fixedTitle={isPoseRemixWorkflow ? undefined : isFaceSwapWorkflow ? "设为固定人脸" : isBackgroundChangeWorkflow ? "设为固定场景" : isOutpaintWorkflow ? "设为主扩图参考" : "设为固定服装"}
         onPreview={(item) => setImageLightbox({ title: item.name, src: item.previewUrl })}
-        onOpenCrop={(item) => setCropTarget({ group: "clothing", item })}
-        maxCount={(isOutfitWorkflow || isPoseRemixWorkflow || isFaceSwapWorkflow) ? 2 : MAX_UPLOAD_IMAGES}
+        onOpenCrop={(item) => setCropTarget({ group: z2, item })}
+        maxCount={isPoseRemixWorkflow ? MAX_UPLOAD_IMAGES : (isOutfitWorkflow || isFaceSwapWorkflow) ? 2 : MAX_UPLOAD_IMAGES}
         onLimit={(message) => addEvent("图2上传", message)}
-        onActivate={() => setActiveUploadGroup("clothing")}
+        onActivate={() => setActiveUploadGroup(z2)}
         /* V77（用户要求·停用）：统一处理/新上传默认停用；数据流与 handler 保留，
            恢复时传回 bulkMode={clothingBulkMode}、onBulkModeChange={(mode) => void applyGroupPreprocess("clothing", mode)} */
         /* V115：UploadZone 的 footerControls 插槽保留（通用组件能力）；旧 recolor「改色范围」UI 已随旧机制退役 */
