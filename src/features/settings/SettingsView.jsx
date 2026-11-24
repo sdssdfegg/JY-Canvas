@@ -210,7 +210,7 @@ export function SettingsView({
           ) : (
             <small className="ui-field__hint">正在读取存储用量…</small>
           )}
-          <Toolbar>
+          <Toolbar wrap>
             <Button size="sm" disabled={Boolean(storageBusy)} onClick={() => void handleCleanStorage(["historyImages"], "历史图片（含历史清单）")}>
               <Trash2 size={15} /><span>清理历史图片</span>
             </Button>
