@@ -242,6 +242,10 @@ const ROUTING_CHANNELS = Object.freeze([
   //   火山接受任意 WIDTHxHEIGHT 像素串，所有比例均可用。
   // 前端展示名统一用「HS」，不出现「火山引擎」字眼。
   { id: "hs-seedream-5-0-flash", label: "HS", price: 0.12, model: "doubao-seedream-5-0", upstreamModel: "doubao-seedream-5-0-flash-260915", provider: "volc", sizes: ["1K", "2K"] },
+  // 2026-11-27：新增「artsa」渠道（逆向-SD-Flash，中转站 new-api 渠道 34，上游 https://ai.artsapi.com）。
+  // 与 HS 同为 seedream flash 系、走 volc 原生格式；upstreamModel 是逆向版 flash-260915-reverse，
+  // 中转站按该 model 选中渠道 34；价格 ¥0.11；仅 1K/2K（同 HS 不支持 4K）。
+  { id: "arts-seedream-5-0-flash", label: "artsa", price: 0.11, model: "doubao-seedream-5-0", upstreamModel: "doubao-seedream-5-0-flash-260915-reverse", provider: "volc", sizes: ["1K", "2K"] },
   { id: "mc-seedream-5-0-pro", label: "名创AI", price: 0.15, model: "doubao-seedream-5-0-pro" }
 ]);
 
