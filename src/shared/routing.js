@@ -417,10 +417,10 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
   "banana-2.1": MODEL_CHANNEL_ALLOWLIST["banana-2.1"],
   // 2026-10-24：SD / SD Pro 离线兜底渠道（与 ROUTING_CHANNELS 同源；目录加载后以目录为准）。
   "doubao-seedream-5-0": Object.freeze([
-    { id: "mc-seedream-5-0", label: "名创AI", price: 0.11 },
-    // HS/artsa（与 server/channel-config.js 同源）：火山 flash 系仅 1K/2K；artsa=逆向-SD-Flash·中转站渠道34。
-    { id: "hs-seedream-5-0-flash", label: "HS", price: 0.12, sizes: ["1K", "2K"] },
+    // artsa 排首位（与 server/channel-config.js 同源顺序）；HS/artsa 均火山 flash 系仅 1K/2K。
     { id: "arts-seedream-5-0-flash", label: "artsa", price: 0.11, sizes: ["1K", "2K"] },
+    { id: "mc-seedream-5-0", label: "名创AI", price: 0.11 },
+    { id: "hs-seedream-5-0-flash", label: "HS", price: 0.12, sizes: ["1K", "2K"] },
   ]),
   "doubao-seedream-5-0-pro": Object.freeze([
     { id: "mc-seedream-5-0-pro", label: "名创AI", price: 0.15 }
