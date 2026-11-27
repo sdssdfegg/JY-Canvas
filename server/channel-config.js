@@ -19,7 +19,9 @@ export const CHANNEL_IMAGE_SIZES = Object.freeze(["1K", "2K", "4K"]);
 // 用途：① 下拉浮到价格排序最前（其余仍按价格升序）；② 模型级聚合价(pricing.models)取该渠道单价；
 // ③ channelId 为空/非法时默认选中它。仅作展示/默认用途，不破坏「其余渠道价格升序」规约。
 export const MODEL_DEFAULT_CHANNEL = Object.freeze({
-  "tt-image-2.5": "silent-tt25-line-10"
+  "tt-image-2.5": "silent-tt25-line-10",
+  // 2026-11-27：SD 默认 artsa（逆向-SD-Flash ¥0.11）——channelId 为空/启动时默认选中它。
+  "doubao-seedream-5-0": "arts-seedream-5-0-flash"
 });
 
 // 官方渠道（人工排序，不按价格）：始终置顶、保持此处顺序；其余渠道在其下方按价格升序。
@@ -222,6 +224,9 @@ const ROUTING_CHANNELS = Object.freeze([
   // 与 src/shared/routing.js 的 MODEL_CHANNEL_ALLOWLIST["banana-2.1"] 及适配器 silent-subboost-banana21 对齐。
   { id: "silent-banana21-line-02", label: "Subdirect", price: 0.12, model: "banana-2.1" },
   { id: "silent-banana21-line-12", label: "laoye", price: 0.12, model: "banana-2.1" },
+  // 2026-11-27：香蕉2.1 新增 Origin（中转站渠道 silent-origin-banana21，healthScore=95，¥0.14/张；后端已配好）。
+  // 与 src/shared/routing.js 的 MODEL_CHANNEL_ALLOWLIST["banana-2.1"] 同源同步；价格由中转站目录下发，此处为离线兜底。
+  { id: "silent-origin-banana21", label: "Origin", price: 0.14, model: "banana-2.1" },
   // 香蕉 Pro：展示用户指定的四条线路（云枢 / Subdirect / laoye / Origin）；
   // 云枢（silent-pro-line-01）上游复用 yunshuaiapi.com 的 Gemini 分组，价格 0.14 = cost 0.14 + markup 0；
   // Origin（silent-pro-line-09）价格 0.16，最贵，恒排最后。

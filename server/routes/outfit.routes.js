@@ -733,6 +733,8 @@ export function registerOutfitRoutes(app) {
           } catch (error) {
             const errorMessage = error?.name === "AbortError" ? "图片接口等待超时" : error instanceof Error ? error.message : String(error);
             const failureStatus = error?.name === "AbortError" ? 504 : 502;
+            // 2026-11-27：异常路径补日志——此前 fetch 抛错不写 generation log，扣费后回包失败无法定位。
+            writeGenerationLog({ time: new Date().toISOString(), requestId, ok: false, stage: "generate-outfit-fetch-exception", errorName: error?.name || "Error", upstreamError: compactLogMessage(errorMessage, 900), status: failureStatus, model: variant.model, requestedChannelId: params.channelId, requestFormat: variant.requestFormat, url, timingMs: Date.now() - receivedAt }).catch(() => {});
             errors.push(errorMessage);
             attempts.push({
               url,

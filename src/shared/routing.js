@@ -116,17 +116,16 @@ export const MODEL_CHANNEL_ALLOWLIST = Object.freeze({
   "banana-2.1": Object.freeze([
     { id: "silent-banana21-line-01", label: "云枢", price: 0.12 },
     { id: "silent-banana21-line-02", label: "Subdirect", price: 0.12 },
-    { id: "silent-banana21-line-12", label: "laoye", price: 0.12 }
+    { id: "silent-banana21-line-12", label: "laoye", price: 0.12 },
+    { id: "silent-origin-banana21", label: "Origin", price: 0.14 } // 2026-11-27 新增·后端已配
   ])
 });
 
-// 每模型「默认渠道」覆盖：channelId 为空（用户未选 / 初次加载）时，defaultChannelForModel
-// 优先返回这里指定的渠道，而不是 channelsForModel 的第一条（价格升序首条=最便宜）。
-// 这样既能把某条较高价渠道设为默认，又不破坏「渠道列表按价格升序」的展示规约。
-// 仅 TT2.5 设了 laoye 满血版（silent-tt25-line-10）；TT2.0 因该 KEY 仅 image2.5全参 分组、无 gpt-image-2，
-// 不存在 laoye 渠道，故不在此映射，2.0 默认仍走列表首条。
+// 每模型「默认渠道」覆盖：channelId 为空时 defaultChannelForModel 优先返回这里指定的渠道，而非列表首条；
+// 不改列表展示顺序。仅 TT2.5（laoye 满血版，该 KEY 无 image2 分组故 2.0 不设）与 SD（artsa ¥0.11）设了覆盖。
 export const MODEL_DEFAULT_CHANNEL = Object.freeze({
-  "tt-image-2.5": "silent-tt25-line-10"
+  "tt-image-2.5": "silent-tt25-line-10",
+  "doubao-seedream-5-0": "arts-seedream-5-0-flash" // 2026-11-27：SD 默认 artsa ¥0.11
 });
 
 // 官方渠道（人工排序，不按价格）：始终置顶、保持此处顺序；其余渠道在其下方按价格升序。
