@@ -1,12 +1,7 @@
-// 快捷生成 / 批量生成共用的模型、线路和能力来源。
-//
-// 唯一来源约定：
-//   1. 模型 ID 一律使用 3.0 routing catalog 的 canonical ID（banana-2 / nano-banana-pro /
-//      tt-image-2 / tt-image-2.5 / tt-image-2.6）。旧存档里的 nano-banana2 等旧 ID 只在读取时映射一次。
-//   2. 线路白名单和「已下线线路」名单与服务端 server/channel-config.js 保持一致。
-//   3. 能力限制（可传图片数量、单张大小、提示词长度、比例、尺寸、质量、背景）
-//      一律从 `/api/config` 的 routing catalog capabilities 读取；目录未加载完成前
-//      不许用默认值覆盖用户存档。
+// 快捷生成 / 批量生成共用的模型、线路和能力来源。唯一来源约定：
+//   1. 模型 ID 用 3.0 routing catalog 的 canonical ID；旧 ID（nano-banana2 等）读取时映射一次。
+//   2. 线路白名单/已下线名单与服务端 server/channel-config.js 保持一致。
+//   3. 能力限制一律从 `/api/config` 的 routing catalog capabilities 读取；目录未加载前不许用默认值覆盖存档。
 
 export const LEGACY_MODEL_ALIASES = Object.freeze({
   "nano-banana2": "banana-2",
@@ -30,7 +25,8 @@ export const LEGACY_MODEL_ALIASES = Object.freeze({
   // 不登记会被 canonicalModel 回退成 tt-image-2，导致 SD / SD Pro 在前端被识别成 TT2.0、
   // 实际请求 model 也变成 tt-image-2（中转站误走到 TT2.0 渠道）。
   "doubao-seedream-5-0": "doubao-seedream-5-0",
-  "doubao-seedream-5-0-pro": "doubao-seedream-5-0-pro"
+  "doubao-seedream-5-0-pro": "doubao-seedream-5-0-pro",
+  "doubao-seedream-5-5": "doubao-seedream-5-5" // SD 5.5（MC 单渠道；区别于 -261028 后缀）
 });
 
 // 已下线旧线路：前端目录、服务端目录、服务端校验三处都必须拒绝。
@@ -75,10 +71,8 @@ export const HIDDEN_CHANNEL_IDS = Object.freeze([
   "silent-tt2-line-01",
   "silent-tt25-line-04",
   // 2026-10-26：SD Pro 上游渠道（mc-seedream-5-0-pro）失效，暂时隐藏待恢复。
-  // 2026-10-28：SD 名创AI（mc-seedream-5-0）随 SD Pro 一起隐藏（用户要求，名创AI 整组下线）。
-  // 与 server/channel-config.js 的 HIDDEN_CHANNEL_IDS 同步：前端隐藏、服务端仍接受。
   "mc-seedream-5-0-pro",
-  "mc-seedream-5-0",
+  // 2026-11-27：SD 名创AI（mc-seedream-5-0）恢复显示，排 artsa 之后第二位。
   // 2026-10-28（经与上游核实）：老夜渠道出问题共 3 条线路死亡，云枢两条随之下线，
   // 前端隐藏（服务端保留，渠道恢复后从本数组移除即可）。与 server/channel-config.js 同源同步。
   "silent-tt2-line-10",   // 云枢（TT2.0）
@@ -232,7 +226,9 @@ export const FALLBACK_MODEL_CAPABILITIES = Object.freeze({
     backgrounds: [],
     versions: [],
     customSize: false
-  })
+  }),
+  // SD 5.5（MC 单渠道，¥0.12，后端自动路由）；能力同 SD 5.0。
+  "doubao-seedream-5-5": Object.freeze({ maxInputImages: 14, maxImageBytes: 16 * 1024 * 1024, maxPromptLength: 20000, ratios: ["1:1", "4:3", "3:4", "16:9", "9:16", "2:3", "21:9", "5:4", "4:5"], sizes: ["2K", "4K"], quality: [], backgrounds: [], versions: [], customSize: false })
 });
 
 export const FALLBACK_DEFAULT_CAPABILITY = FALLBACK_MODEL_CAPABILITIES["tt-image-2"];
@@ -418,12 +414,15 @@ export const FALLBACK_MODEL_CHANNELS = Object.freeze({
   // 2026-10-24：SD / SD Pro 离线兜底渠道（与 ROUTING_CHANNELS 同源；目录加载后以目录为准）。
   "doubao-seedream-5-0": Object.freeze([
     // artsa 排首位（与 server/channel-config.js 同源顺序）；HS/artsa 均火山 flash 系仅 1K/2K。
+    // 2026-11-27：SD 名创AI（mc-seedream-5-0）上游下架，已彻底删除。
     { id: "arts-seedream-5-0-flash", label: "artsa", price: 0.11, sizes: ["1K", "2K"] },
-    { id: "mc-seedream-5-0", label: "名创AI", price: 0.11 },
     { id: "hs-seedream-5-0-flash", label: "HS", price: 0.12, sizes: ["1K", "2K"] },
   ]),
   "doubao-seedream-5-0-pro": Object.freeze([
     { id: "mc-seedream-5-0-pro", label: "名创AI", price: 0.15 }
+  ]),
+  "doubao-seedream-5-5": Object.freeze([
+    { id: "mc-seedream-5-5", label: "MC", price: 0.12 } // SD 5.5 单渠道，后端按 model 自动路由
   ])
 });
 

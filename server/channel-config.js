@@ -69,10 +69,8 @@ export const HIDDEN_CHANNEL_IDS = Object.freeze([
   "silent-tt25-line-04",  // BR-default特价（TT2.5）
   // 2026-10-26：SD Pro 上游渠道（名创AI 5.0 Pro，mc-seedream-5-0-pro）失效，暂时隐藏，
   // 等找到合适价格再显示。与 src/shared/routing.js 的 HIDDEN_CHANNEL_IDS 同源同步。
-  "mc-seedream-5-0-pro",  // SD Pro 名创AI 渠道
-  // 2026-10-28：SD 名创AI（mc-seedream-5-0，TokenGo doubao-seedream-5.0）随 SD Pro 一起隐藏，
-  // 即「名创AI」在 SD 模型下整组下线（用户要求）。渠道恢复后从本数组与 routing.js 同源移除即可。
-  "mc-seedream-5-0",      // SD 名创AI 渠道
+  "mc-seedream-5-0-pro",  // SD Pro 名创AI 渠道（仍隐藏）
+  // 2026-11-27：SD 名创AI（mc-seedream-5-0）恢复显示，排 artsa 之后第二位（用户要求）。
   // 2026-10-28（经与上游核实）：老夜渠道出问题共 3 条线路死亡，云枢两条随之下线，
   // 前端隐藏（服务端保留，渠道恢复后从本数组移除即可）。老夜 0.1（silent-tt2-line-12）
   // 已在同日从目录摘除；laoye超分（silent-tt2-line-15，新特价 KEY）实测正常，保持显示。
@@ -239,9 +237,7 @@ const ROUTING_CHANNELS = Object.freeze([
   // 与 HS 同为 seedream flash 系、走 volc 原生格式；upstreamModel 是逆向版 flash-260915-reverse，
   // 中转站按该 model 选中渠道 34；价格 ¥0.11；仅 1K/2K（同 HS 不支持 4K）。
   { id: "arts-seedream-5-0-flash", label: "artsa", price: 0.11, model: "doubao-seedream-5-0", upstreamModel: "doubao-seedream-5-0-flash-260915-reverse", provider: "volc", sizes: ["1K", "2K"] },
-  // 2026-10-24：SD / SD Pro 各挂一条「名创AI」渠道（TokenGo 上游，154 new-api 渠道 28/29）。
-  // 价格 ¥0.11 / ¥0.15 与中转站 ModelPrice（上游成本 0.078 / 0.117 + 毛利）一致；4K 与 2K 同价，无加价。
-  { id: "mc-seedream-5-0", label: "名创AI", price: 0.11, model: "doubao-seedream-5-0" },
+  // 2026-11-27：SD 名创AI（mc-seedream-5-0）上游已下架，彻底删除（用户要求）。
   // 2026-10-27：新增「HS」渠道（火山方舟官方 doubao-seedream-5-0-flash-260915，154 new-api 渠道 30）。
   // provider=volc：上游原生要 size=像素串(WIDTHxHEIGHT) + response_format=url + watermark=true，
   //   与 TokenGo 的 宽高比串+分辨率 完全不同，故单独走 volc 格式分支（见 server/channel.js）。
@@ -251,6 +247,9 @@ const ROUTING_CHANNELS = Object.freeze([
   //   火山接受任意 WIDTHxHEIGHT 像素串，所有比例均可用。
   // 前端展示名统一用「HS」，不出现「火山引擎」字眼。
   { id: "hs-seedream-5-0-flash", label: "HS", price: 0.12, model: "doubao-seedream-5-0", upstreamModel: "doubao-seedream-5-0-flash-260915", provider: "volc", sizes: ["1K", "2K"] },
+  // 2026-11-27：SD 5.5 单渠道「MC」（名创AI，后端已配自动路由、只认 model 名）。
+  // 不声明 upstreamModel ⇒ 发往中转站的 model 就是 doubao-seedream-5-5；¥0.12 由服务端目录下发。
+  { id: "mc-seedream-5-5", label: "MC", price: 0.12, model: "doubao-seedream-5-5" },
   { id: "mc-seedream-5-0-pro", label: "名创AI", price: 0.15, model: "doubao-seedream-5-0-pro" }
 ]);
 
@@ -356,6 +355,18 @@ export const ROUTING_MODELS = Object.freeze([
     label: "SD Pro",
     ratios: ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "21:9", "auto"],
     sizes: ["1K", "2K"],
+    maxInputImages: 14,
+    quality: [],
+    maxPromptLength: DEFAULT_MAX_PROMPT_LENGTH,
+    maxImageBytes: DEFAULT_MAX_IMAGE_BYTES
+  },
+  // 2026-11-27：SD 5.5（doubao-seedream-5-5，MC 名创AI 单渠道，¥0.12/张，后端已配自动路由）。
+  // 注意与 doubao-seedream-5-5-261028（另一上游）区分，本条不带 -261028 后缀。
+  {
+    value: "doubao-seedream-5-5",
+    label: "SD 5.5",
+    ratios: ["1:1", "4:3", "3:4", "16:9", "9:16", "2:3", "21:9", "5:4", "4:5"],
+    sizes: ["2K", "4K"],
     maxInputImages: 14,
     quality: [],
     maxPromptLength: DEFAULT_MAX_PROMPT_LENGTH,
